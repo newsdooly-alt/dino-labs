@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertUserSchema, insertUserStockSchema, users, quests, stocks, userStocks } from './schema';
+import { insertUserSchema, insertUserStockSchema, insertClubSchema, users, quests, stocks, userStocks, clubs } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -31,8 +31,6 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
-    // For MVP, we might just have a "get current user" or "login" helper
-    // Simplified: Just use ID 1 for everything in MVP or simple auth
     create: {
       method: 'POST' as const,
       path: '/api/users',
@@ -42,12 +40,21 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
-    updateStreak: {
+    updateStats: {
         method: 'POST' as const,
-        path: '/api/users/:id/streak',
+        path: '/api/users/:id/stats',
+        input: z.object({ streak: z.number(), xp: z.number(), level: z.number(), hearts: z.number() }),
         responses: {
             200: z.custom<typeof users.$inferSelect>(),
         }
+    },
+    replenishHearts: {
+      method: 'POST' as const,
+      path: '/api/users/:id/hearts/replenish',
+      input: z.object({ amount: z.number() }),
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+      }
     }
   },
 
@@ -58,7 +65,7 @@ export const api = {
       path: '/api/stocks/search',
       input: z.object({ query: z.string() }),
       responses: {
-        200: z.array(z.custom<typeof stocks.$inferSelect>()), // Returns simple list
+        200: z.array(z.custom<typeof stocks.$inferSelect>()),
       },
     },
     quote: {
@@ -81,7 +88,7 @@ export const api = {
   quests: {
     list: {
       method: 'GET' as const,
-      path: '/api/quests', // Gets daily quests for user (implied user or query param)
+      path: '/api/quests',
       input: z.object({ userId: z.coerce.number() }),
       responses: {
         200: z.array(z.custom<typeof quests.$inferSelect>()),
@@ -98,19 +105,12 @@ export const api = {
             correct: z.boolean(),
             explanation: z.string().optional(),
             newStreak: z.number().optional(),
-            newLevel: z.number().optional()
+            newLevel: z.number().optional(),
+            newHearts: z.number().optional()
         }),
         404: errorSchemas.notFound,
       },
     },
-    generate: { // Admin or dev trigger, or auto-triggered on get
-        method: 'POST' as const,
-        path: '/api/quests/generate',
-        input: z.object({ userId: z.number() }),
-        responses: {
-            200: z.array(z.custom<typeof quests.$inferSelect>()),
-        }
-    }
   },
 
   // Watchlist
@@ -134,18 +134,51 @@ export const api = {
     },
     remove: {
       method: 'DELETE' as const,
-      path: '/api/watchlist/:symbol', // Using symbol for easier access
-      input: z.object({ userId: z.coerce.number() }).optional(), // passed as query
+      path: '/api/watchlist/:symbol',
+      input: z.object({ userId: z.coerce.number() }).optional(),
       responses: {
         204: z.void(),
       },
     },
   },
+
+  // Social Clubs
+  clubs: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/clubs',
+      responses: {
+        200: z.array(z.custom<typeof clubs.$inferSelect>()),
+      },
+    },
+    getUserClubs: {
+      method: 'GET' as const,
+      path: '/api/users/:id/clubs',
+      responses: {
+        200: z.array(z.custom<typeof clubs.$inferSelect>()),
+      }
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/clubs',
+      input: insertClubSchema.extend({ creatorId: z.number() }),
+      responses: {
+        201: z.custom<typeof clubs.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    join: {
+      method: 'POST' as const,
+      path: '/api/clubs/:id/join',
+      input: z.object({ userId: z.number() }),
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        404: errorSchemas.notFound,
+      },
+    },
+  }
 };
 
-// ============================================
-// HELPER
-// ============================================
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
   let url = path;
   if (params) {
@@ -157,9 +190,3 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
-
-// ============================================
-// TYPES
-// ============================================
-export type StockQuote = z.infer<typeof api.stocks.quote.responses[200]>;
-export type QuestCompleteResponse = z.infer<typeof api.quests.complete.responses[200]>;

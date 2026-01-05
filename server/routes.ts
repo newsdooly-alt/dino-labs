@@ -36,6 +36,42 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.users.replenishHearts.path, async (req, res) => {
+    const userId = Number(req.params.id);
+    const { amount } = req.body;
+    const user = await storage.replenishHearts(userId, amount);
+    res.json(user);
+  });
+
+  // === Clubs ===
+  app.get(api.clubs.list.path, async (req, res) => {
+    const clubs = await storage.getClubs();
+    res.json(clubs);
+  });
+
+  app.get(api.clubs.getUserClubs.path, async (req, res) => {
+    const userId = Number(req.params.id);
+    const userClubs = await storage.getUserClubs(userId);
+    res.json(userClubs);
+  });
+
+  app.post(api.clubs.create.path, async (req, res) => {
+    try {
+      const { creatorId, ...clubData } = req.body;
+      const club = await storage.createClub(clubData, creatorId);
+      res.status(201).json(club);
+    } catch (err) {
+      res.status(400).json({ message: "Failed to create club" });
+    }
+  });
+
+  app.post(api.clubs.join.path, async (req, res) => {
+    const clubId = Number(req.params.id);
+    const { userId } = req.body;
+    await storage.joinClub(userId, clubId);
+    res.json({ success: true });
+  });
+
   // === Stocks ===
   app.get(api.stocks.search.path, async (req, res) => {
     const query = req.query.query as string;
@@ -157,16 +193,13 @@ export async function registerRoutes(
     if (correct) {
         await storage.completeQuest(questId, userId);
         
-        // Update user stats
         const user = await storage.getUser(userId);
         if (user) {
             const newXp = user.xp + quest.xpReward;
-            // Simple level up logic: level = floor(xp / 100) + 1
             const newLevel = Math.floor(newXp / 100) + 1;
-            // Update streak if not updated today (mock logic)
-            const newStreak = user.streak + (user.lastDailyQuestAt ? 0 : 1); // Simplistic
+            const newStreak = user.streak + (user.lastDailyQuestAt ? 0 : 1);
             
-            await storage.updateUserStreak(userId, newStreak, newXp, newLevel);
+            await storage.updateUserStats(userId, newStreak, newXp, newLevel, user.hearts);
             
             return res.json({
                 success: true,
@@ -174,9 +207,24 @@ export async function registerRoutes(
                 correct: true,
                 explanation: quest.explanation || "Correct!",
                 newLevel,
-                newStreak
+                newStreak,
+                newHearts: user.hearts
             });
         }
+    } else {
+      // Lose a heart on wrong answer
+      const user = await storage.getUser(userId);
+      if (user) {
+        const newHearts = Math.max(0, user.hearts - 1);
+        await storage.updateUserStats(userId, user.streak, user.xp, user.level, newHearts);
+        return res.json({
+          success: false,
+          xpGained: 0,
+          correct: false,
+          explanation: quest.explanation || "Wrong answer! You lost a heart.",
+          newHearts
+        });
+      }
     }
 
     res.json({

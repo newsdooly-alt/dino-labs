@@ -1,8 +1,9 @@
 import { db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { 
-  users, stocks, quests, userStocks,
-  type User, type InsertUser, type Stock, type InsertStock, type Quest, type InsertQuest, type UserStock, type InsertUserStock
+  users, stocks, quests, userStocks, clubs, clubMembers,
+  type User, type InsertUser, type Stock, type InsertStock, type Quest, type InsertQuest, type UserStock, type InsertUserStock,
+  type Club, type InsertClub
 } from "@shared/schema";
 
 export interface IStorage {
@@ -10,7 +11,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserStreak(id: number, streak: number, xp: number, level: number): Promise<User>;
+  updateUserStats(id: number, streak: number, xp: number, level: number, hearts: number): Promise<User>;
+  replenishHearts(id: number, amount: number): Promise<User>;
 
   // Stocks
   getStockBySymbol(symbol: string): Promise<Stock | undefined>;
@@ -28,6 +30,13 @@ export interface IStorage {
   getWatchlist(userId: number): Promise<Stock[]>;
   addToWatchlist(userId: number, symbol: string): Promise<UserStock>;
   removeFromWatchlist(userId: number, symbol: string): Promise<void>;
+
+  // Clubs
+  getClubs(): Promise<Club[]>;
+  getClubById(id: number): Promise<Club | undefined>;
+  createClub(club: InsertClub, creatorId: number): Promise<Club>;
+  joinClub(userId: number, clubId: number): Promise<void>;
+  getUserClubs(userId: number): Promise<Club[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -47,12 +56,20 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserStreak(id: number, streak: number, xp: number, level: number): Promise<User> {
+  async updateUserStats(id: number, streak: number, xp: number, level: number, hearts: number): Promise<User> {
       const [user] = await db.update(users)
-        .set({ streak, xp, level })
+        .set({ streak, xp, level, hearts })
         .where(eq(users.id, id))
         .returning();
       return user;
+  }
+
+  async replenishHearts(id: number, amount: number): Promise<User> {
+    const [user] = await db.update(users)
+      .set({ hearts: sql`${users.hearts} + ${amount}` })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   // Stocks
@@ -79,7 +96,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchStocks(query: string): Promise<Stock[]> {
-    // Simple ilike search
     return await db.select().from(stocks)
         .where(sql`lower(${stocks.symbol}) like ${`%${query.toLowerCase()}%`} OR lower(${stocks.name}) like ${`%${query.toLowerCase()}%`}`)
         .limit(10);
@@ -87,8 +103,6 @@ export class DatabaseStorage implements IStorage {
 
   // Quests
   async getQuests(userId: number): Promise<Quest[]> {
-    // Get incomplete quests for the user, or quests created today
-    // For MVP, just get all non-completed or recent ones
     return await db.select().from(quests)
         .where(eq(quests.userId, userId))
         .orderBy(quests.createdAt);
@@ -109,33 +123,55 @@ export class DatabaseStorage implements IStorage {
 
   // Watchlist
   async getWatchlist(userId: number): Promise<Stock[]> {
-    // Join userStocks and stocks
-    // This is a bit manual in drizzle without relations defined, but simple enough
-    // Actually, let's just query userStocks and then get stocks. Or a join.
-    // For MVP, let's assume we store minimal info or just fetch.
-    // Better:
     const userStockEntries = await db.select().from(userStocks).where(eq(userStocks.userId, userId));
     const symbols = userStockEntries.map(us => us.symbol);
-    
     if (symbols.length === 0) return [];
-    
     return await db.select().from(stocks).where(sql`${stocks.symbol} IN ${symbols}`);
   }
 
   async addToWatchlist(userId: number, symbol: string): Promise<UserStock> {
-    // Check if exists
     const existing = await db.select().from(userStocks)
-        .where(sql`${userStocks.userId} = ${userId} AND ${userStocks.symbol} = ${symbol}`);
-    
+        .where(and(eq(userStocks.userId, userId), eq(userStocks.symbol, symbol)));
     if (existing.length > 0) return existing[0];
-
     const [item] = await db.insert(userStocks).values({ userId, symbol }).returning();
     return item;
   }
 
   async removeFromWatchlist(userId: number, symbol: string): Promise<void> {
     await db.delete(userStocks)
-        .where(sql`${userStocks.userId} = ${userId} AND ${userStocks.symbol} = ${symbol}`);
+        .where(and(eq(userStocks.userId, userId), eq(userStocks.symbol, symbol)));
+  }
+
+  // Clubs
+  async getClubs(): Promise<Club[]> {
+    return await db.select().from(clubs).orderBy(desc(clubs.memberCount));
+  }
+
+  async getClubById(id: number): Promise<Club | undefined> {
+    const [club] = await db.select().from(clubs).where(eq(clubs.id, id));
+    return club;
+  }
+
+  async createClub(insertClub: InsertClub, creatorId: number): Promise<Club> {
+    const [club] = await db.insert(clubs).values(insertClub).returning();
+    await db.insert(clubMembers).values({ clubId: club.id, userId: creatorId });
+    return club;
+  }
+
+  async joinClub(userId: number, clubId: number): Promise<void> {
+    const existing = await db.select().from(clubMembers)
+      .where(and(eq(clubMembers.clubId, clubId), eq(clubMembers.userId, userId)));
+    if (existing.length === 0) {
+      await db.insert(clubMembers).values({ clubId, userId });
+      await db.update(clubs).set({ memberCount: sql`${clubs.memberCount} + 1` }).where(eq(clubs.id, clubId));
+    }
+  }
+
+  async getUserClubs(userId: number): Promise<Club[]> {
+    const memberships = await db.select().from(clubMembers).where(eq(clubMembers.userId, userId));
+    const clubIds = memberships.map(m => m.clubId);
+    if (clubIds.length === 0) return [];
+    return await db.select().from(clubs).where(sql`${clubs.id} IN ${clubIds}`);
   }
 }
 
