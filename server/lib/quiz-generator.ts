@@ -7,8 +7,25 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-export async function generateDailyQuests(userId: number): Promise<InsertQuest[]> {
-  const prompt = `
+export async function generateDailyQuests(userId: number, language: string = 'en'): Promise<InsertQuest[]> {
+  const isKorean = language === 'ko';
+  const prompt = isKorean ? `
+    사용자가 미국 주식에 대해 배울 수 있도록 매일 3개의 주식 시장 퀘스트를 생성하세요.
+    "quests"라는 키를 가진 JSON 객체를 반환하며, 이 키는 3개의 객체 배열입니다.
+    
+    퀘스트 유형:
+    1. "term": 금융 용어(예: "P/E Ratio", "Dividend")에 대한 퀴즈.
+    2. "pattern": 차트 패턴(예: "Bull Flag", "Head and Shoulders")에 대한 설명과 이를 식별하도록 요청.
+    3. "news": 일반적인 시장 뉴스 시나리오 퀴즈(예: "연준이 금리를 올리면 일반적으로 채권 가격은 어떻게 됩니까?").
+
+    각 퀘스트 객체는 다음을 포함해야 합니다:
+    - type: "term" | "pattern" | "news"
+    - question: string (한국어)
+    - options: string[] (4개의 옵션, 한국어)
+    - correctAnswer: number (0-3 인덱스)
+    - explanation: string (정답에 대한 짧은 설명, 한국어)
+    - xpReward: number (기본 10-20)
+  ` : `
     Generate 3 daily stock market quests for a user learning about US stocks.
     Return a JSON object with a key "quests" which is an array of 3 objects.
     
@@ -30,7 +47,7 @@ export async function generateDailyQuests(userId: number): Promise<InsertQuest[]
     const response = await openai.chat.completions.create({
       model: "gpt-5.1",
       messages: [
-        { role: "system", content: "You are a financial education assistant. Return only valid JSON." },
+        { role: "system", content: isKorean ? "당신은 금융 교육 보조원입니다. 유효한 JSON만 반환하세요. 모든 텍스트는 한국어여야 합니다." : "You are a financial education assistant. Return only valid JSON." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },

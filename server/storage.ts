@@ -12,6 +12,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserStats(id: number, streak: number, xp: number, level: number, hearts: number): Promise<User>;
+  updateUserLanguage(id: number, language: string): Promise<User>;
   replenishHearts(id: number, amount: number): Promise<User>;
 
   // Stocks
@@ -62,6 +63,14 @@ export class DatabaseStorage implements IStorage {
         .where(eq(users.id, id))
         .returning();
       return user;
+  }
+
+  async updateUserLanguage(id: number, language: string): Promise<User> {
+    const [user] = await db.update(users)
+      .set({ language })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   async replenishHearts(id: number, amount: number): Promise<User> {

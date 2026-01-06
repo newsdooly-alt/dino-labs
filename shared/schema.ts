@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   xp: integer("xp").default(0).notNull(),
   level: integer("level").default(1).notNull(),
   hearts: integer("hearts").default(5).notNull(), // Added hearts (lives)
+  language: text("language").default("en").notNull(), // Added language preference
   lastDailyQuestAt: timestamp("last_daily_quest_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });

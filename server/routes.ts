@@ -43,6 +43,13 @@ export async function registerRoutes(
     res.json(user);
   });
 
+  app.patch(api.users.updateLanguage.path, async (req, res) => {
+    const userId = Number(req.params.id);
+    const { language } = api.users.updateLanguage.input.parse(req.body);
+    const user = await storage.updateUserLanguage(userId, language);
+    res.json(user);
+  });
+
   // === Clubs ===
   app.get(api.clubs.list.path, async (req, res) => {
     const clubs = await storage.getClubs();
@@ -161,12 +168,13 @@ export async function registerRoutes(
   // === Quests ===
   app.get(api.quests.list.path, async (req, res) => {
     const userId = Number(req.query.userId);
+    const user = await storage.getUser(userId);
     let quests = await storage.getQuests(userId);
     
     // If no active quests, generate new ones
     const activeQuests = quests.filter(q => !q.isCompleted);
     if (activeQuests.length === 0) {
-        const newQuests = await generateDailyQuests(userId);
+        const newQuests = await generateDailyQuests(userId, user?.language || 'en');
         for (const q of newQuests) {
             await storage.createQuest(q);
         }

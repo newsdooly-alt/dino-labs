@@ -55,6 +55,14 @@ export const api = {
       responses: {
         200: z.custom<typeof users.$inferSelect>(),
       }
+    },
+    updateLanguage: {
+      method: 'PATCH' as const,
+      path: '/api/users/:id/language',
+      input: z.object({ language: z.enum(['en', 'ko']) }),
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+      }
     }
   },
 
