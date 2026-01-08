@@ -47,3 +47,23 @@ export function useUpdateStreak() {
     },
   });
 }
+
+export function useUpdateLanguage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (language: 'en' | 'ko') => {
+      const url = buildUrl(api.users.updateLanguage.path, { id: USER_ID });
+      const res = await fetch(url, {
+        method: api.users.updateLanguage.method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update language");
+      return api.users.updateLanguage.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.users.get.path, USER_ID] });
+    },
+  });
+}

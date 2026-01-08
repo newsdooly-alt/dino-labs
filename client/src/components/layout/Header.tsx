@@ -1,9 +1,21 @@
-import { useUser } from "@/hooks/use-user";
-import { Flame, Zap, User as UserIcon } from "lucide-react";
+import { useUser, useUpdateLanguage } from "@/hooks/use-user";
+import { Flame, Zap, User as UserIcon, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 export function Header() {
   const { data: user } = useUser();
+  const updateLanguage = useUpdateLanguage();
+
+  const handleLanguageChange = (lang: 'en' | 'ko') => {
+    updateLanguage.mutate(lang);
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-lg border-b border-border px-6 py-4 flex items-center justify-between md:justify-end gap-6">
@@ -19,6 +31,23 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
+        {/* Language Selector */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-xl">
+              <Globe className="w-5 h-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleLanguageChange('en')}>
+              English {user?.language === 'en' && "✓"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleLanguageChange('ko')}>
+              한국어 {user?.language === 'ko' && "✓"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Streak Counter */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
           <Flame className={cn("w-5 h-5", user?.streak && user.streak > 0 && "fill-current animate-pulse")} />

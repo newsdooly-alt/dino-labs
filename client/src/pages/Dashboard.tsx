@@ -3,13 +3,16 @@ import { useQuests } from "@/hooks/use-quests";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { QuestCard } from "@/components/quests/QuestCard";
 import { Link } from "wouter";
-import { ArrowRight, Trophy, TrendingUp } from "lucide-react";
+import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { translations } from "@/lib/translations";
 
 export default function Dashboard() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: quests, isLoading: isQuestsLoading } = useQuests();
+  const lang = (user?.language || "en") as keyof typeof translations;
+  const t = translations[lang];
 
   if (isUserLoading || isQuestsLoading) {
     return (
@@ -36,19 +39,19 @@ export default function Dashboard() {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-              Welcome back, {user?.username}!
+              {t.welcome_back}, {user?.username}!
             </h1>
             <p className="text-lg md:text-xl text-indigo-100 mb-8 max-w-lg leading-relaxed">
-              The market is moving. Complete your daily quests to keep your {user?.streak}-day streak alive!
+              {t.market_moving}
             </p>
             
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 max-w-md">
                <div className="flex justify-between items-center mb-2">
                  <div className="flex items-center gap-2">
                    <Trophy className="w-5 h-5 text-yellow-400 fill-current" />
-                   <span className="font-bold">Level {currentLevel}</span>
+                   <span className="font-bold">{t.level} {currentLevel}</span>
                  </div>
-                 <span className="text-sm font-medium opacity-80">{currentXP} / {xpForNextLevel} XP</span>
+                 <span className="text-sm font-medium opacity-80">{currentXP} / {xpForNextLevel} {t.xp}</span>
                </div>
                <ProgressBar current={currentXP} max={xpForNextLevel} color="secondary" showText={false} className="h-3" />
             </div>
@@ -71,9 +74,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <TargetIcon className="w-6 h-6 text-primary" />
-              Daily Quests
+              {t.daily_quests}
             </h2>
-            <Link href="/quests" className="text-primary font-bold text-sm hover:underline">View All</Link>
+            <Link href="/quests" className="text-primary font-bold text-sm hover:underline">{t.view_all}</Link>
           </div>
           
           <div className="grid gap-6">
@@ -89,7 +92,7 @@ export default function Dashboard() {
             ))}
             {!quests?.length && (
                <div className="p-8 text-center bg-card rounded-3xl border border-border border-dashed">
-                 <p className="text-muted-foreground">All quests completed for today! Check back tomorrow.</p>
+                 <p className="text-muted-foreground">{t.all_quests_completed}</p>
                </div>
             )}
           </div>
@@ -100,28 +103,30 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <TrendingUp className="w-6 h-6 text-accent" />
-              Market Pulse
+              {t.market_pulse}
             </h2>
           </div>
 
           <div className="bg-card border border-border rounded-3xl p-6 space-y-4 shadow-lg">
              {/* Mock Market Indices - In real app, fetch these */}
-             <MarketIndex symbol="SPY" name="S&P 500" price={502.45} change={1.2} />
-             <MarketIndex symbol="QQQ" name="Nasdaq" price={428.30} change={-0.5} />
-             <MarketIndex symbol="DIA" name="Dow Jones" price={391.20} change={0.8} />
+             <MarketIndex symbol="SPY" name="S&P 500" price={502.45} change={1.2} isPos={true} />
+             <MarketIndex symbol="QQQ" name="Nasdaq" price={428.30} change={-0.5} isPos={false} />
+             <MarketIndex symbol="DIA" name="Dow Jones" price={391.20} change={0.8} isPos={true} />
 
              <div className="pt-4 border-t border-border mt-4">
                <Link href="/watchlist" className="flex items-center justify-center gap-2 w-full py-3 bg-muted hover:bg-muted/80 rounded-xl font-bold text-sm transition-colors">
-                  Go to Watchlist <ArrowRight className="w-4 h-4" />
+                  {t.go_to_watchlist} <ArrowRight className="w-4 h-4" />
                </Link>
              </div>
           </div>
           
           {/* Ad / Pro Tip */}
           <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-6">
-            <h3 className="font-bold text-lg mb-2 text-indigo-400">Pro Tip 💡</h3>
+            <h3 className="font-bold text-lg mb-2 text-indigo-400">{t.pro_tip} 💡</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              "Dollar-cost averaging" means investing a fixed dollar amount regularly, regardless of the share price. It's a great way to reduce risk over time!
+              {lang === 'ko' 
+                ? "\"분할 매수\"는 주가에 관계없이 정기적으로 일정 금액을 투자하는 것을 의미합니다. 시간이 지남에 따라 위험을 줄이는 좋은 방법입니다!"
+                : "\"Dollar-cost averaging\" means investing a fixed dollar amount regularly, regardless of the share price. It's a great way to reduce risk over time!"}
             </p>
           </div>
         </div>
@@ -131,8 +136,7 @@ export default function Dashboard() {
   );
 }
 
-function MarketIndex({ symbol, name, price, change }: { symbol: string, name: string, price: number, change: number }) {
-  const isPos = change >= 0;
+function MarketIndex({ symbol, name, price, change, isPos }: { symbol: string, name: string, price: number, change: number, isPos: boolean }) {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -146,15 +150,5 @@ function MarketIndex({ symbol, name, price, change }: { symbol: string, name: st
         </div>
       </div>
     </div>
-  );
-}
-
-function TargetIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="2" />
-    </svg>
   );
 }
