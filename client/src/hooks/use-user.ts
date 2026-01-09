@@ -64,6 +64,7 @@ export function useUpdateLanguage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.users.get.path, USER_ID] });
+      queryClient.invalidateQueries({ queryKey: [api.quests.list.path, USER_ID] });
     },
   });
 }

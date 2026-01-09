@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { 
   users, stocks, quests, userStocks, clubs, clubMembers,
   type User, type InsertUser, type Stock, type InsertStock, type Quest, type InsertQuest, type UserStock, type InsertUserStock,
@@ -26,6 +26,7 @@ export interface IStorage {
   getQuests(userId: number): Promise<Quest[]>;
   createQuest(quest: InsertQuest): Promise<Quest>;
   completeQuest(id: number, userId: number): Promise<Quest>;
+  clearQuests(userId: number): Promise<void>;
   
   // Watchlist
   getWatchlist(userId: number): Promise<Stock[]>;
@@ -128,6 +129,10 @@ export class DatabaseStorage implements IStorage {
         .where(eq(quests.id, id))
         .returning();
     return quest;
+  }
+
+  async clearQuests(userId: number): Promise<void> {
+    await db.delete(quests).where(eq(quests.userId, userId));
   }
 
   // Watchlist

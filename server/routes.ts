@@ -47,6 +47,10 @@ export async function registerRoutes(
     const userId = Number(req.params.id);
     const { language } = api.users.updateLanguage.input.parse(req.body);
     const user = await storage.updateUserLanguage(userId, language);
+    
+    // Clear existing quests so they regenerate in the new language
+    await storage.clearQuests(userId);
+    
     res.json(user);
   });
 
