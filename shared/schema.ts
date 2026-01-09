@@ -67,6 +67,17 @@ export const clubMembers = pgTable("club_members", {
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
+export const predictions = pgTable("predictions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  symbol: text("symbol").notNull(),
+  prediction: text("prediction").notNull(), // "higher" | "lower"
+  entryPrice: text("entry_price").notNull(),
+  status: text("status").default("pending").notNull(), // "pending" | "won" | "lost"
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
 // === SCHEMAS ===
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, streak: true, xp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
@@ -74,6 +85,7 @@ export const insertStockSchema = createInsertSchema(stocks).omit({ id: true, upd
 export const insertQuestSchema = createInsertSchema(quests).omit({ id: true, isCompleted: true, createdAt: true });
 export const insertUserStockSchema = createInsertSchema(userStocks).omit({ id: true, addedAt: true });
 export const insertClubSchema = createInsertSchema(clubs).omit({ id: true, memberCount: true, createdAt: true });
+export const insertPredictionSchema = createInsertSchema(predictions).omit({ id: true, status: true, createdAt: true, resolvedAt: true });
 
 // === TYPES ===
 
@@ -91,6 +103,9 @@ export type InsertUserStock = z.infer<typeof insertUserStockSchema>;
 
 export type Club = typeof clubs.$inferSelect;
 export type InsertClub = z.infer<typeof insertClubSchema>;
+
+export type Prediction = typeof predictions.$inferSelect;
+export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
 
 // === API TYPES ===
 
