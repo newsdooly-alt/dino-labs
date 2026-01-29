@@ -11,7 +11,9 @@ import Dashboard from "@/pages/Dashboard";
 import Quests from "@/pages/Quests";
 import Watchlist from "@/pages/Watchlist";
 import Leaderboard from "@/pages/Leaderboard";
+import Onboarding from "@/pages/Onboarding";
 import NotFound from "@/pages/not-found";
+import { useState, useEffect } from "react";
 
 function Router() {
   return (
@@ -27,10 +29,18 @@ function Router() {
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  // Don't show layout on 404 if needed, but usually fine
-  // Basic layout wrapper
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const complete = localStorage.getItem("onboarding_complete");
+    if (!complete) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
+      {showOnboarding && <Onboarding />}
       <Sidebar />
       <div className="md:pl-64 flex flex-col min-h-screen">
         <Header />

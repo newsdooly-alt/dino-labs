@@ -21,15 +21,16 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-card border-r border-border p-6 z-50">
       <div className="flex items-center gap-3 mb-10 px-2">
         <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary animate-bounce-slow">
-           {/* Simple Owl Icon Construction */}
            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-             <path d="M12 2a5 5 0 0 1 5 5v2a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5z" />
-             <path d="M12 12a5 5 0 0 0-5 5v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2a5 5 0 0 0-5-5z" />
-             <path d="M16 12a5 5 0 0 1 4 4v2" />
-             <path d="M8 12a5 5 0 0 0-4 4v2" />
+             <path d="M16 16c0-4.4-3.6-8-8-8s-8 3.6-8 8" />
+             <path d="M2 16h12" />
+             <path d="M7 8V5a3 3 0 0 1 6 0v3" />
+             <path d="M12 8c4.4 0 8 3.6 8 8" />
+             <path d="M22 16h-2" />
+             <path d="M17 13l3-3 3 3" />
            </svg>
         </div>
-        <h1 className="text-2xl font-display font-bold text-foreground">StockHero</h1>
+        <h1 className="text-2xl font-display font-bold text-foreground">Dinolingo</h1>
       </div>
 
       <nav className="flex-1 space-y-2">

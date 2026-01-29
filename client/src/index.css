@@ -9,34 +9,34 @@
   --font-display: 'Fredoka', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Dark Theme Palette - "Midnight Finance" */
-  --background: 222 47% 11%;     /* Deep slate */
-  --foreground: 210 40% 98%;     /* Off-white */
+  /* Dark Theme Palette - "Dinolingo Green" */
+  --background: 140 30% 8%;      /* Very deep forest green */
+  --foreground: 140 20% 98%;     /* Off-white */
   
-  --card: 217 33% 17%;           /* Lighter slate for cards */
-  --card-foreground: 210 40% 98%;
+  --card: 140 25% 14%;           /* Deep green for cards */
+  --card-foreground: 140 20% 98%;
   
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 140 30% 8%;
+  --popover-foreground: 140 20% 98%;
   
-  --primary: 142 71% 45%;        /* Success Green (Stock Up) */
+  --primary: 142 76% 45%;        /* Dino Green */
   --primary-foreground: 144 100% 97%;
   
-  --secondary: 262 83% 58%;      /* XP Purple (Gamification) */
+  --secondary: 262 83% 58%;      /* Purple stays for contrast */
   --secondary-foreground: 210 40% 98%;
   
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 140 25% 14%;
+  --muted-foreground: 140 10% 65%;
   
-  --accent: 199 89% 48%;         /* Info Blue */
-  --accent-foreground: 210 40% 98%;
+  --accent: 142 60% 30%;         /* Darker green accent */
+  --accent-foreground: 140 20% 98%;
   
-  --destructive: 0 84% 60%;      /* Danger Red (Stock Down) */
+  --destructive: 0 84% 60%;      /* Danger Red */
   --destructive-foreground: 210 40% 98%;
 
-  --border: 217 33% 25%;
-  --input: 217 33% 25%;
-  --ring: 142 71% 45%;
+  --border: 140 25% 20%;
+  --input: 140 25% 20%;
+  --ring: 142 76% 45%;
   
   --radius: 1rem;
 }

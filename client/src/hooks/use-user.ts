@@ -18,7 +18,7 @@ export function useUser() {
         const createRes = await fetch(api.users.create.path, {
           method: api.users.create.method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: "StockHero", password: "password" }),
+          body: JSON.stringify({ username: "DinoExplorer", password: "password" }),
           credentials: "include"
         });
         return api.users.create.responses[201].parse(await createRes.json());

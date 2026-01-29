@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 // Mock data for MVP since we don't have a full users endpoint
 const mockUsers = [
   { id: 2, username: "BullMarketKing", xp: 12500, level: 42, streak: 12 },
-  { id: 1, username: "StockHero", xp: 8450, level: 28, streak: 5, isMe: true }, // Current User
+  { id: 1, username: "DinoExplorer", xp: 8450, level: 28, streak: 5, isMe: true }, // Current User
   { id: 3, username: "CryptoQueen", xp: 7200, level: 24, streak: 8 },
   { id: 4, username: "DiamondHands", xp: 6100, level: 21, streak: 3 },
   { id: 5, username: "WallStreetWolf", xp: 4500, level: 15, streak: 0 },
