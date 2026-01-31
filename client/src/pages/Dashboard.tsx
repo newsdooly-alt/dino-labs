@@ -3,6 +3,8 @@ import { useQuests } from "@/hooks/use-quests";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { QuestCard } from "@/components/quests/QuestCard";
 import { DinoEgg } from "@/components/DinoEgg";
+import { MarketMood } from "@/components/MarketMood";
+import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { Link } from "wouter";
 import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon, Star } from "lucide-react";
 import { motion } from "framer-motion";
@@ -132,6 +134,12 @@ export default function Dashboard() {
              <MarketIndex symbol="QQQ" name="Nasdaq" price={428.30} change={-0.5} isPos={false} />
              <MarketIndex symbol="DIA" name="Dow Jones" price={391.20} change={0.8} isPos={true} />
           </div>
+
+          {/* Dino's Market Mood */}
+          <MarketMood />
+
+          {/* Breaking News Quiz */}
+          <BreakingNewsQuiz />
         </div>
       </div>
     </div>

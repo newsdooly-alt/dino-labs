@@ -299,6 +299,122 @@ export async function registerRoutes(
       res.status(204).send();
   });
 
+  // === Market Mood (Fear & Greed) ===
+  let cachedMood: { index: number; label: string; dinoAdvice: string; timestamp: number } | null = null;
+  const MOOD_CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
+
+  app.get("/api/market/mood", async (req, res) => {
+    // Check cache first
+    if (cachedMood && Date.now() - cachedMood.timestamp < MOOD_CACHE_DURATION) {
+      return res.json({ index: cachedMood.index, label: cachedMood.label, dinoAdvice: cachedMood.dinoAdvice });
+    }
+
+    try {
+      // Fetch from Alternative.me Fear & Greed Index API
+      const response = await fetch("https://api.alternative.me/fng/?limit=1");
+      const data = await response.json();
+      const fngValue = parseInt(data.data?.[0]?.value || "50");
+      const fngClassification = data.data?.[0]?.value_classification || "Neutral";
+
+      let dinoAdvice = "Stay calm and invest wisely!";
+      if (fngValue <= 25) {
+        dinoAdvice = "It's a scary market, but Dino sees opportunity! Stay calm and look for bargains.";
+      } else if (fngValue <= 45) {
+        dinoAdvice = "Humans are nervous today. Maybe a good time to nibble on quality stocks!";
+      } else if (fngValue <= 55) {
+        dinoAdvice = "The market is balanced. Keep learning and stick to your strategy!";
+      } else if (fngValue <= 75) {
+        dinoAdvice = "Be careful, humans are getting greedy! Don't chase prices too high.";
+      } else {
+        dinoAdvice = "Whoa! Everyone's too greedy today. Dino says be extra cautious!";
+      }
+
+      cachedMood = { index: fngValue, label: fngClassification, dinoAdvice, timestamp: Date.now() };
+      res.json({ index: fngValue, label: fngClassification, dinoAdvice });
+    } catch (err) {
+      // Fallback to reasonable default if API fails
+      res.json({ index: 50, label: "Neutral", dinoAdvice: "Stay calm and invest wisely!" });
+    }
+  });
+
+  // === Breaking News Quiz ===
+  let cachedNewsQuiz: { headlines: any[]; timestamp: number } | null = null;
+  const NEWS_CACHE_DURATION = 1000 * 60 * 60; // 1 hour
+
+  app.get("/api/news/quiz", async (req, res) => {
+    // Educational headlines based on real market scenarios
+    // These are curated educational examples with Dino explanations
+    const educationalHeadlines = [
+      {
+        id: "1",
+        headline: "Apple reports record quarterly revenue, beating analyst expectations by 15%",
+        symbol: "AAPL",
+        companyName: "Apple Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "Record revenue and beating expectations typically drives stock prices up. This is positive news for investors!"
+      },
+      {
+        id: "2",
+        headline: "Tesla recalls 2 million vehicles due to safety concerns with autopilot system",
+        symbol: "TSLA",
+        companyName: "Tesla, Inc.",
+        correctAnswer: "bearish" as const,
+        explanation: "Large recalls create costs and negative publicity, which usually pressures stock prices downward."
+      },
+      {
+        id: "3",
+        headline: "NVIDIA announces new AI chip that's 10x faster than previous generation",
+        symbol: "NVDA",
+        companyName: "NVIDIA Corp",
+        correctAnswer: "bullish" as const,
+        explanation: "Breakthrough products, especially in hot sectors like AI, boost investor confidence and drive prices up!"
+      },
+      {
+        id: "4",
+        headline: "Microsoft faces major antitrust investigation from EU regulators",
+        symbol: "MSFT",
+        companyName: "Microsoft Corp",
+        correctAnswer: "bearish" as const,
+        explanation: "Antitrust investigations can lead to fines and restrictions, creating uncertainty that typically hurts stock prices."
+      },
+      {
+        id: "5",
+        headline: "Amazon expands same-day delivery to 50 new cities, expects 30% growth",
+        symbol: "AMZN",
+        companyName: "Amazon.com Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "Expansion and strong growth projections signal business strength, which is positive for the stock!"
+      },
+      {
+        id: "6",
+        headline: "Meta lays off 10,000 employees in major cost-cutting restructure",
+        symbol: "META",
+        companyName: "Meta Platforms",
+        correctAnswer: "bullish" as const,
+        explanation: "While layoffs sound negative, cost-cutting often improves profitability and can boost stock prices!"
+      },
+      {
+        id: "7",
+        headline: "Federal Reserve announces unexpected interest rate hike of 0.5%",
+        symbol: "SPY",
+        companyName: "S&P 500 ETF",
+        correctAnswer: "bearish" as const,
+        explanation: "Higher interest rates make borrowing more expensive and often lead to stock market declines."
+      },
+      {
+        id: "8",
+        headline: "Google Cloud revenue grows 28% year-over-year, exceeding forecasts",
+        symbol: "GOOGL",
+        companyName: "Alphabet Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "Strong cloud growth shows the company is diversifying beyond ads, which investors love!"
+      }
+    ];
+    
+    const randomHeadline = educationalHeadlines[Math.floor(Math.random() * educationalHeadlines.length)];
+    res.json(randomHeadline);
+  });
+
   // Seed Data (if empty)
   await seedDatabase();
 
