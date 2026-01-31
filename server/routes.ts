@@ -7,6 +7,7 @@ import yahooFinance from 'yahoo-finance2';
 import { generateDailyQuests } from "./lib/quiz-generator";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
+import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -337,13 +338,90 @@ export async function registerRoutes(
     }
   });
 
-  // === Breaking News Quiz ===
-  let cachedNewsQuiz: { headlines: any[]; timestamp: number } | null = null;
-  const NEWS_CACHE_DURATION = 1000 * 60 * 60; // 1 hour
+  // === Live Stock Quotes (Alpha Vantage) ===
+  app.get("/api/stocks/live", async (req, res) => {
+    const symbolsParam = req.query.symbols as string;
+    if (!symbolsParam) {
+      return res.status(400).json({ message: "symbols parameter required" });
+    }
+    
+    const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase());
+    
+    try {
+      const quotes = await getMultipleQuotes(symbols);
+      const hasStaleData = quotes.some(q => q.isStale);
+      
+      res.json({
+        quotes,
+        dinoMessage: hasStaleData 
+          ? "The market is resting now, but here's the last known price!"
+          : null,
+        isMarketOpen: quotes[0]?.isMarketOpen ?? false,
+      });
+    } catch (error: any) {
+      if (error.message === 'API_KEY_MISSING') {
+        return res.status(503).json({ 
+          message: "API key not configured",
+          dinoMessage: "Dino is still learning the market! Please add an API key."
+        });
+      }
+      res.status(500).json({ 
+        message: "Failed to fetch quotes",
+        dinoMessage: "The market is resting now. Try again later!"
+      });
+    }
+  });
 
+  app.get("/api/stocks/live/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    
+    try {
+      const quote = await getStockQuote(symbol);
+      res.json({
+        ...quote,
+        dinoMessage: quote.isStale 
+          ? "The market is resting now, but here's the last known price!"
+          : null,
+      });
+    } catch (error: any) {
+      if (error.message === 'API_KEY_MISSING') {
+        return res.status(503).json({ 
+          message: "API key not configured",
+          dinoMessage: "Dino is still learning the market! Please add an API key."
+        });
+      }
+      if (error.message === 'INVALID_SYMBOL') {
+        return res.status(404).json({ 
+          message: "Stock not found",
+          dinoMessage: "Dino couldn't find that stock. Try another one!"
+        });
+      }
+      res.status(500).json({ 
+        message: "Failed to fetch quote",
+        dinoMessage: "The market is resting now. Try again later!"
+      });
+    }
+  });
+
+  // === Breaking News Quiz ===
   app.get("/api/news/quiz", async (req, res) => {
-    // Educational headlines based on real market scenarios
-    // These are curated educational examples with Dino explanations
+    // Try to get a real-time quiz question first (50% chance)
+    if (Math.random() > 0.5) {
+      try {
+        const realTimeQuestion = await getRealTimeQuizQuestion();
+        if (realTimeQuestion) {
+          return res.json({
+            id: `rt-${Date.now()}`,
+            ...realTimeQuestion,
+            isRealTime: true,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to get real-time quiz:", error);
+      }
+    }
+
+    // Fallback to educational headlines
     const educationalHeadlines = [
       {
         id: "1",
@@ -412,7 +490,7 @@ export async function registerRoutes(
     ];
     
     const randomHeadline = educationalHeadlines[Math.floor(Math.random() * educationalHeadlines.length)];
-    res.json(randomHeadline);
+    res.json({ ...randomHeadline, isRealTime: false });
   });
 
   // Seed Data (if empty)

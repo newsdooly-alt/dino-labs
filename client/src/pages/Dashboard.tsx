@@ -5,6 +5,7 @@ import { QuestCard } from "@/components/quests/QuestCard";
 import { DinoEgg } from "@/components/DinoEgg";
 import { MarketMood } from "@/components/MarketMood";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
+import { LiveStockCard } from "@/components/LiveStockCard";
 import { Link } from "wouter";
 import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon, Star } from "lucide-react";
 import { motion } from "framer-motion";
@@ -109,10 +110,8 @@ export default function Dashboard() {
             </h2>
           </div>
 
-          <div className="bg-card border border-border rounded-3xl p-6 space-y-4 shadow-lg">
-             <MarketIndex symbol="NVDA" name="NVIDIA Corp" price={822.79} change={4.5} isPos={true} />
-             <MarketIndex symbol="TSLA" name="Tesla, Inc." price={202.64} change={-1.2} isPos={false} />
-             <MarketIndex symbol="AAPL" name="Apple Inc." price={188.85} change={0.3} isPos={true} />
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+             <LiveStockCard symbols={["NVDA", "TSLA", "AAPL"]} />
 
              <div className="pt-4 border-t border-border mt-4">
                <Link href="/watchlist" className="flex items-center justify-center gap-2 w-full py-3 bg-muted hover:bg-muted/80 rounded-xl font-bold text-sm transition-colors" data-testid="link-modify-portfolio">
@@ -128,10 +127,8 @@ export default function Dashboard() {
             </h2>
           </div>
 
-          <div className="bg-card border border-border rounded-3xl p-6 space-y-4 shadow-lg">
-             <MarketIndex symbol="SPY" name="S&P 500" price={502.45} change={1.2} isPos={true} />
-             <MarketIndex symbol="QQQ" name="Nasdaq" price={428.30} change={-0.5} isPos={false} />
-             <MarketIndex symbol="DIA" name="Dow Jones" price={391.20} change={0.8} isPos={true} />
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+             <LiveStockCard symbols={["SPY", "QQQ", "DIA"]} />
           </div>
 
           {/* Dino's Market Mood */}
@@ -145,19 +142,3 @@ export default function Dashboard() {
   );
 }
 
-function MarketIndex({ symbol, name, price, change, isPos }: { symbol: string, name: string, price: number, change: number, isPos: boolean }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h4 className="font-bold">{symbol}</h4>
-        <p className="text-xs text-muted-foreground">{name}</p>
-      </div>
-      <div className="text-right">
-        <div className="font-mono font-medium">${price.toFixed(2)}</div>
-        <div className={cn("text-xs font-bold", isPos ? "text-primary" : "text-destructive")}>
-           {isPos ? "+" : ""}{change}%
-        </div>
-      </div>
-    </div>
-  );
-}
