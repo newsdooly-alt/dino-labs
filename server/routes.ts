@@ -7,7 +7,7 @@ import yahooFinance from 'yahoo-finance2';
 import { generateDailyQuests } from "./lib/quiz-generator";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion } from "./stockService";
+import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks as searchStocksAlpha } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -87,37 +87,31 @@ export async function registerRoutes(
   // === Stocks ===
   app.get(api.stocks.search.path, async (req, res) => {
     const query = req.query.query as string;
-    if (!query) return res.json([]);
+    if (!query || query.length < 1) return res.json([]);
     
     try {
-      // Try local search first
-      let results = await storage.searchStocks(query);
+      // Use Alpha Vantage SYMBOL_SEARCH API
+      const alphaResults = await searchStocksAlpha(query);
       
-      // If no local results, maybe try Yahoo Finance search?
-      // For now, let's trust our seed data + yahoo fetch for details
-      // Or we can use yahoo search:
-      if (results.length === 0) {
-          try {
-            const yResults = await yahooFinance.search(query);
-            // Map yResults to simple stock objects (not saving them yet)
-            // We just return them to frontend
-            const mapped = yResults.quotes.filter((q: any) => q.isYahooFinance === true || !q.isYahooFinance).map((q: any) => ({
-                id: 0,
-                symbol: q.symbol,
-                name: q.shortname || q.longname || q.symbol,
-                sector: q.sector || "Unknown",
-                lastPrice: null,
-                changePercent: null,
-                updatedAt: null
-            }));
-            return res.json(mapped);
-          } catch (yErr) {
-            console.error("Yahoo search error", yErr);
-          }
-      }
+      // Map to expected format
+      const results = alphaResults.map(r => ({
+        id: 0,
+        symbol: r.symbol,
+        name: r.name,
+        sector: r.type,
+        lastPrice: null,
+        changePercent: null,
+        updatedAt: null
+      }));
       
       res.json(results);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.message === 'RATE_LIMIT') {
+        return res.status(429).json({ 
+          message: "Search rate limit reached",
+          dinoMessage: "Dino is catching his breath! Try again in a moment."
+        });
+      }
       res.status(500).json({ message: "Search failed" });
     }
   });

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
-import { LayoutDashboard, Target, LineChart, Award, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Target, LineChart, Award, Settings, LogOut, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
@@ -14,6 +14,7 @@ export function Sidebar() {
     { href: "/", label: t.dashboard, icon: LayoutDashboard },
     { href: "/quests", label: t.quests, icon: Target },
     { href: "/watchlist", label: t.watchlist, icon: LineChart },
+    { href: "/market-trends", label: t.market_trends, icon: TrendingUp },
     { href: "/leaderboard", label: t.leaderboard, icon: Award },
   ];
 

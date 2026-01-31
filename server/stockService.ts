@@ -163,6 +163,68 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
   return results;
 }
 
+// Search for stocks using Alpha Vantage SYMBOL_SEARCH API
+interface SearchResult {
+  symbol: string;
+  name: string;
+  type: string;
+  region: string;
+  matchScore: number;
+}
+
+// Cache for search results (5 minute TTL)
+const searchCache: Map<string, { results: SearchResult[]; timestamp: number }> = new Map();
+const SEARCH_CACHE_TTL = 5 * 60 * 1000;
+
+export async function searchStocks(keywords: string): Promise<SearchResult[]> {
+  const query = keywords.trim().toUpperCase();
+  if (!query || query.length < 1) return [];
+  
+  // Check cache
+  const cached = searchCache.get(query);
+  if (cached && Date.now() - cached.timestamp < SEARCH_CACHE_TTL) {
+    return cached.results;
+  }
+  
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) {
+    throw new Error('API_KEY_MISSING');
+  }
+  
+  try {
+    const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(keywords)}&apikey=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.Note || data.Information) {
+      console.warn('Alpha Vantage rate limit:', data.Note || data.Information);
+      if (cached) return cached.results;
+      throw new Error('RATE_LIMIT');
+    }
+    
+    const matches = data.bestMatches || [];
+    const results: SearchResult[] = matches
+      .filter((m: any) => m['4. region'] === 'United States') // Only US stocks
+      .map((m: any) => ({
+        symbol: m['1. symbol'],
+        name: m['2. name'],
+        type: m['3. type'],
+        region: m['4. region'],
+        matchScore: parseFloat(m['9. matchScore']),
+      }))
+      .slice(0, 10); // Limit to 10 results
+    
+    // Cache results
+    searchCache.set(query, { results, timestamp: Date.now() });
+    
+    return results;
+  } catch (error) {
+    console.error('Stock search error:', error);
+    if (cached) return cached.results;
+    throw error;
+  }
+}
+
 // Get a random quiz question based on real-time data
 export async function getRealTimeQuizQuestion(): Promise<{
   headline: string;
