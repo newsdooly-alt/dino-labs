@@ -7,16 +7,32 @@ import { MarketMood } from "@/components/MarketMood";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { LiveStockCard } from "@/components/LiveStockCard";
 import { Link } from "wouter";
-import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon, Star } from "lucide-react";
+import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon, Star, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
+import { queryClient } from "@/lib/queryClient";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: quests, isLoading: isQuestsLoading } = useQuests();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // Invalidate all stock-related queries to force fresh data (use predicate to match all symbol variations)
+    await queryClient.invalidateQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        return key === "/api/stocks/live" || key === "/api/market/mood";
+      }
+    });
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   if (isUserLoading || isQuestsLoading) {
     return (
@@ -103,11 +119,21 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <Star className="w-6 h-6 text-yellow-500" />
               {t.my_top_picks}
             </h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              data-testid="button-refresh-data"
+            >
+              <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
+              {lang === "ko" ? "새로고침" : "Refresh"}
+            </Button>
           </div>
 
           <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">

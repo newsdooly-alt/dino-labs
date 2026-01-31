@@ -108,11 +108,20 @@ export async function registerRoutes(
     } catch (err: any) {
       if (err.message === 'RATE_LIMIT') {
         return res.status(429).json({ 
-          message: "Search rate limit reached",
-          dinoMessage: "Dino is catching his breath! Try again in a moment."
+          message: "Rate limit reached",
+          dinoMessage: "Dino is tired from searching! The free API limit (25 calls/day) has been reached. Try again tomorrow or upgrade to Alpha Vantage premium!"
         });
       }
-      res.status(500).json({ message: "Search failed" });
+      if (err.message === 'API_KEY_MISSING') {
+        return res.status(503).json({ 
+          message: "API key not configured",
+          dinoMessage: "Dino needs an API key! Please add ALPHA_VANTAGE_API_KEY to Replit Secrets."
+        });
+      }
+      res.status(500).json({ 
+        message: "Search failed",
+        dinoMessage: "Dino couldn't search right now. Please try again later!"
+      });
     }
   });
 
@@ -332,7 +341,7 @@ export async function registerRoutes(
     }
   });
 
-  // === Live Stock Quotes (Alpha Vantage) ===
+  // === Live Stock Quotes (Alpha Vantage GLOBAL_QUOTE) ===
   app.get("/api/stocks/live", async (req, res) => {
     const symbolsParam = req.query.symbols as string;
     if (!symbolsParam) {

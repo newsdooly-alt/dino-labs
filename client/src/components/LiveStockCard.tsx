@@ -59,10 +59,18 @@ export function LiveStockCard({ symbols, showDinoMessage = true }: LiveStockCard
   }
 
   if (error) {
+    const errorMsg = (error as Error).message;
+    let dinoMessage = "Dino is having trouble fetching stock data. Please try again later!";
+    if (errorMsg.includes("Rate limit") || errorMsg.includes("rate limit")) {
+      dinoMessage = "Dino is tired from all the searching! The free API limit (25/day) has been reached. Try again tomorrow!";
+    } else if (errorMsg.includes("API key") || errorMsg.includes("not configured")) {
+      dinoMessage = "Dino needs an API key! Please add ALPHA_VANTAGE_API_KEY to Replit Secrets.";
+    }
+    
     return (
       <div className="text-center py-4 text-muted-foreground">
-        <AlertCircle className="w-6 h-6 mx-auto mb-2 text-destructive/50" />
-        <p className="text-sm italic">{(error as Error).message}</p>
+        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-primary/60" />
+        <p className="text-sm italic">{dinoMessage}</p>
       </div>
     );
   }

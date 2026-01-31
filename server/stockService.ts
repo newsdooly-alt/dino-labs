@@ -1,5 +1,14 @@
 // Alpha Vantage Stock Service with caching and error handling
 
+// Verify API key on startup (log partial key for debugging)
+const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+if (apiKey) {
+  const maskedKey = apiKey.substring(0, 4) + '****' + apiKey.substring(apiKey.length - 4);
+  console.log(`[Stock Service] Alpha Vantage API key loaded: ${maskedKey}`);
+} else {
+  console.warn('[Stock Service] WARNING: ALPHA_VANTAGE_API_KEY is not set in Replit Secrets!');
+}
+
 interface StockQuote {
   symbol: string;
   name: string;

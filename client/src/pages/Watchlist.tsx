@@ -34,10 +34,14 @@ export default function Watchlist() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [showDinoTip, setShowDinoTip] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   
-  // Debounce search query
+  // Debounce search query and clear error when query is cleared
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 500);
+    if (searchQuery.length < 2) {
+      setSearchError(null);
+    }
     return () => clearTimeout(timer);
   }, [searchQuery]);
   
@@ -51,8 +55,14 @@ export default function Watchlist() {
     queryKey: ["/api/stocks/search", debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
+      setSearchError(null);
       const res = await fetch(`/api/stocks/search?query=${encodeURIComponent(debouncedQuery)}`);
-      if (!res.ok) return [];
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const dinoMsg = errData.dinoMessage || "Dino couldn't search right now!";
+        setSearchError(dinoMsg);
+        return [];
+      }
       return res.json();
     },
     enabled: debouncedQuery.length >= 2,
@@ -131,6 +141,11 @@ export default function Watchlist() {
               >
                 {isSearching ? (
                   <div className="p-4 text-center text-muted-foreground">{t.searching}</div>
+                ) : searchError ? (
+                  <div className="p-4 text-center">
+                    <AlertCircle className="w-6 h-6 mx-auto mb-2 text-primary/60" />
+                    <p className="text-sm text-muted-foreground italic">{searchError}</p>
+                  </div>
                 ) : searchResults && searchResults.length > 0 ? (
                   searchResults.map((stock, idx) => (
                     <div 
