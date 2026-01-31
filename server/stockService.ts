@@ -134,13 +134,16 @@ export async function getStockQuote(symbol: string): Promise<StockQuote> {
 export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]> {
   const results: StockQuote[] = [];
   
-  // Fetch sequentially to avoid hitting rate limits (Alpha Vantage has 5 calls/min on free tier)
-  for (const symbol of symbols) {
+  // Fetch sequentially with 1.2s delay to respect Alpha Vantage's rate limit (1 req/sec)
+  for (let i = 0; i < symbols.length; i++) {
+    const symbol = symbols[i];
     try {
       const quote = await getStockQuote(symbol);
       results.push(quote);
-      // Small delay between calls to be safe with rate limits
-      await new Promise(resolve => setTimeout(resolve, 250));
+      // Wait 1.2 seconds between calls to stay under rate limit
+      if (i < symbols.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
     } catch (error) {
       console.error(`Failed to fetch ${symbol}:`, error);
       // Push a placeholder with error state
