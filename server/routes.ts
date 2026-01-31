@@ -244,7 +244,7 @@ export async function registerRoutes(
 
   // === Watchlist ===
   app.get(api.watchlist.list.path, async (req, res) => {
-      const userId = Number(req.query.userId);
+      const userId = Number(req.query.userId) || 1; // Default to user 1 for MVP
       const watchlist = await storage.getWatchlist(userId);
       res.json(watchlist);
   });
