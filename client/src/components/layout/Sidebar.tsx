@@ -51,13 +51,13 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto space-y-2 border-t border-border pt-6">
-         <Link href="/settings" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium">
+         <Link href="/settings" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium" data-testid="link-settings">
             <Settings className="w-5 h-5" />
-            Settings
+            {t.settings}
          </Link>
-         <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors font-medium cursor-not-allowed opacity-50">
+         <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors font-medium cursor-not-allowed opacity-50" data-testid="button-logout">
             <LogOut className="w-5 h-5" />
-            Logout
+            {t.logout}
          </button>
       </div>
     </aside>

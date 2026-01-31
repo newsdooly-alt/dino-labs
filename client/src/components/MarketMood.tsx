@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/hooks/use-user";
+import { translations } from "@/lib/translations";
 
 interface MarketMoodData {
   index: number;
@@ -9,6 +11,10 @@ interface MarketMoodData {
 }
 
 export function MarketMood() {
+  const { data: user } = useUser();
+  const lang = (user?.language || "en") as keyof typeof translations;
+  const t = translations[lang];
+
   const { data, isLoading } = useQuery<MarketMoodData>({
     queryKey: ["/api/market/mood"],
     staleTime: 1000 * 60 * 5, // 5 min cache
@@ -63,12 +69,12 @@ export function MarketMood() {
         </div>
         
         <div className="flex-1 min-w-0">
-          <h3 className="font-display font-bold text-lg mb-1">Dino's Market Mood</h3>
+          <h3 className="font-display font-bold text-lg mb-1">{t.dinos_market_mood}</h3>
           <div className="flex items-center gap-3 mb-3">
-            <span className={cn("text-3xl font-mono font-bold", getMoodColor(index))}>
+            <span className={cn("text-3xl font-mono font-bold", getMoodColor(index))} data-testid="text-mood-index">
               {index}
             </span>
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider" data-testid="text-mood-label">
               {label}
             </span>
           </div>
@@ -88,15 +94,15 @@ export function MarketMood() {
             />
           </div>
 
-          <p className="text-sm text-foreground/80 italic leading-relaxed">
+          <p className="text-sm text-foreground/80 italic leading-relaxed" data-testid="text-dino-advice">
             "{advice}"
           </p>
         </div>
       </div>
 
       <div className="flex justify-between text-xs text-muted-foreground mt-4 px-1">
-        <span>Extreme Fear</span>
-        <span>Extreme Greed</span>
+        <span>{t.extreme_fear}</span>
+        <span>{t.extreme_greed}</span>
       </div>
     </motion.div>
   );

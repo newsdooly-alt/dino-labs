@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, RefreshCw, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/hooks/use-user";
+import { translations } from "@/lib/translations";
 
 interface NewsQuizData {
   id: string;
@@ -18,6 +20,10 @@ export function BreakingNewsQuiz() {
   const [answered, setAnswered] = useState(false);
   const [userAnswer, setUserAnswer] = useState<"bullish" | "bearish" | null>(null);
   const queryClient = useQueryClient();
+
+  const { data: user } = useUser();
+  const lang = (user?.language || "en") as keyof typeof translations;
+  const t = translations[lang];
 
   const { data: quiz, isLoading, refetch } = useQuery<NewsQuizData>({
     queryKey: ["/api/news/quiz"],
@@ -60,15 +66,15 @@ export function BreakingNewsQuiz() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display font-bold text-lg flex items-center gap-2">
           <Zap className="w-5 h-5 text-yellow-500" />
-          Breaking News Quiz
+          {t.breaking_news_quiz}
         </h3>
         <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-bold">
-          +15 XP
+          +15 {t.xp}
         </span>
       </div>
 
       <div className="mb-4">
-        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider" data-testid="text-stock-info">
           {quiz?.symbol} - {quiz?.companyName}
         </span>
       </div>
@@ -94,7 +100,7 @@ export function BreakingNewsQuiz() {
               data-testid="button-bullish"
             >
               <TrendingUp className="w-5 h-5 mr-2 text-primary" />
-              Bullish
+              {t.bullish}
             </Button>
             <Button 
               onClick={() => handleAnswer("bearish")}
@@ -104,7 +110,7 @@ export function BreakingNewsQuiz() {
               data-testid="button-bearish"
             >
               <TrendingDown className="w-5 h-5 mr-2 text-destructive" />
-              Bearish
+              {t.bearish}
             </Button>
           </motion.div>
         ) : (
@@ -119,12 +125,12 @@ export function BreakingNewsQuiz() {
               isCorrect 
                 ? "bg-primary/10 border-primary/20 text-primary" 
                 : "bg-destructive/10 border-destructive/20 text-destructive"
-            )}>
+            )} data-testid="quiz-result">
               <div className="font-bold mb-1">
-                {isCorrect ? "Correct! +15 XP" : "Not quite!"}
+                {isCorrect ? `${t.correct} +15 ${t.xp}` : t.not_quite}
               </div>
               <p className="text-sm opacity-80">
-                Dino says: "{quiz?.explanation}"
+                {t.dino_says}: "{quiz?.explanation}"
               </p>
             </div>
 
@@ -135,7 +141,7 @@ export function BreakingNewsQuiz() {
               data-testid="button-next-quiz"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              Next Question
+              {t.next_question}
             </Button>
           </motion.div>
         )}

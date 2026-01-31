@@ -71,9 +71,9 @@ export default function Dashboard() {
 
         {/* Dino Egg Growth */}
         <section className="bg-card border border-border rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-lg">
-          <h3 className="font-display font-bold text-lg mb-2">Your Dino Egg</h3>
+          <h3 className="font-display font-bold text-lg mb-2">{t.your_dino_egg}</h3>
           <DinoEgg level={currentLevel} />
-          <p className="text-xs text-muted-foreground mt-2">Hatching at Level 10</p>
+          <p className="text-xs text-muted-foreground mt-2">{t.hatching_at_level}</p>
         </section>
       </div>
 
@@ -105,19 +105,18 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <Star className="w-6 h-6 text-yellow-500" />
-              My Top Picks
+              {t.my_top_picks}
             </h2>
           </div>
 
           <div className="bg-card border border-border rounded-3xl p-6 space-y-4 shadow-lg">
-             {/* Mock Portfolio Picks */}
              <MarketIndex symbol="NVDA" name="NVIDIA Corp" price={822.79} change={4.5} isPos={true} />
              <MarketIndex symbol="TSLA" name="Tesla, Inc." price={202.64} change={-1.2} isPos={false} />
              <MarketIndex symbol="AAPL" name="Apple Inc." price={188.85} change={0.3} isPos={true} />
 
              <div className="pt-4 border-t border-border mt-4">
-               <Link href="/watchlist" className="flex items-center justify-center gap-2 w-full py-3 bg-muted hover:bg-muted/80 rounded-xl font-bold text-sm transition-colors">
-                  Modify Portfolio <ArrowRight className="w-4 h-4" />
+               <Link href="/watchlist" className="flex items-center justify-center gap-2 w-full py-3 bg-muted hover:bg-muted/80 rounded-xl font-bold text-sm transition-colors" data-testid="link-modify-portfolio">
+                  {t.modify_portfolio} <ArrowRight className="w-4 h-4" />
                </Link>
              </div>
           </div>
