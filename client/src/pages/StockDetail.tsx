@@ -271,7 +271,13 @@ export default function StockDetail() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
       <Button 
         variant="ghost" 
-        onClick={() => navigate(-1 as any)}
+        onClick={() => {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            navigate("/");
+          }
+        }}
         className="mb-2"
         data-testid="button-back"
       >
