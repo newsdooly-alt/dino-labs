@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ChevronRight } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface LiveStockQuote {
   symbol: string;
@@ -22,9 +23,11 @@ interface LiveStockResponse {
 interface LiveStockCardProps {
   symbols: string[];
   showDinoMessage?: boolean;
+  clickable?: boolean;
 }
 
-export function LiveStockCard({ symbols, showDinoMessage = true }: LiveStockCardProps) {
+export function LiveStockCard({ symbols, showDinoMessage = true, clickable = true }: LiveStockCardProps) {
+  const [, navigate] = useLocation();
   const { data, isLoading, error } = useQuery<LiveStockResponse>({
     queryKey: ["/api/stocks/live", symbols.join(",")],
     queryFn: async () => {
@@ -78,24 +81,37 @@ export function LiveStockCard({ symbols, showDinoMessage = true }: LiveStockCard
   const quotes = data?.quotes || [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {quotes.map((quote) => (
-        <div key={quote.symbol} className="flex items-center justify-between" data-testid={`stock-${quote.symbol}`}>
-          <div>
-            <h4 className="font-bold">{quote.symbol}</h4>
-            <p className="text-xs text-muted-foreground">{quote.name}</p>
+        <div 
+          key={quote.symbol} 
+          className={cn(
+            "flex items-center justify-between p-2 rounded-lg transition-colors",
+            clickable && "cursor-pointer hover-elevate"
+          )}
+          onClick={clickable ? () => navigate(`/stock/${quote.symbol}`) : undefined}
+          data-testid={`stock-${quote.symbol}`}
+        >
+          <div className="flex items-center gap-3">
+            <div>
+              <h4 className="font-bold">{quote.symbol}</h4>
+              <p className="text-xs text-muted-foreground">{quote.name}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="font-mono font-medium">
-              {quote.price > 0 ? `$${quote.price.toFixed(2)}` : "--"}
-              {quote.isStale && <span className="text-xs text-muted-foreground ml-1">*</span>}
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <div className="font-mono font-medium">
+                {quote.price > 0 ? `$${quote.price.toFixed(2)}` : "--"}
+                {quote.isStale && <span className="text-xs text-muted-foreground ml-1">*</span>}
+              </div>
+              <div className={cn(
+                "text-xs font-bold",
+                quote.changePercent >= 0 ? "text-primary" : "text-destructive"
+              )}>
+                {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
+              </div>
             </div>
-            <div className={cn(
-              "text-xs font-bold",
-              quote.changePercent >= 0 ? "text-primary" : "text-destructive"
-            )}>
-              {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
-            </div>
+            {clickable && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
           </div>
         </div>
       ))}

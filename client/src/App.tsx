@@ -12,6 +12,7 @@ import Quests from "@/pages/Quests";
 import Watchlist from "@/pages/Watchlist";
 import Leaderboard from "@/pages/Leaderboard";
 import MarketTrends from "@/pages/MarketTrends";
+import StockDetail from "@/pages/StockDetail";
 import Onboarding from "@/pages/Onboarding";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/watchlist" component={Watchlist} />
       <Route path="/market-trends" component={MarketTrends} />
       <Route path="/leaderboard" component={Leaderboard} />
+      <Route path="/stock/:symbol" component={StockDetail} />
       <Route component={NotFound} />
     </Switch>
   );

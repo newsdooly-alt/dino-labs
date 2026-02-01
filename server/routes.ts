@@ -6,7 +6,7 @@ import { z } from "zod";
 import { generateDailyQuests } from "./lib/quiz-generator";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory } from "./stockService";
+import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -395,6 +395,22 @@ export async function registerRoutes(
       res.status(500).json({ 
         message: "Failed to fetch history",
         dinoMessage: "Dino couldn't load the chart data. Try again later!"
+      });
+    }
+  });
+
+  // === Stock Info (detailed company information) ===
+  app.get("/api/stocks/info/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    
+    try {
+      const info = await getStockInfo(symbol);
+      res.json(info);
+    } catch (error: any) {
+      console.error("Info error:", error.message);
+      res.status(500).json({ 
+        message: "Failed to fetch stock info",
+        dinoMessage: "Dino couldn't load the company info. Try again later!"
       });
     }
   });
