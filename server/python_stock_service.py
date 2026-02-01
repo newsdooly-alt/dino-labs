@@ -37,39 +37,63 @@ def health():
 
 @app.route('/quote/<symbol>', methods=['GET'])
 def get_quote(symbol):
-    """Get real-time quote for a single stock."""
+    """Get real-time quote for a single stock using fast_info for latest prices."""
     try:
         ticker = yf.Ticker(symbol.upper())
+        market_open = is_market_open()
+        now_et = datetime.now(US_EASTERN)
+        
+        # Use fast_info for the most current price (less cached than .info)
+        try:
+            fast = ticker.fast_info
+            price = float(fast.get('lastPrice', 0) or fast.get('regularMarketPrice', 0) or 0)
+            prev_close = float(fast.get('previousClose', 0) or fast.get('regularMarketPreviousClose', 0) or price)
+            market_cap = fast.get('marketCap', None)
+        except Exception as e:
+            print(f"[yfinance] fast_info failed for {symbol}, falling back to info: {e}")
+            info = ticker.info
+            price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
+            prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose') or price
+            market_cap = info.get('marketCap')
+        
+        # Get additional info for name and other details
         info = ticker.info
         
-        # Get current price data
-        price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
-        prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose') or price
+        # Calculate change
         change = price - prev_close if price and prev_close else 0
-        change_percent = (change / prev_close * 100) if prev_close else 0
+        change_percent = (change / prev_close * 100) if prev_close and prev_close != 0 else 0
+        
+        # Validate price is reasonable (not 0 or negative)
+        if price <= 0:
+            print(f"[yfinance] Warning: Invalid price {price} for {symbol}")
         
         return jsonify({
             "symbol": symbol.upper(),
             "name": info.get('shortName') or info.get('longName') or symbol.upper(),
-            "price": round(price, 2),
-            "change": round(change, 2),
-            "changePercent": round(change_percent, 2),
-            "previousClose": round(prev_close, 2),
+            "price": round(float(price), 2),
+            "change": round(float(change), 2),
+            "changePercent": round(float(change_percent), 2),
+            "previousClose": round(float(prev_close), 2),
             "open": info.get('regularMarketOpen') or info.get('open'),
             "high": info.get('regularMarketDayHigh') or info.get('dayHigh'),
             "low": info.get('regularMarketDayLow') or info.get('dayLow'),
             "volume": info.get('regularMarketVolume') or info.get('volume'),
-            "marketCap": info.get('marketCap'),
-            "isMarketOpen": is_market_open(),
-            "lastUpdated": datetime.now().isoformat()
+            "marketCap": market_cap,
+            "isMarketOpen": market_open,
+            "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+            "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
         })
     except Exception as e:
+        print(f"[yfinance] Error in /quote/{symbol}: {e}")
         return jsonify({"error": str(e), "symbol": symbol}), 500
 
 
+# Simple name cache to avoid repeated info calls
+_name_cache = {}
+
 @app.route('/quotes', methods=['GET'])
 def get_batch_quotes():
-    """Get quotes for multiple symbols at once (batch request)."""
+    """Get quotes for multiple symbols at once using fast_info for real-time prices."""
     symbols_param = request.args.get('symbols', '')
     if not symbols_param:
         return jsonify({"error": "No symbols provided"}), 400
@@ -81,64 +105,90 @@ def get_batch_quotes():
     
     results = []
     market_open = is_market_open()
+    now_et = datetime.now(US_EASTERN)
     
-    # Use yfinance batch download for efficiency
-    try:
-        # Download data for all tickers at once
-        tickers = yf.Tickers(' '.join(symbols))
-        
-        for symbol in symbols:
+    print(f"[yfinance] Batch quotes request for: {symbols}, market_open={market_open}")
+    
+    # Process each symbol - prioritize fast_info for speed
+    for symbol in symbols:
+        try:
+            ticker = yf.Ticker(symbol)
+            price = 0
+            prev_close = 0
+            name = _name_cache.get(symbol, symbol)  # Use cached name or symbol
+            
+            # Use fast_info ONLY for real-time price (avoids slow info call)
             try:
-                ticker = tickers.tickers.get(symbol)
-                if not ticker:
-                    results.append({
-                        "symbol": symbol,
-                        "name": symbol,
-                        "price": 0,
-                        "change": 0,
-                        "changePercent": 0,
-                        "isMarketOpen": market_open,
-                        "isStale": True,
-                        "lastUpdated": datetime.now().isoformat()
-                    })
-                    continue
+                fast = ticker.fast_info
+                # Prefer lastPrice (most current) over regularMarketPrice
+                price = float(fast.get('lastPrice', 0) or 0)
+                if price == 0:
+                    price = float(fast.get('regularMarketPrice', 0) or 0)
+                prev_close = float(fast.get('previousClose', 0) or 0)
                 
-                info = ticker.info
-                price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
-                prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose') or price
-                change = price - prev_close if price and prev_close else 0
-                change_percent = (change / prev_close * 100) if prev_close else 0
+                # Validate: if market is open and price equals prev_close, might be stale
+                if market_open and price == prev_close and price > 0:
+                    print(f"[yfinance] {symbol} Warning: price equals prev_close during market hours")
                 
-                results.append({
-                    "symbol": symbol,
-                    "name": info.get('shortName') or info.get('longName') or symbol,
-                    "price": round(price, 2),
-                    "change": round(change, 2),
-                    "changePercent": round(change_percent, 2),
-                    "isMarketOpen": market_open,
-                    "isStale": price == 0,
-                    "lastUpdated": datetime.now().isoformat()
-                })
+                print(f"[yfinance] {symbol} fast_info: price={price}, prev_close={prev_close}")
             except Exception as e:
-                results.append({
-                    "symbol": symbol,
-                    "name": symbol,
-                    "price": 0,
-                    "change": 0,
-                    "changePercent": 0,
-                    "isMarketOpen": market_open,
-                    "isStale": True,
-                    "error": str(e),
-                    "lastUpdated": datetime.now().isoformat()
-                })
-        
-        return jsonify({
-            "quotes": results,
-            "isMarketOpen": market_open,
-            "fetchedAt": datetime.now().isoformat()
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+                print(f"[yfinance] {symbol} fast_info failed: {e}")
+                price = 0
+                prev_close = 0
+            
+            # Only fetch info for name if not cached and price is valid
+            if price > 0 and name == symbol:
+                try:
+                    info = ticker.info
+                    fetched_name = info.get('shortName') or info.get('longName') or symbol
+                    _name_cache[symbol] = fetched_name
+                    name = fetched_name
+                except Exception as e:
+                    print(f"[yfinance] {symbol} info for name failed: {e}")
+            
+            # Calculate change with validation
+            change = price - prev_close if price > 0 and prev_close > 0 else 0
+            change_percent = (change / prev_close * 100) if prev_close > 0 else 0
+            
+            # Validate price - mark as stale if zero or negative
+            is_stale = price <= 0
+            if is_stale:
+                print(f"[yfinance] Warning: {symbol} has invalid price={price}")
+            
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "price": round(price, 2),
+                "change": round(change, 2),
+                "changePercent": round(change_percent, 2),
+                "isMarketOpen": market_open,
+                "isStale": is_stale,
+                "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+                "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
+            })
+        except Exception as e:
+            print(f"[yfinance] Error fetching {symbol}: {e}")
+            results.append({
+                "symbol": symbol,
+                "name": _name_cache.get(symbol, symbol),
+                "price": 0,
+                "change": 0,
+                "changePercent": 0,
+                "isMarketOpen": market_open,
+                "isStale": True,
+                "error": str(e),
+                "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+                "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
+            })
+    
+    print(f"[yfinance] Batch quotes complete: {len(results)} results")
+    
+    return jsonify({
+        "quotes": results,
+        "isMarketOpen": market_open,
+        "fetchedAt": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+        "fetchedAtFormatted": now_et.strftime('%I:%M %p ET')
+    })
 
 
 @app.route('/search', methods=['GET'])

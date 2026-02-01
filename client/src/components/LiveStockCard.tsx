@@ -14,6 +14,7 @@ interface LiveStockQuote {
   changePercent: number;
   isMarketOpen: boolean;
   lastUpdated: string;
+  lastUpdatedFormatted?: string;
   isStale: boolean;
 }
 
@@ -21,6 +22,8 @@ interface LiveStockResponse {
   quotes: LiveStockQuote[];
   dinoMessage: string | null;
   isMarketOpen: boolean;
+  fetchedAtFormatted?: string;
+  source?: string;
 }
 
 interface LiveStockCardProps {
@@ -68,8 +71,9 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         throw err;
       }
     },
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 60, // Refetch every minute
+    staleTime: 1000 * 30, // 30 seconds - data considered fresh for 30s
+    refetchInterval: 1000 * 60, // Refetch every 1 minute for fresh data
+    gcTime: 1000 * 60, // Cache expires after 1 minute (was cacheTime in v4)
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
@@ -161,7 +165,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
               </div>
               <div className={cn(
                 "text-xs font-bold",
-                quote.changePercent >= 0 ? "text-primary" : "text-destructive"
+                quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
               )}>
                 {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
               </div>
@@ -171,10 +175,33 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         </div>
       ))}
       
-      {showDinoMessage && data?.dinoMessage && !showFallbackBanner && (
-        <div className="pt-3 border-t border-border">
-          <p className="text-xs text-muted-foreground italic text-center">
-            {data.dinoMessage}
+      {/* Market status and last updated info */}
+      <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground" data-testid="stock-status-bar">
+        <div className="flex items-center gap-1" data-testid="market-status">
+          {data?.isMarketOpen ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400 animate-pulse" />
+              <span>{t.market_open}</span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
+              <span>{t.market_closed}</span>
+            </>
+          )}
+        </div>
+        {data?.fetchedAtFormatted && (
+          <span data-testid="last-updated">{t.last_updated}: {data.fetchedAtFormatted}</span>
+        )}
+      </div>
+      
+      {/* Dino message for market closed or other info - always show when market closed */}
+      {showDinoMessage && (
+        <div className="pt-2">
+          <p className="text-xs text-muted-foreground italic text-center" data-testid="dino-market-message">
+            {data?.isMarketOpen === false 
+              ? t.dino_market_closed_message 
+              : (showFallbackBanner ? null : data?.dinoMessage)}
           </p>
         </div>
       )}

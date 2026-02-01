@@ -424,15 +424,31 @@ export async function registerRoutes(
           };
         });
         
+        const fallbackTimestamp = new Date().toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true,
+          timeZone: 'America/New_York'
+        }) + ' ET';
+        
         return res.json({
           quotes: fallbackQuotes,
           dinoMessage: "Market data is temporarily unavailable. Showing recent prices!",
           isMarketOpen: false,
+          fetchedAtFormatted: fallbackTimestamp,
           source: "fallback",
         });
       }
       
       const hasStaleData = quotes.some(q => q.isStale);
+      
+      // Get formatted timestamp from first quote if available
+      const fetchedAtFormatted = quotes[0]?.lastUpdatedFormatted || new Date().toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true,
+        timeZone: 'America/New_York'
+      }) + ' ET';
       
       res.json({
         quotes,
@@ -440,6 +456,7 @@ export async function registerRoutes(
           ? "The market is resting now, but here's the last known price!"
           : null,
         isMarketOpen: quotes[0]?.isMarketOpen ?? false,
+        fetchedAtFormatted,
         source: "live",
       });
     } catch (error: any) {
@@ -461,10 +478,18 @@ export async function registerRoutes(
         };
       });
       
+      const fallbackTimestamp = new Date().toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true,
+        timeZone: 'America/New_York'
+      }) + ' ET';
+      
       res.json({
         quotes: fallbackQuotes,
         dinoMessage: "Dino couldn't reach the market. Here are recent prices!",
         isMarketOpen: false,
+        fetchedAtFormatted: fallbackTimestamp,
         source: "fallback",
       });
     }

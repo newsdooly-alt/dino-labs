@@ -109,6 +109,10 @@ export const translations = {
     loading_stock_data: "Loading stock data...",
     dino_learning_resources: "Dino's Learning Resources",
     showing_recent_prices: "Showing recent prices",
+    market_open: "Market Open",
+    market_closed: "Market Closed",
+    last_updated: "Last updated",
+    dino_market_closed_message: "Market is closed! Showing the last closing price.",
   },
   ko: {
     dashboard: "대시보드",
@@ -220,6 +224,10 @@ export const translations = {
     loading_stock_data: "주식 데이터 불러오는 중...",
     dino_learning_resources: "디노의 학습 자료",
     showing_recent_prices: "최근 시세 표시 중",
+    market_open: "장 개장",
+    market_closed: "장 마감",
+    last_updated: "마지막 업데이트",
+    dino_market_closed_message: "장이 마감되었어요! 마지막 종가를 보여드립니다.",
   }
 };
 
