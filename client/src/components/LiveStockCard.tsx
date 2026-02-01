@@ -1,7 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { AlertCircle, ChevronRight } from "lucide-react";
+import { AlertCircle, ChevronRight, RefreshCw, TrendingUp } from "lucide-react";
 import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { useUser } from "@/hooks/use-user";
+import { translations } from "@/lib/translations";
 
 interface LiveStockQuote {
   symbol: string;
@@ -28,18 +31,23 @@ interface LiveStockCardProps {
 
 export function LiveStockCard({ symbols, showDinoMessage = true, clickable = true }: LiveStockCardProps) {
   const [, navigate] = useLocation();
-  const { data, isLoading, error } = useQuery<LiveStockResponse>({
+  const { data: user } = useUser();
+  const lang = (user?.language || "en") as keyof typeof translations;
+  const t = translations[lang];
+  
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<LiveStockResponse>({
     queryKey: ["/api/stocks/live", symbols.join(",")],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/live?symbols=${symbols.join(",")}`);
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.dinoMessage || "Failed to fetch quotes");
       }
       return res.json();
     },
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: 1000 * 60, // Refetch every minute
+    retry: 2,
   });
 
   if (isLoading) {
@@ -61,19 +69,37 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
     );
   }
 
-  if (error) {
-    const errorMsg = (error as Error).message;
-    let dinoMessage = "Dino is having trouble fetching stock data. Please try again later!";
-    if (errorMsg.includes("Rate limit") || errorMsg.includes("rate limit")) {
-      dinoMessage = "Dino is tired from all the searching! The free API limit (25/day) has been reached. Try again tomorrow!";
-    } else if (errorMsg.includes("API key") || errorMsg.includes("not configured")) {
-      dinoMessage = "Dino needs an API key! Please add ALPHA_VANTAGE_API_KEY to Replit Secrets.";
-    }
-    
+  if (isRefetching) {
     return (
-      <div className="text-center py-4 text-muted-foreground">
-        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-primary/60" />
-        <p className="text-sm italic">{dinoMessage}</p>
+      <div className="flex items-center justify-center py-8">
+        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">{t.loading_stock_data}</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-4 space-y-3">
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5 text-white" />
+          </div>
+          <AlertCircle className="w-6 h-6 text-destructive/60" />
+        </div>
+        <p className="text-sm text-muted-foreground italic">
+          {t.dino_stock_error}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          className="gap-2"
+          data-testid="button-retry-stocks"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {t.retry}
+        </Button>
       </div>
     );
   }

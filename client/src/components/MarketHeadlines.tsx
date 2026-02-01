@@ -3,7 +3,8 @@ import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Newspaper, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, Newspaper, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { motion } from "framer-motion";
 
@@ -22,7 +23,7 @@ export function MarketHeadlines() {
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
 
-  const { data, isLoading } = useQuery<{ news: NewsItem[]; count: number }>({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<{ news: NewsItem[]; count: number }>({
     queryKey: ["/api/news", lang],
     queryFn: async () => {
       const res = await fetch(`/api/news?lang=${lang}`);
@@ -31,6 +32,7 @@ export function MarketHeadlines() {
     },
     staleTime: 300000,
     refetchOnWindowFocus: false,
+    retry: 2,
   });
 
   const { data: readCount, refetch: refetchReadCount } = useQuery<{ count: number }>({
@@ -96,8 +98,8 @@ export function MarketHeadlines() {
 
       <div className="relative">
         <div className="flex items-start gap-3 mb-4 md:mb-0 md:absolute md:-left-2 md:-top-2 md:z-10">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-2xl shadow-lg flex-shrink-0">
-            🦖
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg flex-shrink-0">
+            <Newspaper className="w-6 h-6 text-white" />
           </div>
           <div className="bg-primary/10 dark:bg-primary/20 border border-primary/30 rounded-xl px-3 py-2 max-w-[220px] shadow-sm">
             <p className="text-xs font-medium text-primary dark:text-primary">
@@ -108,10 +110,37 @@ export function MarketHeadlines() {
 
         <Card className="overflow-hidden md:ml-16">
           <CardContent className="p-4">
-            {isLoading ? (
+            {isLoading || isRefetching ? (
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
                 <span className="ml-2 text-muted-foreground">{t.loading_news}</span>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8 space-y-4">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
+                    <Newspaper className="w-6 h-6 text-white" />
+                  </div>
+                  <AlertCircle className="w-8 h-8 text-destructive/60" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm mb-1">
+                    {t.dino_news_error}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {t.please_try_again}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetch()}
+                    className="gap-2"
+                    data-testid="button-retry-news"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    {t.retry}
+                  </Button>
+                </div>
               </div>
             ) : data?.news && data.news.length > 0 ? (
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">

@@ -200,7 +200,7 @@ export default function StockDetail() {
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
 
-  const { data: quote, isLoading: isQuoteLoading } = useQuery<StockQuote>({
+  const { data: quote, isLoading: isQuoteLoading, refetch: refetchQuote } = useQuery<StockQuote>({
     queryKey: ["/api/stocks/live", symbol],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/live/${symbol}`);
@@ -208,8 +208,9 @@ export default function StockDetail() {
       return res.json();
     },
     enabled: !!symbol,
-    staleTime: 30000,
-    refetchInterval: 60000,
+    staleTime: 15000,
+    refetchInterval: 30000,
+    retry: 2,
   });
 
   const { data: info, isLoading: isInfoLoading } = useQuery<StockInfo>({

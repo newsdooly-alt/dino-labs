@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { spawn, ChildProcess } from "child_process";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // Start Python yfinance service
 let pythonProcess: ChildProcess | null = null;
@@ -27,8 +28,40 @@ async function startPythonService() {
     return;
   }
   
-  const pythonScript = path.join(process.cwd(), "server", "python_stock_service.py");
-  console.log("[yfinance] Starting Python stock service...");
+  // In production (bundled), look for python script relative to dist folder
+  // In development, use process.cwd()
+  const isProduction = process.env.NODE_ENV === "production";
+  const currentFilePath = fileURLToPath(import.meta.url);
+  const baseDir = isProduction 
+    ? path.dirname(currentFilePath)
+    : process.cwd();
+  
+  // Try multiple possible paths
+  const possiblePaths = [
+    path.join(baseDir, "..", "server", "python_stock_service.py"),  // production: dist/../server
+    path.join(baseDir, "server", "python_stock_service.py"),        // development
+    path.join(process.cwd(), "server", "python_stock_service.py"),  // fallback to cwd
+  ];
+  
+  let pythonScript = "";
+  for (const p of possiblePaths) {
+    try {
+      const fs = await import("fs");
+      if (fs.existsSync(p)) {
+        pythonScript = p;
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+  
+  if (!pythonScript) {
+    pythonScript = path.join(process.cwd(), "server", "python_stock_service.py");
+    console.log("[yfinance] Warning: Could not verify Python script path, using:", pythonScript);
+  }
+  
+  console.log("[yfinance] Starting Python stock service from:", pythonScript);
   
   pythonProcess = spawn("python", [pythonScript], {
     stdio: ["ignore", "pipe", "pipe"],

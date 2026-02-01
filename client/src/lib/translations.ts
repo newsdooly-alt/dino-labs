@@ -102,6 +102,11 @@ export const translations = {
     just_now: "Just now",
     loading_news: "Loading news...",
     no_news_available: "No news available right now.",
+    dino_news_error: "Dino is having trouble fetching news!",
+    retry: "Retry",
+    please_try_again: "Please try again in a moment.",
+    dino_stock_error: "Dino is having trouble fetching stock data!",
+    loading_stock_data: "Loading stock data...",
   },
   ko: {
     dashboard: "대시보드",
@@ -206,6 +211,11 @@ export const translations = {
     just_now: "방금",
     loading_news: "뉴스 불러오는 중...",
     no_news_available: "현재 뉴스가 없습니다.",
+    dino_news_error: "디노가 뉴스를 가져오는 데 문제가 있어요!",
+    retry: "다시 시도",
+    please_try_again: "잠시 후 다시 시도해 주세요.",
+    dino_stock_error: "디노가 주식 데이터를 가져오는 데 문제가 있어요!",
+    loading_stock_data: "주식 데이터 불러오는 중...",
   }
 };
 
