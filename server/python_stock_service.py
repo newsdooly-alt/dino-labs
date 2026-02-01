@@ -11,7 +11,9 @@ from datetime import datetime, timedelta
 import pytz
 
 app = Flask(__name__)
-CORS(app)
+# CORS only needed if accessed from browser directly - we're proxying through Node
+# Restrict to localhost only for security
+CORS(app, origins=["http://localhost:5000", "http://127.0.0.1:5000"])
 
 # US market timezone
 US_EASTERN = pytz.timezone('America/New_York')
@@ -347,4 +349,5 @@ import pandas as pd
 
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    # Bind to localhost only for security (Node.js proxies requests)
+    app.run(host='127.0.0.1', port=5001, debug=False)

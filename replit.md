@@ -6,7 +6,7 @@ US Stock Hero is a gamified stock market education platform that teaches users a
 
 The core experience centers around:
 - Daily AI-generated quests covering financial terms, chart patterns, and market news
-- Real-time stock quotes and watchlist management via Yahoo Finance
+- Real-time stock quotes and watchlist management via yfinance Python library (no API key required)
 - Gamification elements (XP, levels, streaks, hearts/lives)
 - Multi-language support (English and Korean)
 
@@ -26,11 +26,15 @@ Preferred communication style: Simple, everyday language.
 - **Build Tool**: Vite with path aliases (@/, @shared/, @assets/)
 
 ### Backend Architecture
-- **Runtime**: Node.js with Express
-- **Language**: TypeScript (ESM modules)
+- **Runtime**: Node.js with Express + Python Flask microservice
+- **Language**: TypeScript (ESM modules) for main server, Python for stock data service
 - **API Pattern**: RESTful endpoints defined in shared/routes.ts as a typed contract
 - **Database ORM**: Drizzle ORM with PostgreSQL
 - **Schema Location**: shared/schema.ts (shared between frontend and backend)
+- **Stock Data**: Python Flask service (server/python_stock_service.py) using yfinance library
+  - Spawned automatically by Node.js server on startup
+  - Runs on port 5001 (internal)
+  - Provides batch quotes, search, and historical data endpoints
 
 ### Data Storage
 - **Database**: PostgreSQL (via Drizzle ORM)
@@ -56,7 +60,12 @@ Preferred communication style: Simple, everyday language.
   - Models used: gpt-5.1 for text, gpt-image-1 for images
 
 ### Financial Data
-- **Yahoo Finance (yahoo-finance2)**: Real-time stock quotes and search functionality
+- **yfinance (Python library)**: Real-time stock quotes, search, and historical data
+  - No API key required (free to use)
+  - Supports batch requests for multiple tickers
+  - Provides OHLCV historical data for charts
+  - Service location: `server/python_stock_service.py`
+  - Node.js wrapper: `server/stockService.ts`
 
 ### Database
 - **PostgreSQL**: Primary database, connection via `DATABASE_URL` environment variable

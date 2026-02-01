@@ -7,8 +7,26 @@ import path from "path";
 
 // Start Python yfinance service
 let pythonProcess: ChildProcess | null = null;
+let isShuttingDown = false;
 
-function startPythonService() {
+async function checkPort5001(): Promise<boolean> {
+  try {
+    const response = await fetch("http://localhost:5001/health", {
+      signal: AbortSignal.timeout(1000)
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function startPythonService() {
+  // Check if already running (avoid duplicate spawns)
+  if (await checkPort5001()) {
+    console.log("[yfinance] Python service already running on port 5001");
+    return;
+  }
+  
   const pythonScript = path.join(process.cwd(), "server", "python_stock_service.py");
   console.log("[yfinance] Starting Python stock service...");
   
@@ -28,20 +46,32 @@ function startPythonService() {
   });
 
   pythonProcess.on("close", (code) => {
-    console.log(`[yfinance] Python service exited with code ${code}`);
-    // Restart after 2 seconds if it crashes
-    if (code !== 0) {
-      setTimeout(startPythonService, 2000);
+    if (!isShuttingDown) {
+      console.log(`[yfinance] Python service exited with code ${code}`);
+      // Restart after 2 seconds if it crashes (only if not shutting down)
+      if (code !== 0) {
+        setTimeout(startPythonService, 2000);
+      }
     }
   });
 }
 
 // Cleanup on exit
-process.on("exit", () => {
-  if (pythonProcess) pythonProcess.kill();
-});
+function cleanupPython() {
+  isShuttingDown = true;
+  if (pythonProcess) {
+    pythonProcess.kill();
+    pythonProcess = null;
+  }
+}
+
+process.on("exit", cleanupPython);
 process.on("SIGINT", () => {
-  if (pythonProcess) pythonProcess.kill();
+  cleanupPython();
+  process.exit();
+});
+process.on("SIGTERM", () => {
+  cleanupPython();
   process.exit();
 });
 
