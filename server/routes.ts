@@ -3,11 +3,10 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import yahooFinance from 'yahoo-finance2';
 import { generateDailyQuests } from "./lib/quiz-generator";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks as searchStocksAlpha } from "./stockService";
+import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -84,17 +83,16 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  // === Stocks ===
+  // === Stocks (powered by yfinance) ===
   app.get(api.stocks.search.path, async (req, res) => {
     const query = req.query.query as string;
     if (!query || query.length < 1) return res.json([]);
     
     try {
-      // Use Alpha Vantage SYMBOL_SEARCH API
-      const alphaResults = await searchStocksAlpha(query);
+      const searchResults = await searchStocks(query);
       
       // Map to expected format
-      const results = alphaResults.map(r => ({
+      const results = searchResults.map(r => ({
         id: 0,
         symbol: r.symbol,
         name: r.name,
@@ -106,18 +104,7 @@ export async function registerRoutes(
       
       res.json(results);
     } catch (err: any) {
-      if (err.message === 'RATE_LIMIT') {
-        return res.status(429).json({ 
-          message: "Rate limit reached",
-          dinoMessage: "Dino is tired from searching! The free API limit (25 calls/day) has been reached. Try again tomorrow or upgrade to Alpha Vantage premium!"
-        });
-      }
-      if (err.message === 'API_KEY_MISSING') {
-        return res.status(503).json({ 
-          message: "API key not configured",
-          dinoMessage: "Dino needs an API key! Please add ALPHA_VANTAGE_API_KEY to Replit Secrets."
-        });
-      }
+      console.error("Stock search error:", err.message);
       res.status(500).json({ 
         message: "Search failed",
         dinoMessage: "Dino couldn't search right now. Please try again later!"
@@ -128,37 +115,36 @@ export async function registerRoutes(
   app.get(api.stocks.quote.path, async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     try {
-        // Fetch real data
-        const quote = await yahooFinance.quote(symbol);
+        // Fetch real data from yfinance service
+        const quote = await getStockQuote(symbol);
         
         // Update or create in DB cache
         let stock = await storage.getStockBySymbol(symbol);
         
-        const price = quote.regularMarketPrice?.toString() || "0";
-        const change = quote.regularMarketChangePercent?.toString() || "0";
-        const name = quote.shortName || quote.longName || symbol;
+        const price = quote.price.toString();
+        const change = quote.changePercent.toString();
 
         if (stock) {
             stock = await storage.updateStockPrice(stock.id, price, change);
         } else {
             stock = await storage.createStock({
                 symbol,
-                name,
-                sector: "Unknown", // Quote doesn't always have sector, need profile
+                name: quote.name,
+                sector: "Unknown",
                 lastPrice: price,
                 changePercent: change
             });
         }
         
         res.json({
-            symbol: stock.symbol,
-            price: parseFloat(stock.lastPrice || "0"),
-            change: 0, // Simplified for now
-            changePercent: parseFloat(stock.changePercent || "0"),
-            name: stock.name
+            symbol: quote.symbol,
+            price: quote.price,
+            change: quote.change,
+            changePercent: quote.changePercent,
+            name: quote.name
         });
     } catch (err) {
-        // Fallback to DB if Yahoo fails
+        // Fallback to DB cache if yfinance fails
         const stock = await storage.getStockBySymbol(symbol);
         if (stock) {
              return res.json({
@@ -262,18 +248,17 @@ export async function registerRoutes(
       try {
           const input = api.watchlist.add.input.parse(req.body);
           // Ensure stock exists in stocks table first (fetch quote to fill it)
-          // For now assume it exists or we create it
           let stock = await storage.getStockBySymbol(input.symbol);
           if (!stock) {
-               // Try to fetch it to create it
+               // Try to fetch it to create it using yfinance service
                try {
-                   const quote = await yahooFinance.quote(input.symbol);
+                   const quote = await getStockQuote(input.symbol);
                    stock = await storage.createStock({
                        symbol: input.symbol,
-                       name: quote.shortName || input.symbol,
+                       name: quote.name || input.symbol,
                        sector: "Unknown",
-                       lastPrice: (quote.regularMarketPrice || 0).toString(),
-                       changePercent: (quote.regularMarketChangePercent || 0).toString()
+                       lastPrice: (quote.price || 0).toString(),
+                       changePercent: (quote.changePercent || 0).toString()
                    });
                } catch (e) {
                    // Create dummy if fetch fails
@@ -341,7 +326,7 @@ export async function registerRoutes(
     }
   });
 
-  // === Live Stock Quotes (Alpha Vantage GLOBAL_QUOTE) ===
+  // === Live Stock Quotes (powered by yfinance) ===
   app.get("/api/stocks/live", async (req, res) => {
     const symbolsParam = req.query.symbols as string;
     if (!symbolsParam) {
@@ -362,12 +347,7 @@ export async function registerRoutes(
         isMarketOpen: quotes[0]?.isMarketOpen ?? false,
       });
     } catch (error: any) {
-      if (error.message === 'API_KEY_MISSING') {
-        return res.status(503).json({ 
-          message: "API key not configured",
-          dinoMessage: "Dino is still learning the market! Please add an API key."
-        });
-      }
+      console.error("Live quotes error:", error.message);
       res.status(500).json({ 
         message: "Failed to fetch quotes",
         dinoMessage: "The market is resting now. Try again later!"
@@ -387,21 +367,34 @@ export async function registerRoutes(
           : null,
       });
     } catch (error: any) {
-      if (error.message === 'API_KEY_MISSING') {
-        return res.status(503).json({ 
-          message: "API key not configured",
-          dinoMessage: "Dino is still learning the market! Please add an API key."
-        });
-      }
-      if (error.message === 'INVALID_SYMBOL') {
-        return res.status(404).json({ 
-          message: "Stock not found",
-          dinoMessage: "Dino couldn't find that stock. Try another one!"
-        });
-      }
+      console.error("Single quote error:", error.message);
       res.status(500).json({ 
         message: "Failed to fetch quote",
-        dinoMessage: "The market is resting now. Try again later!"
+        dinoMessage: "Dino couldn't find that stock. Try again later!"
+      });
+    }
+  });
+
+  // === Stock History for Charts ===
+  app.get("/api/stocks/history/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    const period = (req.query.period as string) || '1mo';
+    const interval = (req.query.interval as string) || '1d';
+    
+    try {
+      const history = await getStockHistory(symbol, period, interval);
+      res.json({
+        symbol,
+        period,
+        interval,
+        data: history,
+        count: history.length
+      });
+    } catch (error: any) {
+      console.error("History error:", error.message);
+      res.status(500).json({ 
+        message: "Failed to fetch history",
+        dinoMessage: "Dino couldn't load the chart data. Try again later!"
       });
     }
   });
@@ -512,18 +505,18 @@ async function seedDatabase() {
         });
         console.log("Seeded guest user", user.id);
         
-        // Seed some stocks
+        // Seed some stocks using yfinance service
         const initialStocks = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"];
         for (const sym of initialStocks) {
             try {
-                // Try fetching real data
-                const quote = await yahooFinance.quote(sym);
+                // Try fetching real data from yfinance
+                const quote = await getStockQuote(sym);
                 await storage.createStock({
                     symbol: sym,
-                    name: quote.shortName || sym,
-                    sector: "Technology", // Mock
-                    lastPrice: (quote.regularMarketPrice || 100).toString(),
-                    changePercent: (quote.regularMarketChangePercent || 0).toString()
+                    name: quote.name || sym,
+                    sector: "Technology",
+                    lastPrice: (quote.price || 100).toString(),
+                    changePercent: (quote.changePercent || 0).toString()
                 });
                 // Add to watchlist
                 await storage.addToWatchlist(user.id, sym);

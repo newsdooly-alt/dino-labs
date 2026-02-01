@@ -1,13 +1,7 @@
-// Alpha Vantage Stock Service with caching and error handling
+// Stock Service - Fetches data from Python yfinance service
+// No API key required - uses yfinance library
 
-// Verify API key on startup (log partial key for debugging)
-const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-if (apiKey) {
-  const maskedKey = apiKey.substring(0, 4) + '****' + apiKey.substring(apiKey.length - 4);
-  console.log(`[Stock Service] Alpha Vantage API key loaded: ${maskedKey}`);
-} else {
-  console.warn('[Stock Service] WARNING: ALPHA_VANTAGE_API_KEY is not set in Replit Secrets!');
-}
+const PYTHON_SERVICE_URL = 'http://localhost:5001';
 
 interface StockQuote {
   symbol: string;
@@ -20,217 +14,181 @@ interface StockQuote {
   isStale: boolean;
 }
 
-interface CachedQuote {
-  data: StockQuote;
-  timestamp: number;
-}
-
-// In-memory cache for stock quotes (1 minute TTL during market hours, 30 min otherwise)
-const quoteCache: Map<string, CachedQuote> = new Map();
-const CACHE_TTL_MARKET_OPEN = 60 * 1000; // 1 minute
-const CACHE_TTL_MARKET_CLOSED = 30 * 60 * 1000; // 30 minutes
-
-// Stock name mapping for common stocks
-const stockNames: Record<string, string> = {
-  'NVDA': 'NVIDIA Corporation',
-  'AAPL': 'Apple Inc.',
-  'TSLA': 'Tesla, Inc.',
-  'MSFT': 'Microsoft Corporation',
-  'GOOGL': 'Alphabet Inc.',
-  'AMZN': 'Amazon.com Inc.',
-  'META': 'Meta Platforms Inc.',
-  'SPY': 'S&P 500 ETF',
-  'QQQ': 'Invesco QQQ Trust',
-  'DIA': 'SPDR Dow Jones ETF',
-};
-
-function isMarketOpen(): boolean {
-  const now = new Date();
-  const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const day = nyTime.getDay();
-  const hour = nyTime.getHours();
-  const minute = nyTime.getMinutes();
-  
-  // Weekend check
-  if (day === 0 || day === 6) return false;
-  
-  // Market hours: 9:30 AM - 4:00 PM ET
-  const marketOpenMinutes = 9 * 60 + 30;
-  const marketCloseMinutes = 16 * 60;
-  const currentMinutes = hour * 60 + minute;
-  
-  return currentMinutes >= marketOpenMinutes && currentMinutes < marketCloseMinutes;
-}
-
-function getCacheTTL(): number {
-  return isMarketOpen() ? CACHE_TTL_MARKET_OPEN : CACHE_TTL_MARKET_CLOSED;
-}
-
-export async function getStockQuote(symbol: string): Promise<StockQuote> {
-  const upperSymbol = symbol.toUpperCase();
-  
-  // Check cache first
-  const cached = quoteCache.get(upperSymbol);
-  const now = Date.now();
-  
-  if (cached && (now - cached.timestamp) < getCacheTTL()) {
-    return { ...cached.data, isStale: false };
-  }
-  
-  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-  
-  if (!apiKey) {
-    // Return cached data if available, otherwise throw
-    if (cached) {
-      return { ...cached.data, isStale: true };
-    }
-    throw new Error('API_KEY_MISSING');
-  }
-  
-  try {
-    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${upperSymbol}&apikey=${apiKey}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    // Check for API rate limit or errors
-    if (data.Note || data.Information) {
-      console.warn('Alpha Vantage rate limit:', data.Note || data.Information);
-      if (cached) {
-        return { ...cached.data, isStale: true };
-      }
-      throw new Error('RATE_LIMIT');
-    }
-    
-    if (!data['Global Quote'] || !data['Global Quote']['05. price']) {
-      if (cached) {
-        return { ...cached.data, isStale: true };
-      }
-      throw new Error('INVALID_SYMBOL');
-    }
-    
-    const quote = data['Global Quote'];
-    const price = parseFloat(quote['05. price']);
-    const change = parseFloat(quote['09. change']);
-    const changePercent = parseFloat(quote['10. change percent'].replace('%', ''));
-    
-    const stockQuote: StockQuote = {
-      symbol: upperSymbol,
-      name: stockNames[upperSymbol] || upperSymbol,
-      price,
-      change,
-      changePercent,
-      isMarketOpen: isMarketOpen(),
-      lastUpdated: new Date().toISOString(),
-      isStale: false,
-    };
-    
-    // Update cache
-    quoteCache.set(upperSymbol, { data: stockQuote, timestamp: now });
-    
-    return stockQuote;
-  } catch (error: any) {
-    console.error(`Error fetching quote for ${upperSymbol}:`, error);
-    
-    // Return stale cached data if available
-    if (cached) {
-      return { ...cached.data, isStale: true };
-    }
-    
-    throw error;
-  }
-}
-
-export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]> {
-  const results: StockQuote[] = [];
-  
-  // Fetch sequentially with 1.2s delay to respect Alpha Vantage's rate limit (1 req/sec)
-  for (let i = 0; i < symbols.length; i++) {
-    const symbol = symbols[i];
-    try {
-      const quote = await getStockQuote(symbol);
-      results.push(quote);
-      // Wait 1.2 seconds between calls to stay under rate limit
-      if (i < symbols.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-      }
-    } catch (error) {
-      console.error(`Failed to fetch ${symbol}:`, error);
-      // Push a placeholder with error state
-      results.push({
-        symbol: symbol.toUpperCase(),
-        name: stockNames[symbol.toUpperCase()] || symbol,
-        price: 0,
-        change: 0,
-        changePercent: 0,
-        isMarketOpen: isMarketOpen(),
-        lastUpdated: new Date().toISOString(),
-        isStale: true,
-      });
-    }
-  }
-  
-  return results;
-}
-
-// Search for stocks using Alpha Vantage SYMBOL_SEARCH API
 interface SearchResult {
   symbol: string;
   name: string;
   type: string;
   region: string;
-  matchScore: number;
 }
 
-// Cache for search results (5 minute TTL)
-const searchCache: Map<string, { results: SearchResult[]; timestamp: number }> = new Map();
-const SEARCH_CACHE_TTL = 5 * 60 * 1000;
+interface HistoryDataPoint {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
 
-export async function searchStocks(keywords: string): Promise<SearchResult[]> {
-  const query = keywords.trim().toUpperCase();
-  if (!query || query.length < 1) return [];
-  
-  // Check cache
-  const cached = searchCache.get(query);
-  if (cached && Date.now() - cached.timestamp < SEARCH_CACHE_TTL) {
-    return cached.results;
+// Helper to check if Python service is running
+async function checkPythonService(): Promise<boolean> {
+  try {
+    const response = await fetch(`${PYTHON_SERVICE_URL}/health`, { 
+      signal: AbortSignal.timeout(2000) 
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
-  
-  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-  if (!apiKey) {
-    throw new Error('API_KEY_MISSING');
-  }
+}
+
+// Get a single stock quote
+export async function getStockQuote(symbol: string): Promise<StockQuote> {
+  const upperSymbol = symbol.toUpperCase();
   
   try {
-    const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(keywords)}&apikey=${apiKey}`;
-    const response = await fetch(url);
-    const data = await response.json();
+    const response = await fetch(`${PYTHON_SERVICE_URL}/quote/${upperSymbol}`, {
+      signal: AbortSignal.timeout(10000)
+    });
     
-    if (data.Note || data.Information) {
-      console.warn('Alpha Vantage rate limit:', data.Note || data.Information);
-      if (cached) return cached.results;
-      throw new Error('RATE_LIMIT');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch quote');
     }
     
-    const matches = data.bestMatches || [];
-    const results: SearchResult[] = matches
-      .filter((m: any) => m['4. region'] === 'United States') // Only US stocks
-      .map((m: any) => ({
-        symbol: m['1. symbol'],
-        name: m['2. name'],
-        type: m['3. type'],
-        region: m['4. region'],
-        matchScore: parseFloat(m['9. matchScore']),
-      }))
-      .slice(0, 10); // Limit to 10 results
+    const data = await response.json();
     
-    // Cache results
-    searchCache.set(query, { results, timestamp: Date.now() });
+    return {
+      symbol: data.symbol,
+      name: data.name || upperSymbol,
+      price: data.price || 0,
+      change: data.change || 0,
+      changePercent: data.changePercent || 0,
+      isMarketOpen: data.isMarketOpen || false,
+      lastUpdated: data.lastUpdated || new Date().toISOString(),
+      isStale: data.price === 0,
+    };
+  } catch (error: any) {
+    console.error(`[yfinance] Error fetching quote for ${upperSymbol}:`, error.message);
+    throw new Error(`FETCH_ERROR: ${error.message}`);
+  }
+}
+
+// Get multiple stock quotes in a batch (more efficient than individual calls)
+export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]> {
+  if (symbols.length === 0) return [];
+  
+  const upperSymbols = symbols.map(s => s.toUpperCase());
+  
+  try {
+    const response = await fetch(
+      `${PYTHON_SERVICE_URL}/quotes?symbols=${upperSymbols.join(',')}`,
+      { signal: AbortSignal.timeout(15000) }
+    );
     
-    return results;
-  } catch (error) {
-    console.error('Stock search error:', error);
-    if (cached) return cached.results;
-    throw error;
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch quotes');
+    }
+    
+    const data = await response.json();
+    
+    return (data.quotes || []).map((q: any) => ({
+      symbol: q.symbol,
+      name: q.name || q.symbol,
+      price: q.price || 0,
+      change: q.change || 0,
+      changePercent: q.changePercent || 0,
+      isMarketOpen: q.isMarketOpen || false,
+      lastUpdated: q.lastUpdated || new Date().toISOString(),
+      isStale: q.isStale || q.price === 0,
+    }));
+  } catch (error: any) {
+    console.error(`[yfinance] Error fetching batch quotes:`, error.message);
+    
+    // Return placeholder data for all symbols on error
+    return upperSymbols.map(symbol => ({
+      symbol,
+      name: symbol,
+      price: 0,
+      change: 0,
+      changePercent: 0,
+      isMarketOpen: false,
+      lastUpdated: new Date().toISOString(),
+      isStale: true,
+    }));
+  }
+}
+
+// Search for stocks by symbol or name
+export async function searchStocks(query: string): Promise<SearchResult[]> {
+  if (!query || query.trim().length < 1) return [];
+  
+  try {
+    const response = await fetch(
+      `${PYTHON_SERVICE_URL}/search?q=${encodeURIComponent(query.trim())}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Search failed');
+    }
+    
+    const data = await response.json();
+    return data.results || [];
+  } catch (error: any) {
+    console.error(`[yfinance] Search error:`, error.message);
+    throw new Error(`SEARCH_ERROR: ${error.message}`);
+  }
+}
+
+// Get historical data for charts
+export async function getStockHistory(
+  symbol: string, 
+  period: string = '1mo', 
+  interval: string = '1d'
+): Promise<HistoryDataPoint[]> {
+  const upperSymbol = symbol.toUpperCase();
+  
+  try {
+    const response = await fetch(
+      `${PYTHON_SERVICE_URL}/history/${upperSymbol}?period=${period}&interval=${interval}`,
+      { signal: AbortSignal.timeout(15000) }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch history');
+    }
+    
+    const data = await response.json();
+    return data.data || [];
+  } catch (error: any) {
+    console.error(`[yfinance] History error for ${upperSymbol}:`, error.message);
+    throw new Error(`HISTORY_ERROR: ${error.message}`);
+  }
+}
+
+// Get detailed stock info
+export async function getStockInfo(symbol: string): Promise<any> {
+  const upperSymbol = symbol.toUpperCase();
+  
+  try {
+    const response = await fetch(
+      `${PYTHON_SERVICE_URL}/info/${upperSymbol}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch info');
+    }
+    
+    return await response.json();
+  } catch (error: any) {
+    console.error(`[yfinance] Info error for ${upperSymbol}:`, error.message);
+    throw new Error(`INFO_ERROR: ${error.message}`);
   }
 }
 
@@ -270,3 +228,6 @@ export async function getRealTimeQuizQuestion(): Promise<{
     return null;
   }
 }
+
+// Export service status check
+export { checkPythonService };

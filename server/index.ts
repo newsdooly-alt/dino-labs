@@ -2,6 +2,51 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { spawn, ChildProcess } from "child_process";
+import path from "path";
+
+// Start Python yfinance service
+let pythonProcess: ChildProcess | null = null;
+
+function startPythonService() {
+  const pythonScript = path.join(process.cwd(), "server", "python_stock_service.py");
+  console.log("[yfinance] Starting Python stock service...");
+  
+  pythonProcess = spawn("python", [pythonScript], {
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: false,
+  });
+
+  pythonProcess.stdout?.on("data", (data) => {
+    const msg = data.toString().trim();
+    if (msg) console.log(`[yfinance] ${msg}`);
+  });
+
+  pythonProcess.stderr?.on("data", (data) => {
+    const msg = data.toString().trim();
+    if (msg) console.error(`[yfinance] ${msg}`);
+  });
+
+  pythonProcess.on("close", (code) => {
+    console.log(`[yfinance] Python service exited with code ${code}`);
+    // Restart after 2 seconds if it crashes
+    if (code !== 0) {
+      setTimeout(startPythonService, 2000);
+    }
+  });
+}
+
+// Cleanup on exit
+process.on("exit", () => {
+  if (pythonProcess) pythonProcess.kill();
+});
+process.on("SIGINT", () => {
+  if (pythonProcess) pythonProcess.kill();
+  process.exit();
+});
+
+// Start the Python service
+startPythonService();
 
 const app = express();
 const httpServer = createServer(app);
