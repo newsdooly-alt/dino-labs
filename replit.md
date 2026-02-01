@@ -47,6 +47,12 @@ Preferred communication style: Simple, everyday language.
 2. **Type-Safe API**: Routes defined with Zod schemas for input validation and response types
 3. **MVP Authentication**: Simplified auth with hardcoded userId=1 for demo purposes
 4. **Quest Generation**: AI-powered daily quest generation using OpenAI API
+5. **Theme System**: Global dark/light mode via ThemeProvider context
+   - Location: `client/src/contexts/ThemeContext.tsx`
+   - Uses Tailwind's class-based dark mode strategy
+   - Persists preference to localStorage (key: "theme")
+   - Falls back to system preference if no saved theme
+   - Toggle available in UserMenu component
 
 ### Build System
 - **Development**: tsx for running TypeScript server directly
