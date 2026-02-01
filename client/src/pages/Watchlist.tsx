@@ -104,7 +104,7 @@ export default function Watchlist() {
             exit={{ opacity: 0, y: -20 }}
             className="fixed top-20 right-6 z-50 bg-primary text-primary-foreground px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3"
           >
-            <span className="text-2xl">🦕</span>
+            <Star className="w-6 h-6" />
             <p className="font-medium">{t.stock_added}</p>
           </motion.div>
         )}

@@ -41,7 +41,9 @@ export default function MarketTrends() {
 
       <div className="mt-10 bg-card/50 border border-border rounded-3xl p-6">
         <div className="flex items-start gap-4">
-          <div className="text-4xl">🦕</div>
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-white" />
+          </div>
           <div>
             <p className="font-bold text-lg mb-1">{t.dino_says}</p>
             <p className="text-muted-foreground">

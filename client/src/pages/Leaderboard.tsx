@@ -1,4 +1,4 @@
-import { Trophy, Medal, User } from "lucide-react";
+import { Trophy, Medal, User, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Mock data for MVP since we don't have a full users endpoint
@@ -56,7 +56,7 @@ export default function Leaderboard() {
                     {user.username}
                     {user.isMe && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">You</span>}
                   </div>
-                  <div className="text-sm text-muted-foreground">{user.streak} day streak 🔥</div>
+                  <div className="text-sm text-muted-foreground flex items-center gap-1">{user.streak} day streak <Flame className="w-4 h-4 text-orange-500" /></div>
                 </div>
               </div>
               
