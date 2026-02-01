@@ -241,21 +241,51 @@ export interface NewsItem {
 }
 
 export async function getMarketNews(): Promise<NewsItem[]> {
+  const startTime = Date.now();
+  
   try {
+    console.log("[yfinance] Checking Python service availability...");
+    const isServiceUp = await checkPythonService();
+    
+    if (!isServiceUp) {
+      console.error("[yfinance] Python service is not responding - news fetch aborted");
+      return [];
+    }
+    
+    console.log("[yfinance] Fetching news from Python service...");
     const response = await fetch(
       `${PYTHON_SERVICE_URL}/news`,
-      { signal: AbortSignal.timeout(15000) }
+      { signal: AbortSignal.timeout(20000) }
     );
+    
+    const elapsed = Date.now() - startTime;
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Failed to fetch news');
+      console.error(`[yfinance] News API returned error status ${response.status}:`, error);
+      throw new Error(error.error || `HTTP ${response.status}: Failed to fetch news`);
     }
     
     const data = await response.json();
+    const newsCount = data.news?.length || 0;
+    console.log(`[yfinance] News fetch successful: ${newsCount} items in ${elapsed}ms`);
+    
+    if (newsCount === 0) {
+      console.warn("[yfinance] News API returned empty array");
+    }
+    
     return data.news || [];
   } catch (error: any) {
-    console.error(`[yfinance] News error:`, error.message);
+    const elapsed = Date.now() - startTime;
+    
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      console.error(`[yfinance] News fetch timed out after ${elapsed}ms`);
+    } else if (error.code === 'ECONNREFUSED') {
+      console.error("[yfinance] Connection refused - Python service not running");
+    } else {
+      console.error(`[yfinance] News error after ${elapsed}ms:`, error.message || error);
+    }
+    
     return [];
   }
 }

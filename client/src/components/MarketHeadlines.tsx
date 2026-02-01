@@ -23,16 +23,59 @@ export function MarketHeadlines() {
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery<{ news: NewsItem[]; count: number }>({
+  // Client-side fallback news for when API completely fails
+  const clientFallbackNews: NewsItem[] = [
+    {
+      title: "Understanding Market Indices: SPY, QQQ, and DIA",
+      publisher: "Dino Education",
+      link: "https://www.investopedia.com/terms/m/marketindex.asp",
+      publishedAt: Math.floor(Date.now() / 1000) - 3600,
+      relatedSymbol: "SPY",
+      thumbnail: null,
+      koreanSummary: "시장 지수 이해하기: SPY, QQQ, DIA에 대해 알아보세요."
+    },
+    {
+      title: "What is P/E Ratio and Why Does It Matter?",
+      publisher: "Dino Education",
+      link: "https://www.investopedia.com/terms/p/price-earningsratio.asp",
+      publishedAt: Math.floor(Date.now() / 1000) - 7200,
+      relatedSymbol: "AAPL",
+      thumbnail: null,
+      koreanSummary: "P/E 비율이란 무엇이며 왜 중요한가요?"
+    },
+    {
+      title: "How to Read Stock Charts: A Beginner's Guide",
+      publisher: "Dino Education",
+      link: "https://www.investopedia.com/articles/technical/112401.asp",
+      publishedAt: Math.floor(Date.now() / 1000) - 10800,
+      relatedSymbol: "MSFT",
+      thumbnail: null,
+      koreanSummary: "주식 차트 읽는 법: 초보자 가이드"
+    }
+  ];
+
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<{ news: NewsItem[]; count: number; source?: string }>({
     queryKey: ["/api/news", lang],
     queryFn: async () => {
-      const res = await fetch(`/api/news?lang=${lang}`);
-      if (!res.ok) throw new Error("Failed to fetch news");
-      return res.json();
+      console.log("[News] Fetching news from API...");
+      try {
+        const res = await fetch(`/api/news?lang=${lang}`);
+        if (!res.ok) {
+          console.error(`[News] API returned status ${res.status}`);
+          throw new Error(`API Error: ${res.status}`);
+        }
+        const result = await res.json();
+        console.log(`[News] Received ${result.news?.length || 0} items (source: ${result.source || 'unknown'})`);
+        return result;
+      } catch (err) {
+        console.error("[News] Fetch failed:", err);
+        throw err;
+      }
     },
     staleTime: 300000,
     refetchOnWindowFocus: false,
-    retry: 2,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
   const { data: readCount, refetch: refetchReadCount } = useQuery<{ count: number }>({
@@ -109,95 +152,86 @@ export function MarketHeadlines() {
         </div>
 
         <Card className="overflow-hidden md:ml-16">
-          <CardContent className="p-4">
+          <CardContent className="p-4 min-h-[200px]">
             {isLoading || isRefetching ? (
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
                 <span className="ml-2 text-muted-foreground">{t.loading_news}</span>
               </div>
-            ) : error ? (
-              <div className="text-center py-8 space-y-4">
-                <div className="flex items-center justify-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
-                    <Newspaper className="w-6 h-6 text-white" />
-                  </div>
-                  <AlertCircle className="w-8 h-8 text-destructive/60" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm mb-1">
-                    {t.dino_news_error}
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {t.please_try_again}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => refetch()}
-                    className="gap-2"
-                    data-testid="button-retry-news"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    {t.retry}
-                  </Button>
-                </div>
-              </div>
-            ) : data?.news && data.news.length > 0 ? (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {data.news.slice(0, 7).map((item, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                  >
-                    <button
-                      onClick={() => handleReadArticle(item.link)}
-                      className="w-full text-left p-3 rounded-xl bg-background/50 hover:bg-muted/50 border border-border hover:border-primary/30 transition-all group"
-                      data-testid={`news-item-${idx}`}
+            ) : (() => {
+              // Always show news - use API data if available, otherwise fallback
+              // This ensures news section is NEVER blank
+              const hasLiveNews = data?.news && data.news.length > 0;
+              const newsToShow = hasLiveNews ? data.news : clientFallbackNews;
+              const showFallbackBanner = error || !hasLiveNews;
+              
+              return (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                  {showFallbackBanner && (
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 pb-2 border-b border-border">
+                      <span>{t.dino_learning_resources || (lang === "ko" ? "디노의 학습 자료" : "Dino's Learning Resources")}</span>
+                      {error && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => refetch()}
+                          className="h-6 px-2 gap-1"
+                          data-testid="button-retry-news"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          {t.retry}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {newsToShow.slice(0, 7).map((item, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
                     >
-                      <div className="flex items-start gap-3">
-                        {item.thumbnail && (
-                          <img 
-                            src={item.thumbnail} 
-                            alt="" 
-                            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Badge variant="secondary" className="text-xs">
-                              {item.relatedSymbol}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {item.publisher} • {formatTimeAgo(item.publishedAt)}
-                            </span>
-                          </div>
-                          
-                          <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors flex items-start gap-1">
-                            {item.title}
-                            <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
-                          </h3>
-                          
-                          {item.koreanSummary && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {item.koreanSummary}
-                            </p>
+                      <button
+                        onClick={() => handleReadArticle(item.link)}
+                        className="w-full text-left p-3 rounded-xl bg-background/50 hover:bg-muted/50 border border-border hover:border-primary/30 transition-all group"
+                        data-testid={`news-item-${idx}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {item.thumbnail && (
+                            <img 
+                              src={item.thumbnail} 
+                              alt="" 
+                              className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                            />
                           )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <Badge variant="secondary" className="text-xs">
+                                {item.relatedSymbol}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {item.publisher} • {formatTimeAgo(item.publishedAt)}
+                              </span>
+                            </div>
+                            
+                            <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors flex items-start gap-1">
+                              {item.title}
+                              <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
+                            </h3>
+                            
+                            {item.koreanSummary && lang === "ko" && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {item.koreanSummary}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Newspaper className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground text-sm">
-                  {t.no_news_available}
-                </p>
-              </div>
-            )}
+                      </button>
+                    </motion.div>
+                  ))}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
