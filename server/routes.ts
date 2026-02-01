@@ -3,10 +3,16 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { generateDailyQuests } from "./lib/quiz-generator";
+import { generateDailyQuests, generatePracticeQuest } from "./lib/quiz-generator";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo } from "./stockService";
+import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo, getMarketNews } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -176,6 +182,50 @@ export async function registerRoutes(
     }
     
     res.json(quests.filter(q => !q.isCompleted));
+  });
+
+  // === Practice Mode Routes (MUST be before :id routes) ===
+  app.get("/api/quests/practice", async (req, res) => {
+    const userId = Number(req.query.userId) || 1;
+    const user = await storage.getUser(userId);
+    
+    try {
+      const practiceQuest = await generatePracticeQuest(userId, user?.language || 'en');
+      res.json(practiceQuest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate practice quest" });
+    }
+  });
+
+  app.post("/api/quests/practice/complete", async (req, res) => {
+    const { userId, answerIndex, correctAnswer } = req.body;
+    
+    const correct = correctAnswer === answerIndex;
+    
+    if (correct) {
+      const user = await storage.getUser(userId);
+      if (user) {
+        const newXp = user.xp + 5; // Reduced XP for practice
+        const newLevel = Math.floor(newXp / 100) + 1;
+        
+        await storage.updateUserStats(userId, user.streak, newXp, newLevel, user.hearts);
+        
+        return res.json({
+          success: true,
+          xpGained: 5,
+          correct: true,
+          newXp,
+          newLevel
+        });
+      }
+    }
+    
+    // Don't lose hearts in practice mode
+    return res.json({
+      success: false,
+      xpGained: 0,
+      correct: false
+    });
   });
 
   app.post(api.quests.complete.path, async (req, res) => {
@@ -413,6 +463,69 @@ export async function registerRoutes(
         dinoMessage: "Dino couldn't load the company info. Try again later!"
       });
     }
+  });
+
+  // === Market News ===
+  app.get("/api/news", async (req, res) => {
+    const lang = (req.query.lang as string) || 'en';
+    
+    try {
+      const newsItems = await getMarketNews();
+      
+      // If Korean language requested, generate AI summaries
+      if (lang === 'ko' && newsItems.length > 0) {
+        const newsWithSummaries = await Promise.all(
+          newsItems.slice(0, 5).map(async (item) => {
+            try {
+              const summaryResponse = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                  { role: "system", content: "You are a financial news translator. Provide a concise 1-sentence Korean summary of the given English headline. Keep it simple and educational." },
+                  { role: "user", content: `Headline: ${item.title}` }
+                ],
+                max_tokens: 100,
+              });
+              
+              return {
+                ...item,
+                koreanSummary: summaryResponse.choices[0]?.message?.content || item.title
+              };
+            } catch {
+              return { ...item, koreanSummary: item.title };
+            }
+          })
+        );
+        
+        return res.json({ news: newsWithSummaries, count: newsWithSummaries.length });
+      }
+      
+      res.json({ news: newsItems.slice(0, 5), count: Math.min(newsItems.length, 5) });
+    } catch (error) {
+      console.error("News fetch error:", error);
+      res.json({ news: [], count: 0 });
+    }
+  });
+
+  // === Mark News as Read (for quest progress) ===
+  let newsReadCount: Record<number, number> = {}; // Simple in-memory tracker per user
+  
+  app.post("/api/news/read", async (req, res) => {
+    const { userId } = req.body;
+    
+    if (!newsReadCount[userId]) {
+      newsReadCount[userId] = 0;
+    }
+    newsReadCount[userId]++;
+    
+    res.json({ 
+      count: newsReadCount[userId],
+      message: newsReadCount[userId] >= 3 ? "Quest complete!" : `${3 - newsReadCount[userId]} more to go!`
+    });
+  });
+
+  app.get("/api/news/read-count", async (req, res) => {
+    const userId = Number(req.query.userId) || 1;
+    res.json({ count: newsReadCount[userId] || 0 });
   });
 
   // === Breaking News Quiz ===

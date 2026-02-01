@@ -347,6 +347,51 @@ def get_info(symbol):
 # Need pandas for history endpoint
 import pandas as pd
 
+
+@app.route('/news', methods=['GET'])
+def get_market_news():
+    """Get latest market news from major tickers."""
+    try:
+        # Get news from major market ETFs and stocks
+        tickers_for_news = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA']
+        all_news = []
+        seen_titles = set()
+        
+        for symbol in tickers_for_news:
+            try:
+                ticker = yf.Ticker(symbol)
+                news = ticker.news
+                
+                if news:
+                    for item in news[:3]:  # Get top 3 from each
+                        title = item.get('title', '')
+                        if title and title not in seen_titles:
+                            seen_titles.add(title)
+                            all_news.append({
+                                "title": title,
+                                "publisher": item.get('publisher', 'Unknown'),
+                                "link": item.get('link', ''),
+                                "publishedAt": item.get('providerPublishTime', 0),
+                                "relatedSymbol": symbol,
+                                "thumbnail": item.get('thumbnail', {}).get('resolutions', [{}])[0].get('url') if item.get('thumbnail') else None
+                            })
+            except Exception as e:
+                print(f"Error fetching news for {symbol}: {e}")
+                continue
+        
+        # Sort by publish time (newest first) and limit to 10
+        all_news.sort(key=lambda x: x['publishedAt'], reverse=True)
+        all_news = all_news[:10]
+        
+        return jsonify({
+            "news": all_news,
+            "count": len(all_news),
+            "fetchedAt": datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "news": []}), 500
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     # Bind to localhost only for security (Node.js proxies requests)

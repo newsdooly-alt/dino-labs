@@ -5,7 +5,9 @@
 US Stock Hero is a gamified stock market education platform that teaches users about US stocks through daily quests, interactive quizzes, and a Duolingo-inspired learning experience. The app features a dinosaur mascot ("Dino") that guides users through their learning journey, complete with XP rewards, streaks, levels, and a watchlist for tracking stocks.
 
 The core experience centers around:
-- Daily AI-generated quests covering financial terms, chart patterns, and market news
+- Daily AI-generated quests covering financial terms, chart patterns, market news, stock search, stock comparison, and valuation concepts (6 varied quests per day)
+- Practice Mode for endless learning after daily quests are complete (awards 5 XP per question, no hearts lost)
+- Daily News section with market headlines from yfinance (Korean AI summaries available)
 - Real-time stock quotes and watchlist management via yfinance Python library (no API key required)
 - Stock Detail Page with interactive charts, key stats, and Dino's educational insights
 - Gamification elements (XP, levels, streaks, hearts/lives)
@@ -62,17 +64,30 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### AI Services
-- **OpenAI API**: Used for generating daily quiz questions and chat functionality
+- **OpenAI API**: Used for generating daily quiz questions, practice quests, Korean news summaries, and chat functionality
   - Environment variables: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
-  - Models used: gpt-5.1 for text, gpt-image-1 for images
+  - Models used: gpt-5.1 for daily quests, gpt-4o-mini for practice quests and news summaries, gpt-image-1 for images
 
 ### Financial Data
-- **yfinance (Python library)**: Real-time stock quotes, search, and historical data
+- **yfinance (Python library)**: Real-time stock quotes, search, historical data, and market news
   - No API key required (free to use)
   - Supports batch requests for multiple tickers
   - Provides OHLCV historical data for charts
+  - Fetches market news headlines from major tickers (SPY, QQQ, AAPL, MSFT, NVDA)
   - Service location: `server/python_stock_service.py`
   - Node.js wrapper: `server/stockService.ts`
+
+### Quest System
+- **Quest Types**: term, pattern, news, search, compare, valuation, practice
+- **Daily Quests**: 6 varied quests generated per day via AI (15-25 XP each)
+- **Practice Mode**: Endless learning mode with AI-generated questions (5 XP each, no hearts lost)
+- **Generator**: `server/lib/quiz-generator.ts`
+
+### Daily News
+- **News Source**: yfinance news API from major market tickers
+- **Korean Summaries**: Auto-generated 1-sentence Korean translations using gpt-4o-mini
+- **News Reading Progress**: Track 3 articles read for quest completion
+- **Routes**: GET /api/news, POST /api/news/read, GET /api/news/read-count
 
 ### Database
 - **PostgreSQL**: Primary database, connection via `DATABASE_URL` environment variable

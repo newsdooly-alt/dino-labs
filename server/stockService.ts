@@ -229,5 +229,36 @@ export async function getRealTimeQuizQuestion(): Promise<{
   }
 }
 
+// Get market news
+export interface NewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: number;
+  relatedSymbol: string;
+  thumbnail: string | null;
+  koreanSummary?: string;
+}
+
+export async function getMarketNews(): Promise<NewsItem[]> {
+  try {
+    const response = await fetch(
+      `${PYTHON_SERVICE_URL}/news`,
+      { signal: AbortSignal.timeout(15000) }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to fetch news');
+    }
+    
+    const data = await response.json();
+    return data.news || [];
+  } catch (error: any) {
+    console.error(`[yfinance] News error:`, error.message);
+    return [];
+  }
+}
+
 // Export service status check
 export { checkPythonService };

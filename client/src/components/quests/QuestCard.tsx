@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { type Quest } from "@shared/schema";
 import { cn } from "@/lib/utils";
-import { Check, X, HelpCircle, ChevronRight, BookOpen, LineChart, Newspaper } from "lucide-react";
+import { Check, X, HelpCircle, ChevronRight, BookOpen, LineChart, Newspaper, Search, Scale, Dumbbell } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCompleteQuest } from "@/hooks/use-quests";
+import { translations } from "@/lib/translations";
+import { useUser } from "@/hooks/use-user";
 
 interface QuestCardProps {
   quest: Quest;
@@ -16,6 +18,9 @@ export function QuestCard({ quest }: QuestCardProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   
   const completeQuest = useCompleteQuest();
+  const { data: user } = useUser();
+  const lang = (user?.language || "en") as keyof typeof translations;
+  const t = translations[lang];
   
   const options = quest.options as string[];
   const isCorrect = selectedOption === quest.correctAnswer;
@@ -46,16 +51,24 @@ export function QuestCard({ quest }: QuestCardProps) {
       case 'term': return <BookOpen className="w-6 h-6 text-secondary" />;
       case 'pattern': return <LineChart className="w-6 h-6 text-primary" />;
       case 'news': return <Newspaper className="w-6 h-6 text-accent" />;
+      case 'search': return <Search className="w-6 h-6 text-blue-500" />;
+      case 'compare': return <Scale className="w-6 h-6 text-orange-500" />;
+      case 'valuation': return <Scale className="w-6 h-6 text-green-500" />;
+      case 'practice': return <Dumbbell className="w-6 h-6 text-purple-500" />;
       default: return <HelpCircle className="w-6 h-6 text-muted-foreground" />;
     }
   };
 
   const getTypeLabel = () => {
     switch(quest.type) {
-      case 'term': return 'Term of the Day';
-      case 'pattern': return 'Pattern Recognition';
-      case 'news': return 'Market Pulse';
-      default: return 'Daily Quest';
+      case 'term': return lang === "ko" ? "오늘의 용어" : "Term of the Day";
+      case 'pattern': return lang === "ko" ? "패턴 인식" : "Pattern Recognition";
+      case 'news': return lang === "ko" ? "시장 동향" : "Market Pulse";
+      case 'search': return t.quest_search;
+      case 'compare': return t.quest_compare;
+      case 'valuation': return t.quest_valuation;
+      case 'practice': return t.quest_practice;
+      default: return lang === "ko" ? "일일 퀘스트" : "Daily Quest";
     }
   };
 
@@ -69,7 +82,7 @@ export function QuestCard({ quest }: QuestCardProps) {
           </div>
           <div>
             <h3 className="font-bold text-lg text-foreground line-through decoration-primary/50">{quest.question}</h3>
-            <p className="text-primary font-medium text-sm">Completed +{quest.xpReward} XP</p>
+            <p className="text-primary font-medium text-sm">{t.completed} +{quest.xpReward} XP</p>
           </div>
         </div>
       </div>
@@ -101,7 +114,7 @@ export function QuestCard({ quest }: QuestCardProps) {
             </div>
           </div>
           <div className="flex flex-col items-end">
-             <span className="text-xs font-bold text-muted-foreground uppercase">Reward</span>
+             <span className="text-xs font-bold text-muted-foreground uppercase">{t.reward}</span>
              <span className="font-mono font-bold text-secondary text-lg">+{quest.xpReward} XP</span>
           </div>
         </div>
@@ -149,8 +162,9 @@ export function QuestCard({ quest }: QuestCardProps) {
                   }}
                   disabled={selectedOption === null || completeQuest.isPending}
                   className="w-full mt-4 bg-primary text-primary-foreground font-bold py-4 rounded-xl shadow-lg shadow-primary/25 hover:shadow-xl hover:translate-y-[-2px] active:translate-y-[0px] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  data-testid="button-check-answer"
                 >
-                  {completeQuest.isPending ? "Checking..." : "Check Answer"}
+                  {completeQuest.isPending ? t.checking : t.check_answer}
                 </button>
               ) : (
                 <div className={cn(
@@ -158,7 +172,7 @@ export function QuestCard({ quest }: QuestCardProps) {
                   isCorrect || quest.isCompleted ? "bg-green-500/10 border-green-500/20" : "bg-destructive/10 border-destructive/20"
                 )}>
                   <p className="font-bold mb-1">
-                    {isCorrect || quest.isCompleted ? "Correct! 🎉" : "Not quite right..."}
+                    {isCorrect || quest.isCompleted ? t.correct_answer : t.wrong_answer}
                   </p>
                   <p className="text-sm opacity-90">{quest.explanation}</p>
                 </div>
@@ -170,7 +184,7 @@ export function QuestCard({ quest }: QuestCardProps) {
         {!isExpanded && (
            <div className="flex justify-end mt-2">
               <span className="text-sm font-semibold text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Start Quest <ChevronRight className="w-4 h-4" />
+                {t.start_quest} <ChevronRight className="w-4 h-4" />
               </span>
            </div>
         )}
