@@ -1,16 +1,13 @@
-import { useState, useEffect } from "react";
 import { useUser, useUpdateLanguage } from "@/hooks/use-user";
 import { useLocation } from "wouter";
+import { useTheme } from "@/contexts/ThemeContext";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Flame,
-  Zap,
-  Star,
   Eye,
   BookOpen,
-  Settings,
   LogOut,
   Globe,
   Moon,
@@ -32,27 +29,10 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
   const { data: user } = useUser();
   const updateLanguage = useUpdateLanguage();
   const [, navigate] = useLocation();
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof document !== "undefined") {
-      return document.documentElement.classList.contains("dark") ? "dark" : "light";
-    }
-    return "dark";
-  });
+  const { theme, toggleTheme } = useTheme();
 
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
-
-  useEffect(() => {
-    const isDark = document.documentElement.classList.contains("dark");
-    setTheme(isDark ? "dark" : "light");
-  }, [isOpen]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-  };
 
   const handleLanguageChange = (newLang: "en" | "ko") => {
     updateLanguage.mutate(newLang);
@@ -92,7 +72,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="md:hidden flex items-center justify-between p-4 border-b border-border">
-              <span className="font-bold">{lang === "en" ? "Menu" : "메뉴"}</span>
+              <span className="font-bold">{t.menu}</span>
               <Button
                 variant="ghost"
                 size="icon"
@@ -110,7 +90,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg">
-                    {lang === "en" ? "Stock Explorer" : "주식 탐험가"}
+                    {t.stock_explorer}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant="secondary" className="text-xs">
@@ -130,30 +110,30 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1 text-right">
-                {xpProgress}/100 {lang === "en" ? "to next level" : "다음 레벨까지"}
+                {xpProgress}/100 {t.to_next_level}
               </p>
             </div>
 
             <div className="p-4 border-b border-border">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                {lang === "en" ? "Stats" : "통계"}
+                {t.stats}
               </h4>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-orange-500/10 dark:bg-orange-500/20 border border-orange-500/20">
                   <Flame className="w-5 h-5 text-orange-500 fill-orange-500" />
                   <div>
                     <p className="font-bold text-orange-500">{user?.streak || 0}</p>
                     <p className="text-xs text-muted-foreground">
-                      {lang === "en" ? "Day Streak" : "일 연속"}
+                      {t.day_streak}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/20">
                   <Egg className="w-5 h-5 text-primary" />
                   <div>
                     <p className="font-bold text-primary">{eggsHatched}</p>
                     <p className="text-xs text-muted-foreground">
-                      {lang === "en" ? "Eggs Hatched" : "부화한 알"}
+                      {t.eggs_hatched}
                     </p>
                   </div>
                 </div>
@@ -162,7 +142,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
 
             <div className="p-2 border-b border-border">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 py-2">
-                {lang === "en" ? "Navigation" : "내비게이션"}
+                {t.navigation}
               </h4>
               
               <button
@@ -185,7 +165,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                 <div className="flex items-center gap-3">
                   <BookOpen className="w-5 h-5 text-primary" />
                   <span className="font-medium">
-                    {lang === "en" ? "Learning History" : "학습 기록"}
+                    {t.learning_history}
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -201,7 +181,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                 <div className="flex items-center gap-3">
                   <Globe className="w-5 h-5 text-primary" />
                   <span className="font-medium">
-                    {lang === "en" ? "Language" : "언어"}
+                    {t.language}
                   </span>
                 </div>
                 <div className="flex gap-1">
@@ -234,7 +214,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                     <Sun className="w-5 h-5 text-primary" />
                   )}
                   <span className="font-medium">
-                    {lang === "en" ? "Theme" : "테마"}
+                    {t.theme}
                   </span>
                 </div>
                 <Button
@@ -247,12 +227,12 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                   {theme === "dark" ? (
                     <>
                       <Moon className="w-4 h-4" />
-                      {lang === "en" ? "Dark" : "다크"}
+                      {t.dark}
                     </>
                   ) : (
                     <>
                       <Sun className="w-4 h-4" />
-                      {lang === "en" ? "Light" : "라이트"}
+                      {t.light}
                     </>
                   )}
                 </Button>

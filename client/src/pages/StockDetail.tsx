@@ -14,11 +14,13 @@ import {
   BarChart3, 
   Calendar,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 import { useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { 
   LineChart, 
   Line, 
@@ -190,6 +192,7 @@ export default function StockDetail() {
   const symbol = params?.symbol?.toUpperCase() || "";
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
   const { toast } = useToast();
+  const { theme } = useTheme();
 
   const { data: user } = useQuery<{ language: string }>({
     queryKey: ["/api/users/1"],
@@ -382,23 +385,27 @@ export default function StockDetail() {
                   dataKey="date" 
                   axisLine={false} 
                   tickLine={false}
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 12, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
                   interval="preserveStartEnd"
                 />
                 <YAxis 
                   domain={['auto', 'auto']} 
                   axisLine={false} 
                   tickLine={false}
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 12, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
                   tickFormatter={(v) => `$${v}`}
                   width={60}
                 />
                 <Tooltip 
                   formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
                   contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
+                    backgroundColor: theme === "dark" ? "hsl(140, 25%, 10%)" : "hsl(0, 0%, 100%)", 
+                    border: theme === "dark" ? "1px solid hsl(140, 20%, 18%)" : "1px solid hsl(140, 15%, 85%)",
+                    borderRadius: '8px',
+                    color: theme === "dark" ? "hsl(140, 15%, 95%)" : "hsl(140, 30%, 10%)"
+                  }}
+                  labelStyle={{
+                    color: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)"
                   }}
                 />
                 <Area 
@@ -486,11 +493,11 @@ export default function StockDetail() {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/30 bg-primary/5">
+      <Card className="border-primary/30 bg-primary/5 dark:bg-primary/10">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">🦖</span>
+              <Lightbulb className="w-6 h-6 text-primary" />
             </div>
             <div>
               <h3 className="font-bold text-primary mb-1">{dinoInsight.title}</h3>

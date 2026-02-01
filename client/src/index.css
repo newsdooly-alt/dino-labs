@@ -8,37 +8,115 @@
   --font-sans: 'DM Sans', sans-serif;
   --font-display: 'Fredoka', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-
-  /* Dark Theme Palette - "Dinolingo Green" */
-  --background: 140 30% 8%;      /* Very deep forest green */
-  --foreground: 140 20% 98%;     /* Off-white */
-  
-  --card: 140 25% 14%;           /* Deep green for cards */
-  --card-foreground: 140 20% 98%;
-  
-  --popover: 140 30% 8%;
-  --popover-foreground: 140 20% 98%;
-  
-  --primary: 142 76% 45%;        /* Dino Green */
-  --primary-foreground: 144 100% 97%;
-  
-  --secondary: 262 83% 58%;      /* Purple stays for contrast */
-  --secondary-foreground: 210 40% 98%;
-  
-  --muted: 140 25% 14%;
-  --muted-foreground: 140 10% 65%;
-  
-  --accent: 142 60% 30%;         /* Darker green accent */
-  --accent-foreground: 140 20% 98%;
-  
-  --destructive: 0 84% 60%;      /* Danger Red */
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 140 25% 20%;
-  --input: 140 25% 20%;
-  --ring: 142 76% 45%;
-  
   --radius: 1rem;
+
+  /* Light Theme */
+  --background: 140 20% 98%;
+  --foreground: 140 30% 10%;
+  
+  --card: 0 0% 100%;
+  --card-foreground: 140 30% 10%;
+  --card-border: 140 15% 85%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 140 30% 10%;
+  --popover-border: 140 15% 85%;
+  
+  --primary: 142 76% 36%;
+  --primary-foreground: 144 100% 97%;
+  --primary-border: 142 76% 28%;
+  
+  --secondary: 262 83% 58%;
+  --secondary-foreground: 0 0% 100%;
+  --secondary-border: 262 83% 48%;
+  
+  --muted: 140 15% 93%;
+  --muted-foreground: 140 10% 45%;
+  --muted-border: 140 15% 85%;
+  
+  --accent: 142 50% 92%;
+  --accent-foreground: 142 76% 30%;
+  --accent-border: 142 50% 85%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: 0 84% 50%;
+
+  --border: 140 15% 85%;
+  --input: 140 15% 90%;
+  --ring: 142 76% 36%;
+
+  --sidebar: 142 30% 96%;
+  --sidebar-foreground: 140 30% 15%;
+  --sidebar-border: 140 15% 88%;
+  --sidebar-ring: 142 76% 36%;
+  --sidebar-primary: 142 76% 36%;
+  --sidebar-primary-foreground: 144 100% 97%;
+  --sidebar-primary-border: 142 76% 28%;
+  --sidebar-accent: 142 50% 92%;
+  --sidebar-accent-foreground: 142 76% 30%;
+  --sidebar-accent-border: 142 50% 85%;
+
+  --chart-1: 142 76% 36%;
+  --chart-2: 262 83% 58%;
+  --chart-3: 45 93% 47%;
+  --chart-4: 199 89% 48%;
+  --chart-5: 0 84% 60%;
+}
+
+.dark {
+  /* Dark Theme - "Dinolingo Forest" */
+  --background: 140 30% 6%;
+  --foreground: 140 15% 95%;
+  
+  --card: 140 25% 10%;
+  --card-foreground: 140 15% 95%;
+  --card-border: 140 20% 18%;
+  
+  --popover: 140 25% 10%;
+  --popover-foreground: 140 15% 95%;
+  --popover-border: 140 20% 18%;
+  
+  --primary: 142 76% 45%;
+  --primary-foreground: 140 30% 6%;
+  --primary-border: 142 76% 55%;
+  
+  --secondary: 262 83% 58%;
+  --secondary-foreground: 0 0% 100%;
+  --secondary-border: 262 83% 68%;
+  
+  --muted: 140 20% 15%;
+  --muted-foreground: 140 10% 60%;
+  --muted-border: 140 20% 22%;
+  
+  --accent: 142 50% 18%;
+  --accent-foreground: 142 76% 70%;
+  --accent-border: 142 50% 25%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: 0 84% 70%;
+
+  --border: 140 20% 18%;
+  --input: 140 20% 15%;
+  --ring: 142 76% 45%;
+
+  --sidebar: 140 25% 8%;
+  --sidebar-foreground: 140 15% 95%;
+  --sidebar-border: 140 20% 15%;
+  --sidebar-ring: 142 76% 45%;
+  --sidebar-primary: 142 76% 45%;
+  --sidebar-primary-foreground: 140 30% 6%;
+  --sidebar-primary-border: 142 76% 55%;
+  --sidebar-accent: 142 50% 18%;
+  --sidebar-accent-foreground: 142 76% 70%;
+  --sidebar-accent-border: 142 50% 25%;
+
+  --chart-1: 142 76% 45%;
+  --chart-2: 262 83% 65%;
+  --chart-3: 45 93% 55%;
+  --chart-4: 199 89% 55%;
+  --chart-5: 0 84% 65%;
 }
 
 @layer base {
@@ -69,7 +147,7 @@
 
 /* Glassmorphism utilities */
 .glass-panel {
-  @apply bg-card/80 backdrop-blur-md border border-white/5 shadow-xl;
+  @apply bg-card/80 backdrop-blur-md border border-border shadow-xl;
 }
 
 /* Animation utilities */
@@ -91,4 +169,35 @@
 @keyframes scroll {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+/* Hover elevation utilities */
+.hover-elevate {
+  @apply transition-all duration-200;
+}
+.hover-elevate:hover {
+  @apply bg-muted/50;
+}
+
+.active-elevate-2 {
+  @apply transition-all duration-150;
+}
+.active-elevate-2:active {
+  @apply bg-muted/80;
+}
+
+/* Toggle elevation system */
+.toggle-elevate {
+  @apply transition-all duration-200;
+}
+.toggle-elevated {
+  @apply bg-primary/20;
+}
+
+/* No default elevation overrides */
+.no-default-hover-elevate:hover {
+  background: inherit;
+}
+.no-default-active-elevate:active {
+  background: inherit;
 }
