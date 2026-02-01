@@ -108,6 +108,7 @@ export const translations = {
     dino_stock_error: "Dino is having trouble fetching stock data!",
     loading_stock_data: "Loading stock data...",
     dino_learning_resources: "Dino's Learning Resources",
+    showing_recent_prices: "Showing recent prices",
   },
   ko: {
     dashboard: "대시보드",
@@ -218,6 +219,7 @@ export const translations = {
     dino_stock_error: "디노가 주식 데이터를 가져오는 데 문제가 있어요!",
     loading_stock_data: "주식 데이터 불러오는 중...",
     dino_learning_resources: "디노의 학습 자료",
+    showing_recent_prices: "최근 시세 표시 중",
   }
 };
 

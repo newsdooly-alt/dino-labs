@@ -79,19 +79,35 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
   if (symbols.length === 0) return [];
   
   const upperSymbols = symbols.map(s => s.toUpperCase());
+  const startTime = Date.now();
   
   try {
+    // Check if Python service is available first
+    console.log("[yfinance] Checking Python service for batch quotes...");
+    const isServiceUp = await checkPythonService();
+    
+    if (!isServiceUp) {
+      console.error("[yfinance] Python service not responding for batch quotes");
+      throw new Error("Python service unavailable");
+    }
+    
+    console.log(`[yfinance] Fetching batch quotes for: ${upperSymbols.join(', ')}`);
     const response = await fetch(
       `${PYTHON_SERVICE_URL}/quotes?symbols=${upperSymbols.join(',')}`,
-      { signal: AbortSignal.timeout(15000) }
+      { signal: AbortSignal.timeout(10000) } // 10 second timeout
     );
+    
+    const elapsed = Date.now() - startTime;
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Failed to fetch quotes');
+      console.error(`[yfinance] Batch quotes API error (${response.status}):`, error);
+      throw new Error(error.error || `HTTP ${response.status}`);
     }
     
     const data = await response.json();
+    const quotesCount = data.quotes?.length || 0;
+    console.log(`[yfinance] Batch quotes success: ${quotesCount} quotes in ${elapsed}ms`);
     
     return (data.quotes || []).map((q: any) => ({
       symbol: q.symbol,
@@ -104,9 +120,17 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
       isStale: q.isStale || q.price === 0,
     }));
   } catch (error: any) {
-    console.error(`[yfinance] Error fetching batch quotes:`, error.message);
+    const elapsed = Date.now() - startTime;
     
-    // Return placeholder data for all symbols on error
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      console.error(`[yfinance] Batch quotes timed out after ${elapsed}ms`);
+    } else if (error.code === 'ECONNREFUSED') {
+      console.error("[yfinance] Connection refused for batch quotes");
+    } else {
+      console.error(`[yfinance] Batch quotes error after ${elapsed}ms:`, error.message);
+    }
+    
+    // Return empty prices - server route will use fallback
     return upperSymbols.map(symbol => ({
       symbol,
       name: symbol,
