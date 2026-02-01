@@ -4,7 +4,6 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { spawn, ChildProcess } from "child_process";
 import path from "path";
-import { fileURLToPath } from "url";
 
 // Start Python yfinance service
 let pythonProcess: ChildProcess | null = null;
@@ -28,19 +27,15 @@ async function startPythonService() {
     return;
   }
   
-  // In production (bundled), look for python script relative to dist folder
-  // In development, use process.cwd()
-  const isProduction = process.env.NODE_ENV === "production";
-  const currentFilePath = fileURLToPath(import.meta.url);
-  const baseDir = isProduction 
-    ? path.dirname(currentFilePath)
-    : process.cwd();
+  // In production (bundled CommonJS), import.meta.url may be undefined
+  // Use process.cwd() as the reliable fallback
+  const cwd = process.cwd();
   
-  // Try multiple possible paths
+  // Try multiple possible paths for the Python script
   const possiblePaths = [
-    path.join(baseDir, "..", "server", "python_stock_service.py"),  // production: dist/../server
-    path.join(baseDir, "server", "python_stock_service.py"),        // development
-    path.join(process.cwd(), "server", "python_stock_service.py"),  // fallback to cwd
+    path.join(cwd, "server", "python_stock_service.py"),           // standard location
+    path.join(cwd, "..", "server", "python_stock_service.py"),     // if running from dist
+    path.join(cwd, "dist", "..", "server", "python_stock_service.py"), // alternative
   ];
   
   let pythonScript = "";
