@@ -6,6 +6,7 @@ import { DinoEgg } from "@/components/DinoEgg";
 import { MarketMood } from "@/components/MarketMood";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { LiveStockCard } from "@/components/LiveStockCard";
+import { MarketHeadlines } from "@/components/MarketHeadlines";
 import { Link } from "wouter";
 import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon, Star, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
@@ -105,7 +106,7 @@ export default function Dashboard() {
           </div>
           
           <div className="grid gap-6">
-            {quests?.map((quest, i) => (
+            {quests?.slice(0, 3).map((quest, i) => (
               <motion.div
                 key={quest.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -116,6 +117,8 @@ export default function Dashboard() {
               </motion.div>
             ))}
           </div>
+
+          <MarketHeadlines />
         </div>
 
         <div className="space-y-6">

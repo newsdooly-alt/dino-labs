@@ -95,6 +95,13 @@ export const translations = {
     reward: "Reward",
     correct_answer: "Correct!",
     wrong_answer: "Not quite right...",
+    todays_market_headlines: "Today's Market Headlines",
+    dino_news_bubble: "Check out what's happening in the market today!",
+    minutes_ago: "min ago",
+    hours_ago: "hr ago",
+    just_now: "Just now",
+    loading_news: "Loading news...",
+    no_news_available: "No news available right now.",
   },
   ko: {
     dashboard: "대시보드",
@@ -192,6 +199,13 @@ export const translations = {
     reward: "보상",
     correct_answer: "정답!",
     wrong_answer: "아쉬워요...",
+    todays_market_headlines: "오늘의 시장 뉴스",
+    dino_news_bubble: "오늘 시장에서 무슨 일이 일어나고 있는지 확인해 보세요!",
+    minutes_ago: "분 전",
+    hours_ago: "시간 전",
+    just_now: "방금",
+    loading_news: "뉴스 불러오는 중...",
+    no_news_available: "현재 뉴스가 없습니다.",
   }
 };
 

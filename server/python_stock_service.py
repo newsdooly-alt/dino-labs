@@ -364,16 +364,59 @@ def get_market_news():
                 
                 if news:
                     for item in news[:3]:  # Get top 3 from each
-                        title = item.get('title', '')
+                        # Handle both old and new yfinance news structure
+                        content = item.get('content', item)
+                        title = content.get('title', item.get('title', ''))
+                        
                         if title and title not in seen_titles:
                             seen_titles.add(title)
+                            
+                            # Get thumbnail URL from either structure
+                            thumbnail_url = None
+                            if content.get('thumbnail'):
+                                resolutions = content.get('thumbnail', {}).get('resolutions', [])
+                                if resolutions:
+                                    # Prefer smaller resolution for faster loading
+                                    thumbnail_url = resolutions[-1].get('url') if len(resolutions) > 1 else resolutions[0].get('url')
+                            elif item.get('thumbnail'):
+                                resolutions = item.get('thumbnail', {}).get('resolutions', [])
+                                if resolutions:
+                                    thumbnail_url = resolutions[0].get('url')
+                            
+                            # Get link from either structure
+                            link = ''
+                            if content.get('canonicalUrl'):
+                                link = content.get('canonicalUrl', {}).get('url', '')
+                            elif content.get('clickThroughUrl'):
+                                link = content.get('clickThroughUrl', {}).get('url', '')
+                            else:
+                                link = item.get('link', '')
+                            
+                            # Get publisher from either structure
+                            publisher = 'Unknown'
+                            if content.get('provider'):
+                                publisher = content.get('provider', {}).get('displayName', 'Unknown')
+                            else:
+                                publisher = item.get('publisher', 'Unknown')
+                            
+                            # Get publish time - try multiple fields
+                            pub_time = 0
+                            if content.get('pubDate'):
+                                try:
+                                    from dateutil import parser
+                                    pub_time = int(parser.parse(content.get('pubDate')).timestamp())
+                                except:
+                                    pub_time = item.get('providerPublishTime', 0)
+                            else:
+                                pub_time = item.get('providerPublishTime', 0)
+                            
                             all_news.append({
                                 "title": title,
-                                "publisher": item.get('publisher', 'Unknown'),
-                                "link": item.get('link', ''),
-                                "publishedAt": item.get('providerPublishTime', 0),
+                                "publisher": publisher,
+                                "link": link,
+                                "publishedAt": pub_time,
                                 "relatedSymbol": symbol,
-                                "thumbnail": item.get('thumbnail', {}).get('resolutions', [{}])[0].get('url') if item.get('thumbnail') else None
+                                "thumbnail": thumbnail_url
                             })
             except Exception as e:
                 print(f"Error fetching news for {symbol}: {e}")
