@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
-import { useLocation } from "wouter";
+
+interface OnboardingProps {
+  onComplete: () => void;
+}
 
 const cards = [
   {
@@ -47,21 +50,28 @@ const cards = [
   }
 ];
 
-export default function Onboarding() {
+export default function Onboarding({ onComplete }: OnboardingProps) {
   const [current, setCurrent] = useState(0);
-  const [, setLocation] = useLocation();
+  const [isExiting, setIsExiting] = useState(false);
 
   const handleNext = () => {
     if (current === cards.length - 1) {
-      localStorage.setItem("onboarding_complete", "true");
-      setLocation("/");
+      setIsExiting(true);
+      setTimeout(() => {
+        onComplete();
+      }, 300);
     } else {
       setCurrent(c => c + 1);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-6 overflow-hidden">
+    <motion.div 
+      className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-6 overflow-hidden"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: isExiting ? 0 : 1 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Background patterns */}
       <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary rounded-full blur-[100px]" />
@@ -116,6 +126,7 @@ export default function Onboarding() {
               <Button 
                 className={`flex-1 rounded-2xl h-14 text-lg font-bold ${current === cards.length - 1 ? "bg-primary hover:bg-primary/90" : ""}`}
                 onClick={handleNext}
+                data-testid={current === cards.length - 1 ? "button-start-journey" : "button-next"}
               >
                 {current === cards.length - 1 ? "Start Journey" : "Next"}
                 {current < cards.length - 1 && <ChevronRight className="ml-2 w-5 h-5" />}
@@ -124,6 +135,6 @@ export default function Onboarding() {
           </div>
         </div>
       </Card>
-    </div>
+    </motion.div>
   );
 }

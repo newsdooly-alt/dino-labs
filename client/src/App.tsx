@@ -43,9 +43,14 @@ function Layout({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const handleOnboardingComplete = () => {
+    localStorage.setItem("onboarding_complete", "true");
+    setShowOnboarding(false);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
-      {showOnboarding && <Onboarding />}
+      {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
       <Sidebar />
       <div className="md:pl-64 flex flex-col min-h-screen">
         <Header />
