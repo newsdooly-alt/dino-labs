@@ -7,6 +7,7 @@ US Stock Hero is a gamified stock market education platform that teaches users a
 The core experience centers around:
 - Daily AI-generated quests covering financial terms, chart patterns, and market news
 - Real-time stock quotes and watchlist management via yfinance Python library (no API key required)
+- Stock Detail Page with interactive charts, key stats, and Dino's educational insights
 - Gamification elements (XP, levels, streaks, hearts/lives)
 - Multi-language support (English and Korean)
 
