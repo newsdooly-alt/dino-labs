@@ -34,10 +34,10 @@ export function Header() {
 
           <button
             onClick={() => setIsMenuOpen(true)}
-            className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border overflow-hidden hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+            className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden hover:ring-2 hover:ring-primary transition-all cursor-pointer"
             data-testid="button-profile"
           >
-            <span className="text-lg">🦖</span>
+            <UserIcon className="w-5 h-5 text-primary" />
           </button>
         </div>
       </header>

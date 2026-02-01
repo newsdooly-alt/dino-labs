@@ -18,6 +18,7 @@ import {
   ChevronRight,
   X,
   Egg,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,18 +32,20 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
   const { data: user } = useUser();
   const updateLanguage = useUpdateLanguage();
   const [, navigate] = useLocation();
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light";
+    }
+    return "dark";
+  });
 
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle("dark", savedTheme === "dark");
-    }
-  }, []);
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "dark" : "light");
+  }, [isOpen]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -103,7 +106,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
             <div className="p-4 bg-primary/10 border-b border-border">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/30">
-                  <span className="text-2xl">🦖</span>
+                  <User className="w-7 h-7 text-primary" />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg">
@@ -259,8 +262,8 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
             <div className="p-4">
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
-                data-testid="button-logout"
+                className="w-full justify-start gap-3 text-destructive"
+                data-testid="button-menu-logout"
               >
                 <LogOut className="w-5 h-5" />
                 {t.logout}
