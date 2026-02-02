@@ -595,6 +595,9 @@ export async function registerRoutes(
     try {
       const info = await getStockInfo(symbol);
       
+      // Always include descriptionKo field for consistent API response
+      info.descriptionKo = null;
+      
       // Translate description to Korean if requested and description exists
       if (lang === "ko" && info.description) {
         try {
@@ -606,10 +609,9 @@ export async function registerRoutes(
             ],
             max_tokens: 500,
           });
-          info.descriptionKo = translationResponse.choices[0]?.message?.content || info.description;
+          info.descriptionKo = translationResponse.choices[0]?.message?.content || null;
         } catch (err) {
           console.error("Translation error:", err);
-          info.descriptionKo = null;
         }
       }
       

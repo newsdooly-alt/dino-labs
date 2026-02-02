@@ -242,11 +242,11 @@ export default function StockDetail() {
     staleTime: 300000,
   });
 
-  const { data: stockNews } = useQuery<StockNewsResponse>({
-    queryKey: ["/api/stocks/news", symbol, lang],
+  const { data: stockNews, isLoading: isNewsLoading } = useQuery<StockNewsResponse>({
+    queryKey: [`/api/stocks/news/${symbol}`, lang],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/news/${symbol}?lang=${lang}`);
-      if (!res.ok) throw new Error("Failed to fetch news");
+      if (!res.ok) return { news: [], symbol };
       return res.json();
     },
     enabled: !!symbol,
@@ -537,16 +537,22 @@ export default function StockDetail() {
         </CardContent>
       </Card>
 
-      {stockNews && stockNews.news.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Newspaper className="w-5 h-5 text-primary" />
-              {lang === "en" ? `${symbol} News` : `${symbol} 뉴스`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {stockNews.news.slice(0, 5).map((item, idx) => (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Newspaper className="w-5 h-5 text-primary" />
+            {lang === "en" ? `${symbol} News` : `${symbol} 뉴스`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isNewsLoading ? (
+            <div className="animate-pulse space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-16 bg-muted rounded-lg" />
+              ))}
+            </div>
+          ) : stockNews && stockNews.news.length > 0 ? (
+            stockNews.news.slice(0, 5).map((item, idx) => (
               <a 
                 key={idx}
                 href={item.link}
@@ -581,10 +587,14 @@ export default function StockDetail() {
                   </div>
                 </div>
               </a>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {lang === "en" ? "No recent news available" : "최근 뉴스가 없습니다"}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {info?.description && (
         <Card>
