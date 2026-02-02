@@ -83,11 +83,17 @@ export default function Watchlist() {
   
   // Remove from watchlist mutation
   const removeMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/watchlist/${id}`, {});
+    mutationFn: async (symbol: string) => {
+      return apiRequest("DELETE", `/api/watchlist/${symbol}?userId=1`, {});
     },
-    onSuccess: () => {
+    onSuccess: (_data, removedSymbol) => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: lang === "ko" 
+          ? `${removedSymbol}을(를) 삭제했어요! 🦖` 
+          : `Removed ${removedSymbol} from your list! 🦖`,
+        duration: 2000,
+      });
     },
   });
 
@@ -207,7 +213,7 @@ export default function Watchlist() {
                 <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
                   <span className="font-bold">{item.symbol}</span>
                   <button
-                    onClick={() => removeMutation.mutate(item.id)}
+                    onClick={() => removeMutation.mutate(item.symbol)}
                     disabled={removeMutation.isPending}
                     className="text-xs text-destructive hover:text-destructive/80 font-medium"
                     data-testid={`button-remove-${item.symbol}`}

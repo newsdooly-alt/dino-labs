@@ -13,8 +13,23 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 import { queryClient } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+
+function getNickname(fallback: string): string {
+  try {
+    const saved = localStorage.getItem("dinolingo_settings");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.nickname && parsed.nickname.trim()) {
+        return parsed.nickname;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to parse settings:", e);
+  }
+  return fallback;
+}
 
 export default function Dashboard() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -22,6 +37,27 @@ export default function Dashboard() {
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  
+  useEffect(() => {
+    const updateDisplayName = () => {
+      setDisplayName(getNickname(user?.username || "Guest"));
+    };
+    updateDisplayName();
+    
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "dinolingo_settings") {
+        updateDisplayName();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    
+    const interval = setInterval(updateDisplayName, 1000);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [user?.username]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -60,8 +96,8 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-                {t.welcome_back}, {user?.username}!
+              <h1 className="text-4xl md:text-5xl font-display font-bold mb-4" data-testid="text-welcome-name">
+                {t.welcome_back}, {displayName}!
               </h1>
               <p className="text-lg md:text-xl text-emerald-100 mb-8 max-w-lg leading-relaxed">
                 {t.market_moving}
