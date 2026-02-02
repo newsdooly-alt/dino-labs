@@ -167,8 +167,8 @@ export default function Settings() {
         <div className="w-16 h-16 mx-auto mb-4 bg-green-600/10 rounded-2xl flex items-center justify-center">
           <SettingsIcon className="w-8 h-8 text-green-600" />
         </div>
-        <h1 className="text-3xl font-display font-bold">{t.settings_title}</h1>
-        <p className="text-muted-foreground mt-2">{t.settings_subtitle}</p>
+        <h1 className="text-3xl font-display font-bold" data-testid="text-settings-title">{t.settings_title}</h1>
+        <p className="text-muted-foreground mt-2" data-testid="text-settings-subtitle">{t.settings_subtitle}</p>
       </motion.div>
 
       <motion.section
@@ -177,13 +177,13 @@ export default function Settings() {
         transition={{ delay: 0.1 }}
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3">
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-profile-avatar">
           <User className="w-5 h-5 text-green-600" />
           <h2 className="font-semibold">{t.profile_avatar}</h2>
         </div>
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="nickname" className="text-sm font-medium">{t.nickname}</Label>
+            <Label htmlFor="nickname" className="text-sm font-medium" data-testid="label-nickname">{t.nickname}</Label>
             <Input
               id="nickname"
               value={settings.nickname}
@@ -194,26 +194,22 @@ export default function Settings() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-medium">{t.dino_color}</Label>
+            <Label className="text-sm font-medium" data-testid="label-dino-color">{t.dino_color}</Label>
             <div className="flex gap-3">
               {DINO_COLORS.map((color) => (
-                <button
+                <Button
                   key={color.value}
+                  variant={settings.dinoColor === color.value ? "default" : "outline"}
                   onClick={() => updateSetting("dinoColor", color.value)}
-                  className={cn(
-                    "flex-1 py-3 px-4 rounded-xl border-2 transition-all flex items-center justify-center gap-2",
-                    settings.dinoColor === color.value
-                      ? "border-green-600 bg-green-600/10"
-                      : "border-border hover:border-muted-foreground/30"
-                  )}
+                  className="flex-1 h-12 gap-2"
                   data-testid={`button-color-${color.value}`}
                 >
                   <span className={cn("w-5 h-5 rounded-full", color.colorClass)} />
                   <span className="text-sm font-medium">{colorLabel(color.value)}</span>
                   {settings.dinoColor === color.value && (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4" />
                   )}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -226,7 +222,7 @@ export default function Settings() {
         transition={{ delay: 0.15 }}
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3">
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-app-preferences">
           <Palette className="w-5 h-5 text-green-600" />
           <h2 className="font-semibold">{t.app_preferences}</h2>
         </div>
@@ -239,8 +235,8 @@ export default function Settings() {
                 <Sun className="w-5 h-5 text-muted-foreground" />
               )}
               <div>
-                <p className="font-medium">{t.theme}</p>
-                <p className="text-sm text-muted-foreground">{theme === "dark" ? t.dark : t.light}</p>
+                <p className="font-medium" data-testid="label-theme">{t.theme}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-theme-value">{theme === "dark" ? t.dark : t.light}</p>
               </div>
             </div>
             <Switch
@@ -253,8 +249,8 @@ export default function Settings() {
             <div className="flex items-center gap-3">
               <Globe className="w-5 h-5 text-muted-foreground" />
               <div>
-                <p className="font-medium">{t.language}</p>
-                <p className="text-sm text-muted-foreground">{user?.language === "ko" ? "한국어" : "English"}</p>
+                <p className="font-medium" data-testid="label-language">{t.language}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-language-value">{user?.language === "ko" ? "한국어" : "English"}</p>
               </div>
             </div>
             <div className="flex gap-1">
@@ -287,7 +283,7 @@ export default function Settings() {
         transition={{ delay: 0.2 }}
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3">
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-stock-data">
           <RefreshCw className="w-5 h-5 text-green-600" />
           <h2 className="font-semibold">{t.stock_data_management}</h2>
         </div>
@@ -295,7 +291,7 @@ export default function Settings() {
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <RefreshCw className="w-5 h-5 text-muted-foreground" />
-              <p className="font-medium">{t.refresh_interval}</p>
+              <p className="font-medium" data-testid="label-refresh-interval">{t.refresh_interval}</p>
             </div>
             <Select
               value={settings.refreshInterval}
@@ -315,8 +311,8 @@ export default function Settings() {
             <div className="flex items-center gap-3">
               <DollarSign className="w-5 h-5 text-muted-foreground" />
               <div>
-                <p className="font-medium">{t.currency}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-medium" data-testid="label-currency">{t.currency}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-exchange-rate">
                   {settings.currency === "usd" ? "1 USD = ₩1,350" : "₩1,350 = 1 USD"}
                 </p>
               </div>
@@ -351,7 +347,7 @@ export default function Settings() {
         transition={{ delay: 0.25 }}
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3">
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-learning-notifications">
           <Target className="w-5 h-5 text-green-600" />
           <h2 className="font-semibold">{t.learning_notifications}</h2>
         </div>
@@ -360,9 +356,9 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Target className="w-5 h-5 text-muted-foreground" />
-                <p className="font-medium">{t.daily_goal}</p>
+                <p className="font-medium" data-testid="label-daily-goal">{t.daily_goal}</p>
               </div>
-              <span className="text-lg font-bold text-green-600">{settings.dailyGoal} XP</span>
+              <span className="text-lg font-bold text-green-600" data-testid="text-daily-goal">{settings.dailyGoal} XP</span>
             </div>
             <Slider
               value={[settings.dailyGoal]}
@@ -383,8 +379,8 @@ export default function Settings() {
             <div className="flex items-center gap-3">
               <Bell className="w-5 h-5 text-muted-foreground" />
               <div>
-                <p className="font-medium">{t.market_alerts}</p>
-                <p className="text-sm text-muted-foreground">{t.market_open} / {t.market_closed}</p>
+                <p className="font-medium" data-testid="label-market-alerts">{t.market_alerts}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-market-alerts-desc">{t.market_open} / {t.market_closed}</p>
               </div>
             </div>
             <Switch
@@ -402,31 +398,32 @@ export default function Settings() {
         transition={{ delay: 0.3 }}
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3">
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-account">
           <User className="w-5 h-5 text-green-600" />
           <h2 className="font-semibold">{t.account_actions}</h2>
         </div>
         <div className="divide-y divide-border">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <button
-                className="w-full p-4 flex items-center justify-between text-left hover-elevate transition-colors"
+              <Button
+                variant="ghost"
+                className="w-full h-auto p-4 flex items-center justify-between text-left"
                 data-testid="button-reset-data"
               >
                 <div className="flex items-center gap-3">
                   <Trash2 className="w-5 h-5 text-red-500" />
                   <div>
-                    <p className="font-medium text-red-500">{t.reset_data}</p>
-                    <p className="text-sm text-muted-foreground">{t.reset_data_desc}</p>
+                    <p className="font-medium text-red-500" data-testid="text-reset-title">{t.reset_data}</p>
+                    <p className="text-sm text-muted-foreground" data-testid="text-reset-desc">{t.reset_data_desc}</p>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
-              </button>
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{t.reset_confirm_title}</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogTitle data-testid="text-confirm-title">{t.reset_confirm_title}</AlertDialogTitle>
+                <AlertDialogDescription data-testid="text-confirm-message">
                   {t.reset_confirm_message}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -434,7 +431,7 @@ export default function Settings() {
                 <AlertDialogCancel data-testid="button-reset-cancel">{t.reset_confirm_no}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleResetData}
-                  className="bg-red-500 hover:bg-red-600 text-white"
+                  className="bg-destructive text-destructive-foreground"
                   data-testid="button-reset-confirm"
                 >
                   {t.reset_confirm_yes}
@@ -442,17 +439,18 @@ export default function Settings() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <button
+          <Button
+            variant="ghost"
             onClick={handleLogout}
-            className="w-full p-4 flex items-center justify-between text-left hover-elevate transition-colors"
+            className="w-full h-auto p-4 flex items-center justify-between text-left"
             data-testid="button-logout"
           >
             <div className="flex items-center gap-3">
               <LogOut className="w-5 h-5 text-muted-foreground" />
-              <p className="font-medium">{t.logout}</p>
+              <p className="font-medium" data-testid="text-logout">{t.logout}</p>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
+          </Button>
         </div>
       </motion.section>
 
@@ -465,7 +463,7 @@ export default function Settings() {
           <div className="max-w-3xl mx-auto">
             <Button
               onClick={saveSettings}
-              className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold"
+              className="w-full h-12 font-semibold"
               data-testid="button-save-settings"
             >
               <Check className="w-5 h-5 mr-2" />
