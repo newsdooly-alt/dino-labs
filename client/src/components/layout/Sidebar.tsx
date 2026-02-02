@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/hooks/use-auth";
 import { LayoutDashboard, Target, LineChart, Award, Settings, LogOut, TrendingUp, Egg, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -7,6 +8,7 @@ import { translations } from "@/lib/translations";
 export function Sidebar() {
   const [location] = useLocation();
   const { data: user } = useUser();
+  const { logout, isLoggingOut } = useAuth();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
 
@@ -58,9 +60,14 @@ export function Sidebar() {
             <Settings className="w-5 h-5" />
             {t.settings}
          </Link>
-         <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors font-medium cursor-not-allowed opacity-50" data-testid="button-logout">
+         <button 
+           onClick={() => { localStorage.clear(); logout(); }}
+           disabled={isLoggingOut}
+           className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors font-medium disabled:opacity-50" 
+           data-testid="button-logout"
+         >
             <LogOut className="w-5 h-5" />
-            {t.logout}
+            {isLoggingOut ? "..." : t.logout}
          </button>
       </div>
     </aside>

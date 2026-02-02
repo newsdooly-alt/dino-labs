@@ -1,4 +1,5 @@
 import { useUser, useUpdateLanguage } from "@/hooks/use-user";
+import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { translations } from "@/lib/translations";
@@ -27,6 +28,7 @@ interface UserMenuProps {
 
 export function UserMenu({ isOpen, onClose }: UserMenuProps) {
   const { data: user } = useUser();
+  const { logout, isLoggingOut } = useAuth();
   const updateLanguage = useUpdateLanguage();
   const [, navigate] = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -244,9 +246,11 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                 variant="ghost"
                 className="w-full justify-start gap-3 text-destructive"
                 data-testid="button-menu-logout"
+                disabled={isLoggingOut}
+                onClick={() => { localStorage.clear(); logout(); }}
               >
                 <LogOut className="w-5 h-5" />
-                {t.logout}
+                {isLoggingOut ? "..." : t.logout}
               </Button>
             </div>
           </motion.div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useUser, useUpdateLanguage } from "@/hooks/use-user";
+import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { translations } from "@/lib/translations";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +78,7 @@ const DINO_COLORS: { value: DinoColor; colorClass: string }[] = [
 
 export default function Settings() {
   const { data: user } = useUser();
+  const { logout } = useAuth();
   const updateLanguage = useUpdateLanguage();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -98,10 +100,10 @@ export default function Settings() {
         console.error("Failed to parse settings:", e);
       }
     }
-    if (user?.username) {
-      setSettings(prev => ({ ...prev, nickname: prev.nickname || user.username }));
+    if (user?.nickname) {
+      setSettings(prev => ({ ...prev, nickname: prev.nickname || user.nickname || "" }));
     }
-  }, [user?.username]);
+  }, [user?.nickname]);
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -145,8 +147,7 @@ export default function Settings() {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate("/");
-    window.location.reload();
+    logout();
   };
 
   const colorLabel = (color: DinoColor) => {
