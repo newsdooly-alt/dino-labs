@@ -113,6 +113,12 @@ export const translations = {
     market_closed: "Market Closed",
     last_updated: "Last updated",
     dino_market_closed_message: "Market is closed! Showing the last closing price.",
+    mobile_menu_dashboard: "Dashboard",
+    mobile_menu_quests: "Daily Quests",
+    mobile_menu_trends: "Market Trends",
+    mobile_menu_watchlist: "Watchlist",
+    mobile_menu_profile: "My Profile",
+    close_menu: "Close menu",
   },
   ko: {
     dashboard: "대시보드",
@@ -228,6 +234,12 @@ export const translations = {
     market_closed: "장 마감",
     last_updated: "마지막 업데이트",
     dino_market_closed_message: "장이 마감되었어요! 마지막 종가를 보여드립니다.",
+    mobile_menu_dashboard: "메인 대시보드",
+    mobile_menu_quests: "데일리 퀘스트",
+    mobile_menu_trends: "시장 동향",
+    mobile_menu_watchlist: "관심 종목",
+    mobile_menu_profile: "마이페이지",
+    close_menu: "메뉴 닫기",
   }
 };
 
