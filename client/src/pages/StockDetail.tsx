@@ -15,7 +15,9 @@ import {
   Calendar,
   AlertCircle,
   RefreshCw,
-  Lightbulb
+  Lightbulb,
+  Newspaper,
+  ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -51,6 +53,7 @@ interface StockInfo {
   sector: string | null;
   industry: string | null;
   description: string | null;
+  descriptionKo?: string | null;
   website: string | null;
   marketCap: number | null;
   peRatio: number | null;
@@ -61,6 +64,21 @@ interface StockInfo {
   "52WeekLow": number | null;
   avgVolume: number | null;
   beta: number | null;
+}
+
+interface NewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: number;
+  relatedSymbol: string;
+  thumbnail: string | null;
+  koreanSummary?: string | null;
+}
+
+interface StockNewsResponse {
+  news: NewsItem[];
+  symbol: string;
 }
 
 interface HistoryData {
@@ -214,14 +232,25 @@ export default function StockDetail() {
   });
 
   const { data: info, isLoading: isInfoLoading } = useQuery<StockInfo>({
-    queryKey: ["/api/stocks/info", symbol],
+    queryKey: ["/api/stocks/info", symbol, lang],
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/info/${symbol}`);
+      const res = await fetch(`/api/stocks/info/${symbol}?lang=${lang}`);
       if (!res.ok) throw new Error("Failed to fetch info");
       return res.json();
     },
     enabled: !!symbol,
     staleTime: 300000,
+  });
+
+  const { data: stockNews } = useQuery<StockNewsResponse>({
+    queryKey: ["/api/stocks/news", symbol, lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/stocks/news/${symbol}?lang=${lang}`);
+      if (!res.ok) throw new Error("Failed to fetch news");
+      return res.json();
+    },
+    enabled: !!symbol,
+    staleTime: 120000,
   });
 
   const periodConfig = periodOptions.find(p => p.key === selectedPeriod) || periodOptions[2];
@@ -508,6 +537,55 @@ export default function StockDetail() {
         </CardContent>
       </Card>
 
+      {stockNews && stockNews.news.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Newspaper className="w-5 h-5 text-primary" />
+              {lang === "en" ? `${symbol} News` : `${symbol} 뉴스`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {stockNews.news.slice(0, 5).map((item, idx) => (
+              <a 
+                key={idx}
+                href={item.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                data-testid={`news-item-${idx}`}
+              >
+                <div className="flex items-start gap-3">
+                  {item.thumbnail && (
+                    <img 
+                      src={item.thumbnail} 
+                      alt="" 
+                      className="w-16 h-12 object-cover rounded flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium line-clamp-2 mb-1">
+                      {lang === "ko" && item.koreanSummary ? item.koreanSummary : item.title}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{item.publisher}</span>
+                      <span>•</span>
+                      <span>
+                        {new Date(item.publishedAt * 1000).toLocaleDateString(
+                          lang === "ko" ? "ko-KR" : "en-US",
+                          { month: "short", day: "numeric" }
+                        )}
+                      </span>
+                      <ExternalLink className="w-3 h-3" />
+                    </div>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {info?.description && (
         <Card>
           <CardHeader>
@@ -525,9 +603,9 @@ export default function StockDetail() {
               </div>
             )}
             <p className="text-sm leading-relaxed">
-              {info.description.length > 500 
-                ? info.description.substring(0, 500) + "..." 
-                : info.description}
+              {lang === "ko" && info.descriptionKo
+                ? (info.descriptionKo.length > 500 ? info.descriptionKo.substring(0, 500) + "..." : info.descriptionKo)
+                : (info.description.length > 500 ? info.description.substring(0, 500) + "..." : info.description)}
             </p>
             {info.website && (
               <a 

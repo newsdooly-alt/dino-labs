@@ -16,7 +16,12 @@ export function MarketMood() {
   const t = translations[lang];
 
   const { data, isLoading } = useQuery<MarketMoodData>({
-    queryKey: ["/api/market/mood"],
+    queryKey: ["/api/market/mood", lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/market/mood?lang=${lang}`);
+      if (!res.ok) throw new Error("Failed to fetch market mood");
+      return res.json();
+    },
     staleTime: 1000 * 60 * 5, // 5 min cache
   });
 

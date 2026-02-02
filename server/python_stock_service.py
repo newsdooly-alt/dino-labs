@@ -485,6 +485,74 @@ def get_market_news():
         return jsonify({"error": str(e), "news": []}), 500
 
 
+@app.route('/news/<symbol>', methods=['GET'])
+def get_stock_news(symbol):
+    """Get news for a specific stock."""
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        news = ticker.news
+        
+        if not news:
+            return jsonify({"news": [], "count": 0, "symbol": symbol.upper()})
+        
+        stock_news = []
+        for item in news[:5]:
+            content = item.get('content', item)
+            title = content.get('title', item.get('title', ''))
+            
+            if title:
+                thumbnail_url = None
+                if content.get('thumbnail'):
+                    resolutions = content.get('thumbnail', {}).get('resolutions', [])
+                    if resolutions:
+                        thumbnail_url = resolutions[-1].get('url') if len(resolutions) > 1 else resolutions[0].get('url')
+                elif item.get('thumbnail'):
+                    resolutions = item.get('thumbnail', {}).get('resolutions', [])
+                    if resolutions:
+                        thumbnail_url = resolutions[0].get('url')
+                
+                link = ''
+                if content.get('canonicalUrl'):
+                    link = content.get('canonicalUrl', {}).get('url', '')
+                elif content.get('clickThroughUrl'):
+                    link = content.get('clickThroughUrl', {}).get('url', '')
+                else:
+                    link = item.get('link', '')
+                
+                publisher = 'Unknown'
+                if content.get('provider'):
+                    publisher = content.get('provider', {}).get('displayName', 'Unknown')
+                else:
+                    publisher = item.get('publisher', 'Unknown')
+                
+                pub_time = 0
+                if content.get('pubDate'):
+                    try:
+                        from dateutil import parser
+                        pub_time = int(parser.parse(content.get('pubDate')).timestamp())
+                    except:
+                        pub_time = item.get('providerPublishTime', 0)
+                else:
+                    pub_time = item.get('providerPublishTime', 0)
+                
+                stock_news.append({
+                    "title": title,
+                    "publisher": publisher,
+                    "link": link,
+                    "publishedAt": pub_time,
+                    "relatedSymbol": symbol.upper(),
+                    "thumbnail": thumbnail_url
+                })
+        
+        return jsonify({
+            "news": stock_news,
+            "count": len(stock_news),
+            "symbol": symbol.upper()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "news": [], "symbol": symbol}), 500
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     # Bind to localhost only for security (Node.js proxies requests)

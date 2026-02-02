@@ -12,7 +12,7 @@ const openai = new OpenAI({
 });
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo, getMarketNews } from "./stockService";
+import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -339,13 +339,36 @@ export async function registerRoutes(
   });
 
   // === Market Mood (Fear & Greed) ===
-  let cachedMood: { index: number; label: string; dinoAdvice: string; timestamp: number } | null = null;
+  interface MoodCache {
+    index: number;
+    labelEn: string;
+    labelKo: string;
+    dinoAdviceEn: string;
+    dinoAdviceKo: string;
+    timestamp: number;
+  }
+  let cachedMood: MoodCache | null = null;
   const MOOD_CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
 
+  const labelTranslations: Record<string, string> = {
+    "Extreme Fear": "극심한 공포",
+    "Fear": "공포",
+    "Neutral": "중립",
+    "Greed": "탐욕",
+    "Extreme Greed": "극심한 탐욕"
+  };
+
   app.get("/api/market/mood", async (req, res) => {
+    const lang = (req.query.lang as string) || "en";
+    const isKorean = lang === "ko";
+
     // Check cache first
     if (cachedMood && Date.now() - cachedMood.timestamp < MOOD_CACHE_DURATION) {
-      return res.json({ index: cachedMood.index, label: cachedMood.label, dinoAdvice: cachedMood.dinoAdvice });
+      return res.json({ 
+        index: cachedMood.index, 
+        label: isKorean ? cachedMood.labelKo : cachedMood.labelEn, 
+        dinoAdvice: isKorean ? cachedMood.dinoAdviceKo : cachedMood.dinoAdviceEn 
+      });
     }
 
     try {
@@ -355,24 +378,49 @@ export async function registerRoutes(
       const fngValue = parseInt(data.data?.[0]?.value || "50");
       const fngClassification = data.data?.[0]?.value_classification || "Neutral";
 
-      let dinoAdvice = "Stay calm and invest wisely!";
+      let dinoAdviceEn = "Stay calm and invest wisely!";
+      let dinoAdviceKo = "침착하게 현명하게 투자하세요!";
+      
       if (fngValue <= 25) {
-        dinoAdvice = "It's a scary market, but Dino sees opportunity! Stay calm and look for bargains.";
+        dinoAdviceEn = "It's a scary market, but Dino sees opportunity! Stay calm and look for bargains.";
+        dinoAdviceKo = "무서운 시장이지만, 디노는 기회를 봐요! 침착하게 저가 매수 기회를 찾아보세요.";
       } else if (fngValue <= 45) {
-        dinoAdvice = "Humans are nervous today. Maybe a good time to nibble on quality stocks!";
+        dinoAdviceEn = "Humans are nervous today. Maybe a good time to nibble on quality stocks!";
+        dinoAdviceKo = "오늘 사람들이 불안해하고 있어요. 우량주를 조금씩 매수할 좋은 타이밍일 수도 있어요!";
       } else if (fngValue <= 55) {
-        dinoAdvice = "The market is balanced. Keep learning and stick to your strategy!";
+        dinoAdviceEn = "The market is balanced. Keep learning and stick to your strategy!";
+        dinoAdviceKo = "시장이 균형을 이루고 있어요. 계속 공부하고 전략을 유지하세요!";
       } else if (fngValue <= 75) {
-        dinoAdvice = "Be careful, humans are getting greedy! Don't chase prices too high.";
+        dinoAdviceEn = "Be careful, humans are getting greedy! Don't chase prices too high.";
+        dinoAdviceKo = "조심하세요, 사람들이 탐욕스러워지고 있어요! 추격 매수에 주의하세요!";
       } else {
-        dinoAdvice = "Whoa! Everyone's too greedy today. Dino says be extra cautious!";
+        dinoAdviceEn = "Whoa! Everyone's too greedy today. Dino says be extra cautious!";
+        dinoAdviceKo = "와! 모두가 너무 탐욕스러운 상태예요. 디노는 특히 조심하라고 해요!";
       }
 
-      cachedMood = { index: fngValue, label: fngClassification, dinoAdvice, timestamp: Date.now() };
-      res.json({ index: fngValue, label: fngClassification, dinoAdvice });
+      const labelKo = labelTranslations[fngClassification] || "중립";
+
+      cachedMood = { 
+        index: fngValue, 
+        labelEn: fngClassification, 
+        labelKo,
+        dinoAdviceEn, 
+        dinoAdviceKo, 
+        timestamp: Date.now() 
+      };
+      
+      res.json({ 
+        index: fngValue, 
+        label: isKorean ? labelKo : fngClassification, 
+        dinoAdvice: isKorean ? dinoAdviceKo : dinoAdviceEn 
+      });
     } catch (err) {
       // Fallback to reasonable default if API fails
-      res.json({ index: 50, label: "Neutral", dinoAdvice: "Stay calm and invest wisely!" });
+      res.json({ 
+        index: 50, 
+        label: isKorean ? "중립" : "Neutral", 
+        dinoAdvice: isKorean ? "침착하게 현명하게 투자하세요!" : "Stay calm and invest wisely!" 
+      });
     }
   });
 
@@ -542,9 +590,29 @@ export async function registerRoutes(
   // === Stock Info (detailed company information) ===
   app.get("/api/stocks/info/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
+    const lang = (req.query.lang as string) || "en";
     
     try {
       const info = await getStockInfo(symbol);
+      
+      // Translate description to Korean if requested and description exists
+      if (lang === "ko" && info.description) {
+        try {
+          const translationResponse = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a Korean translator. Translate the company description to natural, easy-to-understand Korean. Keep it concise but informative." },
+              { role: "user", content: `Translate this company description to Korean:\n\n${info.description}` }
+            ],
+            max_tokens: 500,
+          });
+          info.descriptionKo = translationResponse.choices[0]?.message?.content || info.description;
+        } catch (err) {
+          console.error("Translation error:", err);
+          info.descriptionKo = null;
+        }
+      }
+      
       res.json(info);
     } catch (error: any) {
       console.error("Info error:", error.message);
@@ -552,6 +620,46 @@ export async function registerRoutes(
         message: "Failed to fetch stock info",
         dinoMessage: "Dino couldn't load the company info. Try again later!"
       });
+    }
+  });
+
+  // Stock-specific news
+  app.get("/api/stocks/news/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    const lang = (req.query.lang as string) || "en";
+    
+    try {
+      const news = await getStockNews(symbol);
+      
+      // Add Korean summaries if requested
+      if (lang === "ko" && news.length > 0) {
+        const newsWithSummaries = await Promise.all(
+          news.slice(0, 5).map(async (item) => {
+            try {
+              const summaryResponse = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                  { role: "system", content: "You are a Korean financial news summarizer. Create a 1-sentence Korean summary of the news headline. Be concise and natural." },
+                  { role: "user", content: `Summarize this news headline in Korean (1 sentence):\n\n${item.title}` }
+                ],
+                max_tokens: 100,
+              });
+              return {
+                ...item,
+                koreanSummary: summaryResponse.choices[0]?.message?.content || item.title
+              };
+            } catch (err) {
+              return { ...item, koreanSummary: null };
+            }
+          })
+        );
+        return res.json({ news: newsWithSummaries, symbol });
+      }
+      
+      res.json({ news, symbol });
+    } catch (error: any) {
+      console.error("Stock news error:", error.message);
+      res.json({ news: [], symbol });
     }
   });
 

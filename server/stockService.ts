@@ -314,5 +314,27 @@ export async function getMarketNews(): Promise<NewsItem[]> {
   }
 }
 
+// Get news for a specific stock
+export async function getStockNews(symbol: string): Promise<NewsItem[]> {
+  const upperSymbol = symbol.toUpperCase();
+  
+  try {
+    const response = await fetch(
+      `${PYTHON_SERVICE_URL}/news/${upperSymbol}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.news || [];
+  } catch (error: any) {
+    console.error(`[yfinance] Stock news error for ${upperSymbol}:`, error.message);
+    return [];
+  }
+}
+
 // Export service status check
 export { checkPythonService };
