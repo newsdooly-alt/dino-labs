@@ -1,28 +1,71 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuests } from "@/hooks/use-quests";
 import { useUser } from "@/hooks/use-user";
 import { QuestCard } from "@/components/quests/QuestCard";
 import { PracticeMode } from "@/components/quests/PracticeMode";
 import { DailyNews } from "@/components/quests/DailyNews";
-import { motion } from "framer-motion";
-import { CheckCircle2, Dumbbell, Lightbulb, Newspaper } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle2, Dumbbell, Lightbulb, Newspaper, Egg, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { translations } from "@/lib/translations";
+import { useEggs } from "@/hooks/use-eggs";
+import { useToast } from "@/hooks/use-toast";
+import confetti from "canvas-confetti";
+import { Link } from "wouter";
+
+const EGG_REWARD_KEY = "dinolingo_egg_rewarded_date";
+
+function getTodayDateString(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+function hasReceivedEggToday(): boolean {
+  const storedDate = localStorage.getItem(EGG_REWARD_KEY);
+  return storedDate === getTodayDateString();
+}
+
+function markEggReceivedToday(): void {
+  localStorage.setItem(EGG_REWARD_KEY, getTodayDateString());
+}
 
 export default function Quests() {
   const { data: quests, isLoading } = useQuests();
   const { data: user } = useUser();
   const [showPractice, setShowPractice] = useState(false);
   const [activeTab, setActiveTab] = useState<"quests" | "news">("quests");
+  const [showEggReward, setShowEggReward] = useState(false);
+  
+  const { addEgg } = useEggs();
+  const { toast } = useToast();
   
   const lang = (user?.language || "en") as keyof typeof translations;
-  const t = translations[lang];
+  const t = translations[lang] as Record<string, string>;
   
   const completedCount = quests?.filter(q => q.isCompleted).length || 0;
   const totalCount = quests?.length || 0;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const allCompleted = completedCount === totalCount && totalCount > 0;
+  
+  useEffect(() => {
+    if (allCompleted && !hasReceivedEggToday() && totalCount >= 5) {
+      addEgg("mystery");
+      markEggReceivedToday();
+      setShowEggReward(true);
+      
+      confetti({
+        particleCount: 150,
+        spread: 90,
+        origin: { y: 0.5 },
+        colors: ["#f472b6", "#fbbf24", "#22c55e"],
+      });
+      
+      toast({
+        title: t.egg_reward_earned,
+        description: t.all_quests_egg_hint,
+      });
+    }
+  }, [allCompleted, totalCount, addEgg, toast, t]);
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto min-h-screen">
@@ -90,7 +133,53 @@ export default function Quests() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
           </div>
 
-          {allCompleted && !showPractice && (
+          <AnimatePresence>
+            {showEggReward && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="mb-8"
+              >
+                <Card className="border-pink-500/30 bg-gradient-to-r from-pink-500/10 to-amber-500/10">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-full bg-pink-500/20 flex items-center justify-center flex-shrink-0">
+                        <Gift className="w-7 h-7 text-pink-500" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg text-pink-500 mb-1" data-testid="text-egg-reward-title">
+                          {t.egg_reward_earned}
+                        </h3>
+                        <p className="text-sm text-foreground/80 mb-4">
+                          {lang === "ko" 
+                            ? "모든 일일 퀘스트를 완료하여 미스터리 알을 받았어요! 내 공룡알 페이지에서 확인하세요." 
+                            : "You completed all daily quests and received a Mystery Egg! Check it out in My Eggs."}
+                        </p>
+                        <div className="flex gap-2">
+                          <Link href="/eggs">
+                            <Button className="gap-2" data-testid="button-go-to-eggs">
+                              <Egg className="w-4 h-4" />
+                              {t.my_eggs}
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setShowEggReward(false)}
+                            data-testid="button-dismiss-egg-reward"
+                          >
+                            {lang === "ko" ? "닫기" : "Dismiss"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {allCompleted && !showPractice && !showEggReward && (
             <Card className="mb-8 border-primary/30 bg-primary/5 dark:bg-primary/10">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">

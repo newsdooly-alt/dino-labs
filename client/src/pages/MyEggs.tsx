@@ -264,17 +264,17 @@ export default function MyEggs() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-2 gap-4 mb-8"
       >
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
+        <div className="bg-card border border-border rounded-xl p-4 text-center" data-testid="card-incubating-stats">
           <div className="text-3xl font-bold text-amber-500" data-testid="text-incubating-count">
             {incubatingEggs.length}
           </div>
-          <p className="text-sm text-muted-foreground">{t.egg_incubating}</p>
+          <p className="text-sm text-muted-foreground" data-testid="label-incubating">{t.egg_incubating}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
+        <div className="bg-card border border-border rounded-xl p-4 text-center" data-testid="card-hatched-stats">
           <div className="text-3xl font-bold text-green-500" data-testid="text-hatched-count">
             {totalEggsHatched}
           </div>
-          <p className="text-sm text-muted-foreground">{t.total_eggs_hatched}</p>
+          <p className="text-sm text-muted-foreground" data-testid="label-hatched">{t.total_eggs_hatched}</p>
         </div>
       </motion.div>
 

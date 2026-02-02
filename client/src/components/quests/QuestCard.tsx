@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCompleteQuest } from "@/hooks/use-quests";
 import { translations } from "@/lib/translations";
 import { useUser } from "@/hooks/use-user";
+import { useEggs } from "@/hooks/use-eggs";
 
 interface QuestCardProps {
   quest: Quest;
@@ -19,6 +20,7 @@ export function QuestCard({ quest }: QuestCardProps) {
   
   const completeQuest = useCompleteQuest();
   const { data: user } = useUser();
+  const { addXpToEggs } = useEggs();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
   
@@ -40,6 +42,7 @@ export function QuestCard({ quest }: QuestCardProps) {
               origin: { y: 0.6 },
               colors: ['#22c55e', '#a855f7', '#0ea5e9']
             });
+            addXpToEggs(quest.xpReward);
           }
         }
       }

@@ -119,17 +119,17 @@ export default function Collection() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-2 gap-4 mb-8"
       >
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
+        <div className="bg-card border border-border rounded-xl p-4 text-center" data-testid="card-unlocked-stats">
           <div className="text-3xl font-bold text-purple-500" data-testid="text-unlocked-count">
             {collection.length}
           </div>
-          <p className="text-sm text-muted-foreground">{t.dinos_unlocked}</p>
+          <p className="text-sm text-muted-foreground" data-testid="label-unlocked">{t.dinos_unlocked}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
+        <div className="bg-card border border-border rounded-xl p-4 text-center" data-testid="card-total-hatched">
           <div className="text-3xl font-bold text-green-500" data-testid="text-total-hatched">
             {totalEggsHatched}
           </div>
-          <p className="text-sm text-muted-foreground">{t.total_eggs_hatched}</p>
+          <p className="text-sm text-muted-foreground" data-testid="label-total-hatched">{t.total_eggs_hatched}</p>
         </div>
       </motion.div>
 
