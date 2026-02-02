@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertUserSchema, insertUserStockSchema, insertClubSchema, users, quests, stocks, userStocks, clubs } from './schema';
+import { insertUserProfileSchema, insertUserStockSchema, insertClubSchema, userProfiles, quests, stocks, userStocks, clubs } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -21,23 +21,50 @@ export const errorSchemas = {
 // API CONTRACT
 // ============================================
 export const api = {
-  // User Management
+  // User Profiles
+  profiles: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/profiles/me',
+      responses: {
+        200: z.custom<typeof userProfiles.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    updateStats: {
+        method: 'POST' as const,
+        path: '/api/profiles/stats',
+        input: z.object({ streak: z.number(), xp: z.number(), level: z.number(), hearts: z.number() }),
+        responses: {
+            200: z.custom<typeof userProfiles.$inferSelect>(),
+        }
+    },
+    replenishHearts: {
+      method: 'POST' as const,
+      path: '/api/profiles/hearts/replenish',
+      input: z.object({ amount: z.number() }),
+      responses: {
+        200: z.custom<typeof userProfiles.$inferSelect>(),
+      }
+    },
+    updateLanguage: {
+      method: 'PATCH' as const,
+      path: '/api/profiles/language',
+      input: z.object({ language: z.enum(['en', 'ko']) }),
+      responses: {
+        200: z.custom<typeof userProfiles.$inferSelect>(),
+      }
+    }
+  },
+
+  // Legacy user routes (for compatibility)
   users: {
     get: {
       method: 'GET' as const,
       path: '/api/users/:id',
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.custom<typeof userProfiles.$inferSelect>(),
         404: errorSchemas.notFound,
-      },
-    },
-    create: {
-      method: 'POST' as const,
-      path: '/api/users',
-      input: insertUserSchema,
-      responses: {
-        201: z.custom<typeof users.$inferSelect>(),
-        400: errorSchemas.validation,
       },
     },
     updateStats: {
@@ -45,7 +72,7 @@ export const api = {
         path: '/api/users/:id/stats',
         input: z.object({ streak: z.number(), xp: z.number(), level: z.number(), hearts: z.number() }),
         responses: {
-            200: z.custom<typeof users.$inferSelect>(),
+            200: z.custom<typeof userProfiles.$inferSelect>(),
         }
     },
     replenishHearts: {
@@ -53,7 +80,7 @@ export const api = {
       path: '/api/users/:id/hearts/replenish',
       input: z.object({ amount: z.number() }),
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.custom<typeof userProfiles.$inferSelect>(),
       }
     },
     updateLanguage: {
@@ -61,7 +88,7 @@ export const api = {
       path: '/api/users/:id/language',
       input: z.object({ language: z.enum(['en', 'ko']) }),
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.custom<typeof userProfiles.$inferSelect>(),
       }
     }
   },
@@ -97,7 +124,6 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/quests',
-      input: z.object({ userId: z.coerce.number() }),
       responses: {
         200: z.array(z.custom<typeof quests.$inferSelect>()),
       },
@@ -105,7 +131,7 @@ export const api = {
     complete: {
       method: 'POST' as const,
       path: '/api/quests/:id/complete',
-      input: z.object({ answerIndex: z.number(), userId: z.number() }),
+      input: z.object({ answerIndex: z.number() }),
       responses: {
         200: z.object({
             success: z.boolean(),
@@ -126,15 +152,14 @@ export const api = {
     list: {
       method: 'GET' as const,
       path: '/api/watchlist',
-      input: z.object({ userId: z.coerce.number() }),
       responses: {
-        200: z.array(z.custom<typeof stocks.$inferSelect>()),
+        200: z.array(z.custom<typeof userStocks.$inferSelect>()),
       },
     },
     add: {
       method: 'POST' as const,
       path: '/api/watchlist',
-      input: insertUserStockSchema,
+      input: z.object({ symbol: z.string() }),
       responses: {
         201: z.custom<typeof userStocks.$inferSelect>(),
         400: errorSchemas.validation,
@@ -143,7 +168,6 @@ export const api = {
     remove: {
       method: 'DELETE' as const,
       path: '/api/watchlist/:symbol',
-      input: z.object({ userId: z.coerce.number() }).optional(),
       responses: {
         204: z.void(),
       },
@@ -169,7 +193,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/clubs',
-      input: insertClubSchema.extend({ creatorId: z.number() }),
+      input: insertClubSchema,
       responses: {
         201: z.custom<typeof clubs.$inferSelect>(),
         400: errorSchemas.validation,
@@ -178,7 +202,6 @@ export const api = {
     join: {
       method: 'POST' as const,
       path: '/api/clubs/:id/join',
-      input: z.object({ userId: z.number() }),
       responses: {
         200: z.object({ success: z.boolean() }),
         404: errorSchemas.notFound,

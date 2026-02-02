@@ -14,7 +14,7 @@ function getRandomStock(): string {
   return stockSymbols[Math.floor(Math.random() * stockSymbols.length)];
 }
 
-export async function generateDailyQuests(userId: number, language: string = 'en'): Promise<InsertQuest[]> {
+export async function generateDailyQuests(userId: string, language: string = 'en'): Promise<InsertQuest[]> {
   const isKorean = language === 'ko';
   const randomStock1 = getRandomStock();
   const randomStock2 = stockSymbols.filter(s => s !== randomStock1)[Math.floor(Math.random() * (stockSymbols.length - 1))];
@@ -94,7 +94,7 @@ export async function generateDailyQuests(userId: number, language: string = 'en
   }
 }
 
-export async function generatePracticeQuest(userId: number, language: string = 'en'): Promise<InsertQuest> {
+export async function generatePracticeQuest(userId: string, language: string = 'en'): Promise<InsertQuest> {
   const isKorean = language === 'ko';
   const prompt = isKorean ? `
     주식 시장 학습을 위한 연습 퀴즈 1개를 생성하세요.
@@ -199,7 +199,7 @@ function fallbackPracticeQuest(userId: number): InsertQuest {
   };
 }
 
-function fallbackQuests(userId: number): InsertQuest[] {
+function fallbackQuests(userId: string): InsertQuest[] {
   return [
     {
       userId,

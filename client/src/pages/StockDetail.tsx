@@ -213,7 +213,12 @@ export default function StockDetail() {
   const { theme } = useTheme();
 
   const { data: user } = useQuery<{ language: string }>({
-    queryKey: ["/api/users/1"],
+    queryKey: ["/api/profiles/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/profiles/me", { credentials: "include" });
+      if (!res.ok) return { language: "en" };
+      return res.json();
+    },
   });
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
@@ -274,7 +279,7 @@ export default function StockDetail() {
 
   const addToWatchlistMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/watchlist", { userId: 1, symbol });
+      return apiRequest("POST", "/api/watchlist", { symbol });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });

@@ -1,33 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-
-const USER_ID = 1; // MVP User
+import type { Quest } from "@shared/schema";
 
 export function useQuests() {
-  return useQuery({
-    queryKey: [api.quests.list.path, USER_ID],
+  return useQuery<Quest[]>({
+    queryKey: ["/api/quests"],
     queryFn: async () => {
-      const url = `${api.quests.list.path}?userId=${USER_ID}`;
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch("/api/quests", { credentials: "include" });
       
-      // Auto-generate quests if empty (MVP hack)
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length === 0) {
-           await fetch(api.quests.generate.path, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ userId: USER_ID })
-           });
-           // Re-fetch immediately
-           const retryRes = await fetch(url, { credentials: "include" });
-           return api.quests.list.responses[200].parse(await retryRes.json());
-        }
-        return api.quests.list.responses[200].parse(data);
+      if (res.status === 401) {
+        return [];
       }
       
-      throw new Error('Failed to fetch quests');
+      if (!res.ok) throw new Error('Failed to fetch quests');
+      return res.json();
     },
+    retry: false,
   });
 }
 
@@ -37,17 +25,17 @@ export function useCompleteQuest() {
     mutationFn: async ({ questId, answerIndex }: { questId: number, answerIndex: number }) => {
       const url = buildUrl(api.quests.complete.path, { id: questId });
       const res = await fetch(url, {
-        method: api.quests.complete.method,
+        method: "POST",
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answerIndex, userId: USER_ID }),
+        body: JSON.stringify({ answerIndex }),
         credentials: "include",
       });
       if (!res.ok) throw new Error('Failed to complete quest');
-      return api.quests.complete.responses[200].parse(await res.json());
+      return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.quests.list.path, USER_ID] });
-      queryClient.invalidateQueries({ queryKey: [api.users.get.path, USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
     },
   });
 }

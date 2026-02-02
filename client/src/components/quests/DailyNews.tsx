@@ -36,7 +36,7 @@ export function DailyNews() {
   const { data: readCount } = useQuery<{ count: number }>({
     queryKey: ["/api/news/read-count"],
     queryFn: async () => {
-      const res = await fetch(`/api/news/read-count?userId=1`);
+      const res = await fetch("/api/news/read-count", { credentials: "include" });
       if (!res.ok) return { count: 0 };
       return res.json();
     },
@@ -44,7 +44,7 @@ export function DailyNews() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/news/read", { userId: 1 });
+      return apiRequest("POST", "/api/news/read", {});
     }
   });
 

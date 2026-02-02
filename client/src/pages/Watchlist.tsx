@@ -71,7 +71,7 @@ export default function Watchlist() {
   // Add to watchlist mutation
   const addMutation = useMutation({
     mutationFn: async (symbol: string) => {
-      return apiRequest("POST", "/api/watchlist", { userId: 1, symbol });
+      return apiRequest("POST", "/api/watchlist", { symbol });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
@@ -84,14 +84,14 @@ export default function Watchlist() {
   // Remove from watchlist mutation
   const removeMutation = useMutation({
     mutationFn: async (symbol: string) => {
-      return apiRequest("DELETE", `/api/watchlist/${symbol}?userId=1`, {});
+      return apiRequest("DELETE", `/api/watchlist/${symbol}`, {});
     },
     onSuccess: (_data, removedSymbol) => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       toast({
         title: lang === "ko" 
-          ? `${removedSymbol}을(를) 삭제했어요! 🦖` 
-          : `Removed ${removedSymbol} from your list! 🦖`,
+          ? `${removedSymbol}을(를) 삭제했어요!` 
+          : `Removed ${removedSymbol} from your list!`,
         duration: 2000,
       });
     },

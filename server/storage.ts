@@ -1,20 +1,22 @@
 import { db } from "./db";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { 
-  users, stocks, quests, userStocks, clubs, clubMembers,
-  type User, type InsertUser, type Stock, type InsertStock, type Quest, type InsertQuest, type UserStock, type InsertUserStock,
-  type Club, type InsertClub
+  userProfiles, stocks, quests, userStocks, clubs, clubMembers, dinoEggs,
+  type UserProfile, type InsertUserProfile, type Stock, type InsertStock, 
+  type Quest, type InsertQuest, type UserStock, type InsertUserStock,
+  type Club, type InsertClub, type DinoEgg, type InsertDinoEgg
 } from "@shared/schema";
 
 export interface IStorage {
-  // Users
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUserStats(id: number, streak: number, xp: number, level: number, hearts: number): Promise<User>;
-  updateUserLanguage(id: number, language: string): Promise<User>;
-  replenishHearts(id: number, amount: number): Promise<User>;
-  updateFavoriteStocks(id: number, stocks: string[]): Promise<User>;
+  // User Profiles
+  getUserProfile(id: string): Promise<UserProfile | undefined>;
+  createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number): Promise<UserProfile>;
+  updateUserLanguage(id: string, language: string): Promise<UserProfile>;
+  replenishHearts(id: string, amount: number): Promise<UserProfile>;
+  updateFavoriteStocks(id: string, stocks: string[]): Promise<UserProfile>;
+  updateNickname(id: string, nickname: string): Promise<UserProfile>;
 
   // Stocks
   getStockBySymbol(symbol: string): Promise<Stock | undefined>;
@@ -24,71 +26,94 @@ export interface IStorage {
   searchStocks(query: string): Promise<Stock[]>;
 
   // Quests
-  getQuests(userId: number): Promise<Quest[]>;
+  getQuests(userId: string): Promise<Quest[]>;
   createQuest(quest: InsertQuest): Promise<Quest>;
-  completeQuest(id: number, userId: number): Promise<Quest>;
-  clearQuests(userId: number): Promise<void>;
+  completeQuest(id: number, userId: string): Promise<Quest>;
+  clearQuests(userId: string): Promise<void>;
   
   // Watchlist
-  getWatchlist(userId: number): Promise<Stock[]>;
-  addToWatchlist(userId: number, symbol: string): Promise<UserStock>;
-  removeFromWatchlist(userId: number, symbol: string): Promise<void>;
+  getWatchlist(userId: string): Promise<UserStock[]>;
+  addToWatchlist(userId: string, symbol: string): Promise<UserStock>;
+  removeFromWatchlist(userId: string, symbol: string): Promise<void>;
 
   // Clubs
   getClubs(): Promise<Club[]>;
   getClubById(id: number): Promise<Club | undefined>;
-  createClub(club: InsertClub, creatorId: number): Promise<Club>;
-  joinClub(userId: number, clubId: number): Promise<void>;
-  getUserClubs(userId: number): Promise<Club[]>;
+  createClub(club: InsertClub, creatorId: string): Promise<Club>;
+  joinClub(userId: string, clubId: number): Promise<void>;
+  getUserClubs(userId: string): Promise<Club[]>;
+
+  // Dino Eggs
+  getUserEggs(userId: string): Promise<DinoEgg[]>;
+  createEgg(egg: InsertDinoEgg): Promise<DinoEgg>;
+  hatchEgg(id: number, userId: string): Promise<DinoEgg>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+  // User Profiles
+  async getUserProfile(id: string): Promise<UserProfile | undefined> {
+    const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
+    return profile;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+  async createUserProfile(insertProfile: InsertUserProfile): Promise<UserProfile> {
+    const [profile] = await db.insert(userProfiles).values(insertProfile).returning();
+    return profile;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+  async upsertUserProfile(profileData: InsertUserProfile): Promise<UserProfile> {
+    const [profile] = await db
+      .insert(userProfiles)
+      .values(profileData)
+      .onConflictDoUpdate({
+        target: userProfiles.id,
+        set: {
+          nickname: profileData.nickname,
+          language: profileData.language,
+        },
+      })
+      .returning();
+    return profile;
   }
 
-  async updateUserStats(id: number, streak: number, xp: number, level: number, hearts: number): Promise<User> {
-      const [user] = await db.update(users)
-        .set({ streak, xp, level, hearts })
-        .where(eq(users.id, id))
-        .returning();
-      return user;
+  async updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
+      .set({ streak, xp, level, hearts })
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return profile;
   }
 
-  async updateUserLanguage(id: number, language: string): Promise<User> {
-    const [user] = await db.update(users)
+  async updateUserLanguage(id: string, language: string): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
       .set({ language })
-      .where(eq(users.id, id))
+      .where(eq(userProfiles.id, id))
       .returning();
-    return user;
+    return profile;
   }
 
-  async replenishHearts(id: number, amount: number): Promise<User> {
-    const [user] = await db.update(users)
-      .set({ hearts: sql`${users.hearts} + ${amount}` })
-      .where(eq(users.id, id))
+  async replenishHearts(id: string, amount: number): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
+      .set({ hearts: sql`${userProfiles.hearts} + ${amount}` })
+      .where(eq(userProfiles.id, id))
       .returning();
-    return user;
+    return profile;
   }
 
-  async updateFavoriteStocks(id: number, favoriteStocks: string[]): Promise<User> {
-    const [user] = await db.update(users)
+  async updateFavoriteStocks(id: string, favoriteStocks: string[]): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
       .set({ favoriteStocks })
-      .where(eq(users.id, id))
+      .where(eq(userProfiles.id, id))
       .returning();
-    return user;
+    return profile;
+  }
+
+  async updateNickname(id: string, nickname: string): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
+      .set({ nickname })
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return profile;
   }
 
   // Stocks
@@ -121,7 +146,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quests
-  async getQuests(userId: number): Promise<Quest[]> {
+  async getQuests(userId: string): Promise<Quest[]> {
     return await db.select().from(quests)
         .where(eq(quests.userId, userId))
         .orderBy(quests.createdAt);
@@ -132,7 +157,7 @@ export class DatabaseStorage implements IStorage {
     return quest;
   }
 
-  async completeQuest(id: number, userId: number): Promise<Quest> {
+  async completeQuest(id: number, userId: string): Promise<Quest> {
     const [quest] = await db.update(quests)
         .set({ isCompleted: true })
         .where(eq(quests.id, id))
@@ -140,19 +165,16 @@ export class DatabaseStorage implements IStorage {
     return quest;
   }
 
-  async clearQuests(userId: number): Promise<void> {
+  async clearQuests(userId: string): Promise<void> {
     await db.delete(quests).where(eq(quests.userId, userId));
   }
 
   // Watchlist
-  async getWatchlist(userId: number): Promise<Stock[]> {
-    const userStockEntries = await db.select().from(userStocks).where(eq(userStocks.userId, userId));
-    const symbols = userStockEntries.map(us => us.symbol);
-    if (symbols.length === 0) return [];
-    return await db.select().from(stocks).where(sql`${stocks.symbol} IN ${symbols}`);
+  async getWatchlist(userId: string): Promise<UserStock[]> {
+    return await db.select().from(userStocks).where(eq(userStocks.userId, userId));
   }
 
-  async addToWatchlist(userId: number, symbol: string): Promise<UserStock> {
+  async addToWatchlist(userId: string, symbol: string): Promise<UserStock> {
     const existing = await db.select().from(userStocks)
         .where(and(eq(userStocks.userId, userId), eq(userStocks.symbol, symbol)));
     if (existing.length > 0) return existing[0];
@@ -160,7 +182,7 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async removeFromWatchlist(userId: number, symbol: string): Promise<void> {
+  async removeFromWatchlist(userId: string, symbol: string): Promise<void> {
     await db.delete(userStocks)
         .where(and(eq(userStocks.userId, userId), eq(userStocks.symbol, symbol)));
   }
@@ -175,13 +197,13 @@ export class DatabaseStorage implements IStorage {
     return club;
   }
 
-  async createClub(insertClub: InsertClub, creatorId: number): Promise<Club> {
+  async createClub(insertClub: InsertClub, creatorId: string): Promise<Club> {
     const [club] = await db.insert(clubs).values(insertClub).returning();
     await db.insert(clubMembers).values({ clubId: club.id, userId: creatorId });
     return club;
   }
 
-  async joinClub(userId: number, clubId: number): Promise<void> {
+  async joinClub(userId: string, clubId: number): Promise<void> {
     const existing = await db.select().from(clubMembers)
       .where(and(eq(clubMembers.clubId, clubId), eq(clubMembers.userId, userId)));
     if (existing.length === 0) {
@@ -190,11 +212,29 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getUserClubs(userId: number): Promise<Club[]> {
+  async getUserClubs(userId: string): Promise<Club[]> {
     const memberships = await db.select().from(clubMembers).where(eq(clubMembers.userId, userId));
     const clubIds = memberships.map(m => m.clubId);
     if (clubIds.length === 0) return [];
     return await db.select().from(clubs).where(sql`${clubs.id} IN ${clubIds}`);
+  }
+
+  // Dino Eggs
+  async getUserEggs(userId: string): Promise<DinoEgg[]> {
+    return await db.select().from(dinoEggs).where(eq(dinoEggs.userId, userId)).orderBy(dinoEggs.createdAt);
+  }
+
+  async createEgg(insertEgg: InsertDinoEgg): Promise<DinoEgg> {
+    const [egg] = await db.insert(dinoEggs).values(insertEgg).returning();
+    return egg;
+  }
+
+  async hatchEgg(id: number, userId: string): Promise<DinoEgg> {
+    const [egg] = await db.update(dinoEggs)
+      .set({ isHatched: true, hatchedAt: new Date() })
+      .where(and(eq(dinoEggs.id, id), eq(dinoEggs.userId, userId)))
+      .returning();
+    return egg;
   }
 }
 

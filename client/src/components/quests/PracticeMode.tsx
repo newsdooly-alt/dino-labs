@@ -10,7 +10,7 @@ import confetti from "canvas-confetti";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface PracticeQuest {
-  userId: number;
+  userId: string;
   type: string;
   question: string;
   options: string[];
@@ -32,7 +32,7 @@ export function PracticeMode() {
   const { data: quest, isLoading, refetch } = useQuery<PracticeQuest>({
     queryKey: ["/api/quests/practice", questCount],
     queryFn: async () => {
-      const res = await fetch(`/api/quests/practice?userId=1`);
+      const res = await fetch("/api/quests/practice", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch practice quest");
       return res.json();
     },
@@ -42,7 +42,6 @@ export function PracticeMode() {
   const completeMutation = useMutation({
     mutationFn: async (answerIndex: number) => {
       return apiRequest("POST", "/api/quests/practice/complete", {
-        userId: 1,
         answerIndex,
         correctAnswer: quest?.correctAnswer
       });
@@ -56,7 +55,7 @@ export function PracticeMode() {
           origin: { y: 0.6 },
           colors: ['#a855f7', '#22c55e']
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/users/1"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
       }
     }
   });

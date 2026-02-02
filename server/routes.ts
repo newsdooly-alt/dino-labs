@@ -12,52 +12,87 @@ const openai = new OpenAI({
 });
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Setup authentication FIRST (before other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
+
   // Register integration routes
   registerChatRoutes(app);
   registerImageRoutes(app);
 
-  // === Users ===
-  app.get(api.users.get.path, async (req, res) => {
-    const user = await storage.getUser(Number(req.params.id));
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
-  });
+  // Helper to get user ID from session
+  const getUserId = (req: any): string | null => {
+    return req.user?.claims?.sub || null;
+  };
 
-  app.post(api.users.create.path, async (req, res) => {
-    try {
-      const input = api.users.create.input.parse(req.body);
-      const user = await storage.createUser(input);
-      res.status(201).json(user);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message });
-      }
-      res.status(500).json({ message: "Internal server error" });
+  // === User Profiles (authenticated) ===
+  app.get(api.profiles.get.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    let profile = await storage.getUserProfile(userId);
+    if (!profile) {
+      // Auto-create profile for new users (use upsert to handle race conditions)
+      profile = await storage.upsertUserProfile({
+        id: userId,
+        nickname: req.user?.claims?.first_name || "Player",
+        language: "en",
+        favoriteStocks: []
+      });
     }
+    res.json(profile);
   });
 
-  app.post(api.users.replenishHearts.path, async (req, res) => {
-    const userId = Number(req.params.id);
+  app.post(api.profiles.replenishHearts.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
     const { amount } = req.body;
-    const user = await storage.replenishHearts(userId, amount);
-    res.json(user);
+    const profile = await storage.replenishHearts(userId, amount);
+    res.json(profile);
   });
 
-  app.patch(api.users.updateLanguage.path, async (req, res) => {
-    const userId = Number(req.params.id);
-    const { language } = api.users.updateLanguage.input.parse(req.body);
-    const user = await storage.updateUserLanguage(userId, language);
+  app.patch(api.profiles.updateLanguage.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { language } = api.profiles.updateLanguage.input.parse(req.body);
+    const profile = await storage.updateUserLanguage(userId, language);
     
     // Clear existing quests so they regenerate in the new language
     await storage.clearQuests(userId);
     
-    res.json(user);
+    res.json(profile);
+  });
+
+  // Legacy user routes (backward compatibility)
+  app.get(api.users.get.path, async (req, res) => {
+    const userId = req.params.id;
+    const profile = await storage.getUserProfile(userId);
+    if (!profile) return res.status(404).json({ message: "User not found" });
+    res.json(profile);
+  });
+
+  app.post(api.users.replenishHearts.path, async (req, res) => {
+    const userId = req.params.id;
+    const { amount } = req.body;
+    const profile = await storage.replenishHearts(userId, amount);
+    res.json(profile);
+  });
+
+  app.patch(api.users.updateLanguage.path, async (req, res) => {
+    const userId = req.params.id;
+    const { language } = api.users.updateLanguage.input.parse(req.body);
+    const profile = await storage.updateUserLanguage(userId, language);
+    await storage.clearQuests(userId);
+    res.json(profile);
   });
 
   // === Clubs ===
@@ -66,25 +101,29 @@ export async function registerRoutes(
     res.json(clubs);
   });
 
-  app.get(api.clubs.getUserClubs.path, async (req, res) => {
-    const userId = Number(req.params.id);
+  app.get(api.clubs.getUserClubs.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const userClubs = await storage.getUserClubs(userId);
     res.json(userClubs);
   });
 
-  app.post(api.clubs.create.path, async (req, res) => {
+  app.post(api.clubs.create.path, isAuthenticated, async (req, res) => {
     try {
-      const { creatorId, ...clubData } = req.body;
-      const club = await storage.createClub(clubData, creatorId);
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const clubData = req.body;
+      const club = await storage.createClub(clubData, userId);
       res.status(201).json(club);
     } catch (err) {
       res.status(400).json({ message: "Failed to create club" });
     }
   });
 
-  app.post(api.clubs.join.path, async (req, res) => {
+  app.post(api.clubs.join.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const clubId = Number(req.params.id);
-    const { userId } = req.body;
     await storage.joinClub(userId, clubId);
     res.json({ success: true });
   });
@@ -166,15 +205,27 @@ export async function registerRoutes(
   });
 
   // === Quests ===
-  app.get(api.quests.list.path, async (req, res) => {
-    const userId = Number(req.query.userId);
-    const user = await storage.getUser(userId);
+  app.get(api.quests.list.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    let profile = await storage.getUserProfile(userId);
+    if (!profile) {
+      // Use upsert to handle race conditions
+      profile = await storage.upsertUserProfile({
+        id: userId,
+        nickname: req.user?.claims?.first_name || "Player",
+        language: "en",
+        favoriteStocks: []
+      });
+    }
+    
     let quests = await storage.getQuests(userId);
     
     // If no active quests, generate new ones
     const activeQuests = quests.filter(q => !q.isCompleted);
     if (activeQuests.length === 0) {
-        const newQuests = await generateDailyQuests(userId, user?.language || 'en');
+        const newQuests = await generateDailyQuests(userId, profile.language || 'en');
         for (const q of newQuests) {
             await storage.createQuest(q);
         }
@@ -185,30 +236,35 @@ export async function registerRoutes(
   });
 
   // === Practice Mode Routes (MUST be before :id routes) ===
-  app.get("/api/quests/practice", async (req, res) => {
-    const userId = Number(req.query.userId) || 1;
-    const user = await storage.getUser(userId);
+  app.get("/api/quests/practice", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    const profile = await storage.getUserProfile(userId);
     
     try {
-      const practiceQuest = await generatePracticeQuest(userId, user?.language || 'en');
+      const practiceQuest = await generatePracticeQuest(userId, profile?.language || 'en');
       res.json(practiceQuest);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate practice quest" });
     }
   });
 
-  app.post("/api/quests/practice/complete", async (req, res) => {
-    const { userId, answerIndex, correctAnswer } = req.body;
+  app.post("/api/quests/practice/complete", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { answerIndex, correctAnswer } = req.body;
     
     const correct = correctAnswer === answerIndex;
     
     if (correct) {
-      const user = await storage.getUser(userId);
-      if (user) {
-        const newXp = user.xp + 5; // Reduced XP for practice
+      const profile = await storage.getUserProfile(userId);
+      if (profile) {
+        const newXp = profile.xp + 5; // Reduced XP for practice
         const newLevel = Math.floor(newXp / 100) + 1;
         
-        await storage.updateUserStats(userId, user.streak, newXp, newLevel, user.hearts);
+        await storage.updateUserStats(userId, profile.streak, newXp, newLevel, profile.hearts);
         
         return res.json({
           success: true,
@@ -228,12 +284,13 @@ export async function registerRoutes(
     });
   });
 
-  app.post(api.quests.complete.path, async (req, res) => {
-    const questId = Number(req.params.id);
-    const { userId, answerIndex } = req.body;
+  app.post(api.quests.complete.path, isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
     
-    // Check quest in DB (not exposed in storage properly to get single quest, let's assume we fetch list and find it or add getQuest)
-    // Adding getQuest to storage would be better, but for now filtering list is okay for MVP (small lists)
+    const questId = Number(req.params.id);
+    const { answerIndex } = req.body;
+    
     const quests = await storage.getQuests(userId);
     const quest = quests.find(q => q.id === questId);
 
@@ -245,13 +302,13 @@ export async function registerRoutes(
     if (correct) {
         await storage.completeQuest(questId, userId);
         
-        const user = await storage.getUser(userId);
-        if (user) {
-            const newXp = user.xp + quest.xpReward;
+        const profile = await storage.getUserProfile(userId);
+        if (profile) {
+            const newXp = profile.xp + quest.xpReward;
             const newLevel = Math.floor(newXp / 100) + 1;
-            const newStreak = user.streak + (user.lastDailyQuestAt ? 0 : 1);
+            const newStreak = profile.streak + (profile.lastDailyQuestAt ? 0 : 1);
             
-            await storage.updateUserStats(userId, newStreak, newXp, newLevel, user.hearts);
+            await storage.updateUserStats(userId, newStreak, newXp, newLevel, profile.hearts);
             
             return res.json({
                 success: true,
@@ -260,15 +317,15 @@ export async function registerRoutes(
                 explanation: quest.explanation || "Correct!",
                 newLevel,
                 newStreak,
-                newHearts: user.hearts
+                newHearts: profile.hearts
             });
         }
     } else {
       // Lose a heart on wrong answer
-      const user = await storage.getUser(userId);
-      if (user) {
-        const newHearts = Math.max(0, user.hearts - 1);
-        await storage.updateUserStats(userId, user.streak, user.xp, user.level, newHearts);
+      const profile = await storage.getUserProfile(userId);
+      if (profile) {
+        const newHearts = Math.max(0, profile.hearts - 1);
+        await storage.updateUserStats(userId, profile.streak, profile.xp, profile.level, newHearts);
         return res.json({
           success: false,
           xpGained: 0,
@@ -288,13 +345,18 @@ export async function registerRoutes(
   });
 
   // === Watchlist ===
-  app.get(api.watchlist.list.path, async (req, res) => {
-      const userId = Number(req.query.userId) || 1; // Default to user 1 for MVP
+  app.get(api.watchlist.list.path, isAuthenticated, async (req, res) => {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      
       const watchlist = await storage.getWatchlist(userId);
       res.json(watchlist);
   });
 
-  app.post(api.watchlist.add.path, async (req, res) => {
+  app.post(api.watchlist.add.path, isAuthenticated, async (req, res) => {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      
       try {
           const input = api.watchlist.add.input.parse(req.body);
           // Ensure stock exists in stocks table first (fetch quote to fill it)
@@ -322,18 +384,18 @@ export async function registerRoutes(
                }
           }
           
-          const item = await storage.addToWatchlist(input.userId, input.symbol);
+          const item = await storage.addToWatchlist(userId, input.symbol);
           res.status(201).json(item);
       } catch (err) {
           res.status(400).json({ message: "Invalid request" });
       }
   });
 
-  app.delete(api.watchlist.remove.path, async (req, res) => {
-      const symbol = req.params.symbol;
-      const userId = Number(req.query.userId); // passed as query in delete usually or body
-      if (!userId) return res.status(400).json({ message: "UserId required" });
+  app.delete(api.watchlist.remove.path, isAuthenticated, async (req, res) => {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       
+      const symbol = req.params.symbol;
       await storage.removeFromWatchlist(userId, symbol);
       res.status(204).send();
   });
@@ -868,27 +930,19 @@ export async function registerRoutes(
     res.json({ ...randomHeadline, isRealTime: false });
   });
 
-  // Seed Data (if empty)
-  await seedDatabase();
+  // Seed initial stock data (if empty)
+  await seedStockData();
 
   return httpServer;
 }
 
-async function seedDatabase() {
-    // Seed a default user
-    const existingUser = await storage.getUserByUsername("guest");
-    if (!existingUser) {
-        const user = await storage.createUser({
-            username: "guest",
-            password: "password", // Dummy
-        });
-        console.log("Seeded guest user", user.id);
-        
-        // Seed some stocks using yfinance service
+async function seedStockData() {
+    // Just seed some initial stocks (users are created via auth now)
+    const existingStocks = await storage.getAllStocks();
+    if (existingStocks.length === 0) {
         const initialStocks = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"];
         for (const sym of initialStocks) {
             try {
-                // Try fetching real data from yfinance
                 const quote = await getStockQuote(sym);
                 await storage.createStock({
                     symbol: sym,
@@ -897,8 +951,7 @@ async function seedDatabase() {
                     lastPrice: (quote.price || 100).toString(),
                     changePercent: (quote.changePercent || 0).toString()
                 });
-                // Add to watchlist
-                await storage.addToWatchlist(user.id, sym);
+                console.log(`Seeded stock: ${sym}`);
             } catch (e) {
                 console.log("Failed to seed stock", sym);
             }

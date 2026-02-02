@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { useAuth } from "@/hooks/use-auth";
 
 // Pages
 import Dashboard from "@/pages/Dashboard";
@@ -18,6 +19,7 @@ import Settings from "@/pages/Settings";
 import MyEggs from "@/pages/MyEggs";
 import Collection from "@/pages/Collection";
 import Onboarding from "@/pages/Onboarding";
+import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
 
@@ -38,8 +40,7 @@ function Router() {
   );
 }
 
-function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -68,14 +69,40 @@ function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AppContent() {
+  const { user, isLoading, isAuthenticated } = useAuth();
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show landing page for unauthenticated users
+  if (!isAuthenticated) {
+    return <Landing />;
+  }
+
+  // Show app for authenticated users
+  return (
+    <AuthenticatedLayout>
+      <Router />
+    </AuthenticatedLayout>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <Layout>
-            <Router />
-          </Layout>
+          <AppContent />
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>

@@ -1,21 +1,22 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export * from "./models/chat";
+export * from "./models/auth";
 
 // === TABLE DEFINITIONS ===
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(), 
+// User game profiles - linked to auth users via id
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey(), // Links to auth users.id
+  nickname: text("nickname"),
   streak: integer("streak").default(0).notNull(),
   xp: integer("xp").default(0).notNull(),
   level: integer("level").default(1).notNull(),
-  hearts: integer("hearts").default(5).notNull(), // Added hearts (lives)
-  favoriteStocks: text("favorite_stocks").array().default([]).notNull(), // User's top 3 picks
-  language: text("language").default("en").notNull(), // Added language preference
+  hearts: integer("hearts").default(5).notNull(),
+  favoriteStocks: text("favorite_stocks").array().default([]).notNull(),
+  language: text("language").default("en").notNull(),
   lastDailyQuestAt: timestamp("last_daily_quest_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -32,7 +33,7 @@ export const stocks = pgTable("stocks", {
 
 export const quests = pgTable("quests", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(), 
+  userId: varchar("user_id").notNull(), // Now string to match auth user id
   type: text("type").notNull(), 
   question: text("question").notNull(),
   options: jsonb("options").notNull(), 
@@ -45,7 +46,7 @@ export const quests = pgTable("quests", {
 
 export const userStocks = pgTable("user_stocks", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: varchar("user_id").notNull(), // Now string to match auth user id
   symbol: text("symbol").notNull(),
   addedAt: timestamp("added_at").defaultNow(),
 });
@@ -64,13 +65,13 @@ export const clubs = pgTable("clubs", {
 export const clubMembers = pgTable("club_members", {
   id: serial("id").primaryKey(),
   clubId: integer("club_id").notNull().references(() => clubs.id),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull(), // Now string to match auth user id
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
 export const predictions = pgTable("predictions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: varchar("user_id").notNull(), // Now string to match auth user id
   symbol: text("symbol").notNull(),
   prediction: text("prediction").notNull(), // "higher" | "lower"
   entryPrice: text("entry_price").notNull(),
@@ -79,19 +80,30 @@ export const predictions = pgTable("predictions", {
   resolvedAt: timestamp("resolved_at"),
 });
 
+// Dino Eggs - linked to user
+export const dinoEggs = pgTable("dino_eggs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  dinoType: text("dino_type").notNull(),
+  isHatched: boolean("is_hatched").default(false).notNull(),
+  hatchedAt: timestamp("hatched_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === SCHEMAS ===
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, streak: true, xp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ streak: true, xp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
 export const insertStockSchema = createInsertSchema(stocks).omit({ id: true, updatedAt: true });
 export const insertQuestSchema = createInsertSchema(quests).omit({ id: true, isCompleted: true, createdAt: true });
 export const insertUserStockSchema = createInsertSchema(userStocks).omit({ id: true, addedAt: true });
 export const insertClubSchema = createInsertSchema(clubs).omit({ id: true, memberCount: true, createdAt: true });
 export const insertPredictionSchema = createInsertSchema(predictions).omit({ id: true, status: true, createdAt: true, resolvedAt: true });
+export const insertDinoEggSchema = createInsertSchema(dinoEggs).omit({ id: true, isHatched: true, hatchedAt: true, createdAt: true });
 
 // === TYPES ===
 
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 
 export type Stock = typeof stocks.$inferSelect;
 export type InsertStock = z.infer<typeof insertStockSchema>;
@@ -108,6 +120,9 @@ export type InsertClub = z.infer<typeof insertClubSchema>;
 export type Prediction = typeof predictions.$inferSelect;
 export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
 
+export type DinoEgg = typeof dinoEggs.$inferSelect;
+export type InsertDinoEgg = z.infer<typeof insertDinoEggSchema>;
+
 // === API TYPES ===
 
 export type StockResponse = {
@@ -119,11 +134,9 @@ export type StockResponse = {
 };
 
 export type QuestResponse = Quest;
-export type UserResponse = User;
+export type UserProfileResponse = UserProfile;
 
 export type CompleteQuestRequest = {
   answerIndex: number;
-  userId: number;
+  userId: string;
 };
-
-export type CreateUserRequest = InsertUser;

@@ -81,7 +81,7 @@ export function MarketHeadlines() {
   const { data: readCount, refetch: refetchReadCount } = useQuery<{ count: number }>({
     queryKey: ["/api/news/read-count"],
     queryFn: async () => {
-      const res = await fetch(`/api/news/read-count?userId=1`);
+      const res = await fetch("/api/news/read-count", { credentials: "include" });
       if (!res.ok) return { count: 0 };
       return res.json();
     },
@@ -89,11 +89,11 @@ export function MarketHeadlines() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/news/read", { userId: 1 });
+      return apiRequest("POST", "/api/news/read", {});
     },
     onSuccess: () => {
       refetchReadCount();
-      queryClient.invalidateQueries({ queryKey: ["/api/users/1"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
     }
   });
 

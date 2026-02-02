@@ -41,7 +41,7 @@ export default function Dashboard() {
   
   useEffect(() => {
     const updateDisplayName = () => {
-      setDisplayName(getNickname(user?.username || "Guest"));
+      setDisplayName(getNickname(user?.nickname || "Guest"));
     };
     updateDisplayName();
     
@@ -57,7 +57,7 @@ export default function Dashboard() {
       window.removeEventListener("storage", handleStorageChange);
       clearInterval(interval);
     };
-  }, [user?.username]);
+  }, [user?.nickname]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
