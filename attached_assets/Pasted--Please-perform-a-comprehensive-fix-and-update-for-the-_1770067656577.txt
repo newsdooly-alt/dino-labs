@@ -1,0 +1,20 @@
+​"Please perform a comprehensive fix and update for the following issues. All logic must be fully functional and production-ready:
+​1. Mobile Resolution & UI:
+​Viewport Optimization: Ensure the app fits perfectly on all mobile screens without manual scaling. Use responsive containers (Tailwind 'max-w-screen' or similar) and ensure viewport-fit=cover is applied.
+​Settings UI Fix: In the Difficulty settings, fix the text overflow issue. Use text wrapping or adjust the layout so descriptions don't bleed out of the container.
+​2. Authentication & Guest Mode:
+​Fix Guest Login: The 'Continue as Guest' button is currently not working. Ensure it sets the auth state to 'authenticated' using a local guest profile.
+​Level-Based Signup Fix: Fix the bug where certain levels (Beginner/Intermediate/Advanced) cause the signup process to hang. Ensure the user profile is correctly created in the DB for all levels.
+​3. Level-Specific Quest System:
+​Quest Expansion: Create a pool of at least 15+ unique quests.
+​Actual Implementation: Ensure the quest generation logic strictly filters quests based on the user's level. (e.g., Beginners get 'Find a ticker', Advanced get 'Compare P/E ratios').
+​4. Financial Data & Localization:
+​Real-time Fear & Greed: Fetch and display the actual live index. Ensure the description is in Korean.
+​Flash Quiz Korean: Fix the bug where quizzes appear in English. Force all quiz content to match the user's language setting.
+​Dividend Yield Fix: Ensure dividend yields and financial ratios are pulled correctly from the API and formatted accurately (e.g., 0.05 -> 5%).
+​5. Real-time Currency Conversion (Google Finance style):
+​Live Exchange Rate: Fetch the real-time USD/KRW exchange rate from a reliable API.
+​Global Currency Switch: If 'KRW (원화)' is selected in Settings:
+​Convert ALL dollar ($) values across the app (Stock prices, Portfolio value, etc.) to KRW using the live rate.
+​Change the currency symbol from '$' to '₩'.
+​6. Company Info Translation: Ensure all company descriptions are translated into natural-sounding Korean in real-time."

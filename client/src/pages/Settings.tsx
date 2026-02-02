@@ -100,7 +100,7 @@ export default function Settings() {
   const [upgradePassword, setUpgradePassword] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   
-  const isGuest = user?.authType === "guest";
+  const isGuest = (user as any)?.authType === "guest";
 
   useEffect(() => {
     const saved = localStorage.getItem("dinolingo_settings");
@@ -414,36 +414,36 @@ export default function Settings() {
         </div>
         <div className="p-4 space-y-3">
           <p className="text-sm text-muted-foreground">{t.skill_level_desc}</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Button
               variant={skillLevel === "beginner" ? "default" : "outline"}
               onClick={() => handleSkillLevelChange("beginner")}
               disabled={isUpdatingSkillLevel}
-              className="flex flex-col h-auto py-3 gap-1"
+              className="flex flex-col h-auto py-3 gap-1 min-w-0"
               data-testid="button-skill-beginner"
             >
-              <span className="font-medium">{t.skill_beginner}</span>
-              <span className="text-xs opacity-70 text-center">{t.skill_beginner_desc}</span>
+              <span className="font-medium truncate">{t.skill_beginner}</span>
+              <span className="text-xs opacity-70 text-center line-clamp-2">{t.skill_beginner_desc}</span>
             </Button>
             <Button
               variant={skillLevel === "intermediate" ? "default" : "outline"}
               onClick={() => handleSkillLevelChange("intermediate")}
               disabled={isUpdatingSkillLevel}
-              className="flex flex-col h-auto py-3 gap-1"
+              className="flex flex-col h-auto py-3 gap-1 min-w-0"
               data-testid="button-skill-intermediate"
             >
-              <span className="font-medium">{t.skill_intermediate}</span>
-              <span className="text-xs opacity-70 text-center">{t.skill_intermediate_desc}</span>
+              <span className="font-medium truncate">{t.skill_intermediate}</span>
+              <span className="text-xs opacity-70 text-center line-clamp-2">{t.skill_intermediate_desc}</span>
             </Button>
             <Button
               variant={skillLevel === "advanced" ? "default" : "outline"}
               onClick={() => handleSkillLevelChange("advanced")}
               disabled={isUpdatingSkillLevel}
-              className="flex flex-col h-auto py-3 gap-1"
+              className="flex flex-col h-auto py-3 gap-1 min-w-0"
               data-testid="button-skill-advanced"
             >
-              <span className="font-medium">{t.skill_advanced}</span>
-              <span className="text-xs opacity-70 text-center">{t.skill_advanced_desc}</span>
+              <span className="font-medium truncate">{t.skill_advanced}</span>
+              <span className="text-xs opacity-70 text-center line-clamp-2">{t.skill_advanced_desc}</span>
             </Button>
           </div>
         </div>

@@ -14,14 +14,40 @@ function getRandomStock(): string {
   return stockSymbols[Math.floor(Math.random() * stockSymbols.length)];
 }
 
-export async function generateDailyQuests(userId: string, language: string = 'en'): Promise<InsertQuest[]> {
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
+function getSkillLevelDescription(skillLevel: SkillLevel, isKorean: boolean): string {
+  if (isKorean) {
+    switch (skillLevel) {
+      case 'beginner':
+        return '초보자 수준: 기본 금융 용어, 간단한 개념, 주식 시장의 기초에 집중하세요. 예: "주식이란?", "배당금이란?", "ETF란?"';
+      case 'intermediate':
+        return '중급 수준: P/E 비율, 시가총액 비교, 차트 패턴, 섹터 분석에 집중하세요. 예: "적정 P/E 비율은?", "헤드앤숄더 패턴이란?"';
+      case 'advanced':
+        return '고급 수준: DCF 분석, 옵션 전략, 매크로 경제, 고급 밸류에이션에 집중하세요. 예: "내재가치 계산", "풋/콜 비율 해석"';
+    }
+  }
+  switch (skillLevel) {
+    case 'beginner':
+      return 'Beginner level: Focus on basic financial terms, simple concepts, stock market fundamentals. Examples: "What is a stock?", "What is a dividend?", "What is an ETF?"';
+    case 'intermediate':
+      return 'Intermediate level: Focus on P/E ratios, market cap comparisons, chart patterns, sector analysis. Examples: "What is a good P/E ratio?", "What is a head and shoulders pattern?"';
+    case 'advanced':
+      return 'Advanced level: Focus on DCF analysis, options strategies, macroeconomics, advanced valuation. Examples: "Calculate intrinsic value", "Interpret put/call ratio"';
+  }
+}
+
+export async function generateDailyQuests(userId: string, language: string = 'en', skillLevel: SkillLevel = 'beginner'): Promise<InsertQuest[]> {
   const isKorean = language === 'ko';
   const randomStock1 = getRandomStock();
   const randomStock2 = stockSymbols.filter(s => s !== randomStock1)[Math.floor(Math.random() * (stockSymbols.length - 1))];
+  const skillDescription = getSkillLevelDescription(skillLevel, isKorean);
   
   const prompt = isKorean ? `
     사용자가 미국 주식에 대해 배울 수 있도록 매일 6개의 다양한 주식 시장 퀘스트를 생성하세요.
     "quests"라는 키를 가진 JSON 객체를 반환하며, 이 키는 6개의 객체 배열입니다.
+    
+    중요: 사용자 레벨 - ${skillDescription}
     
     퀘스트 유형 (각각 1개씩 포함):
     1. "term": 금융 용어(예: "P/E Ratio", "Dividend", "Market Cap")에 대한 퀴즈.
@@ -42,6 +68,8 @@ export async function generateDailyQuests(userId: string, language: string = 'en
   ` : `
     Generate 6 varied daily stock market quests for a user learning about US stocks.
     Return a JSON object with a key "quests" which is an array of 6 objects.
+    
+    IMPORTANT: User skill level - ${skillDescription}
     
     Quest types (include one of each):
     1. "term": A quiz about a financial term (e.g., "P/E Ratio", "Dividend", "Market Cap").
@@ -94,11 +122,15 @@ export async function generateDailyQuests(userId: string, language: string = 'en
   }
 }
 
-export async function generatePracticeQuest(userId: string, language: string = 'en'): Promise<InsertQuest> {
+export async function generatePracticeQuest(userId: string, language: string = 'en', skillLevel: SkillLevel = 'beginner'): Promise<InsertQuest> {
   const isKorean = language === 'ko';
+  const skillDescription = getSkillLevelDescription(skillLevel, isKorean);
+  
   const prompt = isKorean ? `
     주식 시장 학습을 위한 연습 퀴즈 1개를 생성하세요.
     "quest"라는 키를 가진 JSON 객체를 반환하세요.
+    
+    중요: 사용자 레벨 - ${skillDescription}
     
     다양한 유형 중 하나를 무작위로 선택:
     - 금융 용어 퀴즈
@@ -116,6 +148,8 @@ export async function generatePracticeQuest(userId: string, language: string = '
   ` : `
     Generate 1 practice quiz question for stock market learning.
     Return a JSON object with a key "quest".
+    
+    IMPORTANT: User skill level - ${skillDescription}
     
     Randomly pick one type:
     - Financial term quiz

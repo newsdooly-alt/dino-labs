@@ -26,7 +26,12 @@ export function BreakingNewsQuiz() {
   const t = translations[lang];
 
   const { data: quiz, isLoading, refetch } = useQuery<NewsQuizData>({
-    queryKey: ["/api/news/quiz"],
+    queryKey: ["/api/news/quiz", lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/news/quiz?lang=${lang}`);
+      if (!res.ok) throw new Error("Failed to fetch quiz");
+      return res.json();
+    },
     staleTime: 0, // Always fetch fresh quiz
   });
 

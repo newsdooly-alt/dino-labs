@@ -264,7 +264,8 @@ export async function registerRoutes(
     // If no active quests, generate new ones
     const activeQuests = quests.filter(q => !q.isCompleted);
     if (activeQuests.length === 0) {
-        const newQuests = await generateDailyQuests(userId, profile.language || 'en');
+        const skillLevel = (profile.skillLevel as 'beginner' | 'intermediate' | 'advanced') || 'beginner';
+        const newQuests = await generateDailyQuests(userId, profile.language || 'en', skillLevel);
         for (const q of newQuests) {
             await storage.createQuest(q);
         }
@@ -881,10 +882,13 @@ export async function registerRoutes(
 
   // === Breaking News Quiz ===
   app.get("/api/news/quiz", async (req, res) => {
+    const lang = (req.query.lang as string) || "en";
+    const isKorean = lang === "ko";
+    
     // Try to get a real-time quiz question first (50% chance)
     if (Math.random() > 0.5) {
       try {
-        const realTimeQuestion = await getRealTimeQuizQuestion();
+        const realTimeQuestion = await getRealTimeQuizQuestion(isKorean);
         if (realTimeQuestion) {
           return res.json({
             id: `rt-${Date.now()}`,
@@ -898,7 +902,7 @@ export async function registerRoutes(
     }
 
     // Fallback to educational headlines
-    const educationalHeadlines = [
+    const educationalHeadlinesEn = [
       {
         id: "1",
         headline: "Apple reports record quarterly revenue, beating analyst expectations by 15%",
@@ -964,8 +968,76 @@ export async function registerRoutes(
         explanation: "Strong cloud growth shows the company is diversifying beyond ads, which investors love!"
       }
     ];
+
+    const educationalHeadlinesKo = [
+      {
+        id: "1",
+        headline: "Apple, 분기 매출 신기록 달성 - 애널리스트 예상치 15% 상회",
+        symbol: "AAPL",
+        companyName: "Apple Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "기록적인 매출과 예상치 초과는 일반적으로 주가 상승을 이끕니다. 투자자들에게 긍정적인 뉴스입니다!"
+      },
+      {
+        id: "2",
+        headline: "Tesla, 자율주행 시스템 안전 문제로 200만대 리콜 결정",
+        symbol: "TSLA",
+        companyName: "Tesla, Inc.",
+        correctAnswer: "bearish" as const,
+        explanation: "대규모 리콜은 비용과 부정적 홍보를 야기하며, 이는 주가에 하락 압력을 줍니다."
+      },
+      {
+        id: "3",
+        headline: "NVIDIA, 이전 세대보다 10배 빠른 새로운 AI 칩 발표",
+        symbol: "NVDA",
+        companyName: "NVIDIA Corp",
+        correctAnswer: "bullish" as const,
+        explanation: "특히 AI와 같은 핫한 분야의 혁신적인 제품은 투자자 신뢰를 높이고 주가를 상승시킵니다!"
+      },
+      {
+        id: "4",
+        headline: "Microsoft, EU 규제 당국의 대규모 반독점 조사 직면",
+        symbol: "MSFT",
+        companyName: "Microsoft Corp",
+        correctAnswer: "bearish" as const,
+        explanation: "반독점 조사는 벌금과 제한으로 이어질 수 있어 불확실성을 야기하고 주가에 부정적입니다."
+      },
+      {
+        id: "5",
+        headline: "Amazon, 50개 신규 도시로 당일 배송 확대 - 30% 성장 전망",
+        symbol: "AMZN",
+        companyName: "Amazon.com Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "확장과 강력한 성장 전망은 사업 강점을 보여주며 주가에 긍정적입니다!"
+      },
+      {
+        id: "6",
+        headline: "Meta, 대규모 구조조정으로 10,000명 해고 발표",
+        symbol: "META",
+        companyName: "Meta Platforms",
+        correctAnswer: "bullish" as const,
+        explanation: "해고가 부정적으로 들리지만, 비용 절감은 수익성을 개선하고 주가를 올릴 수 있습니다!"
+      },
+      {
+        id: "7",
+        headline: "연준, 예상치 못한 0.5% 금리 인상 발표",
+        symbol: "SPY",
+        companyName: "S&P 500 ETF",
+        correctAnswer: "bearish" as const,
+        explanation: "금리 인상은 차입 비용을 높여 주식 시장 하락으로 이어지는 경우가 많습니다."
+      },
+      {
+        id: "8",
+        headline: "Google Cloud 매출 전년 대비 28% 성장, 전망치 초과 달성",
+        symbol: "GOOGL",
+        companyName: "Alphabet Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "강력한 클라우드 성장은 회사가 광고 외 사업을 다각화하고 있음을 보여주며 투자자들이 좋아합니다!"
+      }
+    ];
     
-    const randomHeadline = educationalHeadlines[Math.floor(Math.random() * educationalHeadlines.length)];
+    const headlines = isKorean ? educationalHeadlinesKo : educationalHeadlinesEn;
+    const randomHeadline = headlines[Math.floor(Math.random() * headlines.length)];
     res.json({ ...randomHeadline, isRealTime: false });
   });
 

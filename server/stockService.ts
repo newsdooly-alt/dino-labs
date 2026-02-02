@@ -217,7 +217,7 @@ export async function getStockInfo(symbol: string): Promise<any> {
 }
 
 // Get a random quiz question based on real-time data
-export async function getRealTimeQuizQuestion(): Promise<{
+export async function getRealTimeQuizQuestion(isKorean: boolean = false): Promise<{
   headline: string;
   symbol: string;
   companyName: string;
@@ -236,8 +236,20 @@ export async function getRealTimeQuizQuestion(): Promise<{
     
     const isUp = quote.changePercent >= 0;
     const changeText = isUp 
-      ? `up ${quote.changePercent.toFixed(2)}%` 
-      : `down ${Math.abs(quote.changePercent).toFixed(2)}%`;
+      ? (isKorean ? `${quote.changePercent.toFixed(2)}% 상승` : `up ${quote.changePercent.toFixed(2)}%`)
+      : (isKorean ? `${Math.abs(quote.changePercent).toFixed(2)}% 하락` : `down ${Math.abs(quote.changePercent).toFixed(2)}%`);
+    
+    if (isKorean) {
+      return {
+        headline: `${quote.name} 주가가 오늘 ${changeText}하여 $${quote.price.toFixed(2)}에 거래되고 있습니다. 이 움직임은 투자자에게 좋은가요?`,
+        symbol: quote.symbol,
+        companyName: quote.name,
+        correctAnswer: isUp ? 'bullish' : 'bearish',
+        explanation: isUp 
+          ? `${quote.name}이(가) 오늘 ${quote.changePercent.toFixed(2)}% 상승했습니다! 주가가 오르면 투자자들이 매수하고 있다는 의미입니다. 상승세입니다!`
+          : `${quote.name}이(가) 오늘 ${Math.abs(quote.changePercent).toFixed(2)}% 하락했습니다. 매도 압력이 있다는 의미입니다. 하락세이지만 매수 기회가 될 수 있습니다!`
+      };
+    }
     
     return {
       headline: `${quote.name} stock is ${changeText} today, trading at $${quote.price.toFixed(2)}. Is this movement good for investors?`,
