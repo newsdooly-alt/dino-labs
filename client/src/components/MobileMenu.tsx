@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings } from "lucide-react";
+import { X, Home, Target, TrendingUp, Star, User, Settings, Egg, Trophy } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ interface MobileMenuProps {
 const menuItems = [
   { path: "/", icon: Home, translationKey: "mobile_menu_dashboard" as const },
   { path: "/quests", icon: Target, translationKey: "mobile_menu_quests" as const },
+  { path: "/eggs", icon: Egg, translationKey: "mobile_menu_eggs" as const },
+  { path: "/collection", icon: Trophy, translationKey: "mobile_menu_collection" as const },
   { path: "/market-trends", icon: TrendingUp, translationKey: "mobile_menu_trends" as const },
   { path: "/watchlist", icon: Star, translationKey: "mobile_menu_watchlist" as const },
   { path: "/leaderboard", icon: User, translationKey: "mobile_menu_profile" as const },
