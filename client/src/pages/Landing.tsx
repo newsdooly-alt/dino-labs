@@ -147,7 +147,7 @@ export default function Landing() {
         username: formData.username,
         password: formData.password,
       });
-      if (response.success) {
+      if (response.ok) {
         navigate("/");
         window.location.reload();
       }
@@ -182,7 +182,7 @@ export default function Landing() {
         language,
         level: selectedLevel,
       });
-      if (response.success) {
+      if (response.ok) {
         navigate("/");
         window.location.reload();
       }
@@ -205,7 +205,7 @@ export default function Landing() {
         language,
         level: selectedLevel,
       });
-      if (response.success) {
+      if (response.ok) {
         localStorage.setItem("dinolingo_guest_data", JSON.stringify({
           isGuest: true,
           language,
