@@ -46,11 +46,16 @@ import {
   LogOut,
   Check,
   ChevronRight,
+  GraduationCap,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 type DinoColor = "green" | "blue" | "pink";
 type RefreshInterval = "manual" | "1min" | "5min";
 type Currency = "usd" | "krw";
+type SkillLevel = "beginner" | "intermediate" | "advanced";
 
 interface AppSettings {
   nickname: string;
@@ -89,6 +94,13 @@ export default function Settings() {
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>("beginner");
+  const [isUpdatingSkillLevel, setIsUpdatingSkillLevel] = useState(false);
+  const [upgradeUsername, setUpgradeUsername] = useState("");
+  const [upgradePassword, setUpgradePassword] = useState("");
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  
+  const isGuest = user?.authType === "guest";
 
   useEffect(() => {
     const saved = localStorage.getItem("dinolingo_settings");
@@ -103,7 +115,10 @@ export default function Settings() {
     if (user?.nickname) {
       setSettings(prev => ({ ...prev, nickname: prev.nickname || user.nickname || "" }));
     }
-  }, [user?.nickname]);
+    if (user?.skillLevel) {
+      setSkillLevel(user.skillLevel as SkillLevel);
+    }
+  }, [user?.nickname, user?.skillLevel]);
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -125,6 +140,51 @@ export default function Settings() {
 
   const handleLanguageChange = (newLang: "en" | "ko") => {
     updateLanguage.mutate(newLang);
+  };
+
+  const handleSkillLevelChange = async (level: SkillLevel) => {
+    setIsUpdatingSkillLevel(true);
+    try {
+      await apiRequest("PATCH", "/api/profiles/skill-level", { skillLevel: level });
+      setSkillLevel(level);
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+      toast({
+        title: t.skill_level_changed,
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("Failed to update skill level:", error);
+    } finally {
+      setIsUpdatingSkillLevel(false);
+    }
+  };
+
+  const handleGuestUpgrade = async () => {
+    if (!upgradeUsername.trim() || !upgradePassword.trim()) return;
+    setIsUpgrading(true);
+    try {
+      await apiRequest("POST", "/api/auth/upgrade", {
+        username: upgradeUsername.trim(),
+        password: upgradePassword,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+      toast({
+        title: t.upgrade_success,
+        duration: 3000,
+      });
+      setUpgradeUsername("");
+      setUpgradePassword("");
+    } catch (error: any) {
+      toast({
+        title: error.message || "Failed to upgrade account",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsUpgrading(false);
+    }
   };
 
   const handleResetData = () => {
@@ -341,6 +401,108 @@ export default function Settings() {
           </div>
         </div>
       </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        className="bg-card border border-border rounded-2xl overflow-hidden"
+      >
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-skill-level">
+          <GraduationCap className="w-5 h-5 text-green-600" />
+          <h2 className="font-semibold">{t.skill_level}</h2>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">{t.skill_level_desc}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              variant={skillLevel === "beginner" ? "default" : "outline"}
+              onClick={() => handleSkillLevelChange("beginner")}
+              disabled={isUpdatingSkillLevel}
+              className="flex flex-col h-auto py-3 gap-1"
+              data-testid="button-skill-beginner"
+            >
+              <span className="font-medium">{t.skill_beginner}</span>
+              <span className="text-xs opacity-70 text-center">{t.skill_beginner_desc}</span>
+            </Button>
+            <Button
+              variant={skillLevel === "intermediate" ? "default" : "outline"}
+              onClick={() => handleSkillLevelChange("intermediate")}
+              disabled={isUpdatingSkillLevel}
+              className="flex flex-col h-auto py-3 gap-1"
+              data-testid="button-skill-intermediate"
+            >
+              <span className="font-medium">{t.skill_intermediate}</span>
+              <span className="text-xs opacity-70 text-center">{t.skill_intermediate_desc}</span>
+            </Button>
+            <Button
+              variant={skillLevel === "advanced" ? "default" : "outline"}
+              onClick={() => handleSkillLevelChange("advanced")}
+              disabled={isUpdatingSkillLevel}
+              className="flex flex-col h-auto py-3 gap-1"
+              data-testid="button-skill-advanced"
+            >
+              <span className="font-medium">{t.skill_advanced}</span>
+              <span className="text-xs opacity-70 text-center">{t.skill_advanced_desc}</span>
+            </Button>
+          </div>
+        </div>
+      </motion.section>
+
+      {isGuest && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.24 }}
+          className="bg-card border border-border rounded-2xl overflow-hidden border-amber-500/50"
+        >
+          <div className="px-4 py-3 bg-amber-500/10 border-b border-border flex items-center gap-3" data-testid="section-guest-upgrade">
+            <UserPlus className="w-5 h-5 text-amber-600" />
+            <h2 className="font-semibold">{t.guest_account}</h2>
+          </div>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">{t.guest_account_desc}</p>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="upgrade-username" className="text-sm font-medium">{t.create_username}</Label>
+                <Input
+                  id="upgrade-username"
+                  value={upgradeUsername}
+                  onChange={(e) => setUpgradeUsername(e.target.value)}
+                  placeholder="username"
+                  className="h-11"
+                  data-testid="input-upgrade-username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="upgrade-password" className="text-sm font-medium">{t.create_password}</Label>
+                <Input
+                  id="upgrade-password"
+                  type="password"
+                  value={upgradePassword}
+                  onChange={(e) => setUpgradePassword(e.target.value)}
+                  placeholder="password"
+                  className="h-11"
+                  data-testid="input-upgrade-password"
+                />
+              </div>
+              <Button
+                onClick={handleGuestUpgrade}
+                disabled={isUpgrading || !upgradeUsername.trim() || !upgradePassword.trim()}
+                className="w-full h-11 bg-amber-600 hover:bg-amber-700"
+                data-testid="button-upgrade-account"
+              >
+                {isUpgrading ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <UserPlus className="w-4 h-4 mr-2" />
+                )}
+                {t.upgrade_to_member}
+              </Button>
+            </div>
+          </div>
+        </motion.section>
+      )}
 
       <motion.section
         initial={{ opacity: 0, y: 20 }}

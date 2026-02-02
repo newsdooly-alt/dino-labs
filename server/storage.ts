@@ -6,14 +6,19 @@ import {
   type Quest, type InsertQuest, type UserStock, type InsertUserStock,
   type Club, type InsertClub, type DinoEgg, type InsertDinoEgg
 } from "@shared/schema";
+import { users, type User } from "@shared/models/auth";
 
 export interface IStorage {
+  // Users (auth)
+  getUser(id: string): Promise<User | undefined>;
+  
   // User Profiles
   getUserProfile(id: string): Promise<UserProfile | undefined>;
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number): Promise<UserProfile>;
   updateUserLanguage(id: string, language: string): Promise<UserProfile>;
+  updateSkillLevel(id: string, skillLevel: string): Promise<UserProfile>;
   replenishHearts(id: string, amount: number): Promise<UserProfile>;
   updateFavoriteStocks(id: string, stocks: string[]): Promise<UserProfile>;
   updateNickname(id: string, nickname: string): Promise<UserProfile>;
@@ -50,6 +55,12 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Users (auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
   // User Profiles
   async getUserProfile(id: string): Promise<UserProfile | undefined> {
     const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
@@ -61,15 +72,19 @@ export class DatabaseStorage implements IStorage {
     return profile;
   }
 
-  async upsertUserProfile(profileData: InsertUserProfile): Promise<UserProfile> {
+  async upsertUserProfile(profileData: InsertUserProfile & { skillLevel?: string }): Promise<UserProfile> {
     const [profile] = await db
       .insert(userProfiles)
-      .values(profileData)
+      .values({
+        ...profileData,
+        skillLevel: profileData.skillLevel || "beginner",
+      })
       .onConflictDoUpdate({
         target: userProfiles.id,
         set: {
           nickname: profileData.nickname,
           language: profileData.language,
+          skillLevel: profileData.skillLevel,
         },
       })
       .returning();
@@ -87,6 +102,14 @@ export class DatabaseStorage implements IStorage {
   async updateUserLanguage(id: string, language: string): Promise<UserProfile> {
     const [profile] = await db.update(userProfiles)
       .set({ language })
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return profile;
+  }
+
+  async updateSkillLevel(id: string, skillLevel: string): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
+      .set({ skillLevel })
       .where(eq(userProfiles.id, id))
       .returning();
     return profile;

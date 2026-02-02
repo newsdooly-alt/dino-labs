@@ -17,6 +17,7 @@ export const userProfiles = pgTable("user_profiles", {
   hearts: integer("hearts").default(5).notNull(),
   favoriteStocks: text("favorite_stocks").array().default([]).notNull(),
   language: text("language").default("en").notNull(),
+  skillLevel: text("skill_level").default("beginner").notNull(), // "beginner" | "intermediate" | "advanced"
   lastDailyQuestAt: timestamp("last_daily_quest_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });

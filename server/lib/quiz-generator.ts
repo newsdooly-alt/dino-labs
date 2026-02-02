@@ -90,7 +90,7 @@ export async function generateDailyQuests(userId: string, language: string = 'en
 
   } catch (err) {
     console.error("Error generating quests:", err);
-    return fallbackQuests(userId);
+    return fallbackQuests(userId, language);
   }
 }
 
@@ -160,12 +160,14 @@ export async function generatePracticeQuest(userId: string, language: string = '
     };
   } catch (err) {
     console.error("Error generating practice quest:", err);
-    return fallbackPracticeQuest(userId);
+    return fallbackPracticeQuest(userId, language);
   }
 }
 
-function fallbackPracticeQuest(userId: number): InsertQuest {
-  const practiceQuests = [
+function fallbackPracticeQuest(userId: string, language: string = 'en'): InsertQuest {
+  const isKorean = language === 'ko';
+  
+  const practiceQuestsEn = [
     {
       question: "What does 'blue chip' refer to in investing?",
       options: ["High-risk penny stocks", "Large, stable, well-established companies", "Technology startups", "Government bonds"],
@@ -185,7 +187,29 @@ function fallbackPracticeQuest(userId: number): InsertQuest {
       explanation: "Going long means buying a security with the expectation that its price will increase."
     }
   ];
+
+  const practiceQuestsKo = [
+    {
+      question: "'블루칩'이란 투자에서 무엇을 의미하나요?",
+      options: ["고위험 페니 주식", "크고 안정적이며 잘 확립된 기업", "기술 스타트업", "국채"],
+      correctAnswer: 1,
+      explanation: "블루칩 주식은 안정적인 성과 이력을 가진 대형 우량 기업의 주식입니다."
+    },
+    {
+      question: "주식 분할이란 무엇인가요?",
+      options: ["회사 자산 분할", "주식 수를 늘리면서 가격을 비례적으로 줄이는 것", "보유 주식의 절반을 파는 것", "시장 붕괴"],
+      correctAnswer: 1,
+      explanation: "주식 분할은 발행 주식 수를 늘리면서 주당 가격을 비례적으로 낮추는 것입니다."
+    },
+    {
+      question: "'롱 포지션을 취하다'는 무슨 뜻인가요?",
+      options: ["주식을 수년간 보유하는 것", "상승을 기대하며 주식을 매수하는 것", "소유하지 않은 주식을 파는 것", "장기 채권에 투자하는 것"],
+      correctAnswer: 1,
+      explanation: "롱 포지션을 취한다는 것은 가격 상승을 기대하며 증권을 매수하는 것을 의미합니다."
+    }
+  ];
   
+  const practiceQuests = isKorean ? practiceQuestsKo : practiceQuestsEn;
   const random = practiceQuests[Math.floor(Math.random() * practiceQuests.length)];
   return {
     userId,
@@ -199,7 +223,74 @@ function fallbackPracticeQuest(userId: number): InsertQuest {
   };
 }
 
-function fallbackQuests(userId: string): InsertQuest[] {
+function fallbackQuests(userId: string, language: string = 'en'): InsertQuest[] {
+  const isKorean = language === 'ko';
+  
+  if (isKorean) {
+    return [
+      {
+        userId,
+        type: "term",
+        question: "ETF는 무엇의 약자인가요?",
+        options: ["Exchange Traded Fund", "Equity Traded Finance", "Electronic Transfer Fund", "Early Trade Fee"],
+        correctAnswer: 0,
+        explanation: "ETF는 Exchange Traded Fund(상장지수펀드)의 약자로, 주식처럼 거래소에서 거래되는 증권 바구니입니다.",
+        xpReward: 15,
+        isCompleted: false
+      },
+      {
+        userId,
+        type: "pattern",
+        question: "하락 추세에서 반전을 신호하는 패턴은 무엇인가요?",
+        options: ["더블탑", "헤드앤숄더", "역 헤드앤숄더", "베어 플래그"],
+        correctAnswer: 2,
+        explanation: "역 헤드앤숄더 패턴은 상승 반전 패턴입니다.",
+        xpReward: 15,
+        isCompleted: false
+      },
+      {
+        userId,
+        type: "news",
+        question: "'약세장(Bear Market)'이란 무엇인가요?",
+        options: ["상승 추세의 시장", "하락 추세의 시장", "정체된 시장", "변동성이 높은 시장"],
+        correctAnswer: 1,
+        explanation: "약세장은 주가가 하락하는 시장으로, 일반적으로 20% 이상의 하락으로 정의됩니다.",
+        xpReward: 15,
+        isCompleted: false
+      },
+      {
+        userId,
+        type: "search",
+        question: "Apple (AAPL)은 어떤 섹터에 속하나요?",
+        options: ["헬스케어", "기술", "소비재", "금융"],
+        correctAnswer: 1,
+        explanation: "Apple Inc.는 기술 섹터로 분류됩니다.",
+        xpReward: 20,
+        isCompleted: false
+      },
+      {
+        userId,
+        type: "valuation",
+        question: "P/E 비율이 15인 주식이 업계 평균 25와 비교할 때 어떻게 평가되나요?",
+        options: ["고평가", "적정 평가", "저평가", "판단할 수 없음"],
+        correctAnswer: 2,
+        explanation: "업계 평균보다 낮은 P/E 비율은 일반적으로 주식이 저평가되어 있음을 나타냅니다.",
+        xpReward: 20,
+        isCompleted: false
+      },
+      {
+        userId,
+        type: "compare",
+        question: "두 주식을 비교할 때 상대적 가치를 이해하는 데 도움이 되는 지표는 무엇인가요?",
+        options: ["주가만", "P/E 비율", "회사 본사 위치", "로고 디자인"],
+        correctAnswer: 1,
+        explanation: "P/E 비율은 수익 대비 가격을 보여주므로 주식 간 밸류에이션을 비교하는 데 도움이 됩니다.",
+        xpReward: 20,
+        isCompleted: false
+      }
+    ];
+  }
+  
   return [
     {
       userId,

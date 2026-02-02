@@ -33,21 +33,31 @@ export async function registerRoutes(
   };
 
   // === User Profiles (authenticated) ===
-  app.get(api.profiles.get.path, isAuthenticated, async (req, res) => {
+  app.get(api.profiles.get.path, isAuthenticated, async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     
     let profile = await storage.getUserProfile(userId);
     if (!profile) {
+      // Get language and skill level from session (set during registration/guest login)
+      const sessionLanguage = req.user?.language || "en";
+      const sessionLevel = req.user?.level || "beginner";
+      
       // Auto-create profile for new users (use upsert to handle race conditions)
       profile = await storage.upsertUserProfile({
         id: userId,
         nickname: req.user?.claims?.first_name || "Player",
-        language: "en",
-        favoriteStocks: []
+        language: sessionLanguage,
+        favoriteStocks: [],
+        skillLevel: sessionLevel,
       });
     }
-    res.json(profile);
+    
+    // Get user's authType from users table (if authenticated via local/guest)
+    const user = await storage.getUser(userId);
+    const authType = user?.authType || "oidc";
+    
+    res.json({ ...profile, authType });
   });
 
   app.post(api.profiles.replenishHearts.path, isAuthenticated, async (req, res) => {
@@ -70,6 +80,35 @@ export async function registerRoutes(
     await storage.clearQuests(userId);
     
     res.json(profile);
+  });
+
+  // Update skill level
+  app.patch("/api/profiles/skill-level", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { skillLevel } = req.body;
+    if (!["beginner", "intermediate", "advanced"].includes(skillLevel)) {
+      return res.status(400).json({ message: "Invalid skill level" });
+    }
+    
+    const profile = await storage.updateSkillLevel(userId, skillLevel);
+    
+    // Clear existing quests so they regenerate for the new level
+    await storage.clearQuests(userId);
+    
+    res.json(profile);
+  });
+
+  // Check if current user is a guest
+  app.get("/api/auth/status", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    const isGuest = userId?.startsWith("guest_") || req.user?.authType === "guest";
+    res.json({ 
+      isGuest, 
+      userId,
+      authType: req.user?.authType || "oidc"
+    });
   });
 
   // Legacy user routes (backward compatibility)
