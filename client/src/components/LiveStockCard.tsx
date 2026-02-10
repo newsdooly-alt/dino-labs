@@ -5,6 +5,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface LiveStockQuote {
   symbol: string;
@@ -51,6 +52,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
+  const { formatPrice } = useCurrency();
   
   const { data, isLoading, error, refetch, isRefetching } = useQuery<LiveStockResponse>({
     queryKey: ["/api/stocks/live", symbols.join(",")],
@@ -160,7 +162,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
           <div className="flex items-center gap-2">
             <div className="text-right">
               <div className="font-mono font-medium">
-                {quote.price > 0 ? `$${quote.price.toFixed(2)}` : "--"}
+                {quote.price > 0 ? formatPrice(quote.price) : "--"}
                 {quote.isStale && <span className="text-xs text-muted-foreground ml-1">*</span>}
               </div>
               <div className={cn(

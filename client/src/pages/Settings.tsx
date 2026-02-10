@@ -51,6 +51,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 type DinoColor = "green" | "blue" | "pink";
 type RefreshInterval = "manual" | "1min" | "5min";
@@ -91,6 +92,7 @@ export default function Settings() {
 
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
+  const { currency: activeCurrency, setCurrency: setGlobalCurrency, exchangeRate } = useCurrency();
 
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
@@ -374,24 +376,27 @@ export default function Settings() {
               <div>
                 <p className="font-medium" data-testid="label-currency">{t.currency}</p>
                 <p className="text-sm text-muted-foreground" data-testid="text-exchange-rate">
-                  {settings.currency === "usd" ? "1 USD = ₩1,350" : "₩1,350 = 1 USD"}
+                  {activeCurrency === "usd" 
+                    ? `1 USD = ₩${Math.round(exchangeRate).toLocaleString()}`
+                    : `₩${Math.round(exchangeRate).toLocaleString()} = 1 USD`
+                  }
                 </p>
               </div>
             </div>
             <div className="flex gap-1">
               <Button
-                variant={settings.currency === "usd" ? "default" : "outline"}
+                variant={activeCurrency === "usd" ? "default" : "outline"}
                 size="sm"
-                onClick={() => updateSetting("currency", "usd")}
+                onClick={() => { setGlobalCurrency("usd"); updateSetting("currency", "usd"); }}
                 className="h-9"
                 data-testid="button-currency-usd"
               >
                 {t.currency_usd}
               </Button>
               <Button
-                variant={settings.currency === "krw" ? "default" : "outline"}
+                variant={activeCurrency === "krw" ? "default" : "outline"}
                 size="sm"
-                onClick={() => updateSetting("currency", "krw")}
+                onClick={() => { setGlobalCurrency("krw"); updateSetting("currency", "krw"); }}
                 className="h-9"
                 data-testid="button-currency-krw"
               >

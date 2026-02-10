@@ -452,6 +452,48 @@ export async function registerRoutes(
   let cachedMood: MoodCache | null = null;
   const MOOD_CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
 
+  // === Exchange Rate API ===
+  let cachedExchangeRate: { rate: number; source: string; timestamp: number } | null = null;
+  const EXCHANGE_RATE_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+  app.get("/api/exchange-rate", async (_req, res) => {
+    if (cachedExchangeRate && Date.now() - cachedExchangeRate.timestamp < EXCHANGE_RATE_CACHE_DURATION) {
+      return res.json(cachedExchangeRate);
+    }
+
+    try {
+      const response = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await response.json();
+      if (data.result === "success" && data.rates?.KRW) {
+        cachedExchangeRate = {
+          rate: data.rates.KRW,
+          source: "er-api.com",
+          timestamp: Date.now(),
+        };
+        return res.json(cachedExchangeRate);
+      }
+    } catch (error) {
+      console.error("Exchange rate API error:", error);
+    }
+
+    try {
+      const response2 = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
+      const data2 = await response2.json();
+      if (data2.rates?.KRW) {
+        cachedExchangeRate = {
+          rate: data2.rates.KRW,
+          source: "exchangerate-api.com",
+          timestamp: Date.now(),
+        };
+        return res.json(cachedExchangeRate);
+      }
+    } catch (error2) {
+      console.error("Fallback exchange rate API error:", error2);
+    }
+
+    res.json({ rate: 1380, source: "fallback", timestamp: Date.now() });
+  });
+
   const labelTranslations: Record<string, string> = {
     "Extreme Fear": "극심한 공포",
     "Fear": "공포",
