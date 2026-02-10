@@ -1,16 +1,15 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface DinoEggProps {
   level: number;
   className?: string;
+  lang?: string;
 }
 
-export function DinoEgg({ level, className }: DinoEggProps) {
+export function DinoEgg({ level, className, lang = "en" }: DinoEggProps) {
   const isHatched = level >= 10;
-  
-  // Progress within the egg stage (0 to 1)
-  const crackProgress = Math.min(level / 10, 1);
+  const isKo = lang === "ko";
   
   return (
     <div className={cn("relative flex items-center justify-center p-4", className)}>
@@ -29,14 +28,11 @@ export function DinoEgg({ level, className }: DinoEggProps) {
               }}
               className="relative w-full h-full"
             >
-              {/* Egg Shape */}
               <div className="absolute inset-0 bg-gradient-to-b from-emerald-100 to-emerald-200 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] border-4 border-emerald-300 shadow-xl overflow-hidden">
-                {/* Speckles */}
                 <div className="absolute top-4 left-6 w-2 h-2 bg-emerald-400 rounded-full opacity-40" />
                 <div className="absolute top-12 right-8 w-3 h-3 bg-emerald-400 rounded-full opacity-30" />
                 <div className="absolute bottom-10 left-10 w-2 h-2 bg-emerald-400 rounded-full opacity-50" />
                 
-                {/* Cracks based on level */}
                 {level >= 3 && (
                   <motion.div 
                     initial={{ opacity: 0 }} 
@@ -77,8 +73,8 @@ export function DinoEgg({ level, className }: DinoEggProps) {
                   <path d="M17 13l3-3 3 3" />
                 </svg>
               </div>
-              <div className="mt-4 px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider">
-                Baby Dino Hatched!
+              <div className="mt-4 px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider" data-testid="text-dino-hatched">
+                {isKo ? "아기 다이노 부화!" : "Baby Dino Hatched!"}
               </div>
             </motion.div>
           )}
@@ -87,5 +83,3 @@ export function DinoEgg({ level, className }: DinoEggProps) {
     </div>
   );
 }
-
-import { AnimatePresence } from "framer-motion";

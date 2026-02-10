@@ -126,7 +126,7 @@ export default function Dashboard() {
         {/* Dino Egg Growth */}
         <section className="bg-card border border-border rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-lg">
           <h3 className="font-display font-bold text-lg mb-2">{t.your_dino_egg}</h3>
-          <DinoEgg level={currentLevel} />
+          <DinoEgg level={currentLevel} lang={lang} />
           <p className="text-xs text-muted-foreground mt-2">{t.hatching_at_level}</p>
         </section>
       </div>
