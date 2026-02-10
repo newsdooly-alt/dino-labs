@@ -2,23 +2,43 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, RefreshCw, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Zap, BarChart3, Newspaper, Activity, ArrowUpDown, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
+
+type QuizCategory = 'valuation' | 'impact' | 'technical' | 'trend' | 'default';
 
 interface NewsQuizData {
   id: string;
   headline: string;
   symbol: string;
   companyName: string;
-  correctAnswer: "bullish" | "bearish";
+  category: QuizCategory;
+  options: [string, string];
+  correctAnswerIndex: number;
   explanation: string;
 }
 
+const categoryIcons: Record<QuizCategory, { first: typeof TrendingUp; second: typeof TrendingDown }> = {
+  valuation: { first: TrendingUp, second: TrendingDown },
+  impact:    { first: Newspaper, second: Newspaper },
+  technical: { first: Activity, second: Activity },
+  trend:     { first: TrendingUp, second: TrendingDown },
+  default:   { first: HelpCircle, second: HelpCircle },
+};
+
+const categoryColors: Record<QuizCategory, { first: string; second: string }> = {
+  valuation: { first: 'text-destructive', second: 'text-primary' },
+  impact:    { first: 'text-primary', second: 'text-destructive' },
+  technical: { first: 'text-destructive', second: 'text-primary' },
+  trend:     { first: 'text-primary', second: 'text-destructive' },
+  default:   { first: 'text-primary', second: 'text-destructive' },
+};
+
 export function BreakingNewsQuiz() {
   const [answered, setAnswered] = useState(false);
-  const [userAnswer, setUserAnswer] = useState<"bullish" | "bearish" | null>(null);
+  const [userAnswer, setUserAnswer] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: user } = useUser();
@@ -32,11 +52,11 @@ export function BreakingNewsQuiz() {
       if (!res.ok) throw new Error("Failed to fetch quiz");
       return res.json();
     },
-    staleTime: 0, // Always fetch fresh quiz
+    staleTime: 0,
   });
 
-  const handleAnswer = (answer: "bullish" | "bearish") => {
-    setUserAnswer(answer);
+  const handleAnswer = (answerIndex: number) => {
+    setUserAnswer(answerIndex);
     setAnswered(true);
   };
 
@@ -46,7 +66,12 @@ export function BreakingNewsQuiz() {
     refetch();
   };
 
-  const isCorrect = userAnswer === quiz?.correctAnswer;
+  const isCorrect = userAnswer === quiz?.correctAnswerIndex;
+  const category = quiz?.category || 'default';
+  const icons = categoryIcons[category];
+  const colors = categoryColors[category];
+  const FirstIcon = icons.first;
+  const SecondIcon = icons.second;
 
   if (isLoading) {
     return (
@@ -98,24 +123,24 @@ export function BreakingNewsQuiz() {
             className="flex gap-3"
           >
             <Button 
-              onClick={() => handleAnswer("bullish")}
+              onClick={() => handleAnswer(0)}
               className="flex-1 rounded-2xl"
               variant="outline"
               size="lg"
-              data-testid="button-bullish"
+              data-testid="button-option-0"
             >
-              <TrendingUp className="w-5 h-5 mr-2 text-primary" />
-              {t.bullish}
+              <FirstIcon className={cn("w-5 h-5 mr-2", colors.first)} />
+              {quiz?.options?.[0] || 'Option A'}
             </Button>
             <Button 
-              onClick={() => handleAnswer("bearish")}
+              onClick={() => handleAnswer(1)}
               className="flex-1 rounded-2xl"
               variant="outline"
               size="lg"
-              data-testid="button-bearish"
+              data-testid="button-option-1"
             >
-              <TrendingDown className="w-5 h-5 mr-2 text-destructive" />
-              {t.bearish}
+              <SecondIcon className={cn("w-5 h-5 mr-2", colors.second)} />
+              {quiz?.options?.[1] || 'Option B'}
             </Button>
           </motion.div>
         ) : (

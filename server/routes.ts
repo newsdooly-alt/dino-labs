@@ -937,6 +937,42 @@ export async function registerRoutes(
   });
 
   // === Breaking News Quiz ===
+  // Category-based option mapping for quiz questions
+  type QuizCategory = 'valuation' | 'impact' | 'technical' | 'trend' | 'default';
+  
+  const categoryOptions: Record<QuizCategory, { en: [string, string]; ko: [string, string] }> = {
+    valuation: { en: ['Overvalued (고평가)', 'Undervalued (저평가)'], ko: ['고평가 (Overvalued)', '저평가 (Undervalued)'] },
+    impact:    { en: ['Good News (호재)', 'Bad News (악재)'],         ko: ['호재 (Good News)', '악재 (Bad News)'] },
+    technical: { en: ['Overbought (과매수)', 'Oversold (과매도)'],    ko: ['과매수 (Overbought)', '과매도 (Oversold)'] },
+    trend:     { en: ['Upward (상승)', 'Downward (하락)'],            ko: ['상승 (Upward)', '하락 (Downward)'] },
+    default:   { en: ['Yes (맞음)', 'No (틀림)'],                     ko: ['맞음 (Yes)', '틀림 (No)'] },
+  };
+
+  function detectQuizCategory(headline: string): QuizCategory {
+    const text = headline.toLowerCase();
+    const valuationKeywords = ['p/e', 'per', 'valuation', 'overvalued', 'undervalued', 'expensive', 'cheap', 'fair value', 'multiple', 'premium', 'discount', '고평가', '저평가', '밸류에이션', 'psr', 'pbr', 'ev/ebitda'];
+    const impactKeywords = ['news', 'event', 'impact', 'announcement', 'earnings', 'report', 'revenue', 'buyback', 'dividend', 'merger', 'acquisition', 'layoff', 'recall', 'antitrust', 'rate cut', 'rate hike', 'expansion', 'margin', 'fcf', 'cash flow', 'eps', '실적', '매출', '발표', '호재', '악재', '영향', '자사주', '배당', '매입', '인수', '합병', '해고', '리콜', '금리', '인하', '인상', '확장', '마진', '현금흐름'];
+    const technicalKeywords = ['rsi', 'indicator', 'overbought', 'oversold', 'macd', 'bollinger', 'moving average', 'support', 'resistance', 'stochastic', '과매수', '과매도', '지표', '이동평균'];
+    const trendKeywords = ['trend', 'direction', 'outlook', 'forecast', 'predict', 'future', 'upward', 'downward', 'rise', 'fall', 'growth', 'decline', '추세', '전망', '방향', '상승', '하락', '성장', '둔화'];
+
+    if (valuationKeywords.some(kw => text.includes(kw))) return 'valuation';
+    if (technicalKeywords.some(kw => text.includes(kw))) return 'technical';
+    if (impactKeywords.some(kw => text.includes(kw))) return 'impact';
+    if (trendKeywords.some(kw => text.includes(kw))) return 'trend';
+    return 'default';
+  }
+
+  function mapAnswerToIndex(correctAnswer: string, category: QuizCategory): number {
+    const answer = correctAnswer.toLowerCase().trim();
+    const firstOptionAnswers = [
+      'bullish', 'overvalued', 'good news', 'overbought', 'upward', 'yes',
+      '고평가', '호재', '과매수', '상승', '맞음',
+      'good', 'positive', 'up',
+    ];
+    if (firstOptionAnswers.some(token => answer.includes(token))) return 0;
+    return 1;
+  }
+
   app.get("/api/news/quiz", async (req, res) => {
     const lang = (req.query.lang as string) || "en";
     const isKorean = lang === "ko";
@@ -959,6 +995,19 @@ export async function registerRoutes(
         
         const fundamentalsContext = [peStr, divStr, capStr, betaStr, epsStr, highStr, lowStr, sectorStr].filter(Boolean).join(', ');
         
+        const categoryInfo = `
+Categories (pick the most appropriate one):
+- "valuation": Questions about whether a stock is overvalued or undervalued (P/E, multiples, fair value)
+- "impact": Questions about whether news/events are positive or negative for the stock (earnings, announcements, macro events)
+- "technical": Questions about technical indicators (RSI, overbought/oversold conditions)
+- "trend": Questions about price direction or future outlook
+
+For the correctAnswer field:
+- If category is "valuation": use "overvalued" or "undervalued"
+- If category is "impact": use "good news" or "bad news"
+- If category is "technical": use "overbought" or "oversold"
+- If category is "trend": use "upward" or "downward"`;
+
         const prompt = isKorean
           ? `${fundamentals.name} (${fundamentals.symbol})의 실시간 펀더멘털 데이터를 기반으로 투자자 교육용 퀴즈 문제 1개를 만들어주세요.
 
@@ -967,12 +1016,12 @@ export async function registerRoutes(
 규칙:
 - 단순한 "주가 올랐다/내렸다" 문제는 절대 금지
 - PER, 배당수익률, 시가총액, 베타, EPS, 52주 고저 등 펀더멘털 지표를 활용한 분석적 질문
-- 예시: "현재 PER이 XX인 이 기업은 저평가/고평가 중 어느 쪽에 가까운가?", "배당수익률 XX%는 이 섹터 평균 대비 어떤 수준인가?", "52주 최고가 대비 현재 주가가 XX%인 이 종목의 투자 전망은?"
-- correctAnswer는 "bullish" 또는 "bearish" 중 하나
-- 자연스럽고 전문적인 한국어로 작성
+- headline과 explanation은 자연스럽고 전문적인 한국어로 작성
+- 중요: category와 correctAnswer는 반드시 영어로 작성하세요
+${categoryInfo}
 
 JSON 형식으로 정확히 반환:
-{"headline": "질문 내용", "correctAnswer": "bullish 또는 bearish", "explanation": "2-3문장의 전문적인 해설"}`
+{"headline": "한국어 질문 내용", "category": "valuation|impact|technical|trend", "correctAnswer": "영어로: overvalued/undervalued/good news/bad news/overbought/oversold/upward/downward", "explanation": "한국어 2-3문장의 전문적인 해설"}`
           : `Create 1 professional investment quiz question based on real fundamentals data for ${fundamentals.name} (${fundamentals.symbol}).
 
 Current data: Price $${fundamentals.price.toFixed(2)}, Change ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
@@ -980,18 +1029,17 @@ Current data: Price $${fundamentals.price.toFixed(2)}, Change ${fundamentals.cha
 Rules:
 - NEVER create simple "stock went up/down" questions
 - Use fundamental metrics: P/E ratio, dividend yield, market cap, beta, EPS, 52-week range analysis
-- Examples: "With a P/E of XX, is this company likely overvalued or undervalued?", "What does a dividend yield of XX% suggest about this company?", "Trading at XX% of its 52-week high, what's the investment outlook?"
-- correctAnswer must be "bullish" or "bearish"
 - Professional, educational tone
+${categoryInfo}
 
 Return EXACTLY this JSON:
-{"headline": "question text", "correctAnswer": "bullish or bearish", "explanation": "2-3 sentence professional explanation"}`;
+{"headline": "question text", "category": "valuation|impact|technical|trend", "correctAnswer": "answer matching category", "explanation": "2-3 sentence professional explanation"}`;
 
         const aiResponse = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.8,
-          max_tokens: 400,
+          max_tokens: 500,
           response_format: { type: "json_object" },
         });
 
@@ -999,12 +1047,20 @@ Return EXACTLY this JSON:
         if (content) {
           const parsed = JSON.parse(content);
           if (parsed.headline && parsed.correctAnswer && parsed.explanation) {
+            const aiCategory = (['valuation', 'impact', 'technical', 'trend'].includes(parsed.category))
+              ? parsed.category as QuizCategory
+              : detectQuizCategory(parsed.headline);
+            const opts = categoryOptions[aiCategory];
+            const correctIdx = mapAnswerToIndex(parsed.correctAnswer, aiCategory);
+            
             return res.json({
               id: `ai-${Date.now()}`,
               headline: parsed.headline,
               symbol: fundamentals.symbol,
               companyName: fundamentals.name,
-              correctAnswer: parsed.correctAnswer as 'bullish' | 'bearish',
+              category: aiCategory,
+              options: isKorean ? opts.ko : opts.en,
+              correctAnswerIndex: correctIdx,
               explanation: parsed.explanation,
               isRealTime: true,
             });
@@ -1015,30 +1071,33 @@ Return EXACTLY this JSON:
       console.error("[Quiz] AI fundamental quiz generation failed:", error);
     }
     
-    // Fallback to professional curated quizzes (fundamental-based, not price-based)
+    // Fallback to professional curated quizzes with categories
     const fallbackEn = [
       {
         id: "f1",
         headline: "A major tech company reports EPS of $6.50, beating Wall Street's estimate of $5.80 by 12%. Revenue grew 15% YoY. How should investors interpret this?",
         symbol: "AAPL",
         companyName: "Apple Inc.",
-        correctAnswer: "bullish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "Beating EPS estimates by a significant margin (12%) combined with strong revenue growth signals robust business performance. This typically drives institutional buying and price appreciation."
       },
       {
         id: "f2",
-        headline: "A semiconductor company's P/E ratio has expanded from 25x to 65x over 12 months while earnings growth has slowed from 40% to 15%. What does this valuation compression risk suggest?",
+        headline: "A semiconductor company's P/E ratio has expanded from 25x to 65x over 12 months while earnings growth has slowed from 40% to 15%. What does this valuation suggest?",
         symbol: "NVDA",
         companyName: "NVIDIA Corp",
-        correctAnswer: "bearish" as const,
-        explanation: "When P/E expansion outpaces earnings growth, it creates a valuation gap. Slowing growth combined with stretched multiples increases downside risk as the market may reprice the stock to reflect lower growth expectations."
+        category: "valuation" as QuizCategory,
+        correctAnswerIndex: 0,
+        explanation: "When P/E expansion outpaces earnings growth, the stock becomes overvalued. Slowing growth combined with stretched multiples increases downside risk as the market may reprice to reflect lower growth expectations."
       },
       {
         id: "f3",
-        headline: "The Federal Reserve signals two additional rate cuts this quarter. How does this typically affect growth stocks with high forward P/E ratios?",
+        headline: "The Federal Reserve signals two additional rate cuts this quarter. How does this typically impact growth stocks with high forward P/E ratios?",
         symbol: "QQQ",
         companyName: "Invesco QQQ Trust",
-        correctAnswer: "bullish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "Rate cuts lower the discount rate used in DCF models, making future cash flows more valuable today. Growth stocks with earnings weighted toward the future benefit disproportionately from lower rates."
       },
       {
@@ -1046,39 +1105,44 @@ Return EXACTLY this JSON:
         headline: "An EV manufacturer's free cash flow turns negative for the second consecutive quarter while capital expenditure increases 45% for factory expansion. What's the investment signal?",
         symbol: "TSLA",
         companyName: "Tesla, Inc.",
-        correctAnswer: "bullish" as const,
-        explanation: "Negative FCF driven by aggressive capex investment (not operational losses) often signals future growth capacity. Factory expansion positions the company for higher production volume and revenue, which is long-term bullish."
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 0,
+        explanation: "Negative FCF driven by aggressive capex investment (not operational losses) often signals future growth capacity. Factory expansion positions the company for higher production volume and revenue, which is long-term positive."
       },
       {
         id: "f5",
-        headline: "A cloud computing giant's operating margin expands from 25% to 32% while competitors report margin compression. Revenue growth remains at 22% YoY. What does this indicate?",
+        headline: "A cloud computing giant's operating margin expands from 25% to 32% while competitors report margin compression. Revenue growth remains at 22% YoY. What does this indicate for the stock's direction?",
         symbol: "MSFT",
         companyName: "Microsoft Corp",
-        correctAnswer: "bullish" as const,
-        explanation: "Expanding margins amid industry-wide compression demonstrates superior operational efficiency and pricing power. Combined with solid revenue growth, this indicates a competitive moat that should drive share price higher."
+        category: "trend" as QuizCategory,
+        correctAnswerIndex: 0,
+        explanation: "Expanding margins amid industry-wide compression demonstrates superior operational efficiency and pricing power. Combined with solid revenue growth, this indicates a competitive moat that should drive share price upward."
       },
       {
         id: "f6",
         headline: "A major retailer's inventory-to-sales ratio has increased 35% above its 5-year average, while same-store sales declined 3% last quarter. What risk does this present?",
         symbol: "AMZN",
         companyName: "Amazon.com Inc.",
-        correctAnswer: "bearish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 1,
         explanation: "Rising inventory relative to sales typically leads to markdowns and margin pressure. Combined with declining same-store sales, this signals weakening demand and potential earnings disappointments ahead."
       },
       {
         id: "f7",
-        headline: "A social media company announces a $40B share buyback program representing 8% of its market cap. Trailing P/E is 18x, below its 5-year average of 24x. What's the outlook?",
+        headline: "A social media company announces a $40B share buyback program representing 8% of its market cap. Trailing P/E is 18x, below its 5-year average of 24x. Is the stock overvalued or undervalued?",
         symbol: "META",
         companyName: "Meta Platforms",
-        correctAnswer: "bullish" as const,
-        explanation: "Large buyback programs at below-average valuations are highly bullish signals. Management is signaling the stock is undervalued, and reducing share count will boost EPS, creating a positive feedback loop for price appreciation."
+        category: "valuation" as QuizCategory,
+        correctAnswerIndex: 1,
+        explanation: "Large buyback programs at below-average valuations signal the stock is undervalued. Management is signaling confidence, and reducing share count will boost EPS, creating a positive feedback loop for price appreciation."
       },
       {
         id: "f8",
-        headline: "10-year Treasury yields spike to 5.2% while the yield curve remains inverted. Corporate bond spreads have widened 80 basis points. How does this affect equity markets?",
+        headline: "10-year Treasury yields spike to 5.2% while the yield curve remains inverted. Corporate bond spreads have widened 80 basis points. How does this impact equity markets?",
         symbol: "SPY",
         companyName: "S&P 500 ETF",
-        correctAnswer: "bearish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 1,
         explanation: "Rising yields increase the risk-free rate, making equities relatively less attractive. An inverted yield curve historically predicts recessions, and widening credit spreads signal increasing default risk and risk aversion."
       }
     ];
@@ -1089,15 +1153,17 @@ Return EXACTLY this JSON:
         headline: "한 대형 테크 기업이 EPS $6.50을 기록하며 월가 예상치 $5.80을 12% 상회했습니다. 매출은 전년 대비 15% 성장했습니다. 투자자는 이를 어떻게 해석해야 할까요?",
         symbol: "AAPL",
         companyName: "Apple Inc.",
-        correctAnswer: "bullish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "EPS 예상치를 12%나 큰 폭으로 초과 달성하고 견고한 매출 성장까지 보여준 것은 탄탄한 사업 실적을 의미합니다. 이는 기관 매수세를 유입시키고 주가 상승으로 이어지는 경우가 많습니다."
       },
       {
         id: "f2",
-        headline: "한 반도체 기업의 PER이 12개월간 25배에서 65배로 확대되었지만, 이익 성장률은 40%에서 15%로 둔화되었습니다. 이 밸류에이션 리스크를 어떻게 봐야 할까요?",
+        headline: "한 반도체 기업의 PER이 12개월간 25배에서 65배로 확대되었지만, 이익 성장률은 40%에서 15%로 둔화되었습니다. 이 밸류에이션을 어떻게 판단해야 할까요?",
         symbol: "NVDA",
         companyName: "NVIDIA Corp",
-        correctAnswer: "bearish" as const,
+        category: "valuation" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "PER 확대가 이익 성장을 크게 앞서면 밸류에이션 갭이 발생합니다. 성장 둔화와 높은 멀티플이 결합되면 시장이 낮아진 성장 기대를 반영해 주가를 재조정할 하방 리스크가 커집니다."
       },
       {
@@ -1105,7 +1171,8 @@ Return EXACTLY this JSON:
         headline: "연준이 이번 분기 2차례 추가 금리 인하를 시사했습니다. 높은 Forward PER을 가진 성장주에 이는 일반적으로 어떤 영향을 미칠까요?",
         symbol: "QQQ",
         companyName: "Invesco QQQ Trust",
-        correctAnswer: "bullish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "금리 인하는 DCF 모델의 할인율을 낮춰 미래 현금흐름의 현재 가치를 높입니다. 미래 이익 비중이 큰 성장주는 금리 하락의 수혜를 가장 크게 받습니다."
       },
       {
@@ -1113,15 +1180,17 @@ Return EXACTLY this JSON:
         headline: "한 EV 제조사의 잉여현금흐름(FCF)이 2분기 연속 적자를 기록했지만, 공장 확장을 위한 설비투자(Capex)는 45% 증가했습니다. 이 투자 신호는 무엇을 의미할까요?",
         symbol: "TSLA",
         companyName: "Tesla, Inc.",
-        correctAnswer: "bullish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "영업 손실이 아닌 공격적 설비투자로 인한 FCF 적자는 미래 성장 역량 확보를 의미하는 경우가 많습니다. 공장 확장은 생산량과 매출 증가를 위한 포석이므로 장기적으로 긍정적입니다."
       },
       {
         id: "f5",
-        headline: "한 클라우드 대기업의 영업이익률이 25%에서 32%로 확대되었고, 경쟁사들은 마진 압축을 보고했습니다. 매출 성장률은 전년 대비 22%를 유지 중입니다. 이는 무엇을 시사할까요?",
+        headline: "한 클라우드 대기업의 영업이익률이 25%에서 32%로 확대되었고, 경쟁사들은 마진 압축을 보고했습니다. 매출 성장률은 전년 대비 22%를 유지 중입니다. 이 종목의 주가 방향은 어떻게 될까요?",
         symbol: "MSFT",
         companyName: "Microsoft Corp",
-        correctAnswer: "bullish" as const,
+        category: "trend" as QuizCategory,
+        correctAnswerIndex: 0,
         explanation: "업계 전반의 마진 압축 속에서도 마진이 확대되는 것은 뛰어난 운영 효율성과 가격 결정력을 보여줍니다. 견고한 매출 성장과 결합되면 경쟁 해자가 있다는 신호로, 주가 상승을 견인할 수 있습니다."
       },
       {
@@ -1129,15 +1198,17 @@ Return EXACTLY this JSON:
         headline: "한 대형 유통업체의 재고 대비 매출 비율이 5년 평균보다 35% 높아졌고, 기존점 매출은 지난 분기 3% 감소했습니다. 이는 어떤 리스크를 제시할까요?",
         symbol: "AMZN",
         companyName: "Amazon.com Inc.",
-        correctAnswer: "bearish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 1,
         explanation: "매출 대비 재고 증가는 할인 판매와 마진 압박으로 이어지는 경우가 많습니다. 기존점 매출 감소와 결합되면 수요 약화와 향후 실적 부진 가능성을 시사합니다."
       },
       {
         id: "f7",
-        headline: "한 소셜미디어 기업이 시가총액의 8%에 해당하는 $400억 규모의 자사주 매입을 발표했습니다. Trailing PER은 18배로 5년 평균 24배보다 낮습니다. 전망은 어떨까요?",
+        headline: "한 소셜미디어 기업이 시가총액의 8%에 해당하는 $400억 규모의 자사주 매입을 발표했습니다. Trailing PER은 18배로 5년 평균 24배보다 낮습니다. 이 종목의 밸류에이션은 어떤 수준일까요?",
         symbol: "META",
         companyName: "Meta Platforms",
-        correctAnswer: "bullish" as const,
+        category: "valuation" as QuizCategory,
+        correctAnswerIndex: 1,
         explanation: "평균 이하의 밸류에이션에서 대규모 자사주 매입은 매우 긍정적인 신호입니다. 경영진이 주가가 저평가되었다고 판단하는 것이며, 유통 주식 수 감소가 EPS를 높여 주가 상승의 선순환을 만듭니다."
       },
       {
@@ -1145,14 +1216,20 @@ Return EXACTLY this JSON:
         headline: "10년 국채 수익률이 5.2%로 급등하고 수익률 곡선 역전이 지속 중입니다. 회사채 스프레드는 80bp 확대되었습니다. 이는 주식 시장에 어떤 영향을 미칠까요?",
         symbol: "SPY",
         companyName: "S&P 500 ETF",
-        correctAnswer: "bearish" as const,
+        category: "impact" as QuizCategory,
+        correctAnswerIndex: 1,
         explanation: "금리 상승은 무위험 수익률을 높여 주식의 상대적 매력을 떨어뜨립니다. 수익률 곡선 역전은 역사적으로 경기 침체를 예고하며, 신용 스프레드 확대는 부도 위험 증가와 위험 회피 심리를 나타냅니다."
       }
     ];
     
     const headlines = isKorean ? fallbackKo : fallbackEn;
     const randomHeadline = headlines[Math.floor(Math.random() * headlines.length)];
-    res.json({ ...randomHeadline, isRealTime: false });
+    const opts = categoryOptions[randomHeadline.category];
+    res.json({ 
+      ...randomHeadline, 
+      options: isKorean ? opts.ko : opts.en,
+      isRealTime: false 
+    });
   });
 
   // Seed initial stock data (if empty)
