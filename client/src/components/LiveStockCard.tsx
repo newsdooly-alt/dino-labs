@@ -17,6 +17,8 @@ interface LiveStockQuote {
   lastUpdated: string;
   lastUpdatedFormatted?: string;
   isStale: boolean;
+  isKorean?: boolean;
+  currency?: string;
 }
 
 interface LiveStockResponse {
@@ -162,7 +164,11 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
           <div className="flex items-center gap-2">
             <div className="text-right">
               <div className="font-mono font-medium">
-                {quote.price > 0 ? formatPrice(quote.price) : "--"}
+                {quote.price > 0 
+                  ? (quote.isKorean 
+                    ? `₩${Math.round(quote.price).toLocaleString()}` 
+                    : formatPrice(quote.price))
+                  : "--"}
                 {quote.isStale && <span className="text-xs text-muted-foreground ml-1">*</span>}
               </div>
               <div className={cn(

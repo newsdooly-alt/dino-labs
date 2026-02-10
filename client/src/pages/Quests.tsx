@@ -234,7 +234,7 @@ export default function Quests() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-5 md:space-y-6 max-w-3xl mx-auto">
                   {quests?.map((quest, idx) => (
                     <motion.div
                       key={quest.id}

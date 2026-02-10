@@ -16,6 +16,10 @@ interface SearchResult {
   sector: string;
   lastPrice: string | null;
   changePercent: string | null;
+  region?: string;
+  currency?: string;
+  isKorean?: boolean;
+  market?: string;
 }
 
 interface WatchlistItem {
@@ -156,18 +160,30 @@ export default function Watchlist() {
                   searchResults.map((stock, idx) => (
                     <div 
                       key={`${stock.symbol}-${idx}`} 
-                      className="flex items-center justify-between p-4 hover:bg-muted transition-colors cursor-pointer border-b border-border/50 last:border-0"
+                      className="flex items-center justify-between gap-2 p-4 hover:bg-muted transition-colors cursor-pointer border-b border-border/50 last:border-0"
                       data-testid={`search-result-${stock.symbol}`}
                     >
-                       <div>
-                         <span className="font-bold mr-2">{stock.symbol}</span>
-                         <span className="text-sm text-muted-foreground">{stock.name}</span>
+                       <div className="flex-1 min-w-0">
+                         <div className="flex items-center gap-2 flex-wrap">
+                           <span className="font-bold text-sm">{stock.symbol}</span>
+                           {stock.isKorean && (
+                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                               {stock.market || 'KRX'}
+                             </span>
+                           )}
+                           {stock.isKorean && (
+                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                               KRW
+                             </span>
+                           )}
+                         </div>
+                         <p className="text-sm text-muted-foreground truncate mt-0.5">{stock.name}</p>
                        </div>
                        <button
                          onClick={() => addMutation.mutate(stock.symbol)}
                          disabled={addMutation.isPending || watchlistSymbols.includes(stock.symbol)}
                          className={cn(
-                           "p-2 rounded-lg transition-colors",
+                           "p-2 rounded-lg transition-colors shrink-0",
                            watchlistSymbols.includes(stock.symbol)
                              ? "bg-muted text-muted-foreground cursor-not-allowed"
                              : "bg-primary/10 text-primary hover:bg-primary hover:text-white"

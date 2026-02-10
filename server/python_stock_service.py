@@ -124,30 +124,36 @@ def get_batch_quotes():
         return jsonify({"error": "No valid symbols provided"}), 400
     
     results = []
-    market_open = is_market_open()
     now_et = datetime.now(US_EASTERN)
+    now_kst = datetime.now(KST)
+    us_market_open = is_market_open()
     
-    print(f"[yfinance] Batch quotes request for: {symbols}, market_open={market_open}")
+    has_kr = any(is_korean_ticker(s) for s in symbols)
+    has_us = any(not is_korean_ticker(s) for s in symbols)
     
-    # Process each symbol - prioritize fast_info for speed
+    print(f"[yfinance] Batch quotes request for: {symbols}, us_market_open={us_market_open}")
+    
     for symbol in symbols:
         try:
+            is_kr = is_korean_ticker(symbol)
+            sym_market_open = is_market_open(symbol)
             ticker = yf.Ticker(symbol)
             price = 0
             prev_close = 0
-            name = _name_cache.get(symbol, symbol)  # Use cached name or symbol
+            name = _name_cache.get(symbol, symbol)
             
-            # Use fast_info ONLY for real-time price (avoids slow info call)
+            if is_kr and symbol in korean_stocks:
+                name = f"{korean_stocks[symbol]['ko']} ({korean_stocks[symbol]['name']})"
+                _name_cache[symbol] = name
+            
             try:
                 fast = ticker.fast_info
-                # Prefer lastPrice (most current) over regularMarketPrice
                 price = float(fast.get('lastPrice', 0) or 0)
                 if price == 0:
                     price = float(fast.get('regularMarketPrice', 0) or 0)
                 prev_close = float(fast.get('previousClose', 0) or 0)
                 
-                # Validate: if market is open and price equals prev_close, might be stale
-                if market_open and price == prev_close and price > 0:
+                if sym_market_open and price == prev_close and price > 0:
                     print(f"[yfinance] {symbol} Warning: price equals prev_close during market hours")
                 
                 print(f"[yfinance] {symbol} fast_info: price={price}, prev_close={prev_close}")
@@ -156,7 +162,6 @@ def get_batch_quotes():
                 price = 0
                 prev_close = 0
             
-            # Only fetch info for name if not cached and price is valid
             if price > 0 and name == symbol:
                 try:
                     info = ticker.info
@@ -166,14 +171,19 @@ def get_batch_quotes():
                 except Exception as e:
                     print(f"[yfinance] {symbol} info for name failed: {e}")
             
-            # Calculate change with validation
             change = price - prev_close if price > 0 and prev_close > 0 else 0
             change_percent = (change / prev_close * 100) if prev_close > 0 else 0
             
-            # Validate price - mark as stale if zero or negative
             is_stale = price <= 0
             if is_stale:
                 print(f"[yfinance] Warning: {symbol} has invalid price={price}")
+            
+            if is_kr:
+                time_str = now_kst.strftime('%I:%M %p KST')
+                updated_str = now_kst.strftime('%Y-%m-%dT%H:%M:%S')
+            else:
+                time_str = now_et.strftime('%I:%M %p ET')
+                updated_str = now_et.strftime('%Y-%m-%dT%H:%M:%S')
             
             results.append({
                 "symbol": symbol,
@@ -181,21 +191,26 @@ def get_batch_quotes():
                 "price": round(price, 2),
                 "change": round(change, 2),
                 "changePercent": round(change_percent, 2),
-                "isMarketOpen": market_open,
+                "isMarketOpen": sym_market_open,
                 "isStale": is_stale,
-                "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
-                "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
+                "isKorean": is_kr,
+                "currency": "KRW" if is_kr else "USD",
+                "lastUpdated": updated_str,
+                "lastUpdatedFormatted": time_str
             })
         except Exception as e:
             print(f"[yfinance] Error fetching {symbol}: {e}")
+            is_kr = is_korean_ticker(symbol)
             results.append({
                 "symbol": symbol,
                 "name": _name_cache.get(symbol, symbol),
                 "price": 0,
                 "change": 0,
                 "changePercent": 0,
-                "isMarketOpen": market_open,
+                "isMarketOpen": is_market_open(symbol),
                 "isStale": True,
+                "isKorean": is_kr,
+                "currency": "KRW" if is_kr else "USD",
                 "error": str(e),
                 "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
                 "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
@@ -203,11 +218,17 @@ def get_batch_quotes():
     
     print(f"[yfinance] Batch quotes complete: {len(results)} results")
     
+    overall_market_open = us_market_open
+    time_formatted = now_et.strftime('%I:%M %p ET')
+    if has_kr and not has_us:
+        overall_market_open = is_market_open(symbols[0])
+        time_formatted = now_kst.strftime('%I:%M %p KST')
+    
     return jsonify({
         "quotes": results,
-        "isMarketOpen": market_open,
+        "isMarketOpen": overall_market_open,
         "fetchedAt": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
-        "fetchedAtFormatted": now_et.strftime('%I:%M %p ET')
+        "fetchedAtFormatted": time_formatted
     })
 
 
@@ -249,12 +270,35 @@ korean_stocks = {
     '352820.KQ': {'name': 'JYP Entertainment', 'ko': 'JYP엔터테인먼트', 'market': 'KOSDAQ'},
 }
 
+korean_aliases = {
+    '삼전': '005930.KS',
+    '삼성': '005930.KS',
+    '하닉': '000660.KS',
+    '하이닉스': '000660.KS',
+    '현대차': '005380.KS',
+    '현차': '005380.KS',
+    '기아차': '000270.KS',
+    '엘지화학': '051910.KS',
+    '엘지전자': '066570.KS',
+    '엘지에너지': '373220.KS',
+    '삼바': '207940.KS',
+    '삼성바이오': '207940.KS',
+    '카카오게임': '293490.KQ',
+    '포스코': '003670.KS',
+    '현대모비': '012330.KS',
+    '삼성물': '028260.KS',
+    '에코프로': '086520.KS',
+}
+
 korean_name_map = {}
 for sym, info in korean_stocks.items():
     korean_name_map[info['ko'].upper()] = sym
     korean_name_map[info['name'].upper()] = sym
     num = sym.split('.')[0]
     korean_name_map[num] = sym
+
+for alias, sym in korean_aliases.items():
+    korean_name_map[alias.upper()] = sym
 
 @app.route('/search', methods=['GET'])
 def search_stocks():
@@ -265,8 +309,25 @@ def search_stocks():
         return jsonify({"results": []})
     
     results = []
+    added_symbols = set()
+    
+    alias_match = korean_name_map.get(raw_query.upper())
+    if alias_match and alias_match in korean_stocks:
+        info = korean_stocks[alias_match]
+        results.append({
+            "symbol": alias_match,
+            "name": f"{info['ko']} ({info['name']})",
+            "type": "Equity",
+            "region": "South Korea",
+            "market": info['market'],
+            "currency": "KRW",
+            "isKorean": True,
+        })
+        added_symbols.add(alias_match)
     
     for sym, info in korean_stocks.items():
+        if sym in added_symbols:
+            continue
         ko_name = info['ko']
         en_name = info['name']
         num = sym.split('.')[0]
@@ -281,6 +342,7 @@ def search_stocks():
                 "currency": "KRW",
                 "isKorean": True,
             })
+            added_symbols.add(sym)
             if len(results) >= 10:
                 return jsonify({"results": results})
     
