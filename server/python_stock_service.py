@@ -17,12 +17,24 @@ CORS(app, origins=["http://localhost:5000", "http://127.0.0.1:5000"])
 
 # US market timezone
 US_EASTERN = pytz.timezone('America/New_York')
+KST = pytz.timezone('Asia/Seoul')
 
-def is_market_open():
-    """Check if US stock market is currently open."""
+def is_korean_ticker(symbol):
+    """Check if a ticker is a Korean stock (.KS or .KQ suffix)."""
+    s = symbol.upper()
+    return s.endswith('.KS') or s.endswith('.KQ')
+
+def is_market_open(symbol=None):
+    """Check if stock market is currently open."""
+    if symbol and is_korean_ticker(symbol):
+        now = datetime.now(KST)
+        if now.weekday() >= 5:
+            return False
+        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+        return market_open <= now <= market_close
     now = datetime.now(US_EASTERN)
-    # Market hours: 9:30 AM - 4:00 PM ET, Monday-Friday
-    if now.weekday() >= 5:  # Saturday or Sunday
+    if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
     market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
@@ -35,13 +47,14 @@ def health():
     return jsonify({"status": "ok", "service": "yfinance-stock-service"})
 
 
-@app.route('/quote/<symbol>', methods=['GET'])
+@app.route('/quote/<path:symbol>', methods=['GET'])
 def get_quote(symbol):
     """Get real-time quote for a single stock using fast_info for latest prices."""
     try:
         ticker = yf.Ticker(symbol.upper())
-        market_open = is_market_open()
-        now_et = datetime.now(US_EASTERN)
+        is_kr = is_korean_ticker(symbol)
+        market_open = is_market_open(symbol)
+        now_tz = datetime.now(KST if is_kr else US_EASTERN)
         
         # Use fast_info for the most current price (less cached than .info)
         try:
@@ -67,6 +80,10 @@ def get_quote(symbol):
         if price <= 0:
             print(f"[yfinance] Warning: Invalid price {price} for {symbol}")
         
+        time_label = 'KST' if is_kr else 'ET'
+        region = 'South Korea' if is_kr else 'United States'
+        native_currency = 'KRW' if is_kr else 'USD'
+        
         return jsonify({
             "symbol": symbol.upper(),
             "name": info.get('shortName') or info.get('longName') or symbol.upper(),
@@ -80,8 +97,11 @@ def get_quote(symbol):
             "volume": info.get('regularMarketVolume') or info.get('volume'),
             "marketCap": market_cap,
             "isMarketOpen": market_open,
-            "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
-            "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
+            "region": region,
+            "currency": native_currency,
+            "isKorean": is_kr,
+            "lastUpdated": now_tz.strftime('%Y-%m-%dT%H:%M:%S'),
+            "lastUpdatedFormatted": now_tz.strftime(f'%I:%M %p {time_label}')
         })
     except Exception as e:
         print(f"[yfinance] Error in /quote/{symbol}: {e}")
@@ -191,15 +211,79 @@ def get_batch_quotes():
     })
 
 
+korean_stocks = {
+    '005930.KS': {'name': 'Samsung Electronics', 'ko': '삼성전자', 'market': 'KOSPI'},
+    '000660.KS': {'name': 'SK Hynix', 'ko': 'SK하이닉스', 'market': 'KOSPI'},
+    '373220.KS': {'name': 'LG Energy Solution', 'ko': 'LG에너지솔루션', 'market': 'KOSPI'},
+    '207940.KS': {'name': 'Samsung Biologics', 'ko': '삼성바이오로직스', 'market': 'KOSPI'},
+    '005380.KS': {'name': 'Hyundai Motor', 'ko': '현대자동차', 'market': 'KOSPI'},
+    '000270.KS': {'name': 'Kia Corporation', 'ko': '기아', 'market': 'KOSPI'},
+    '006400.KS': {'name': 'Samsung SDI', 'ko': '삼성SDI', 'market': 'KOSPI'},
+    '051910.KS': {'name': 'LG Chem', 'ko': 'LG화학', 'market': 'KOSPI'},
+    '035420.KS': {'name': 'NAVER Corp', 'ko': '네이버', 'market': 'KOSPI'},
+    '035720.KS': {'name': 'Kakao Corp', 'ko': '카카오', 'market': 'KOSPI'},
+    '068270.KS': {'name': 'Celltrion', 'ko': '셀트리온', 'market': 'KOSPI'},
+    '105560.KS': {'name': 'KB Financial Group', 'ko': 'KB금융', 'market': 'KOSPI'},
+    '055550.KS': {'name': 'Shinhan Financial Group', 'ko': '신한지주', 'market': 'KOSPI'},
+    '066570.KS': {'name': 'LG Electronics', 'ko': 'LG전자', 'market': 'KOSPI'},
+    '003670.KS': {'name': 'POSCO Holdings', 'ko': '포스코홀딩스', 'market': 'KOSPI'},
+    '012330.KS': {'name': 'Hyundai Mobis', 'ko': '현대모비스', 'market': 'KOSPI'},
+    '028260.KS': {'name': 'Samsung C&T', 'ko': '삼성물산', 'market': 'KOSPI'},
+    '034730.KS': {'name': 'SK Inc', 'ko': 'SK', 'market': 'KOSPI'},
+    '003550.KS': {'name': 'LG Corp', 'ko': 'LG', 'market': 'KOSPI'},
+    '096770.KS': {'name': 'SK Innovation', 'ko': 'SK이노베이션', 'market': 'KOSPI'},
+    '030200.KS': {'name': 'KT Corp', 'ko': 'KT', 'market': 'KOSPI'},
+    '017670.KS': {'name': 'SK Telecom', 'ko': 'SK텔레콤', 'market': 'KOSPI'},
+    '032830.KS': {'name': 'Samsung Life Insurance', 'ko': '삼성생명', 'market': 'KOSPI'},
+    '009150.KS': {'name': 'Samsung Electro-Mechanics', 'ko': '삼성전기', 'market': 'KOSPI'},
+    '018260.KS': {'name': 'Samsung SDS', 'ko': '삼성SDS', 'market': 'KOSPI'},
+    '247540.KS': {'name': 'Ecopro BM', 'ko': '에코프로비엠', 'market': 'KOSPI'},
+    '086520.KS': {'name': 'Ecopro', 'ko': '에코프로', 'market': 'KOSPI'},
+    '352820.KS': {'name': 'Hive Co', 'ko': '하이브', 'market': 'KOSPI'},
+    '259960.KS': {'name': 'Krafton Inc', 'ko': '크래프톤', 'market': 'KOSPI'},
+    '036570.KS': {'name': 'NCsoft Corp', 'ko': '엔씨소프트', 'market': 'KOSPI'},
+    '263750.KQ': {'name': 'Pearl Abyss', 'ko': '펄어비스', 'market': 'KOSDAQ'},
+    '293490.KQ': {'name': 'Kakao Games', 'ko': '카카오게임즈', 'market': 'KOSDAQ'},
+    '041510.KQ': {'name': 'SM Entertainment', 'ko': 'SM', 'market': 'KOSDAQ'},
+    '122870.KQ': {'name': 'YG Entertainment', 'ko': 'YG엔터테인먼트', 'market': 'KOSDAQ'},
+    '352820.KQ': {'name': 'JYP Entertainment', 'ko': 'JYP엔터테인먼트', 'market': 'KOSDAQ'},
+}
+
+korean_name_map = {}
+for sym, info in korean_stocks.items():
+    korean_name_map[info['ko'].upper()] = sym
+    korean_name_map[info['name'].upper()] = sym
+    num = sym.split('.')[0]
+    korean_name_map[num] = sym
+
 @app.route('/search', methods=['GET'])
 def search_stocks():
-    """Search for stocks by symbol or name."""
-    query = request.args.get('q', '').strip().upper()
+    """Search for stocks by symbol or name (US and Korean)."""
+    raw_query = request.args.get('q', '').strip()
+    query = raw_query.upper()
     if not query or len(query) < 1:
         return jsonify({"results": []})
     
-    # Common US stocks mapping for quick search
-    # yfinance doesn't have a built-in search, so we use a curated list
+    results = []
+    
+    for sym, info in korean_stocks.items():
+        ko_name = info['ko']
+        en_name = info['name']
+        num = sym.split('.')[0]
+        if (raw_query in ko_name or raw_query.upper() in ko_name.upper() or
+            query in en_name.upper() or query in sym or query == num):
+            results.append({
+                "symbol": sym,
+                "name": f"{ko_name} ({en_name})",
+                "type": "Equity",
+                "region": "South Korea",
+                "market": info['market'],
+                "currency": "KRW",
+                "isKorean": True,
+            })
+            if len(results) >= 10:
+                return jsonify({"results": results})
+    
     popular_stocks = {
         'AAPL': 'Apple Inc.',
         'MSFT': 'Microsoft Corporation',
@@ -311,30 +395,43 @@ def search_stocks():
             if len(results) >= 10:
                 break
     
-    # If no matches found and query looks like a valid symbol, try to look it up
-    if not results and len(query) <= 5 and query.isalpha():
-        try:
-            ticker = yf.Ticker(query)
-            info = ticker.info
-            name = info.get('shortName') or info.get('longName')
-            if name:
-                results.append({
-                    "symbol": query,
-                    "name": name,
-                    "type": info.get('quoteType', 'Equity'),
-                    "region": "United States"
-                })
-        except:
-            pass
+    # If no matches found, try direct yfinance lookup
+    if not results:
+        lookup_symbols = []
+        if len(query) <= 5 and query.isalpha():
+            lookup_symbols.append(query)
+        if query.endswith('.KS') or query.endswith('.KQ'):
+            lookup_symbols.append(query)
+        elif query.isdigit() and len(query) == 6:
+            lookup_symbols.extend([f"{query}.KS", f"{query}.KQ"])
+        
+        for sym in lookup_symbols:
+            try:
+                ticker = yf.Ticker(sym)
+                info = ticker.info
+                name = info.get('shortName') or info.get('longName')
+                if name:
+                    is_kr = is_korean_ticker(sym)
+                    results.append({
+                        "symbol": sym,
+                        "name": name,
+                        "type": info.get('quoteType', 'Equity'),
+                        "region": "South Korea" if is_kr else "United States",
+                        "currency": "KRW" if is_kr else "USD",
+                        "isKorean": is_kr,
+                    })
+                    break
+            except:
+                pass
     
     return jsonify({"results": results[:10]})
 
 
-@app.route('/history/<symbol>', methods=['GET'])
+@app.route('/history/<path:symbol>', methods=['GET'])
 def get_history(symbol):
     """Get historical price data for charts."""
-    period = request.args.get('period', '1mo')  # 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, max
-    interval = request.args.get('interval', '1d')  # 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo
+    period = request.args.get('period', '1mo')
+    interval = request.args.get('interval', '1d')
     
     try:
         ticker = yf.Ticker(symbol.upper())
@@ -366,14 +463,15 @@ def get_history(symbol):
         return jsonify({"error": str(e), "symbol": symbol}), 500
 
 
-@app.route('/info/<symbol>', methods=['GET'])
+@app.route('/info/<path:symbol>', methods=['GET'])
 def get_info(symbol):
     """Get detailed stock information."""
     try:
         ticker = yf.Ticker(symbol.upper())
         info = ticker.info
+        is_kr = is_korean_ticker(symbol)
         
-        return jsonify({
+        result = {
             "symbol": symbol.upper(),
             "name": info.get('shortName') or info.get('longName'),
             "sector": info.get('sector'),
@@ -388,8 +486,14 @@ def get_info(symbol):
             "52WeekHigh": info.get('fiftyTwoWeekHigh'),
             "52WeekLow": info.get('fiftyTwoWeekLow'),
             "avgVolume": info.get('averageVolume'),
-            "beta": info.get('beta')
-        })
+            "beta": info.get('beta'),
+            "pbRatio": info.get('priceToBook'),
+            "region": 'South Korea' if is_kr else 'United States',
+            "currency": 'KRW' if is_kr else 'USD',
+            "isKorean": is_kr,
+        }
+        
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e), "symbol": symbol}), 500
 

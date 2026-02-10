@@ -46,6 +46,7 @@ const sourceLabels: Record<string, { en: string; ko: string; icon: typeof Zap }>
   macro_events:     { en: 'Macro', ko: '매크로', icon: Globe },
   moving_average:   { en: 'MA Signal', ko: 'MA 신호', icon: LineChart },
   industry_trends:  { en: 'Industry', ko: '산업', icon: Factory },
+  kospi_news:       { en: 'KOSPI', ko: 'KOSPI', icon: Globe },
 };
 
 function renderHighlightedText(text: string): (string | JSX.Element)[] {

@@ -53,7 +53,7 @@ export default function Dashboard() {
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
   const isKo = lang === "ko";
-  const { formatPrice } = useCurrency();
+  const { formatPrice, isKoreanStock } = useCurrency();
 
   const displayName = getNickname(user?.nickname || "Guest");
 
@@ -218,7 +218,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-base font-mono font-bold tabular-nums" data-testid={`text-price-${quote.symbol}`}>
-                      {formatPrice(quote.price)}
+                      {formatPrice(quote.price, { nativeCurrency: isKoreanStock(quote.symbol) ? 'KRW' : 'USD' })}
                     </p>
                     <p className={cn(
                       "text-xs font-bold tabular-nums",

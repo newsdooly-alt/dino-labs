@@ -175,7 +175,6 @@ export async function registerRoutes(
     try {
       const searchResults = await searchStocks(query);
       
-      // Map to expected format
       const results = searchResults.map(r => ({
         id: 0,
         symbol: r.symbol,
@@ -183,7 +182,11 @@ export async function registerRoutes(
         sector: r.type,
         lastPrice: null,
         changePercent: null,
-        updatedAt: null
+        updatedAt: null,
+        region: r.region || 'United States',
+        currency: (r as any).currency || 'USD',
+        isKorean: (r as any).isKorean || false,
+        market: (r as any).market || null,
       }));
       
       res.json(results);
@@ -946,7 +949,7 @@ export async function registerRoutes(
     movement:  { en: ['Upward (상승)', 'Downward (하락)'],            ko: ['상승 (Upward)', '하락 (Downward)'] },
   };
 
-  type DataSource = 'live_news' | 'pe_ratios' | 'dividend_yield' | 'technical_rsi' | 'fear_greed' | 'earnings' | 'macro_events' | 'moving_average' | 'industry_trends';
+  type DataSource = 'live_news' | 'pe_ratios' | 'dividend_yield' | 'technical_rsi' | 'fear_greed' | 'earnings' | 'macro_events' | 'moving_average' | 'industry_trends' | 'kospi_news';
 
   const dataSourceToCategory: Record<DataSource, QuizCategory> = {
     live_news: 'impact',
@@ -958,6 +961,7 @@ export async function registerRoutes(
     macro_events: 'movement',
     moving_average: 'technical',
     industry_trends: 'impact',
+    kospi_news: 'impact',
   };
 
   const quizHistory: Map<string, string[]> = new Map();
@@ -993,7 +997,7 @@ export async function registerRoutes(
   function getNextDataSource(sessionKey: string): DataSource {
     const sources: DataSource[] = [
       'live_news', 'pe_ratios', 'earnings', 'technical_rsi', 'fear_greed',
-      'dividend_yield', 'macro_events', 'moving_average', 'industry_trends',
+      'dividend_yield', 'macro_events', 'moving_average', 'industry_trends', 'kospi_news',
     ];
     const current = sessionSourceIndex.get(sessionKey) ?? -1;
     const next = (current + 1) % sources.length;
@@ -1056,6 +1060,7 @@ export async function registerRoutes(
     level: string,
     templateVariant: number,
     fgData?: { score: number; rating: string } | null,
+    currencySymbol: string = '$',
   ): string {
     const cat = dataSourceToCategory[source];
     const opts = categoryOptions[cat];
@@ -1145,6 +1150,14 @@ export async function registerRoutes(
           'Ask about the implications of a specific corporate action (buyback, M&A, expansion) on the stock.',
         ],
       },
+      kospi_news: {
+        focus: 'Focus on Korean stock market (KOSPI/KOSDAQ) specific topics: Samsung, Hyundai, SK, LG, Naver, Kakao, Korean semiconductor industry, K-wave/entertainment companies, Bank of Korea policy, KRW exchange rates, Korean EV battery industry, or KOSPI index movements.',
+        templates: [
+          'Present a scenario about a major Korean company (Samsung, Hyundai, SK Hynix) and ask about the impact of a specific event on its stock price.',
+          'Ask about the implications of Bank of Korea interest rate decisions or Korean economic data on the KOSPI index.',
+          'Create a question about Korean industry competitiveness (semiconductors, batteries, entertainment) in the global market.',
+        ],
+      },
     };
 
     const sourceConfig = sourceTemplates[source] || sourceTemplates['live_news'];
@@ -1160,7 +1173,7 @@ export async function registerRoutes(
     if (isKorean) {
       return `${fundamentals.name} (${fundamentals.symbol})의 실시간 데이터를 기반으로 투자자 교육용 퀴즈 문제 1개를 만들어주세요.
 
-현재 데이터: 주가 $${fundamentals.price.toFixed(2)}, 등락 ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
+현재 데이터: 주가 ${currencySymbol}${currencySymbol === '₩' ? Math.round(fundamentals.price).toLocaleString() : fundamentals.price.toFixed(2)}, 등락 ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
 
 데이터 초점: ${dataFocus}
 문제 패턴: ${templateHint}
@@ -1181,7 +1194,7 @@ JSON 형식으로 정확히 반환:
 
     return `Create 1 professional investment quiz question based on real data for ${fundamentals.name} (${fundamentals.symbol}).
 
-Current data: Price $${fundamentals.price.toFixed(2)}, Change ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
+Current data: Price ${currencySymbol}${currencySymbol === '₩' ? Math.round(fundamentals.price).toLocaleString() : fundamentals.price.toFixed(2)}, Change ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
 
 Data focus: ${dataFocus}
 Question pattern: ${templateHint}
@@ -1256,6 +1269,15 @@ Return EXACTLY this JSON:
     { id: "fb34", source: "industry_trends", level: "beginner", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "New regulations require all **EV manufacturers** to source **80%** of battery materials domestically within **2 years**. Current domestic sourcing is only **35%**. How does this impact the **EV industry**?", explanation: "Requiring **80% domestic sourcing** when the industry is at only **35%** forces massive supply chain restructuring, increasing costs and potentially slowing production. This regulatory burden is **negative** for EV makers in the near term." },
     { id: "fb35", source: "industry_trends", level: "advanced", symbol: "CRM", companyName: "Salesforce Inc.", category: "impact", correctAnswerIndex: 0, headline: "Enterprise **SaaS companies** report average **net revenue retention** of **115%**, indicating existing customers are spending **15% more** annually. **AI-powered features** drive **25%** of new contract value. Impact assessment?", explanation: "**Net revenue retention** above 115% proves strong **upsell momentum** and product stickiness. **AI features** driving 25% of new contract value shows successful monetization of emerging technology. Both metrics are **positive** for the SaaS sector." },
     { id: "fb36", source: "industry_trends", level: "advanced", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 1, headline: "**Smartphone** global shipments decline **8% YoY** for the third consecutive quarter. Average **replacement cycles** extend to **4.5 years** from **3.2 years**. **Emerging market** competition intensifies with **40%** cheaper alternatives. Impact?", explanation: "A sustained **8% decline** in shipments with lengthening **replacement cycles** signals market saturation. **Emerging market** price competition eroding premium positioning makes this **negative** for established smartphone manufacturers." },
+
+    { id: "fb37", source: "kospi_news", level: "beginner", symbol: "005930.KS", companyName: "Samsung Electronics", category: "impact", correctAnswerIndex: 0, headline: "**Samsung Electronics** announces mass production of next-gen **HBM4** memory chips **6 months** ahead of competitors. Major AI chip manufacturers have placed **large-scale orders**. How does this news impact Samsung?", explanation: "Early **HBM4** mass production secures competitive advantage in the high-value AI memory market. Confirmed **large-scale orders** translate directly to revenue growth, making this clearly **positive** news." },
+    { id: "fb38", source: "kospi_news", level: "beginner", symbol: "000660.KS", companyName: "SK Hynix", category: "impact", correctAnswerIndex: 0, headline: "**SK Hynix** reports **HBM** revenue surging **250% YoY**, now accounting for **40%** of total DRAM revenue. A long-term supply agreement with **NVIDIA** has also been signed. What does this mean for **SK Hynix**?", explanation: "**HBM revenue growing 250%** and reaching **40%** of total sales demonstrates dominance in high-margin AI memory. The **NVIDIA** long-term contract ensures demand stability, making this clearly **positive**." },
+    { id: "fb39", source: "kospi_news", level: "beginner", symbol: "005380.KS", companyName: "Hyundai Motor", category: "impact", correctAnswerIndex: 1, headline: "**Hyundai Motor's** U.S. **EV sales** decline **15%** quarter-over-quarter. Fewer models qualify for **IRA (Inflation Reduction Act)** subsidies, weakening price competitiveness. What is the impact?", explanation: "A **15% drop** in U.S. EV sales reflects slowing growth in the fastest-growing market. Loss of **IRA subsidy** eligibility weakens price competitiveness, making this short-term **negative** news." },
+    { id: "fb40", source: "kospi_news", level: "intermediate", symbol: "035420.KS", companyName: "Naver Corp", category: "impact", correctAnswerIndex: 0, headline: "**Naver** announces Japan market entry for its proprietary **HyperCLOVA X** AI model. Through a joint venture with **SoftBank**, it will provide enterprise AI services with initial contracts worth **$380M**. Impact assessment?", explanation: "Japan market expansion with **SoftBank** as a powerful partner signals global growth for **HyperCLOVA X**. The **$380M** initial contract proves AI business monetization, making this **positive** news." },
+    { id: "fb41", source: "kospi_news", level: "intermediate", symbol: "035720.KS", companyName: "Kakao Corp", category: "impact", correctAnswerIndex: 1, headline: "The Korean government enforces the **Platform Fair Competition Act**, imposing **self-preferencing bans** on major platforms including **Kakao**. Violations carry penalties up to **6%** of revenue. What is the impact?", explanation: "The **Platform Fair Competition Act** constrains Kakao's ecosystem cross-selling strategy, while the **6% revenue penalty** risk weighs on profitability. Regulatory tightening is **negative** for platform companies." },
+    { id: "fb42", source: "kospi_news", level: "advanced", symbol: "373220.KS", companyName: "LG Energy Solution", category: "impact", correctAnswerIndex: 0, headline: "**LG Energy Solution** achieves **400Wh/kg** energy density in **solid-state battery** prototype testing, **1.5x** current lithium-ion battery performance. Mass production target set for **2027**. Impact on the battery industry?", explanation: "Achieving **400Wh/kg** energy density represents a technological breakthrough in next-gen batteries. **1.5x** performance improvement over current tech with a concrete production timeline boosts investor confidence, making this **positive**." },
+    { id: "fb43", source: "kospi_news", level: "advanced", symbol: "068270.KS", companyName: "Celltrion", category: "impact", correctAnswerIndex: 0, headline: "**Celltrion's** biosimilar **Zymfentra** receives **FDA** approval for subcutaneous self-injection. The U.S. market size is **$12B**, and it will launch at **30%** below the originator drug price. Impact assessment?", explanation: "**FDA** approval in a **$12B** U.S. market opens a massive revenue opportunity. **30%** price competitiveness supports market share capture, making this **positive** for the biosimilar company." },
+    { id: "fb44", source: "kospi_news", level: "beginner", symbol: "259960.KS", companyName: "Krafton", category: "impact", correctAnswerIndex: 0, headline: "**Krafton's** **PUBG** surpasses **$10B** in lifetime global revenue. Its new game **Dark and Darker Mobile** reaches **20M** pre-registrations, raising expectations for the next hit title. What does this mean?", explanation: "Breaking **$10B** lifetime revenue proves the IP's sustained monetization power. **20M pre-registrations** for the new title show strong early demand, making this **positive** for the gaming company." },
   ];
 
   const fallbackQuizzesKo: FallbackQuiz[] = [
@@ -1303,6 +1325,31 @@ Return EXACTLY this JSON:
     { id: "fb34", source: "industry_trends", level: "beginner", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "새로운 규정이 모든 **EV 제조사**에게 **2년 이내** 배터리 소재의 **80%**를 국내에서 조달하도록 요구합니다. 현재 국내 조달 비율은 **35%**에 불과합니다. **EV 산업**에 미치는 영향은?", explanation: "현재 **35%**인 국내 조달을 **80%**로 높이도록 요구하는 것은 대규모 공급망 재편을 강제하여 비용을 증가시키고 생산을 지연시킬 수 있습니다. 이 규제 부담은 단기적으로 EV 기업에 **악재**입니다." },
     { id: "fb35", source: "industry_trends", level: "advanced", symbol: "CRM", companyName: "Salesforce Inc.", category: "impact", correctAnswerIndex: 0, headline: "기업용 **SaaS** 기업들의 평균 **순매출유지율(NRR)**이 **115%**를 기록하며 기존 고객의 연간 지출이 **15%** 증가하고 있습니다. **AI 기능**이 신규 계약 가치의 **25%**를 차지합니다. 영향 평가는?", explanation: "**순매출유지율 115%** 이상은 강한 **업셀 모멘텀**과 제품 충성도를 입증합니다. **AI 기능**이 신규 계약의 25%를 차지하는 것은 신기술의 성공적 수익화를 보여주며, 두 지표 모두 SaaS 섹터에 **긍정적**입니다." },
     { id: "fb36", source: "industry_trends", level: "advanced", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 1, headline: "글로벌 **스마트폰** 출하량이 **3분기 연속** 전년 대비 **8%** 감소했습니다. 평균 **교체 주기**가 **3.2년**에서 **4.5년**으로 늘어났고, **신흥시장**에서 **40%** 저렴한 대안 제품과의 경쟁이 심화됩니다. 영향은?", explanation: "지속적인 출하량 **8% 감소**와 **교체 주기** 연장은 시장 포화를 의미합니다. **신흥시장** 가격 경쟁이 프리미엄 포지셔닝을 침식하는 것은 기존 스마트폰 제조사에 **악재**입니다." },
+
+    { id: "fb37", source: "kospi_news", level: "beginner", symbol: "005930.KS", companyName: "삼성전자", category: "impact", correctAnswerIndex: 0,
+      headline: "**삼성전자**가 차세대 **HBM4** 메모리 반도체 양산을 경쟁사보다 **6개월** 앞당겨 시작한다고 발표했습니다. 주요 AI 칩 제조사들의 **대량 주문**이 확인되었습니다. 이 소식은 삼성전자에 어떤 영향을 미칠까요?",
+      explanation: "**HBM4** 조기 양산은 고부가가치 AI 메모리 시장에서 경쟁 우위를 확보하는 것을 의미합니다. **대량 주문** 확인은 매출 성장으로 직결되어 명확한 **호재**입니다." },
+    { id: "fb38", source: "kospi_news", level: "beginner", symbol: "000660.KS", companyName: "SK하이닉스", category: "impact", correctAnswerIndex: 0,
+      headline: "**SK하이닉스**의 **HBM** 매출이 전년 대비 **250%** 증가하며 전체 DRAM 매출의 **40%**를 차지했습니다. **NVIDIA**와의 장기 공급 계약도 체결되었습니다. 이 실적은 **SK하이닉스**에 어떤 의미일까요?",
+      explanation: "**HBM 매출 250% 성장**과 전체 매출 **40%** 비중은 고수익 AI 메모리 시장에서의 지배력을 보여줍니다. **NVIDIA** 장기 계약은 수요 안정성을 높이는 명확한 **호재**입니다." },
+    { id: "fb39", source: "kospi_news", level: "beginner", symbol: "005380.KS", companyName: "현대자동차", category: "impact", correctAnswerIndex: 1,
+      headline: "**현대자동차**의 미국 시장 **EV 판매**가 전분기 대비 **15%** 감소했습니다. **IRA(인플레이션감축법)** 보조금 적격 차종이 줄어들며 가격 경쟁력이 약화되고 있습니다. 이 소식의 영향은?",
+      explanation: "미국 **EV 판매 15% 감소**는 가장 빠르게 성장하는 시장에서의 성장 둔화를 의미합니다. **IRA 보조금** 미적격으로 인한 가격 경쟁력 약화는 단기 **악재**입니다." },
+    { id: "fb40", source: "kospi_news", level: "intermediate", symbol: "035420.KS", companyName: "네이버", category: "impact", correctAnswerIndex: 0,
+      headline: "**네이버**가 자체 개발 **하이퍼클로바X** AI 모델의 일본 시장 진출을 발표했습니다. **소프트뱅크**와의 합작법인을 통해 일본 기업용 AI 서비스를 제공하며, 초기 계약 규모가 **₩5,000억**에 달합니다. 영향 평가는?",
+      explanation: "일본 시장 진출과 **소프트뱅크**라는 강력한 파트너십은 **하이퍼클로바X**의 글로벌 확장을 의미합니다. **₩5,000억** 초기 계약은 AI 사업의 수익화를 증명하는 **호재**입니다." },
+    { id: "fb41", source: "kospi_news", level: "intermediate", symbol: "035720.KS", companyName: "카카오", category: "impact", correctAnswerIndex: 1,
+      headline: "정부가 **플랫폼 공정경쟁법**을 시행하여 **카카오**를 포함한 대형 플랫폼 기업에 **자사 서비스 우대 금지** 의무를 부과했습니다. 위반 시 매출의 최대 **6%**가 과징금으로 부과됩니다. 영향은?",
+      explanation: "**플랫폼 공정경쟁법**은 카카오의 생태계 내 교차 판매 전략을 제약하며, **매출 6% 과징금** 위험은 수익성에 부담을 줍니다. 규제 강화는 플랫폼 기업에 **악재**입니다." },
+    { id: "fb42", source: "kospi_news", level: "advanced", symbol: "373220.KS", companyName: "LG에너지솔루션", category: "impact", correctAnswerIndex: 0,
+      headline: "**LG에너지솔루션**이 **전고체 배터리** 시제품 테스트에서 에너지 밀도 **400Wh/kg**을 달성했습니다. 이는 현재 리튬이온 배터리의 **1.5배** 수준이며, **2027년** 양산 목표를 발표했습니다. 배터리 업계에 미치는 영향은?",
+      explanation: "**400Wh/kg** 에너지 밀도 달성은 차세대 배터리 기술에서의 기술적 돌파구입니다. 현재 기술 대비 **1.5배** 성능 향상과 구체적 양산 일정은 투자자 신뢰를 높이는 **호재**입니다." },
+    { id: "fb43", source: "kospi_news", level: "advanced", symbol: "068270.KS", companyName: "셀트리온", category: "impact", correctAnswerIndex: 0,
+      headline: "**셀트리온**의 바이오시밀러 **짐펜트라**가 미국 **FDA** 자가주사 승인을 획득했습니다. 미국 시장 규모는 **$120억**이며, 오리지널 약물 대비 **30%** 저렴한 가격으로 출시됩니다. 영향 평가는?",
+      explanation: "**$120억** 규모 미국 시장에서 **FDA** 승인은 대규모 매출 기회를 의미합니다. **30%** 가격 경쟁력은 시장 점유율 확보에 유리하며, 바이오시밀러 기업에 **호재**입니다." },
+    { id: "fb44", source: "kospi_news", level: "beginner", symbol: "259960.KS", companyName: "크래프톤", category: "impact", correctAnswerIndex: 0,
+      headline: "**크래프톤**의 **배틀그라운드** 글로벌 누적 매출이 **$100억**을 돌파했습니다. 신규 게임 **다크앤다커 모바일**의 사전 등록 수가 **2,000만 건**을 기록하며 차기 히트작 기대감이 높아지고 있습니다. 이 소식은?",
+      explanation: "**$100억** 누적 매출 돌파는 IP의 지속적 수익 창출력을 증명합니다. 신작 **사전 등록 2,000만 건**은 강한 초기 수요를 보여주며, 게임사에 **호재**입니다." },
   ];
 
   app.get("/api/news/quiz", async (req, res) => {
@@ -1316,7 +1363,9 @@ Return EXACTLY this JSON:
     const templateKey = `${dataSource}-${templateVariant}`;
 
     try {
-      const symbols = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'CRM'];
+      const usSymbols = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'CRM'];
+      const krSymbols = ['005930.KS', '000660.KS', '005380.KS', '035420.KS', '035720.KS', '373220.KS', '051910.KS', '006400.KS', '068270.KS', '259960.KS'];
+      const symbols = dataSource === 'kospi_news' ? krSymbols : usSymbols;
       const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
       const fundamentals = await getStockFundamentals(randomSymbol);
 
@@ -1326,18 +1375,21 @@ Return EXACTLY this JSON:
       }
 
       if (fundamentals && fundamentals.price > 0) {
+        const isKrStock = randomSymbol.endsWith('.KS') || randomSymbol.endsWith('.KQ');
+        const curr = isKrStock ? '₩' : '$';
+        const capUnit = isKrStock ? `₩${(fundamentals.marketCap / 1e12).toFixed(1)}T` : `$${(fundamentals.marketCap / 1e9).toFixed(0)}B`;
         const peStr = fundamentals.peRatio ? `P/E Ratio: ${fundamentals.peRatio.toFixed(1)}` : '';
         const divStr = fundamentals.dividendYield ? `Dividend Yield: ${(fundamentals.dividendYield * 100).toFixed(2)}%` : '';
-        const capStr = fundamentals.marketCap ? `Market Cap: $${(fundamentals.marketCap / 1e9).toFixed(0)}B` : '';
+        const capStr = fundamentals.marketCap ? `Market Cap: ${capUnit}` : '';
         const betaStr = fundamentals.beta ? `Beta: ${fundamentals.beta.toFixed(2)}` : '';
-        const epsStr = fundamentals.eps ? `EPS: $${fundamentals.eps.toFixed(2)}` : '';
-        const highStr = fundamentals.fiftyTwoWeekHigh ? `52W High: $${fundamentals.fiftyTwoWeekHigh.toFixed(2)}` : '';
-        const lowStr = fundamentals.fiftyTwoWeekLow ? `52W Low: $${fundamentals.fiftyTwoWeekLow.toFixed(2)}` : '';
+        const epsStr = fundamentals.eps ? `EPS: ${curr}${fundamentals.eps.toFixed(2)}` : '';
+        const highStr = fundamentals.fiftyTwoWeekHigh ? `52W High: ${curr}${isKrStock ? fundamentals.fiftyTwoWeekHigh.toLocaleString() : fundamentals.fiftyTwoWeekHigh.toFixed(2)}` : '';
+        const lowStr = fundamentals.fiftyTwoWeekLow ? `52W Low: ${curr}${isKrStock ? fundamentals.fiftyTwoWeekLow.toLocaleString() : fundamentals.fiftyTwoWeekLow.toFixed(2)}` : '';
         const sectorStr = fundamentals.sector || '';
         const fgStr = fgData ? `Fear & Greed Index: ${fgData.score}/100 (${fgData.rating})` : '';
         const fundamentalsContext = [peStr, divStr, capStr, betaStr, epsStr, highStr, lowStr, sectorStr, fgStr].filter(Boolean).join(', ');
 
-        const prompt = buildAIPrompt(dataSource, fundamentals, fundamentalsContext, isKorean, level, templateVariant, fgData);
+        const prompt = buildAIPrompt(dataSource, fundamentals, fundamentalsContext, isKorean, level, templateVariant, fgData, curr);
 
         const aiResponse = await openai.chat.completions.create({
           model: "gpt-4o-mini",

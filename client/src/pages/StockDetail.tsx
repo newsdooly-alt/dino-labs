@@ -212,7 +212,9 @@ export default function StockDetail() {
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
   const { toast } = useToast();
   const { theme } = useTheme();
-  const { formatPrice, formatMarketCap: formatMarketCapCurrency, currencySymbol } = useCurrency();
+  const { formatPrice, formatMarketCap: formatMarketCapCurrency, currencySymbol, isKoreanStock } = useCurrency();
+  const isKr = isKoreanStock(symbol);
+  const nativeCurrency = isKr ? 'KRW' : 'USD';
 
   const { data: user } = useQuery<{ language: string }>({
     queryKey: ["/api/profiles/me"],
@@ -347,7 +349,7 @@ export default function StockDetail() {
           ) : (
             <>
               <div className="text-3xl font-bold font-mono">
-                {formatPrice(quote?.price)}
+                {formatPrice(quote?.price, { nativeCurrency })}
               </div>
               <div className={cn(
                 "flex items-center gap-1 text-lg font-semibold",
@@ -476,7 +478,7 @@ export default function StockDetail() {
               <p className="text-xs text-muted-foreground">
                 {lang === "en" ? "Market Cap" : "시가총액"}
               </p>
-              <p className="font-semibold">{formatMarketCapCurrency(info?.marketCap ?? null)}</p>
+              <p className="font-semibold">{formatMarketCapCurrency(info?.marketCap ?? null, { nativeCurrency })}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
@@ -494,14 +496,14 @@ export default function StockDetail() {
               <p className="text-xs text-muted-foreground">
                 {lang === "en" ? "EPS" : "주당순이익"}
               </p>
-              <p className="font-semibold">{formatPrice(info?.eps)}</p>
+              <p className="font-semibold">{formatPrice(info?.eps, { nativeCurrency })}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
                 {lang === "en" ? "52-Week High" : "52주 최고"}
               </p>
               <p className="font-semibold text-primary">
-                {formatPrice(info?.["52WeekHigh"])}
+                {formatPrice(info?.["52WeekHigh"], { nativeCurrency })}
               </p>
             </div>
             <div className="space-y-1">
@@ -509,7 +511,7 @@ export default function StockDetail() {
                 {lang === "en" ? "52-Week Low" : "52주 최저"}
               </p>
               <p className="font-semibold text-destructive">
-                {formatPrice(info?.["52WeekLow"])}
+                {formatPrice(info?.["52WeekLow"], { nativeCurrency })}
               </p>
             </div>
             <div className="space-y-1">
