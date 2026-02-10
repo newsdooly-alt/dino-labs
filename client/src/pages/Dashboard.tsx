@@ -1,209 +1,334 @@
 import { useUser } from "@/hooks/use-user";
 import { useQuests } from "@/hooks/use-quests";
-import { ProgressBar } from "@/components/ui/ProgressBar";
-import { QuestCard } from "@/components/quests/QuestCard";
-import { DinoEgg } from "@/components/DinoEgg";
-import { MarketMood } from "@/components/MarketMood";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
-import { LiveStockCard } from "@/components/LiveStockCard";
-import { MarketHeadlines } from "@/components/MarketHeadlines";
 import { Link } from "wouter";
-import { ArrowRight, Trophy, TrendingUp, Target as TargetIcon, Star, RefreshCw } from "lucide-react";
+import { useLocation } from "wouter";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
-import { queryClient } from "@/lib/queryClient";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrency } from "@/contexts/CurrencyContext";
+
+interface MarketMoodData {
+  index: number;
+  label: string;
+  dinoAdvice: string;
+}
+
+interface LiveStockQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  isMarketOpen: boolean;
+  lastUpdated: string;
+  isStale: boolean;
+}
+
+interface LiveStockResponse {
+  quotes: LiveStockQuote[];
+  dinoMessage: string | null;
+  isMarketOpen: boolean;
+  fetchedAtFormatted?: string;
+  source?: string;
+}
 
 function getNickname(fallback: string): string {
   try {
     const saved = localStorage.getItem("dinolingo_settings");
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed.nickname && parsed.nickname.trim()) {
-        return parsed.nickname;
-      }
+      if (parsed.nickname && parsed.nickname.trim()) return parsed.nickname;
     }
-  } catch (e) {
-    console.error("Failed to parse settings:", e);
-  }
+  } catch {}
   return fallback;
 }
 
 export default function Dashboard() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: quests, isLoading: isQuestsLoading } = useQuests();
+  const [, navigate] = useLocation();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  
-  useEffect(() => {
-    const updateDisplayName = () => {
-      setDisplayName(getNickname(user?.nickname || "Guest"));
-    };
-    updateDisplayName();
-    
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "dinolingo_settings") {
-        updateDisplayName();
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    
-    const interval = setInterval(updateDisplayName, 1000);
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [user?.nickname]);
+  const isKo = lang === "ko";
+  const { formatPrice } = useCurrency();
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    // Invalidate all stock-related queries to force fresh data (use predicate to match all symbol variations)
-    await queryClient.invalidateQueries({ 
-      predicate: (query) => {
-        const key = query.queryKey[0];
-        return key === "/api/stocks/live" || key === "/api/market/mood";
-      }
-    });
-    setTimeout(() => setIsRefreshing(false), 1000);
-  };
+  const displayName = getNickname(user?.nickname || "Guest");
+
+  const { data: moodData, isLoading: isMoodLoading } = useQuery<MarketMoodData>({
+    queryKey: ["/api/market/mood", lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/market/mood?lang=${lang}`);
+      if (!res.ok) throw new Error("Failed to fetch market mood");
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const watchlistSymbols = ["NVDA", "TSLA", "AAPL"];
+  const { data: stockData, isLoading: isStockLoading } = useQuery<LiveStockResponse>({
+    queryKey: ["/api/stocks/live", watchlistSymbols.join(",")],
+    queryFn: async () => {
+      const res = await fetch(`/api/stocks/live?symbols=${watchlistSymbols.join(",")}`);
+      if (!res.ok) throw new Error("Failed to fetch quotes");
+      return res.json();
+    },
+    staleTime: 1000 * 30,
+    refetchInterval: 1000 * 60,
+    retry: 3,
+  });
 
   if (isUserLoading || isQuestsLoading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[500px]">
-         <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  // Calculate Level progress
   const currentLevel = user?.level || 1;
   const currentXP = user?.xp || 0;
   const xpForNextLevel = currentLevel * 100;
+  const xpPercent = Math.min(100, Math.round((currentXP / xpForNextLevel) * 100));
+
+  const completedQuests = quests?.filter(q => q.isCompleted)?.length || 0;
+  const totalQuests = quests?.length || 6;
+
+  const moodIndex = moodData?.index ?? 50;
+  const moodLabel = moodData?.label ?? "Neutral";
+  const moodAdvice = moodData?.dinoAdvice ?? (isKo ? "침착하게 현명하게 투자하세요!" : "Stay calm and invest wisely!");
+
+  const getMoodColor = (idx: number) => {
+    if (idx <= 25) return "text-red-500";
+    if (idx <= 45) return "text-orange-500";
+    if (idx <= 55) return "text-yellow-500";
+    if (idx <= 75) return "text-lime-500";
+    return "text-green-500";
+  };
+
+  const getMoodBarColor = (idx: number) => {
+    if (idx <= 25) return "bg-red-500";
+    if (idx <= 45) return "bg-orange-500";
+    if (idx <= 55) return "bg-yellow-500";
+    if (idx <= 75) return "bg-lime-500";
+    return "bg-green-500";
+  };
+
+  const quotes = stockData?.quotes?.filter(q => q.price > 0) || [];
 
   return (
-    <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-10">
-      
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Welcome Banner */}
-        <section className="lg:col-span-3 relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-900 to-green-900 border border-white/10 shadow-2xl p-8 md:p-12 text-white">
-          <div className="relative z-10 max-w-2xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <h1 className="text-4xl md:text-5xl font-display font-bold mb-4" data-testid="text-welcome-name">
-                {t.welcome_back}, {displayName}!
-              </h1>
-              <p className="text-lg md:text-xl text-emerald-100 mb-8 max-w-lg leading-relaxed">
-                {t.market_moving}
-              </p>
-              
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 max-w-md">
-                 <div className="flex justify-between items-center mb-2">
-                   <div className="flex items-center gap-2">
-                     <Trophy className="w-5 h-5 text-yellow-400 fill-current" />
-                     <span className="font-bold">{t.level} {currentLevel}</span>
-                   </div>
-                   <span className="text-sm font-medium opacity-80">{currentXP} / {xpForNextLevel} {t.xp}</span>
-                 </div>
-                 <ProgressBar current={currentXP} max={xpForNextLevel} color="primary" showText={false} className="h-3" />
+    <div className="w-full max-w-lg mx-auto px-5 py-8 space-y-10">
+
+      {/* ── Section 1: Market Temperature ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        data-testid="section-market-temperature"
+      >
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4" data-testid="label-market-temp">
+          {t.market_temperature}
+        </h2>
+
+        {isMoodLoading ? (
+          <div className="animate-pulse space-y-4">
+            <div className="h-20 bg-muted rounded-2xl" />
+            <div className="h-3 bg-muted rounded-full w-full" />
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="flex items-center gap-5">
+              <div className="shrink-0">
+                <span className={cn("text-6xl font-mono font-black tabular-nums leading-none", getMoodColor(moodIndex))} data-testid="text-mood-index">
+                  {moodIndex}
+                </span>
               </div>
-            </motion.div>
-          </div>
-          
-          <div className="absolute right-0 top-0 w-1/2 h-full opacity-10 pointer-events-none">
-             <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-               <path fill="#10B981" d="M44.7,-76.4C58.9,-69.2,71.8,-59.1,79.6,-46.3C87.4,-33.5,90.1,-18,88.8,-2.2C87.5,13.6,82.2,29.7,73.1,43.2C64,56.7,51.1,67.6,37.1,73.6C23.1,79.6,8,80.7,-6.2,78.8C-20.4,76.9,-33.7,72,-45.5,64.2C-57.3,56.4,-67.6,45.7,-74.6,33.1C-81.6,20.5,-85.3,6,-82.7,-7.4C-80.1,-20.8,-71.2,-33.1,-61.1,-43.3C-51,-53.5,-39.7,-61.6,-27.6,-69.8C-15.5,-78,-2.6,-86.3,10.1,-84.9C22.8,-83.5,44.7,-76.4,44.7,-76.4Z" transform="translate(100 100)" />
-             </svg>
-          </div>
-        </section>
+              <div className="flex-1 min-w-0">
+                <p className="text-lg font-bold leading-tight" data-testid="text-mood-label">{moodLabel}</p>
+                <p className="text-sm text-muted-foreground mt-1 leading-snug line-clamp-2" data-testid="text-dino-advice">
+                  {moodAdvice}
+                </p>
+              </div>
+            </div>
 
-        {/* Dino Egg Growth */}
-        <section className="bg-card border border-border rounded-3xl p-6 flex flex-col items-center justify-center text-center shadow-lg">
-          <h3 className="font-display font-bold text-lg mb-2">{t.your_dino_egg}</h3>
-          <DinoEgg level={currentLevel} lang={lang} />
-          <p className="text-xs text-muted-foreground mt-2">{t.hatching_at_level}</p>
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <TargetIcon className="w-6 h-6 text-primary" />
-              {t.daily_quests}
-            </h2>
-            <Link href="/quests" className="text-primary font-bold text-sm hover:underline">{t.view_all}</Link>
+            <div className="space-y-2">
+              <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${moodIndex}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className={cn("h-full rounded-full", getMoodBarColor(moodIndex))}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{t.extreme_fear}</span>
+                <span>{t.extreme_greed}</span>
+              </div>
+            </div>
           </div>
-          
-          <div className="grid gap-6">
-            {quests?.slice(0, 3).map((quest, i) => (
-              <motion.div
-                key={quest.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <QuestCard quest={quest} />
-              </motion.div>
+        )}
+      </motion.section>
+
+      {/* ── Section 2: Quick Watchlist ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        data-testid="section-watchlist"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground" data-testid="label-watchlist">
+            {t.my_top_picks}
+          </h2>
+          <Link href="/watchlist" className="text-xs font-bold text-primary" data-testid="link-view-all-watchlist">
+            {t.view_all}
+          </Link>
+        </div>
+
+        {isStockLoading ? (
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex justify-between items-center py-3">
+                <div className="space-y-1">
+                  <div className="h-5 bg-muted rounded w-14" />
+                  <div className="h-3 bg-muted rounded w-28" />
+                </div>
+                <div className="space-y-1 text-right">
+                  <div className="h-5 bg-muted rounded w-20" />
+                  <div className="h-3 bg-muted rounded w-12 ml-auto" />
+                </div>
+              </div>
             ))}
           </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {quotes.map((quote) => (
+              <div
+                key={quote.symbol}
+                className="flex items-center justify-between py-4 cursor-pointer hover-elevate rounded-lg px-2 -mx-2"
+                onClick={() => navigate(`/stock/${quote.symbol}`)}
+                data-testid={`stock-row-${quote.symbol}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-base font-bold" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{quote.name}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-base font-mono font-bold tabular-nums" data-testid={`text-price-${quote.symbol}`}>
+                      {formatPrice(quote.price)}
+                    </p>
+                    <p className={cn(
+                      "text-xs font-bold tabular-nums",
+                      quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                    )} data-testid={`text-change-${quote.symbol}`}>
+                      {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </div>
+              </div>
+            ))}
 
-          <MarketHeadlines />
-        </div>
-
-        <div className="space-y-6">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <Star className="w-6 h-6 text-yellow-500" />
-              {t.my_top_picks}
-            </h2>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              data-testid="button-refresh-data"
-            >
-              <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
-              {lang === "ko" ? "새로고침" : "Refresh"}
-            </Button>
+            {quotes.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground" data-testid="text-loading-stocks">
+                {t.loading_stocks}
+              </p>
+            )}
           </div>
+        )}
 
-          <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
-             <LiveStockCard symbols={["NVDA", "TSLA", "AAPL"]} />
-
-             <div className="pt-4 border-t border-border mt-4">
-               <Link href="/watchlist" className="flex items-center justify-center gap-2 w-full py-3 bg-muted hover:bg-muted/80 rounded-xl font-bold text-sm transition-colors" data-testid="link-modify-portfolio">
-                  {t.modify_portfolio} <ArrowRight className="w-4 h-4" />
-               </Link>
-             </div>
+        {stockData && (
+          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground" data-testid="market-status">
+            <span className={cn("w-2 h-2 rounded-full shrink-0", stockData.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
+            <span>{stockData.isMarketOpen ? t.market_open : t.market_closed}</span>
+            {stockData.fetchedAtFormatted && (
+              <>
+                <span className="mx-1">·</span>
+                <span>{stockData.fetchedAtFormatted}</span>
+              </>
+            )}
           </div>
-          
+        )}
+      </motion.section>
+
+      {/* ── Section 3: Daily Goal Progress ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        data-testid="section-daily-goal"
+      >
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4" data-testid="label-daily-goal">
+          {t.daily_progress}
+        </h2>
+
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <TrendingUp className="w-6 h-6 text-accent" />
-              {t.market_pulse}
-            </h2>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-bold text-base" data-testid="text-quest-summary">
+                  {completedQuests} {t.of} {totalQuests} {t.quests_completed}
+                </p>
+                <p className="text-xs text-muted-foreground" data-testid="text-quest-status">
+                  {completedQuests === totalQuests
+                    ? t.all_done_for_today
+                    : `${totalQuests - completedQuests} ${t.remaining}`}
+                </p>
+              </div>
+            </div>
+            <Link href="/quests" data-testid="link-go-quests">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center hover-elevate">
+                <ArrowRight className="w-4 h-4 text-primary" />
+              </div>
+            </Link>
           </div>
 
-          <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
-             <LiveStockCard symbols={["SPY", "QQQ", "DIA"]} />
+          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden" data-testid="progress-quests">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${totalQuests > 0 ? (completedQuests / totalQuests) * 100 : 0}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="h-full bg-primary rounded-full"
+            />
           </div>
 
-          {/* Dino's Market Mood */}
-          <MarketMood />
-
-          {/* Breaking News Quiz */}
-          <BreakingNewsQuiz />
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-3.5 h-3.5 text-yellow-500" />
+              <span className="font-medium">{t.level} {currentLevel}</span>
+              <span>·</span>
+              <span>{currentXP}/{xpForNextLevel} {t.xp}</span>
+            </div>
+            {(user as any)?.streak > 0 && (
+              <div className="flex items-center gap-1">
+                <Flame className="w-3.5 h-3.5 text-orange-500" />
+                <span className="font-medium">{(user as any).streak} {t.day_streak}</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </motion.section>
+
+      {/* ── Section 4: Today's Insight ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.3 }}
+        data-testid="section-todays-insight"
+      >
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4" data-testid="label-todays-insight">
+          {t.todays_insight}
+        </h2>
+
+        <BreakingNewsQuiz />
+      </motion.section>
+
     </div>
   );
 }
-
