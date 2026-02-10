@@ -13,7 +13,7 @@ const openai = new OpenAI({
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
-import { getStockQuote, getMultipleQuotes, getRealTimeQuizQuestion, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
+import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -450,7 +450,7 @@ export async function registerRoutes(
     timestamp: number;
   }
   let cachedMood: MoodCache | null = null;
-  const MOOD_CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
+  const MOOD_CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
   // === Exchange Rate API ===
   let cachedExchangeRate: { rate: number; source: string; timestamp: number } | null = null;
@@ -516,11 +516,25 @@ export async function registerRoutes(
     }
 
     try {
-      // Fetch from Alternative.me Fear & Greed Index API
-      const response = await fetch("https://api.alternative.me/fng/?limit=1");
+      // Fetch CNN Fear & Greed Index via Python service
+      const response = await fetch("http://127.0.0.1:5001/fear-greed");
       const data = await response.json();
-      const fngValue = parseInt(data.data?.[0]?.value || "50");
-      const fngClassification = data.data?.[0]?.value_classification || "Neutral";
+      
+      let fngValue: number;
+      let fngClassification: string;
+      
+      if (data.score != null && data.source === "cnn") {
+        fngValue = data.score;
+        fngClassification = data.rating || "Neutral";
+        // Capitalize rating from CNN (e.g. "greed" -> "Greed", "extreme fear" -> "Extreme Fear")
+        fngClassification = fngClassification.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      } else {
+        // Fallback to alternative.me crypto index if CNN fails
+        const altResponse = await fetch("https://api.alternative.me/fng/?limit=1");
+        const altData = await altResponse.json();
+        fngValue = parseInt(altData.data?.[0]?.value || "50");
+        fngClassification = altData.data?.[0]?.value_classification || "Neutral";
+      }
 
       let dinoAdviceEn = "Stay calm and invest wisely!";
       let dinoAdviceKo = "침착하게 현명하게 투자하세요!";
@@ -927,158 +941,216 @@ export async function registerRoutes(
     const lang = (req.query.lang as string) || "en";
     const isKorean = lang === "ko";
     
-    // Try to get a real-time quiz question first (50% chance)
-    if (Math.random() > 0.5) {
-      try {
-        const realTimeQuestion = await getRealTimeQuizQuestion(isKorean);
-        if (realTimeQuestion) {
-          return res.json({
-            id: `rt-${Date.now()}`,
-            ...realTimeQuestion,
-            isRealTime: true,
-          });
-        }
-      } catch (error) {
-        console.error("Failed to get real-time quiz:", error);
-      }
-    }
+    // Try AI-generated fundamental quiz with real stock data
+    try {
+      const symbols = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META'];
+      const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+      const fundamentals = await getStockFundamentals(randomSymbol);
+      
+      if (fundamentals && fundamentals.price > 0) {
+        const peStr = fundamentals.peRatio ? `P/E Ratio: ${fundamentals.peRatio.toFixed(1)}` : '';
+        const divStr = fundamentals.dividendYield ? `Dividend Yield: ${(fundamentals.dividendYield * 100).toFixed(2)}%` : '';
+        const capStr = fundamentals.marketCap ? `Market Cap: $${(fundamentals.marketCap / 1e9).toFixed(0)}B` : '';
+        const betaStr = fundamentals.beta ? `Beta: ${fundamentals.beta.toFixed(2)}` : '';
+        const epsStr = fundamentals.eps ? `EPS: $${fundamentals.eps.toFixed(2)}` : '';
+        const highStr = fundamentals.fiftyTwoWeekHigh ? `52W High: $${fundamentals.fiftyTwoWeekHigh.toFixed(2)}` : '';
+        const lowStr = fundamentals.fiftyTwoWeekLow ? `52W Low: $${fundamentals.fiftyTwoWeekLow.toFixed(2)}` : '';
+        const sectorStr = fundamentals.sector || '';
+        
+        const fundamentalsContext = [peStr, divStr, capStr, betaStr, epsStr, highStr, lowStr, sectorStr].filter(Boolean).join(', ');
+        
+        const prompt = isKorean
+          ? `${fundamentals.name} (${fundamentals.symbol})의 실시간 펀더멘털 데이터를 기반으로 투자자 교육용 퀴즈 문제 1개를 만들어주세요.
 
-    // Fallback to educational headlines
-    const educationalHeadlinesEn = [
+현재 데이터: 주가 $${fundamentals.price.toFixed(2)}, 등락 ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
+
+규칙:
+- 단순한 "주가 올랐다/내렸다" 문제는 절대 금지
+- PER, 배당수익률, 시가총액, 베타, EPS, 52주 고저 등 펀더멘털 지표를 활용한 분석적 질문
+- 예시: "현재 PER이 XX인 이 기업은 저평가/고평가 중 어느 쪽에 가까운가?", "배당수익률 XX%는 이 섹터 평균 대비 어떤 수준인가?", "52주 최고가 대비 현재 주가가 XX%인 이 종목의 투자 전망은?"
+- correctAnswer는 "bullish" 또는 "bearish" 중 하나
+- 자연스럽고 전문적인 한국어로 작성
+
+JSON 형식으로 정확히 반환:
+{"headline": "질문 내용", "correctAnswer": "bullish 또는 bearish", "explanation": "2-3문장의 전문적인 해설"}`
+          : `Create 1 professional investment quiz question based on real fundamentals data for ${fundamentals.name} (${fundamentals.symbol}).
+
+Current data: Price $${fundamentals.price.toFixed(2)}, Change ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
+
+Rules:
+- NEVER create simple "stock went up/down" questions
+- Use fundamental metrics: P/E ratio, dividend yield, market cap, beta, EPS, 52-week range analysis
+- Examples: "With a P/E of XX, is this company likely overvalued or undervalued?", "What does a dividend yield of XX% suggest about this company?", "Trading at XX% of its 52-week high, what's the investment outlook?"
+- correctAnswer must be "bullish" or "bearish"
+- Professional, educational tone
+
+Return EXACTLY this JSON:
+{"headline": "question text", "correctAnswer": "bullish or bearish", "explanation": "2-3 sentence professional explanation"}`;
+
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.8,
+          max_tokens: 400,
+          response_format: { type: "json_object" },
+        });
+
+        const content = aiResponse.choices[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          if (parsed.headline && parsed.correctAnswer && parsed.explanation) {
+            return res.json({
+              id: `ai-${Date.now()}`,
+              headline: parsed.headline,
+              symbol: fundamentals.symbol,
+              companyName: fundamentals.name,
+              correctAnswer: parsed.correctAnswer as 'bullish' | 'bearish',
+              explanation: parsed.explanation,
+              isRealTime: true,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[Quiz] AI fundamental quiz generation failed:", error);
+    }
+    
+    // Fallback to professional curated quizzes (fundamental-based, not price-based)
+    const fallbackEn = [
       {
-        id: "1",
-        headline: "Apple reports record quarterly revenue, beating analyst expectations by 15%",
+        id: "f1",
+        headline: "A major tech company reports EPS of $6.50, beating Wall Street's estimate of $5.80 by 12%. Revenue grew 15% YoY. How should investors interpret this?",
         symbol: "AAPL",
         companyName: "Apple Inc.",
         correctAnswer: "bullish" as const,
-        explanation: "Record revenue and beating expectations typically drives stock prices up. This is positive news for investors!"
+        explanation: "Beating EPS estimates by a significant margin (12%) combined with strong revenue growth signals robust business performance. This typically drives institutional buying and price appreciation."
       },
       {
-        id: "2",
-        headline: "Tesla recalls 2 million vehicles due to safety concerns with autopilot system",
-        symbol: "TSLA",
-        companyName: "Tesla, Inc.",
-        correctAnswer: "bearish" as const,
-        explanation: "Large recalls create costs and negative publicity, which usually pressures stock prices downward."
-      },
-      {
-        id: "3",
-        headline: "NVIDIA announces new AI chip that's 10x faster than previous generation",
+        id: "f2",
+        headline: "A semiconductor company's P/E ratio has expanded from 25x to 65x over 12 months while earnings growth has slowed from 40% to 15%. What does this valuation compression risk suggest?",
         symbol: "NVDA",
         companyName: "NVIDIA Corp",
-        correctAnswer: "bullish" as const,
-        explanation: "Breakthrough products, especially in hot sectors like AI, boost investor confidence and drive prices up!"
+        correctAnswer: "bearish" as const,
+        explanation: "When P/E expansion outpaces earnings growth, it creates a valuation gap. Slowing growth combined with stretched multiples increases downside risk as the market may reprice the stock to reflect lower growth expectations."
       },
       {
-        id: "4",
-        headline: "Microsoft faces major antitrust investigation from EU regulators",
+        id: "f3",
+        headline: "The Federal Reserve signals two additional rate cuts this quarter. How does this typically affect growth stocks with high forward P/E ratios?",
+        symbol: "QQQ",
+        companyName: "Invesco QQQ Trust",
+        correctAnswer: "bullish" as const,
+        explanation: "Rate cuts lower the discount rate used in DCF models, making future cash flows more valuable today. Growth stocks with earnings weighted toward the future benefit disproportionately from lower rates."
+      },
+      {
+        id: "f4",
+        headline: "An EV manufacturer's free cash flow turns negative for the second consecutive quarter while capital expenditure increases 45% for factory expansion. What's the investment signal?",
+        symbol: "TSLA",
+        companyName: "Tesla, Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "Negative FCF driven by aggressive capex investment (not operational losses) often signals future growth capacity. Factory expansion positions the company for higher production volume and revenue, which is long-term bullish."
+      },
+      {
+        id: "f5",
+        headline: "A cloud computing giant's operating margin expands from 25% to 32% while competitors report margin compression. Revenue growth remains at 22% YoY. What does this indicate?",
         symbol: "MSFT",
         companyName: "Microsoft Corp",
-        correctAnswer: "bearish" as const,
-        explanation: "Antitrust investigations can lead to fines and restrictions, creating uncertainty that typically hurts stock prices."
+        correctAnswer: "bullish" as const,
+        explanation: "Expanding margins amid industry-wide compression demonstrates superior operational efficiency and pricing power. Combined with solid revenue growth, this indicates a competitive moat that should drive share price higher."
       },
       {
-        id: "5",
-        headline: "Amazon expands same-day delivery to 50 new cities, expects 30% growth",
+        id: "f6",
+        headline: "A major retailer's inventory-to-sales ratio has increased 35% above its 5-year average, while same-store sales declined 3% last quarter. What risk does this present?",
         symbol: "AMZN",
         companyName: "Amazon.com Inc.",
-        correctAnswer: "bullish" as const,
-        explanation: "Expansion and strong growth projections signal business strength, which is positive for the stock!"
+        correctAnswer: "bearish" as const,
+        explanation: "Rising inventory relative to sales typically leads to markdowns and margin pressure. Combined with declining same-store sales, this signals weakening demand and potential earnings disappointments ahead."
       },
       {
-        id: "6",
-        headline: "Meta lays off 10,000 employees in major cost-cutting restructure",
+        id: "f7",
+        headline: "A social media company announces a $40B share buyback program representing 8% of its market cap. Trailing P/E is 18x, below its 5-year average of 24x. What's the outlook?",
         symbol: "META",
         companyName: "Meta Platforms",
         correctAnswer: "bullish" as const,
-        explanation: "While layoffs sound negative, cost-cutting often improves profitability and can boost stock prices!"
+        explanation: "Large buyback programs at below-average valuations are highly bullish signals. Management is signaling the stock is undervalued, and reducing share count will boost EPS, creating a positive feedback loop for price appreciation."
       },
       {
-        id: "7",
-        headline: "Federal Reserve announces unexpected interest rate hike of 0.5%",
+        id: "f8",
+        headline: "10-year Treasury yields spike to 5.2% while the yield curve remains inverted. Corporate bond spreads have widened 80 basis points. How does this affect equity markets?",
         symbol: "SPY",
         companyName: "S&P 500 ETF",
         correctAnswer: "bearish" as const,
-        explanation: "Higher interest rates make borrowing more expensive and often lead to stock market declines."
-      },
-      {
-        id: "8",
-        headline: "Google Cloud revenue grows 28% year-over-year, exceeding forecasts",
-        symbol: "GOOGL",
-        companyName: "Alphabet Inc.",
-        correctAnswer: "bullish" as const,
-        explanation: "Strong cloud growth shows the company is diversifying beyond ads, which investors love!"
+        explanation: "Rising yields increase the risk-free rate, making equities relatively less attractive. An inverted yield curve historically predicts recessions, and widening credit spreads signal increasing default risk and risk aversion."
       }
     ];
 
-    const educationalHeadlinesKo = [
+    const fallbackKo = [
       {
-        id: "1",
-        headline: "Apple, 분기 매출 신기록 달성 - 애널리스트 예상치 15% 상회",
+        id: "f1",
+        headline: "한 대형 테크 기업이 EPS $6.50을 기록하며 월가 예상치 $5.80을 12% 상회했습니다. 매출은 전년 대비 15% 성장했습니다. 투자자는 이를 어떻게 해석해야 할까요?",
         symbol: "AAPL",
         companyName: "Apple Inc.",
         correctAnswer: "bullish" as const,
-        explanation: "기록적인 매출과 예상치 초과는 일반적으로 주가 상승을 이끕니다. 투자자들에게 긍정적인 뉴스입니다!"
+        explanation: "EPS 예상치를 12%나 큰 폭으로 초과 달성하고 견고한 매출 성장까지 보여준 것은 탄탄한 사업 실적을 의미합니다. 이는 기관 매수세를 유입시키고 주가 상승으로 이어지는 경우가 많습니다."
       },
       {
-        id: "2",
-        headline: "Tesla, 자율주행 시스템 안전 문제로 200만대 리콜 결정",
-        symbol: "TSLA",
-        companyName: "Tesla, Inc.",
-        correctAnswer: "bearish" as const,
-        explanation: "대규모 리콜은 비용과 부정적 홍보를 야기하며, 이는 주가에 하락 압력을 줍니다."
-      },
-      {
-        id: "3",
-        headline: "NVIDIA, 이전 세대보다 10배 빠른 새로운 AI 칩 발표",
+        id: "f2",
+        headline: "한 반도체 기업의 PER이 12개월간 25배에서 65배로 확대되었지만, 이익 성장률은 40%에서 15%로 둔화되었습니다. 이 밸류에이션 리스크를 어떻게 봐야 할까요?",
         symbol: "NVDA",
         companyName: "NVIDIA Corp",
-        correctAnswer: "bullish" as const,
-        explanation: "특히 AI와 같은 핫한 분야의 혁신적인 제품은 투자자 신뢰를 높이고 주가를 상승시킵니다!"
+        correctAnswer: "bearish" as const,
+        explanation: "PER 확대가 이익 성장을 크게 앞서면 밸류에이션 갭이 발생합니다. 성장 둔화와 높은 멀티플이 결합되면 시장이 낮아진 성장 기대를 반영해 주가를 재조정할 하방 리스크가 커집니다."
       },
       {
-        id: "4",
-        headline: "Microsoft, EU 규제 당국의 대규모 반독점 조사 직면",
+        id: "f3",
+        headline: "연준이 이번 분기 2차례 추가 금리 인하를 시사했습니다. 높은 Forward PER을 가진 성장주에 이는 일반적으로 어떤 영향을 미칠까요?",
+        symbol: "QQQ",
+        companyName: "Invesco QQQ Trust",
+        correctAnswer: "bullish" as const,
+        explanation: "금리 인하는 DCF 모델의 할인율을 낮춰 미래 현금흐름의 현재 가치를 높입니다. 미래 이익 비중이 큰 성장주는 금리 하락의 수혜를 가장 크게 받습니다."
+      },
+      {
+        id: "f4",
+        headline: "한 EV 제조사의 잉여현금흐름(FCF)이 2분기 연속 적자를 기록했지만, 공장 확장을 위한 설비투자(Capex)는 45% 증가했습니다. 이 투자 신호는 무엇을 의미할까요?",
+        symbol: "TSLA",
+        companyName: "Tesla, Inc.",
+        correctAnswer: "bullish" as const,
+        explanation: "영업 손실이 아닌 공격적 설비투자로 인한 FCF 적자는 미래 성장 역량 확보를 의미하는 경우가 많습니다. 공장 확장은 생산량과 매출 증가를 위한 포석이므로 장기적으로 긍정적입니다."
+      },
+      {
+        id: "f5",
+        headline: "한 클라우드 대기업의 영업이익률이 25%에서 32%로 확대되었고, 경쟁사들은 마진 압축을 보고했습니다. 매출 성장률은 전년 대비 22%를 유지 중입니다. 이는 무엇을 시사할까요?",
         symbol: "MSFT",
         companyName: "Microsoft Corp",
-        correctAnswer: "bearish" as const,
-        explanation: "반독점 조사는 벌금과 제한으로 이어질 수 있어 불확실성을 야기하고 주가에 부정적입니다."
+        correctAnswer: "bullish" as const,
+        explanation: "업계 전반의 마진 압축 속에서도 마진이 확대되는 것은 뛰어난 운영 효율성과 가격 결정력을 보여줍니다. 견고한 매출 성장과 결합되면 경쟁 해자가 있다는 신호로, 주가 상승을 견인할 수 있습니다."
       },
       {
-        id: "5",
-        headline: "Amazon, 50개 신규 도시로 당일 배송 확대 - 30% 성장 전망",
+        id: "f6",
+        headline: "한 대형 유통업체의 재고 대비 매출 비율이 5년 평균보다 35% 높아졌고, 기존점 매출은 지난 분기 3% 감소했습니다. 이는 어떤 리스크를 제시할까요?",
         symbol: "AMZN",
         companyName: "Amazon.com Inc.",
-        correctAnswer: "bullish" as const,
-        explanation: "확장과 강력한 성장 전망은 사업 강점을 보여주며 주가에 긍정적입니다!"
+        correctAnswer: "bearish" as const,
+        explanation: "매출 대비 재고 증가는 할인 판매와 마진 압박으로 이어지는 경우가 많습니다. 기존점 매출 감소와 결합되면 수요 약화와 향후 실적 부진 가능성을 시사합니다."
       },
       {
-        id: "6",
-        headline: "Meta, 대규모 구조조정으로 10,000명 해고 발표",
+        id: "f7",
+        headline: "한 소셜미디어 기업이 시가총액의 8%에 해당하는 $400억 규모의 자사주 매입을 발표했습니다. Trailing PER은 18배로 5년 평균 24배보다 낮습니다. 전망은 어떨까요?",
         symbol: "META",
         companyName: "Meta Platforms",
         correctAnswer: "bullish" as const,
-        explanation: "해고가 부정적으로 들리지만, 비용 절감은 수익성을 개선하고 주가를 올릴 수 있습니다!"
+        explanation: "평균 이하의 밸류에이션에서 대규모 자사주 매입은 매우 긍정적인 신호입니다. 경영진이 주가가 저평가되었다고 판단하는 것이며, 유통 주식 수 감소가 EPS를 높여 주가 상승의 선순환을 만듭니다."
       },
       {
-        id: "7",
-        headline: "연준, 예상치 못한 0.5% 금리 인상 발표",
+        id: "f8",
+        headline: "10년 국채 수익률이 5.2%로 급등하고 수익률 곡선 역전이 지속 중입니다. 회사채 스프레드는 80bp 확대되었습니다. 이는 주식 시장에 어떤 영향을 미칠까요?",
         symbol: "SPY",
         companyName: "S&P 500 ETF",
         correctAnswer: "bearish" as const,
-        explanation: "금리 인상은 차입 비용을 높여 주식 시장 하락으로 이어지는 경우가 많습니다."
-      },
-      {
-        id: "8",
-        headline: "Google Cloud 매출 전년 대비 28% 성장, 전망치 초과 달성",
-        symbol: "GOOGL",
-        companyName: "Alphabet Inc.",
-        correctAnswer: "bullish" as const,
-        explanation: "강력한 클라우드 성장은 회사가 광고 외 사업을 다각화하고 있음을 보여주며 투자자들이 좋아합니다!"
+        explanation: "금리 상승은 무위험 수익률을 높여 주식의 상대적 매력을 떨어뜨립니다. 수익률 곡선 역전은 역사적으로 경기 침체를 예고하며, 신용 스프레드 확대는 부도 위험 증가와 위험 회피 심리를 나타냅니다."
       }
     ];
     
-    const headlines = isKorean ? educationalHeadlinesKo : educationalHeadlinesEn;
+    const headlines = isKorean ? fallbackKo : fallbackEn;
     const randomHeadline = headlines[Math.floor(Math.random() * headlines.length)];
     res.json({ ...randomHeadline, isRealTime: false });
   });

@@ -384,7 +384,7 @@ def get_info(symbol):
             "peRatio": info.get('trailingPE'),
             "forwardPE": info.get('forwardPE'),
             "eps": info.get('trailingEps'),
-            "dividendYield": info.get('dividendYield'),
+            "dividendYield": info.get('dividendYield') or info.get('trailingAnnualDividendYield'),
             "52WeekHigh": info.get('fiftyTwoWeekHigh'),
             "52WeekLow": info.get('fiftyTwoWeekLow'),
             "avgVolume": info.get('averageVolume'),
@@ -392,6 +392,39 @@ def get_info(symbol):
         })
     except Exception as e:
         return jsonify({"error": str(e), "symbol": symbol}), 500
+
+
+@app.route('/fear-greed', methods=['GET'])
+def get_fear_greed():
+    """Fetch CNN Fear & Greed Index from production endpoint."""
+    try:
+        import requests as req
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/'
+        resp = req.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        fg = data.get('fear_and_greed', {})
+        score = fg.get('score', 50)
+        rating = fg.get('rating', 'Neutral')
+        previous_close = fg.get('previous_close', score)
+        previous_1_week = fg.get('previous_1_week', score)
+        previous_1_month = fg.get('previous_1_month', score)
+        
+        return jsonify({
+            "score": round(score),
+            "rating": rating,
+            "previous_close": round(previous_close) if previous_close else None,
+            "previous_1_week": round(previous_1_week) if previous_1_week else None,
+            "previous_1_month": round(previous_1_month) if previous_1_month else None,
+            "source": "cnn"
+        })
+    except Exception as e:
+        print(f"[Fear & Greed] CNN fetch failed: {e}")
+        return jsonify({"error": str(e), "score": None}), 500
 
 
 # Need pandas for history endpoint

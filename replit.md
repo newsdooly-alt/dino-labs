@@ -78,6 +78,20 @@ Preferred communication style: Simple, everyday language.
   - Fetches market news headlines from major tickers (SPY, QQQ, AAPL, MSFT, NVDA)
   - Service location: `server/python_stock_service.py`
   - Node.js wrapper: `server/stockService.ts`
+- **CNN Fear & Greed Index**: Market sentiment data via `production.dataviz.cnn.io`
+  - Fetched through Python service at `/fear-greed` endpoint
+  - 1-hour cache duration for stability
+  - Fallback to alternative.me crypto index if CNN fails
+  - Used in Market Temperature dashboard section
+
+### Breaking News Quiz System
+- **AI-Generated Fundamental Quizzes**: Uses GPT-4o-mini with real-time stock fundamentals
+  - Fetches P/E ratio, dividend yield, market cap, beta, EPS, 52-week range via `getStockFundamentals()`
+  - Never generates simple "stock went up/down" questions
+  - Creates professional analysis questions (P/E valuation, margin analysis, yield assessment)
+  - Natural Korean translations when lang=ko
+  - 8 curated fallback quizzes per language covering EPS, P/E expansion, FCF, margins, inventory, buybacks, yield curves
+  - Endpoint: GET /api/news/quiz?lang=en|ko
 
 ### Quest System
 - **Quest Types**: term, pattern, news, search, compare, valuation, practice

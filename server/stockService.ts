@@ -217,50 +217,51 @@ export async function getStockInfo(symbol: string): Promise<any> {
 }
 
 // Get a random quiz question based on real-time data
-export async function getRealTimeQuizQuestion(isKorean: boolean = false): Promise<{
-  headline: string;
+export async function getStockFundamentals(symbol: string): Promise<{
   symbol: string;
-  companyName: string;
-  correctAnswer: 'bullish' | 'bearish';
-  explanation: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  peRatio: number | null;
+  forwardPE: number | null;
+  dividendYield: number | null;
+  marketCap: number | null;
+  eps: number | null;
+  beta: number | null;
+  sector: string | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
 } | null> {
-  const symbols = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META'];
-  const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
-  
   try {
-    const quote = await getStockQuote(randomSymbol);
+    const isServiceUp = await checkPythonService();
+    if (!isServiceUp) return null;
     
-    if (quote.isStale || quote.price === 0) {
-      return null; // Fall back to curated questions
-    }
+    const [quoteRes, infoRes] = await Promise.all([
+      fetch(`${PYTHON_SERVICE_URL}/quote/${symbol}`, { signal: AbortSignal.timeout(8000) }),
+      fetch(`${PYTHON_SERVICE_URL}/info/${symbol}`, { signal: AbortSignal.timeout(8000) }),
+    ]);
     
-    const isUp = quote.changePercent >= 0;
-    const changeText = isUp 
-      ? (isKorean ? `${quote.changePercent.toFixed(2)}% 상승` : `up ${quote.changePercent.toFixed(2)}%`)
-      : (isKorean ? `${Math.abs(quote.changePercent).toFixed(2)}% 하락` : `down ${Math.abs(quote.changePercent).toFixed(2)}%`);
+    if (!quoteRes.ok || !infoRes.ok) return null;
     
-    if (isKorean) {
-      return {
-        headline: `${quote.name} 주가가 오늘 ${changeText}하여 $${quote.price.toFixed(2)}에 거래되고 있습니다. 이 움직임은 투자자에게 좋은가요?`,
-        symbol: quote.symbol,
-        companyName: quote.name,
-        correctAnswer: isUp ? 'bullish' : 'bearish',
-        explanation: isUp 
-          ? `${quote.name}이(가) 오늘 ${quote.changePercent.toFixed(2)}% 상승했습니다! 주가가 오르면 투자자들이 매수하고 있다는 의미입니다. 상승세입니다!`
-          : `${quote.name}이(가) 오늘 ${Math.abs(quote.changePercent).toFixed(2)}% 하락했습니다. 매도 압력이 있다는 의미입니다. 하락세이지만 매수 기회가 될 수 있습니다!`
-      };
-    }
+    const quote = await quoteRes.json();
+    const info = await infoRes.json();
     
     return {
-      headline: `${quote.name} stock is ${changeText} today, trading at $${quote.price.toFixed(2)}. Is this movement good for investors?`,
-      symbol: quote.symbol,
-      companyName: quote.name,
-      correctAnswer: isUp ? 'bullish' : 'bearish',
-      explanation: isUp 
-        ? `${quote.name} is up ${quote.changePercent.toFixed(2)}% today! When a stock rises, it means investors are buying and the company is doing well. That's bullish!`
-        : `${quote.name} is down ${Math.abs(quote.changePercent).toFixed(2)}% today. When a stock falls, it means there's selling pressure. That's bearish, but could be a buying opportunity!`
+      symbol: symbol.toUpperCase(),
+      name: quote.name || info.name || symbol,
+      price: quote.price || 0,
+      changePercent: quote.changePercent || 0,
+      peRatio: info.peRatio || null,
+      forwardPE: info.forwardPE || null,
+      dividendYield: info.dividendYield || null,
+      marketCap: info.marketCap || null,
+      eps: info.eps || null,
+      beta: info.beta || null,
+      sector: info.sector || null,
+      fiftyTwoWeekHigh: info["52WeekHigh"] || null,
+      fiftyTwoWeekLow: info["52WeekLow"] || null,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
