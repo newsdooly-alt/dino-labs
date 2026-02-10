@@ -12,6 +12,8 @@ The core experience centers around:
 - Stock Detail Page with interactive charts, key stats, and Dino's educational insights
 - Gamification elements (XP, levels, streaks, hearts/lives)
 - Multi-language support (English and Korean)
+- Live USD/KRW currency conversion with real-time exchange rates (CurrencyContext provider)
+- Skill level-based quest difficulty (beginner/intermediate/advanced) with 24+ fallback quests per language
 
 ## User Preferences
 
