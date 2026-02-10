@@ -304,6 +304,10 @@ for alias, sym in korean_aliases.items():
 def search_stocks():
     """Search for stocks by symbol or name (US and Korean)."""
     raw_query = request.args.get('q', '').strip()
+    try:
+        raw_query = raw_query.encode('latin-1').decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
     query = raw_query.upper()
     if not query or len(query) < 1:
         return jsonify({"results": []})
@@ -431,8 +435,6 @@ def search_stocks():
         'VZ': 'Verizon Communications Inc.',
         'TMUS': 'T-Mobile US Inc.',
     }
-    
-    results = []
     
     # First, check if query matches a symbol exactly
     if query in popular_stocks:
