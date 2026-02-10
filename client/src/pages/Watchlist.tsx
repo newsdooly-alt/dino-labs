@@ -100,7 +100,7 @@ export default function Watchlist() {
   const watchlistSymbols = watchlist?.map(w => w.symbol) || [];
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="p-4 md:p-10 max-w-5xl mx-auto w-full">
       {/* Dino Tip Toast */}
       <AnimatePresence>
         {showDinoTip && (
@@ -118,7 +118,7 @@ export default function Watchlist() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-4xl font-display font-bold">{t.your_watchlist}</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold">{t.your_watchlist}</h1>
           <p className="text-muted-foreground mt-2">{t.track_stocks}</p>
         </div>
         

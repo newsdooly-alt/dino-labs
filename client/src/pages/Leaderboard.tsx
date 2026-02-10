@@ -17,9 +17,9 @@ export default function Leaderboard() {
   const isKo = lang === "ko";
 
   return (
-    <div className="p-6 md:p-10 max-w-4xl mx-auto">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-display font-bold mb-4" data-testid="text-leaderboard-title">
+    <div className="p-4 md:p-10 max-w-4xl mx-auto w-full">
+      <div className="text-center mb-8 md:mb-12">
+        <h1 className="text-3xl md:text-4xl font-display font-bold mb-4" data-testid="text-leaderboard-title">
           {isKo ? "리더보드" : "Leaderboard"}
         </h1>
         <p className="text-muted-foreground text-lg" data-testid="text-leaderboard-subtitle">
@@ -28,7 +28,7 @@ export default function Leaderboard() {
       </div>
 
       <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
-        <div className="grid grid-cols-12 gap-4 p-6 border-b border-border bg-muted/30 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="hidden md:grid grid-cols-12 gap-4 p-6 border-b border-border bg-muted/30 text-xs font-bold uppercase tracking-wider text-muted-foreground">
           <div className="col-span-2 text-center">{isKo ? "순위" : "Rank"}</div>
           <div className="col-span-6">{isKo ? "사용자" : "User"}</div>
           <div className="col-span-2 text-center">{isKo ? "레벨" : "Level"}</div>
@@ -40,44 +40,50 @@ export default function Leaderboard() {
             <div 
               key={u.id} 
               className={cn(
-                "grid grid-cols-12 gap-4 p-6 items-center transition-colors",
+                "flex items-center gap-3 p-4 md:grid md:grid-cols-12 md:gap-4 md:p-6 transition-colors",
                 u.isMe ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50"
               )}
               data-testid={`row-leaderboard-${u.id}`}
             >
-              <div className="col-span-2 flex justify-center">
+              <div className="shrink-0 md:col-span-2 md:flex md:justify-center">
                 {idx === 0 ? (
-                  <Trophy className="w-8 h-8 text-yellow-400 fill-current animate-bounce" />
+                  <Trophy className="w-7 h-7 md:w-8 md:h-8 text-yellow-400 fill-current animate-bounce" />
                 ) : idx === 1 ? (
-                  <Medal className="w-8 h-8 text-gray-300 fill-current" />
+                  <Medal className="w-7 h-7 md:w-8 md:h-8 text-gray-300 fill-current" />
                 ) : idx === 2 ? (
-                  <Medal className="w-8 h-8 text-amber-600 fill-current" />
+                  <Medal className="w-7 h-7 md:w-8 md:h-8 text-amber-600 fill-current" />
                 ) : (
-                  <span className="font-mono font-bold text-xl text-muted-foreground">#{idx + 1}</span>
+                  <span className="font-mono font-bold text-lg md:text-xl text-muted-foreground">#{idx + 1}</span>
                 )}
               </div>
               
-              <div className="col-span-6 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center">
-                  <User className="w-5 h-5 text-muted-foreground" />
+              <div className="flex-1 min-w-0 md:col-span-6 flex items-center gap-3 md:gap-4">
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-background border border-border flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 </div>
-                <div>
-                  <div className="font-bold text-lg flex items-center gap-2">
-                    {u.username}
-                    {u.isMe && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">{isKo ? "나" : "You"}</span>}
+                <div className="min-w-0">
+                  <div className="font-bold text-sm md:text-lg flex items-center gap-2 flex-wrap">
+                    <span className="truncate">{u.username}</span>
+                    {u.isMe && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full shrink-0">{isKo ? "나" : "You"}</span>}
                   </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1">
-                    {isKo ? `${u.streak}일 연속` : `${u.streak} day streak`} <Flame className="w-4 h-4 text-orange-500" />
+                  <div className="text-xs md:text-sm text-muted-foreground flex items-center gap-1">
+                    {isKo ? `${u.streak}일 연속` : `${u.streak} day streak`} <Flame className="w-3.5 h-3.5 md:w-4 md:h-4 text-orange-500" />
                   </div>
                 </div>
               </div>
               
-              <div className="col-span-2 text-center font-bold text-lg text-secondary">
-                {u.level}
+              <div className="shrink-0 text-right md:col-span-2 md:text-center">
+                <div className="text-xs text-muted-foreground md:hidden">{isKo ? "레벨" : "Lv"}</div>
+                <div className="font-bold text-sm md:text-lg text-secondary">
+                  {u.level}
+                </div>
               </div>
               
-              <div className="col-span-2 text-right font-mono font-bold">
-                {u.xp.toLocaleString()}
+              <div className="shrink-0 text-right md:col-span-2">
+                <div className="text-xs text-muted-foreground md:hidden">XP</div>
+                <div className="font-mono font-bold text-sm md:text-base">
+                  {u.xp.toLocaleString()}
+                </div>
               </div>
             </div>
           ))}

@@ -308,7 +308,7 @@ export default function StockDetail() {
   const dinoInsight = getDinoInsight(info || null, lang);
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6 w-full">
       <Button 
         variant="ghost" 
         onClick={() => {

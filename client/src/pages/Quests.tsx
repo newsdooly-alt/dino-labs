@@ -68,9 +68,9 @@ export default function Quests() {
   }, [allCompleted, totalCount, addEgg, toast, t]);
 
   return (
-    <div className="p-6 md:p-10 max-w-4xl mx-auto min-h-screen">
+    <div className="p-4 md:p-10 max-w-4xl mx-auto min-h-screen w-full">
       <div className="mb-10 text-center">
-        <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">{t.daily_quests}</h1>
+        <h1 className="text-3xl md:text-5xl font-display font-bold mb-4">{t.daily_quests}</h1>
         <p className="text-muted-foreground text-lg max-w-lg mx-auto">
           {lang === "ko" 
             ? "오늘의 시장 도전과제를 완료하고 XP를 획득하세요."

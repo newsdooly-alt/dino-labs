@@ -36,23 +36,23 @@ export function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
-            <Flame className={cn("w-5 h-5", user?.streak && user.streak > 0 && "fill-current animate-pulse")} />
-            <span className="font-bold font-mono">{user?.streak || 0}</span>
+        <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
+            <Flame className={cn("w-4 h-4 md:w-5 md:h-5", user?.streak && user.streak > 0 && "fill-current animate-pulse")} />
+            <span className="font-bold font-mono text-sm md:text-base">{user?.streak || 0}</span>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/10 border border-secondary/20 text-secondary">
-            <Zap className="w-5 h-5 fill-current" />
-            <span className="font-bold font-mono">{user?.xp || 0} XP</span>
+          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-xl bg-secondary/10 border border-secondary/20 text-secondary">
+            <Zap className="w-4 h-4 md:w-5 md:h-5 fill-current" />
+            <span className="font-bold font-mono text-sm md:text-base">{user?.xp || 0} <span className="hidden sm:inline">XP</span></span>
           </div>
 
           <button
             onClick={() => setIsMenuOpen(true)}
-            className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden hover:ring-2 hover:ring-primary transition-all cursor-pointer shrink-0"
             data-testid="button-profile"
           >
-            <UserIcon className="w-5 h-5 text-primary" />
+            <UserIcon className="w-4 h-4 md:w-5 md:h-5 text-primary" />
           </button>
         </div>
       </header>

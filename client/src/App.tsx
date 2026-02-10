@@ -57,12 +57,12 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 max-w-[100vw] overflow-x-hidden">
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
       <Sidebar />
-      <div className="md:pl-64 flex flex-col min-h-screen">
+      <div className="md:pl-64 flex flex-col min-h-screen w-full max-w-full overflow-x-hidden">
         <Header />
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-x-hidden w-full">
           {children}
         </main>
       </div>
