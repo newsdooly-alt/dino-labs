@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, RefreshCw, Zap, BarChart3, Newspaper, Activity, ArrowUpDown, HelpCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Zap, BarChart3, Newspaper, Activity, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 
-type QuizCategory = 'valuation' | 'impact' | 'technical' | 'trend' | 'default';
+type QuizCategory = 'valuation' | 'impact' | 'technical' | 'movement';
 
 interface NewsQuizData {
   id: string;
@@ -18,22 +18,21 @@ interface NewsQuizData {
   options: [string, string];
   correctAnswerIndex: number;
   explanation: string;
+  source?: string;
 }
 
 const categoryIcons: Record<QuizCategory, { first: typeof TrendingUp; second: typeof TrendingDown }> = {
   valuation: { first: TrendingUp, second: TrendingDown },
   impact:    { first: Newspaper, second: Newspaper },
   technical: { first: Activity, second: Activity },
-  trend:     { first: TrendingUp, second: TrendingDown },
-  default:   { first: HelpCircle, second: HelpCircle },
+  movement:  { first: TrendingUp, second: TrendingDown },
 };
 
 const categoryColors: Record<QuizCategory, { first: string; second: string }> = {
   valuation: { first: 'text-destructive', second: 'text-primary' },
   impact:    { first: 'text-primary', second: 'text-destructive' },
   technical: { first: 'text-destructive', second: 'text-primary' },
-  trend:     { first: 'text-primary', second: 'text-destructive' },
-  default:   { first: 'text-primary', second: 'text-destructive' },
+  movement:  { first: 'text-primary', second: 'text-destructive' },
 };
 
 export function BreakingNewsQuiz() {
@@ -43,12 +42,13 @@ export function BreakingNewsQuiz() {
 
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
+  const level = user?.skillLevel || "beginner";
   const t = translations[lang];
 
   const { data: quiz, isLoading, refetch } = useQuery<NewsQuizData>({
-    queryKey: ["/api/news/quiz", lang],
+    queryKey: ["/api/news/quiz", lang, level],
     queryFn: async () => {
-      const res = await fetch(`/api/news/quiz?lang=${lang}`);
+      const res = await fetch(`/api/news/quiz?lang=${lang}&level=${level}`);
       if (!res.ok) throw new Error("Failed to fetch quiz");
       return res.json();
     },
@@ -67,7 +67,7 @@ export function BreakingNewsQuiz() {
   };
 
   const isCorrect = userAnswer === quiz?.correctAnswerIndex;
-  const category = quiz?.category || 'default';
+  const category = quiz?.category || 'impact';
   const icons = categoryIcons[category];
   const colors = categoryColors[category];
   const FirstIcon = icons.first;
