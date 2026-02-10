@@ -936,7 +936,7 @@ export async function registerRoutes(
     res.json({ count: newsReadCount[userId] || 0 });
   });
 
-  // === Breaking News Quiz Engine (v2 - Anti-Repetition, Level-Aware, Multi-Source) ===
+  // === Breaking News Quiz Engine (v3 - 7 Sources, Keyword Highlighting, Anti-Repetition) ===
   type QuizCategory = 'valuation' | 'impact' | 'technical' | 'movement';
 
   const categoryOptions: Record<QuizCategory, { en: [string, string]; ko: [string, string] }> = {
@@ -946,7 +946,7 @@ export async function registerRoutes(
     movement:  { en: ['Upward (상승)', 'Downward (하락)'],            ko: ['상승 (Upward)', '하락 (Downward)'] },
   };
 
-  type DataSource = 'live_news' | 'pe_ratios' | 'dividend_yield' | 'technical_rsi' | 'fear_greed';
+  type DataSource = 'live_news' | 'pe_ratios' | 'dividend_yield' | 'technical_rsi' | 'fear_greed' | 'earnings' | 'macro_events' | 'moving_average' | 'industry_trends';
 
   const dataSourceToCategory: Record<DataSource, QuizCategory> = {
     live_news: 'impact',
@@ -954,16 +954,28 @@ export async function registerRoutes(
     dividend_yield: 'impact',
     technical_rsi: 'technical',
     fear_greed: 'movement',
+    earnings: 'impact',
+    macro_events: 'movement',
+    moving_average: 'technical',
+    industry_trends: 'impact',
   };
 
   const quizHistory: Map<string, string[]> = new Map();
+  const templateHistory: Map<string, string[]> = new Map();
   const MAX_HISTORY = 10;
 
-  function addToHistory(sessionKey: string, quizId: string) {
+  function addToHistory(sessionKey: string, quizId: string, templateKey?: string) {
     const history = quizHistory.get(sessionKey) || [];
     history.push(quizId);
     if (history.length > MAX_HISTORY) history.shift();
     quizHistory.set(sessionKey, history);
+
+    if (templateKey) {
+      const tHistory = templateHistory.get(sessionKey) || [];
+      tHistory.push(templateKey);
+      if (tHistory.length > MAX_HISTORY) tHistory.shift();
+      templateHistory.set(sessionKey, tHistory);
+    }
   }
 
   function isInHistory(sessionKey: string, quizId: string): boolean {
@@ -971,14 +983,45 @@ export async function registerRoutes(
     return history.includes(quizId);
   }
 
+  function isTemplateInHistory(sessionKey: string, templateKey: string): boolean {
+    const history = templateHistory.get(sessionKey) || [];
+    return history.includes(templateKey);
+  }
+
   const sessionSourceIndex: Map<string, number> = new Map();
 
   function getNextDataSource(sessionKey: string): DataSource {
-    const sources: DataSource[] = ['live_news', 'pe_ratios', 'dividend_yield', 'technical_rsi', 'fear_greed'];
+    const sources: DataSource[] = [
+      'live_news', 'pe_ratios', 'earnings', 'technical_rsi', 'fear_greed',
+      'dividend_yield', 'macro_events', 'moving_average', 'industry_trends',
+    ];
     const current = sessionSourceIndex.get(sessionKey) ?? -1;
     const next = (current + 1) % sources.length;
     sessionSourceIndex.set(sessionKey, next);
     return sources[next];
+  }
+
+  function ensureBoldKeywords(text: string, symbol: string, companyName: string): string {
+    if (text.includes('**')) return text;
+    let result = text;
+    if (companyName && result.includes(companyName)) {
+      result = result.replace(new RegExp(`\\b${companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), `**${companyName}**`);
+    }
+    if (symbol && result.includes(symbol)) {
+      result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `**${symbol}**`);
+    }
+    const metrics = ['P/E', 'EPS', 'RSI', 'MACD', 'GDP', 'CPI', 'VIX', 'FCF', 'ROE', 'ROA'];
+    for (const m of metrics) {
+      if (result.includes(m) && !result.includes(`**${m}`)) {
+        result = result.replace(new RegExp(`\\b${m.replace('/', '\\/')}\\b`), `**${m}**`);
+        break;
+      }
+    }
+    const percentMatch = result.match(/\d+\.?\d*%/);
+    if (percentMatch && !result.includes(`**${percentMatch[0]}`)) {
+      result = result.replace(percentMatch[0], `**${percentMatch[0]}**`);
+    }
+    return result;
   }
 
   function mapAnswerToIndex(correctAnswer: string): number {
@@ -1029,48 +1072,84 @@ export async function registerRoutes(
     let dataFocus = '';
     let templateHint = '';
 
-    if (source === 'pe_ratios') {
-      dataFocus = 'Focus on P/E ratio, forward P/E, and price multiples relative to sector averages and earnings growth.';
-      const templates = [
-        'Ask whether the stock appears overvalued or undervalued based on its P/E ratio vs historical average.',
-        'Ask if the current price-to-earnings multiple is justified given the earnings growth trajectory.',
-        'Create a scenario comparing this stock\'s valuation to its sector peers and ask for an assessment.',
-      ];
-      templateHint = templates[templateVariant % templates.length];
-    } else if (source === 'dividend_yield') {
-      dataFocus = 'Focus on dividend yield, payout sustainability, and dividend policy signals.';
-      const templates = [
-        'Ask whether a change in dividend yield signals positive or negative news for the company.',
-        'Ask about the investment implications of the current dividend yield compared to sector averages.',
-        'Create a scenario about dividend sustainability based on payout ratio and free cash flow, and ask for impact assessment.',
-      ];
-      templateHint = templates[templateVariant % templates.length];
-    } else if (source === 'technical_rsi') {
-      dataFocus = 'Focus on RSI levels, overbought/oversold conditions, and momentum indicators.';
-      const templates = [
-        'Ask whether the stock\'s current momentum indicators suggest it is overbought or oversold.',
-        'Present a scenario with specific RSI readings and ask for a technical assessment.',
-        'Ask about the implications of divergence between price action and technical indicators.',
-      ];
-      templateHint = templates[templateVariant % templates.length];
-    } else if (source === 'fear_greed') {
-      const fgContext = fgData ? `Fear & Greed Index: ${fgData.score}/100 (${fgData.rating})` : 'Fear & Greed Index: ~50 (Neutral)';
-      dataFocus = `Focus on market sentiment. ${fgContext}. Relate sentiment to likely market direction.`;
-      const templates = [
-        'Ask about the likely near-term market direction based on the current Fear & Greed reading.',
-        'Create a scenario linking investor sentiment levels to expected market behavior.',
-        'Ask what the current sentiment extreme (or neutral) suggests about the market\'s next likely move.',
-      ];
-      templateHint = templates[templateVariant % templates.length];
-    } else {
-      dataFocus = 'Focus on a recent news event, earnings report, or macro announcement and its impact on the stock.';
-      const templates = [
-        'Ask whether a specific earnings or revenue data point is positive or negative for the stock.',
-        'Present a macro event (interest rates, trade policy, regulation) and ask about its impact.',
-        'Ask about the implications of a specific corporate action (buyback, M&A, expansion) on the stock.',
-      ];
-      templateHint = templates[templateVariant % templates.length];
-    }
+    const sourceTemplates: Record<string, { focus: string; templates: string[] }> = {
+      pe_ratios: {
+        focus: 'Focus on P/E ratio, forward P/E, and price multiples relative to sector averages and earnings growth.',
+        templates: [
+          'Ask whether the stock appears overvalued or undervalued based on its P/E ratio vs historical average.',
+          'Ask if the current price-to-earnings multiple is justified given the earnings growth trajectory.',
+          'Create a scenario comparing this stock\'s valuation to its sector peers and ask for an assessment.',
+        ],
+      },
+      dividend_yield: {
+        focus: 'Focus on dividend yield, payout sustainability, and dividend policy signals.',
+        templates: [
+          'Ask whether a change in dividend yield signals positive or negative news for the company.',
+          'Ask about the investment implications of the current dividend yield compared to sector averages.',
+          'Create a scenario about dividend sustainability based on payout ratio and free cash flow.',
+        ],
+      },
+      technical_rsi: {
+        focus: 'Focus on RSI levels, overbought/oversold conditions, and momentum indicators.',
+        templates: [
+          'Ask whether the stock\'s current momentum indicators suggest it is overbought or oversold.',
+          'Present a scenario with specific RSI readings and ask for a technical assessment.',
+          'Ask about the implications of divergence between price action and technical indicators.',
+        ],
+      },
+      fear_greed: {
+        focus: `Focus on market sentiment. ${fgData ? `Fear & Greed Index: ${fgData.score}/100 (${fgData.rating})` : 'Fear & Greed Index: ~50 (Neutral)'}. Relate sentiment to likely market direction.`,
+        templates: [
+          'Ask about the likely near-term market direction based on the current Fear & Greed reading.',
+          'Create a scenario linking investor sentiment levels to expected market behavior.',
+          'Ask what the current sentiment extreme (or neutral) suggests about the market\'s next likely move.',
+        ],
+      },
+      earnings: {
+        focus: 'Focus on earnings reports: revenue beats/misses, EPS surprises, guidance changes, and margin trends.',
+        templates: [
+          'Present an earnings surprise scenario (revenue beat or miss) and ask if it is positive or negative for the stock.',
+          'Create a question about forward guidance revision and its impact on investor sentiment.',
+          'Ask about the implications of operating margin expansion or compression in the latest quarterly report.',
+        ],
+      },
+      macro_events: {
+        focus: 'Focus on macroeconomic events: Federal Reserve policy, inflation data, employment reports, GDP, trade policy.',
+        templates: [
+          'Present a Fed rate decision scenario and ask about the likely market direction.',
+          'Create a question about CPI/inflation data release and its impact on equity markets.',
+          'Ask about the market implications of a major trade policy change or tariff announcement.',
+        ],
+      },
+      moving_average: {
+        focus: 'Focus on moving averages: golden cross, death cross, 50-day MA, 200-day MA, support/resistance levels.',
+        templates: [
+          'Present a golden cross or death cross scenario and ask if the stock is overbought or oversold.',
+          'Ask about a stock breaking above or below its 200-day moving average and what it signals.',
+          'Create a question about price testing a key support/resistance level defined by moving averages.',
+        ],
+      },
+      industry_trends: {
+        focus: 'Focus on industry/sector trends: AI boom, EV adoption, cloud computing growth, semiconductor cycles, regulatory changes.',
+        templates: [
+          'Present an industry trend (AI, EV, cloud) and ask if it is positive or negative for a related company.',
+          'Ask about the impact of a regulatory change on a specific industry sector.',
+          'Create a question about competitive dynamics shifting within an industry and the impact on incumbents.',
+        ],
+      },
+      live_news: {
+        focus: 'Focus on a recent news event, earnings report, or macro announcement and its impact on the stock.',
+        templates: [
+          'Ask whether a specific earnings or revenue data point is positive or negative for the stock.',
+          'Present a macro event (interest rates, trade policy, regulation) and ask about its impact.',
+          'Ask about the implications of a specific corporate action (buyback, M&A, expansion) on the stock.',
+        ],
+      },
+    };
+
+    const sourceConfig = sourceTemplates[source] || sourceTemplates['live_news'];
+    dataFocus = sourceConfig.focus;
+    templateHint = sourceConfig.templates[templateVariant % sourceConfig.templates.length];
 
     const levelGuidance = level === 'beginner'
       ? 'Use simple language. Explain financial terms briefly. Focus on basic concepts like "earnings beat = good for stock".'
@@ -1090,13 +1169,14 @@ export async function registerRoutes(
 규칙:
 - 단순한 "주가 올랐다/내렸다" 문제는 절대 금지
 - headline과 explanation은 자연스럽고 전문적인 한국어로 작성
+- 중요: 핵심 키워드(기업명, 수치, 금융 용어)를 **볼드체**로 감싸세요. 예: **애플**, **P/E 25배**, **RSI 75**
 - 중요: category와 correctAnswer는 반드시 영어로 작성하세요
 - category는 반드시 "${cat}"으로 설정
 - correctAnswer는 반드시 ${categoryAnswerGuide[cat]}
 - 이전 문제와 다른 새로운 관점의 질문을 만들어주세요
 
 JSON 형식으로 정확히 반환:
-{"headline": "한국어 질문 내용", "category": "${cat}", "correctAnswer": "${categoryAnswerGuide[cat]}", "explanation": "한국어 2-3문장의 전문적인 해설"}`;
+{"headline": "한국어 질문 내용 (핵심어 **볼드**)", "category": "${cat}", "correctAnswer": "${categoryAnswerGuide[cat]}", "explanation": "한국어 2-3문장의 전문적인 해설 (핵심어 **볼드**)"}`;
     }
 
     return `Create 1 professional investment quiz question based on real data for ${fundamentals.name} (${fundamentals.symbol}).
@@ -1109,12 +1189,13 @@ Difficulty: ${levelLabel} - ${levelGuidance}
 
 Rules:
 - NEVER create simple "stock went up/down" questions
+- Wrap key terms in **bold**: company names, percentages, financial metrics. Example: **Apple**, **P/E 25x**, **RSI 75**
 - category MUST be "${cat}"
 - correctAnswer MUST ${categoryAnswerGuide[cat]}
 - Create a unique question that differs from previous ones
 
 Return EXACTLY this JSON:
-{"headline": "question text", "category": "${cat}", "correctAnswer": "answer matching category", "explanation": "2-3 sentence professional explanation"}`;
+{"headline": "question text with **bold keywords**", "category": "${cat}", "correctAnswer": "answer matching category", "explanation": "2-3 sentence explanation with **bold keywords**"}`;
   }
 
   // Level-aware fallback quizzes organized by data source
@@ -1155,6 +1236,26 @@ Return EXACTLY this JSON:
     { id: "fb18", source: "fear_greed", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "The Fear & Greed Index has plunged to 15 ('Extreme Fear'). When investor panic reaches these levels, what direction does selling pressure typically push the market?", explanation: "Extreme fear at 15 means investors are panic-selling. This intense selling pressure pushes markets downward. However, contrarian investors note that extreme fear often marks bottoms." },
     { id: "fb19", source: "fear_greed", level: "advanced", symbol: "QQQ", companyName: "Invesco QQQ Trust", category: "movement", correctAnswerIndex: 0, headline: "The Fear & Greed Index shifted from 'Extreme Fear' (12) to 'Fear' (35) over 2 weeks, while put/call ratio declined from 1.4 to 0.9 and VIX dropped from 35 to 22. What direction does this improving sentiment suggest?", explanation: "Rapid sentiment improvement from extreme fear, declining put/call ratios, and falling VIX all indicate a fear washout has occurred. This pattern of recovering sentiment with confirming technical signals typically precedes sustained upward moves." },
     { id: "fb20", source: "fear_greed", level: "advanced", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "The Fear & Greed Index hit 92 ('Extreme Greed') while margin debt reaches all-time highs and IPO activity surges. Market breadth shows only 40% of S&P stocks above their 200-day MA despite index highs. Expected direction?", explanation: "Extreme greed (92) combined with record margin debt, IPO euphoria, and deteriorating breadth (narrow rally) is a classic late-cycle topping pattern. This combination of sentiment excess and weakening internals suggests the market is likely to reverse downward." },
+
+    { id: "fb21", source: "earnings", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 0, headline: "**Apple** reports **EPS of $2.18**, beating Wall Street's estimate of **$1.95** by **12%**. iPhone revenue grew **8%** year-over-year. Is this earnings report positive or negative?", explanation: "Beating **EPS estimates** by 12% while showing strong **iPhone revenue** growth signals robust consumer demand. This kind of **earnings surprise** typically drives institutional buying and share price appreciation." },
+    { id: "fb22", source: "earnings", level: "beginner", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "**Tesla** misses revenue expectations at **$21.3B** vs. **$23.1B** estimated. **Gross margins** compress to **17.6%** from **25.1%** a year ago due to aggressive price cuts. How should investors view this?", explanation: "Missing revenue by nearly **$2B** while **gross margins** collapse from 25% to under 18% reveals severe pricing pressure. This **margin compression** signals profitability concerns and is clearly negative for the stock." },
+    { id: "fb23", source: "earnings", level: "advanced", symbol: "NVDA", companyName: "NVIDIA Corp", category: "impact", correctAnswerIndex: 0, headline: "**NVIDIA** delivers **$35.1B** in quarterly revenue, up **122% YoY**, with **data center** revenue surging **154%**. Forward guidance of **$37.5B** exceeds consensus by **$2B**. Assessment?", explanation: "**Triple-digit revenue growth** with **data center** acceleration and a guidance beat of **$2B** above consensus is exceptionally bullish. The forward guidance lift signals management confidence in sustained **AI infrastructure** demand." },
+    { id: "fb24", source: "earnings", level: "advanced", symbol: "META", companyName: "Meta Platforms", category: "impact", correctAnswerIndex: 1, headline: "**Meta** beats on revenue but announces **$15B** incremental **CapEx** for AI infrastructure, raising total spend guidance to **$40B**. **Operating margins** expected to compress **400bps**. Impact?", explanation: "While revenue beat is positive, a **$15B CapEx surge** with **400bps margin compression** introduces significant execution risk. Markets often punish aggressive spending that delays **free cash flow** generation, making this net negative." },
+
+    { id: "fb25", source: "macro_events", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 0, headline: "The **Federal Reserve** announces a **0.25% rate cut**, the first reduction in **two years**. **Inflation** has cooled to **2.1%**, near the **2% target**. What direction will the market likely move?", explanation: "A **rate cut** reduces borrowing costs and makes stocks more attractive relative to bonds. With **inflation** near target, the cut signals the Fed is pivoting to support growth, which historically pushes **equities upward**." },
+    { id: "fb26", source: "macro_events", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "**CPI inflation** surges to **4.8%**, far above the expected **3.5%**. The **10-year Treasury yield** jumps to **4.9%** in response. Which direction is the market likely heading?", explanation: "A surprise **inflation spike** to 4.8% forces the Fed to maintain or raise rates, increasing borrowing costs. Higher **Treasury yields** make bonds more competitive with stocks, creating downward pressure on **equity prices**." },
+    { id: "fb27", source: "macro_events", level: "advanced", symbol: "QQQ", companyName: "Invesco QQQ Trust", category: "movement", correctAnswerIndex: 0, headline: "**Non-farm payrolls** come in at **+150K**, a Goldilocks number vs. **+250K** expected. **Wage growth** moderates to **3.2%**. The market prices in **3 rate cuts** for the next year. Direction?", explanation: "A softer-than-expected **jobs report** with moderating **wage growth** reduces inflation pressure without signaling recession. This 'Goldilocks' scenario supports **rate cut** expectations, which is bullish for **growth stocks** and the broader market." },
+    { id: "fb28", source: "macro_events", level: "advanced", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "The **U.S.** announces **25% tariffs** on **$300B** of imports from a major trading partner. **Retaliatory tariffs** are expected within days. The **VIX** spikes to **28**. Expected market direction?", explanation: "Escalating **trade wars** with **$300B in tariffs** disrupt supply chains, raise input costs, and compress margins. The **VIX** spike to 28 confirms rising fear. **Retaliatory tariffs** amplify the damage, making a **downward** move highly probable." },
+
+    { id: "fb29", source: "moving_average", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "technical", correctAnswerIndex: 0, headline: "**Apple's** stock price breaks above its **200-day moving average** on heavy volume after trading below it for **3 months**. The **50-day MA** is also curling upward. Is this stock overbought or oversold?", explanation: "Breaking above the **200-day MA** after months below it is typically a strong bullish signal. However, the rapid move on heavy volume can push **RSI** into overbought territory in the near term, suggesting the stock may be **overbought** for a short pullback." },
+    { id: "fb30", source: "moving_average", level: "beginner", symbol: "MSFT", companyName: "Microsoft Corp", category: "technical", correctAnswerIndex: 1, headline: "**Microsoft** has fallen **15%** below its **200-day moving average**. The stock hits its **52-week low** and the **50-day MA** crosses below the **200-day MA** (a **death cross**). Assessment?", explanation: "A **death cross** (50-day crossing below 200-day) combined with trading **15% below** the long-term average signals sustained selling pressure. This pattern historically indicates the stock is deeply **oversold** with potential for a bounce." },
+    { id: "fb31", source: "moving_average", level: "advanced", symbol: "GOOGL", companyName: "Alphabet Inc.", category: "technical", correctAnswerIndex: 0, headline: "**Alphabet** forms a **golden cross** (50-day MA crosses above 200-day MA) but **RSI** reads **74** and the stock is **12%** above its 200-day MA. Bollinger Bands show the upper band being tested. Assessment?", explanation: "While the **golden cross** is a longer-term bullish signal, the **RSI at 74**, price stretched **12% above** the 200-day MA, and testing the upper **Bollinger Band** all suggest short-term **overbought** conditions. A consolidation or pullback is likely before the uptrend continues." },
+    { id: "fb32", source: "moving_average", level: "advanced", symbol: "AMZN", companyName: "Amazon.com Inc.", category: "technical", correctAnswerIndex: 1, headline: "**Amazon** trades at its **200-week moving average**, a level that has acted as support in **4 of the last 5 major corrections**. Weekly **RSI** shows bullish divergence at **28**. Volume on the last down day was the **lowest in 6 months**. Assessment?", explanation: "Testing a historically reliable **200-week MA support** with **bullish RSI divergence** at 28 and declining selling volume strongly suggests an **oversold** condition. This confluence of support signals often precedes meaningful reversals." },
+
+    { id: "fb33", source: "industry_trends", level: "beginner", symbol: "NVDA", companyName: "NVIDIA Corp", category: "impact", correctAnswerIndex: 0, headline: "Global **AI spending** is projected to reach **$500B** by next year, up **40%** from current levels. Major cloud providers including **Microsoft**, **Google**, and **Amazon** announce expanded **GPU orders**. Impact on chip makers?", explanation: "A **40% increase** in global **AI spending** directly benefits semiconductor companies that make **GPUs**. Expanded orders from major cloud providers confirm growing demand, which is clearly **positive** for chip makers like NVIDIA." },
+    { id: "fb34", source: "industry_trends", level: "beginner", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "New regulations require all **EV manufacturers** to source **80%** of battery materials domestically within **2 years**. Current domestic sourcing is only **35%**. How does this impact the **EV industry**?", explanation: "Requiring **80% domestic sourcing** when the industry is at only **35%** forces massive supply chain restructuring, increasing costs and potentially slowing production. This regulatory burden is **negative** for EV makers in the near term." },
+    { id: "fb35", source: "industry_trends", level: "advanced", symbol: "CRM", companyName: "Salesforce Inc.", category: "impact", correctAnswerIndex: 0, headline: "Enterprise **SaaS companies** report average **net revenue retention** of **115%**, indicating existing customers are spending **15% more** annually. **AI-powered features** drive **25%** of new contract value. Impact assessment?", explanation: "**Net revenue retention** above 115% proves strong **upsell momentum** and product stickiness. **AI features** driving 25% of new contract value shows successful monetization of emerging technology. Both metrics are **positive** for the SaaS sector." },
+    { id: "fb36", source: "industry_trends", level: "advanced", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 1, headline: "**Smartphone** global shipments decline **8% YoY** for the third consecutive quarter. Average **replacement cycles** extend to **4.5 years** from **3.2 years**. **Emerging market** competition intensifies with **40%** cheaper alternatives. Impact?", explanation: "A sustained **8% decline** in shipments with lengthening **replacement cycles** signals market saturation. **Emerging market** price competition eroding premium positioning makes this **negative** for established smartphone manufacturers." },
   ];
 
   const fallbackQuizzesKo: FallbackQuiz[] = [
@@ -1182,6 +1283,26 @@ Return EXACTLY this JSON:
     { id: "fb18", source: "fear_greed", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "공포·탐욕 지수가 15('극단적 공포')까지 급락했습니다. 투자자 공포가 이 수준에 도달하면, 매도 압력은 시장을 어느 방향으로 밀어갈까요?", explanation: "극단적 공포 15는 투자자들이 패닉 매도 중임을 의미합니다. 이 강렬한 매도 압력은 시장을 하락 방향으로 밀어갑니다. 다만 역발상 투자자들은 극단적 공포가 종종 바닥을 표시한다고 봅니다." },
     { id: "fb19", source: "fear_greed", level: "advanced", symbol: "QQQ", companyName: "Invesco QQQ Trust", category: "movement", correctAnswerIndex: 0, headline: "공포·탐욕 지수가 2주간 '극단적 공포'(12)에서 '공포'(35)로 회복되고, 풋/콜 비율은 1.4에서 0.9로 하락, VIX는 35에서 22로 떨어졌습니다. 이 심리 개선은 어느 방향을 시사할까요?", explanation: "극단적 공포에서 빠르게 회복하고, 풋/콜 비율과 VIX가 동반 하락하는 것은 공포 세척이 완료되었음을 나타냅니다. 기술적 확인 신호와 함께 심리가 회복되는 이 패턴은 지속적 상승의 전조입니다." },
     { id: "fb20", source: "fear_greed", level: "advanced", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "공포·탐욕 지수가 92('극단적 탐욕')를 기록하며 신용 매수 잔고가 사상 최고치를 경신하고 IPO가 급증하고 있습니다. 반면 S&P 종목 중 200일 이동평균 위의 비율은 40%에 불과합니다. 예상되는 시장 방향은?", explanation: "극단적 탐욕(92)에 기록적 레버리지, IPO 열풍, 시장 너비 악화(좁은 랠리)가 결합된 것은 전형적인 후기 사이클 천장 패턴입니다. 이 과도한 심리와 내부 약화의 조합은 하락 반전 가능성을 시사합니다." },
+
+    { id: "fb21", source: "earnings", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 0, headline: "**애플**이 **EPS $2.18**을 기록하며 월가 예상치 **$1.95**를 **12%** 상회했습니다. **아이폰** 매출은 전년 대비 **8%** 증가했습니다. 이 실적 발표는 긍정적일까요, 부정적일까요?", explanation: "**EPS 예상치**를 12% 초과 달성하며 **아이폰 매출** 성장세가 강한 것은 소비자 수요가 견조함을 보여줍니다. 이런 **어닝 서프라이즈**는 기관 매수를 유도해 주가 상승으로 이어집니다." },
+    { id: "fb22", source: "earnings", level: "beginner", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "**테슬라**의 매출이 **$213억**으로 예상치 **$231억**에 미달했습니다. 공격적 가격 인하로 **총이익률**이 1년 전 **25.1%**에서 **17.6%**로 급락했습니다. 투자자는 이를 어떻게 봐야 할까요?", explanation: "매출이 약 **$20억** 부족하면서 **총이익률**이 25%에서 18% 미만으로 급락한 것은 심각한 가격 경쟁 압력을 드러냅니다. 이런 **마진 압축**은 수익성 우려 신호로 명백한 악재입니다." },
+    { id: "fb23", source: "earnings", level: "advanced", symbol: "NVDA", companyName: "NVIDIA Corp", category: "impact", correctAnswerIndex: 0, headline: "**엔비디아**가 분기 매출 **$351억**을 달성하며 전년 대비 **122%** 성장했습니다. **데이터센터** 매출은 **154%** 급증했고, 향후 가이던스 **$375억**은 컨센서스를 **$20억** 상회합니다. 평가는?", explanation: "**세 자릿수 매출 성장**에 **데이터센터** 가속화, 컨센서스 **$20억** 초과 가이던스는 극도로 강세입니다. 가이던스 상향은 지속적인 **AI 인프라** 수요에 대한 경영진의 자신감을 반영합니다." },
+    { id: "fb24", source: "earnings", level: "advanced", symbol: "META", companyName: "Meta Platforms", category: "impact", correctAnswerIndex: 1, headline: "**메타**는 매출 예상치를 상회했지만 AI 인프라를 위해 **$150억** 추가 **설비투자**를 발표했습니다. 총 지출 가이던스는 **$400억**으로 상향되었고, **영업이익률**은 **400bp** 하락이 예상됩니다. 영향은?", explanation: "매출 초과는 긍정적이지만, **$150억 설비투자 급증**과 **400bp 마진 압축**은 상당한 실행 리스크를 수반합니다. 시장은 **잉여현금흐름** 생성을 지연시키는 공격적 지출에 부정적으로 반응하는 경향이 있습니다." },
+
+    { id: "fb25", source: "macro_events", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 0, headline: "**연준**이 **2년 만에** 처음으로 **0.25%** 금리 인하를 발표했습니다. **인플레이션**은 **목표치 2%**에 근접한 **2.1%**로 하락했습니다. 시장은 어느 방향으로 움직일까요?", explanation: "**금리 인하**는 차입 비용을 낮추고 채권 대비 주식의 매력을 높입니다. **인플레이션**이 목표치에 근접한 상태에서의 인하는 성장 지원으로의 전환을 의미하며, 역사적으로 **주식시장 상승**으로 이어집니다." },
+    { id: "fb26", source: "macro_events", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "**소비자물가지수(CPI)** 인플레이션이 예상 **3.5%**를 크게 상회하는 **4.8%**로 급등했습니다. **10년 국채금리**가 **4.9%**로 급등했습니다. 시장은 어느 방향으로 향할까요?", explanation: "예상을 크게 초과한 **인플레이션** 급등은 연준의 금리 유지 또는 인상을 강제합니다. 높아진 **국채금리**는 채권의 경쟁력을 높여 **주가 하락** 압력을 만듭니다." },
+    { id: "fb27", source: "macro_events", level: "advanced", symbol: "QQQ", companyName: "Invesco QQQ Trust", category: "movement", correctAnswerIndex: 0, headline: "**비농업 고용**이 예상치 **+25만 명** 대비 **+15만 명**으로 발표되었습니다. **임금 상승률**은 **3.2%**로 안정화되었고, 시장은 내년 **3회 금리인하**를 반영하고 있습니다. 시장 방향은?", explanation: "예상보다 완만한 **고용 보고서**와 안정적인 **임금 상승률**은 경기침체 신호 없이 인플레이션 압력을 줄입니다. 이 '골디락스' 시나리오는 **금리인하** 기대를 지지하며 **성장주**에 긍정적입니다." },
+    { id: "fb28", source: "macro_events", level: "advanced", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "**미국**이 주요 교역국으로부터 **$3,000억** 규모 수입품에 **25% 관세**를 발표했습니다. **보복관세**가 수일 내 예상되며, **VIX**가 **28**로 급등했습니다. 예상되는 시장 방향은?", explanation: "**$3,000억 규모 관세**에 의한 **무역전쟁** 격화는 공급망을 교란하고 투입 비용을 높여 마진을 압축합니다. **VIX 28** 급등은 공포 확산을 확인하며, **보복관세**는 피해를 증폭시켜 **하락** 가능성이 높습니다." },
+
+    { id: "fb29", source: "moving_average", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "technical", correctAnswerIndex: 0, headline: "**애플** 주가가 **3개월간** **200일 이동평균** 아래에서 거래되다가 강한 거래량과 함께 이를 돌파했습니다. **50일 이동평균**도 상승 전환 중입니다. 이 종목은 과매수일까요, 과매도일까요?", explanation: "**200일 이동평균** 돌파는 강력한 강세 신호이지만, 급격한 상승으로 단기적으로 **RSI**가 과매수 영역에 진입할 수 있어 일시적으로 **과매수** 상태일 수 있습니다." },
+    { id: "fb30", source: "moving_average", level: "beginner", symbol: "MSFT", companyName: "Microsoft Corp", category: "technical", correctAnswerIndex: 1, headline: "**마이크로소프트**가 **200일 이동평균** 아래로 **15%** 하락했습니다. **52주 신저가**를 기록하며 **50일 MA**가 **200일 MA** 아래로 교차하는 **데드크로스**가 발생했습니다. 평가는?", explanation: "**데드크로스**(50일이 200일 아래로 교차)와 장기 평균 **15% 하회**는 지속적인 매도 압력을 의미합니다. 이 패턴은 역사적으로 종목이 깊은 **과매도** 상태이며 반등 가능성이 있음을 나타냅니다." },
+    { id: "fb31", source: "moving_average", level: "advanced", symbol: "GOOGL", companyName: "Alphabet Inc.", category: "technical", correctAnswerIndex: 0, headline: "**알파벳**이 **골든크로스**(50일 MA가 200일 MA 상향 교차)를 형성했지만 **RSI**가 **74**이고 주가가 200일 MA 위 **12%**에 위치합니다. **볼린저밴드** 상단 터치 중입니다. 평가는?", explanation: "**골든크로스**는 장기 강세 신호이나, **RSI 74**, 200일 MA 위 **12%** 이격, **볼린저밴드** 상단 터치는 모두 단기 **과매수** 상태를 시사합니다. 상승 추세 지속 전 조정이 올 가능성이 높습니다." },
+    { id: "fb32", source: "moving_average", level: "advanced", symbol: "AMZN", companyName: "Amazon.com Inc.", category: "technical", correctAnswerIndex: 1, headline: "**아마존**이 **200주 이동평균**에서 거래 중입니다. 이 수준은 지난 **5번의 대규모 조정 중 4번**에서 지지선으로 작동했습니다. 주간 **RSI**가 **28**에서 강세 다이버전스를 보이고 있습니다. 평가는?", explanation: "역사적으로 신뢰할 수 있는 **200주 MA 지지선** 테스트에 **RSI 28의 강세 다이버전스**, 감소하는 매도 거래량은 강한 **과매도** 상태를 시사합니다. 이런 지지 신호의 집중은 의미 있는 반전의 전조인 경우가 많습니다." },
+
+    { id: "fb33", source: "industry_trends", level: "beginner", symbol: "NVDA", companyName: "NVIDIA Corp", category: "impact", correctAnswerIndex: 0, headline: "글로벌 **AI 지출**이 내년 **$5,000억**에 달할 전망으로 현재 대비 **40%** 증가합니다. **마이크로소프트**, **구글**, **아마존** 등 주요 클라우드 업체들이 **GPU 주문** 확대를 발표했습니다. 반도체 기업에 미치는 영향은?", explanation: "글로벌 **AI 지출 40% 증가**는 **GPU** 제조 반도체 기업에 직접적인 수혜입니다. 주요 클라우드 업체의 주문 확대는 수요 증가를 확인해주며 명확한 **호재**입니다." },
+    { id: "fb34", source: "industry_trends", level: "beginner", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "새로운 규정이 모든 **EV 제조사**에게 **2년 이내** 배터리 소재의 **80%**를 국내에서 조달하도록 요구합니다. 현재 국내 조달 비율은 **35%**에 불과합니다. **EV 산업**에 미치는 영향은?", explanation: "현재 **35%**인 국내 조달을 **80%**로 높이도록 요구하는 것은 대규모 공급망 재편을 강제하여 비용을 증가시키고 생산을 지연시킬 수 있습니다. 이 규제 부담은 단기적으로 EV 기업에 **악재**입니다." },
+    { id: "fb35", source: "industry_trends", level: "advanced", symbol: "CRM", companyName: "Salesforce Inc.", category: "impact", correctAnswerIndex: 0, headline: "기업용 **SaaS** 기업들의 평균 **순매출유지율(NRR)**이 **115%**를 기록하며 기존 고객의 연간 지출이 **15%** 증가하고 있습니다. **AI 기능**이 신규 계약 가치의 **25%**를 차지합니다. 영향 평가는?", explanation: "**순매출유지율 115%** 이상은 강한 **업셀 모멘텀**과 제품 충성도를 입증합니다. **AI 기능**이 신규 계약의 25%를 차지하는 것은 신기술의 성공적 수익화를 보여주며, 두 지표 모두 SaaS 섹터에 **긍정적**입니다." },
+    { id: "fb36", source: "industry_trends", level: "advanced", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 1, headline: "글로벌 **스마트폰** 출하량이 **3분기 연속** 전년 대비 **8%** 감소했습니다. 평균 **교체 주기**가 **3.2년**에서 **4.5년**으로 늘어났고, **신흥시장**에서 **40%** 저렴한 대안 제품과의 경쟁이 심화됩니다. 영향은?", explanation: "지속적인 출하량 **8% 감소**와 **교체 주기** 연장은 시장 포화를 의미합니다. **신흥시장** 가격 경쟁이 프리미엄 포지셔닝을 침식하는 것은 기존 스마트폰 제조사에 **악재**입니다." },
   ];
 
   app.get("/api/news/quiz", async (req, res) => {
@@ -1192,14 +1313,15 @@ Return EXACTLY this JSON:
     const dataSource = getNextDataSource(sessionKey);
     const category = dataSourceToCategory[dataSource];
     const templateVariant = Math.floor(Math.random() * 3);
+    const templateKey = `${dataSource}-${templateVariant}`;
 
     try {
-      const symbols = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META'];
+      const symbols = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'CRM'];
       const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
       const fundamentals = await getStockFundamentals(randomSymbol);
 
       let fgData: { score: number; rating: string } | null = null;
-      if (dataSource === 'fear_greed') {
+      if (dataSource === 'fear_greed' || dataSource === 'macro_events') {
         fgData = await fetchFearGreedScore();
       }
 
@@ -1220,8 +1342,8 @@ Return EXACTLY this JSON:
         const aiResponse = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.9,
-          max_tokens: 500,
+          temperature: 0.95,
+          max_tokens: 600,
           response_format: { type: "json_object" },
         });
 
@@ -1236,17 +1358,20 @@ Return EXACTLY this JSON:
             const correctIdx = clampIndex(mapAnswerToIndex(parsed.correctAnswer));
             const quizId = `ai-${dataSource}-${Date.now()}`;
 
-            addToHistory(sessionKey, quizId);
+            addToHistory(sessionKey, quizId, templateKey);
+
+            const safeHeadline = ensureBoldKeywords(parsed.headline, fundamentals.symbol, fundamentals.name);
+            const safeExplanation = ensureBoldKeywords(parsed.explanation, fundamentals.symbol, fundamentals.name);
 
             return res.json({
               id: quizId,
-              headline: parsed.headline,
+              headline: safeHeadline,
               symbol: fundamentals.symbol,
               companyName: fundamentals.name,
               category: aiCategory,
               options: isKorean ? opts.ko : opts.en,
               correctAnswerIndex: correctIdx,
-              explanation: parsed.explanation,
+              explanation: safeExplanation,
               isRealTime: true,
               source: dataSource,
             });
@@ -1264,12 +1389,13 @@ Return EXACTLY this JSON:
     const sourceFiltered = levelFiltered.filter(q => q.source === dataSource);
     let candidates = sourceFiltered.filter(q => !isInHistory(sessionKey, q.id));
     if (candidates.length === 0) candidates = levelFiltered.filter(q => !isInHistory(sessionKey, q.id));
+    if (candidates.length === 0) candidates = fallbacks.filter(q => !isInHistory(sessionKey, q.id));
     if (candidates.length === 0) candidates = fallbacks;
 
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
     const opts = categoryOptions[chosen.category];
 
-    addToHistory(sessionKey, chosen.id);
+    addToHistory(sessionKey, chosen.id, `fb-${chosen.source}`);
 
     res.json({
       ...chosen,

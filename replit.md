@@ -84,14 +84,20 @@ Preferred communication style: Simple, everyday language.
   - Fallback to alternative.me crypto index if CNN fails
   - Used in Market Temperature dashboard section
 
-### Breaking News Quiz System
-- **AI-Generated Fundamental Quizzes**: Uses GPT-4o-mini with real-time stock fundamentals
+### Flash Quiz System (v3)
+- **9 Data Sources**: live_news, pe_ratios, earnings, technical_rsi, fear_greed, dividend_yield, macro_events, moving_average, industry_trends
+- **Per-Session Rotation**: Sources cycle through all 9 types to ensure variety
+- **AI-Generated Quizzes**: Uses GPT-4o-mini with real-time stock fundamentals from 10 stocks
   - Fetches P/E ratio, dividend yield, market cap, beta, EPS, 52-week range via `getStockFundamentals()`
   - Never generates simple "stock went up/down" questions
-  - Creates professional analysis questions (P/E valuation, margin analysis, yield assessment)
+  - Creates professional analysis questions with **bold keyword** highlighting
+  - Server-side `ensureBoldKeywords()` fallback ensures highlights even if AI omits them
   - Natural Korean translations when lang=ko
-  - 8 curated fallback quizzes per language covering EPS, P/E expansion, FCF, margins, inventory, buybacks, yield curves
-  - Endpoint: GET /api/news/quiz?lang=en|ko
+  - 36 curated fallback quizzes per language (EN + KO) covering all 9 data sources
+  - Endpoint: GET /api/news/quiz?lang=en|ko&level=beginner|intermediate|advanced
+- **Anti-Repetition**: Dual tracking system (quiz ID history + template history) with 10-quiz non-repeat window
+- **4 Category Types**: valuation (overvalued/undervalued), impact (good/bad news), technical (overbought/oversold), movement (upward/downward)
+- **Frontend**: Keyword highlighting renders `**bold**` markdown as colored spans; vertically stacked answer buttons; source badge shows quiz origin
 
 ### Quest System
 - **Quest Types**: term, pattern, news, search, compare, valuation, practice
