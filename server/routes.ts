@@ -393,7 +393,11 @@ export async function registerRoutes(
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       
       const watchlist = await storage.getWatchlist(userId);
-      res.json(watchlist);
+      const enriched = await Promise.all(watchlist.map(async (item) => {
+        const stock = await storage.getStockBySymbol(item.symbol);
+        return { ...item, stockName: stock?.name || item.symbol };
+      }));
+      res.json(enriched);
   });
 
   app.post(api.watchlist.add.path, isAuthenticated, async (req, res) => {
@@ -401,7 +405,9 @@ export async function registerRoutes(
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       
       try {
-          const input = api.watchlist.add.input.parse(req.body);
+          const body = req.body as { symbol: string; name?: string };
+          const input = api.watchlist.add.input.parse(body);
+          const clientName = body.name;
           // Ensure stock exists in stocks table first (fetch quote to fill it)
           let stock = await storage.getStockBySymbol(input.symbol);
           if (!stock) {
@@ -410,7 +416,7 @@ export async function registerRoutes(
                    const quote = await getStockQuote(input.symbol);
                    stock = await storage.createStock({
                        symbol: input.symbol,
-                       name: quote.name || input.symbol,
+                       name: clientName || quote.name || input.symbol,
                        sector: "Unknown",
                        lastPrice: (quote.price || 0).toString(),
                        changePercent: (quote.changePercent || 0).toString()
@@ -419,12 +425,15 @@ export async function registerRoutes(
                    // Create dummy if fetch fails
                    stock = await storage.createStock({
                        symbol: input.symbol,
-                       name: input.symbol,
+                       name: clientName || input.symbol,
                        sector: "Unknown",
                        lastPrice: "0",
                        changePercent: "0"
                    });
                }
+          } else if (clientName && stock.name !== clientName) {
+              // Update the stored name if client provided a better one (e.g., Korean name)
+              await storage.updateStockName(input.symbol, clientName);
           }
           
           const item = await storage.addToWatchlist(userId, input.symbol);

@@ -92,7 +92,7 @@ export function QuestCard({ quest }: QuestCardProps) {
   if (quest.isCompleted && !isExpanded) {
     return (
       <div 
-        className="bg-card/50 border border-primary/20 p-5 md:p-6 rounded-xl flex items-center justify-between gap-3"
+        className="bg-card/50 border border-primary/20 p-4 md:p-6 rounded-xl flex items-center justify-between gap-3"
         data-testid={`quest-completed-${quest.id}`}
       >
         <div className="flex items-center gap-3 md:gap-4 min-w-0">
@@ -100,7 +100,7 @@ export function QuestCard({ quest }: QuestCardProps) {
             <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-[1.05rem] md:text-lg text-foreground/60 line-through decoration-primary/40 leading-snug">
+            <h3 className="font-bold text-[0.85rem] md:text-base text-foreground/60 line-through decoration-primary/40 leading-snug">
               {renderBoldText(quest.question)}
             </h3>
             <p className="text-primary font-semibold text-xs md:text-sm mt-0.5">
@@ -122,7 +122,7 @@ export function QuestCard({ quest }: QuestCardProps) {
       onClick={() => !isExpanded && setIsExpanded(true)}
       data-testid={`quest-card-${quest.id}`}
     >
-      <div className="p-5 md:p-6">
+      <div className="p-4 md:p-6">
         <div className="flex items-start justify-between gap-3 mb-3 md:mb-4">
           <div className="flex items-start gap-3 md:gap-4 min-w-0 flex-1">
             <div className={cn(
@@ -136,7 +136,7 @@ export function QuestCard({ quest }: QuestCardProps) {
               <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
                 {getTypeLabel()}
               </p>
-              <h3 className="font-display font-bold text-[1.1rem] md:text-[1.3rem] leading-[1.5] md:leading-[1.5]">
+              <h3 className="font-display font-bold text-[0.9rem] md:text-[1.1rem] leading-[1.5] md:leading-[1.5]">
                 {renderBoldText(quest.question)}
               </h3>
             </div>

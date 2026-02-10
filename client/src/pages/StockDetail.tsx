@@ -120,7 +120,7 @@ function formatNumber(value: number | null, decimals: number = 2): string {
 
 function formatPercent(value: number | null): string {
   if (value === null || value === undefined) return "--";
-  return `${(value * 100).toFixed(2)}%`;
+  return `${value.toFixed(2)}%`;
 }
 
 function getDinoInsight(info: StockInfo | null, lang: "en" | "ko"): { title: string; message: string } {
@@ -160,16 +160,17 @@ function getDinoInsight(info: StockInfo | null, lang: "en" | "ko"): { title: str
   }
 
   if (divYield && divYield > 0) {
-    const yieldPct = (divYield * 100).toFixed(2);
+    const yieldPct = divYield.toFixed(2);
+    const incomePerHundred = divYield.toFixed(2);
     if (lang === "en") {
       return {
         title: "Dino's Insight",
-        message: `This stock pays a ${yieldPct}% dividend! That means for every $100 invested, you'd get about $${(divYield * 100).toFixed(2)} per year in passive income.`
+        message: `This stock pays a ${yieldPct}% dividend! That means for every $100 invested, you'd get about $${incomePerHundred} per year in passive income.`
       };
     } else {
       return {
         title: "디노의 인사이트",
-        message: `이 주식은 ${yieldPct}% 배당을 지급해요! 100달러 투자 시 연간 약 ${(divYield * 100).toFixed(2)}달러의 수동 소득을 얻을 수 있어요.`
+        message: `이 주식은 ${yieldPct}% 배당을 지급해요! 100달러 투자 시 연간 약 ${incomePerHundred}달러의 수동 소득을 얻을 수 있어요.`
       };
     }
   }
@@ -449,11 +450,11 @@ export default function StockDetail() {
                   axisLine={false} 
                   tickLine={false}
                   tick={{ fontSize: 12, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
-                  tickFormatter={(v) => `$${v}`}
-                  width={60}
+                  tickFormatter={(v) => formatPrice(v, { nativeCurrency, compact: true })}
+                  width={isKr ? 80 : 60}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
+                  formatter={(value: number) => [formatPrice(value, { nativeCurrency }), lang === "ko" ? "가격" : "Price"]}
                   contentStyle={{ 
                     backgroundColor: theme === "dark" ? "hsl(140, 25%, 10%)" : "hsl(0, 0%, 100%)", 
                     border: theme === "dark" ? "1px solid hsl(140, 20%, 18%)" : "1px solid hsl(140, 15%, 85%)",

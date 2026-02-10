@@ -27,6 +27,7 @@ export interface IStorage {
   getStockBySymbol(symbol: string): Promise<Stock | undefined>;
   createStock(stock: InsertStock): Promise<Stock>;
   updateStockPrice(id: number, price: string, change: string): Promise<Stock>;
+  updateStockName(symbol: string, name: string): Promise<void>;
   getAllStocks(): Promise<Stock[]>;
   searchStocks(query: string): Promise<Stock[]>;
 
@@ -156,6 +157,12 @@ export class DatabaseStorage implements IStorage {
         .where(eq(stocks.id, id))
         .returning();
     return stock;
+  }
+
+  async updateStockName(symbol: string, name: string): Promise<void> {
+    await db.update(stocks)
+        .set({ name })
+        .where(eq(stocks.symbol, symbol));
   }
 
   async getAllStocks(): Promise<Stock[]> {

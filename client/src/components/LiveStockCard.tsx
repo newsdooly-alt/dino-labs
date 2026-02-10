@@ -54,7 +54,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
-  const { formatPrice } = useCurrency();
+  const { formatPrice, isKoreanStock } = useCurrency();
   
   const { data, isLoading, error, refetch, isRefetching } = useQuery<LiveStockResponse>({
     queryKey: ["/api/stocks/live", symbols.join(",")],
@@ -165,9 +165,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
             <div className="text-right">
               <div className="font-mono font-medium">
                 {quote.price > 0 
-                  ? (quote.isKorean 
-                    ? `₩${Math.round(quote.price).toLocaleString()}` 
-                    : formatPrice(quote.price))
+                  ? formatPrice(quote.price, { nativeCurrency: (quote.isKorean || isKoreanStock(quote.symbol)) ? 'KRW' : 'USD' })
                   : "--"}
                 {quote.isStale && <span className="text-xs text-muted-foreground ml-1">*</span>}
               </div>

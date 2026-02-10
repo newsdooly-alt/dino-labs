@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 import { useToast } from "@/hooks/use-toast";
 import { LiveStockCard } from "@/components/LiveStockCard";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface SearchResult {
   id: number;
@@ -27,6 +28,7 @@ interface WatchlistItem {
   userId: number;
   symbol: string;
   addedAt: string;
+  stockName?: string;
 }
 
 export default function Watchlist() {
@@ -34,6 +36,7 @@ export default function Watchlist() {
   const lang = user?.language || "en";
   const t = translations[lang as keyof typeof translations];
   const { toast } = useToast();
+  const { isKoreanStock } = useCurrency();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -74,8 +77,8 @@ export default function Watchlist() {
   
   // Add to watchlist mutation
   const addMutation = useMutation({
-    mutationFn: async (symbol: string) => {
-      return apiRequest("POST", "/api/watchlist", { symbol });
+    mutationFn: async ({ symbol, name }: { symbol: string; name?: string }) => {
+      return apiRequest("POST", "/api/watchlist", { symbol, name });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
@@ -165,7 +168,12 @@ export default function Watchlist() {
                     >
                        <div className="flex-1 min-w-0">
                          <div className="flex items-center gap-2 flex-wrap">
-                           <span className="font-bold text-sm">{stock.symbol}</span>
+                           <span className="font-bold text-sm">
+                             {stock.isKorean ? stock.name.split(' (')[0] : stock.symbol}
+                           </span>
+                           <span className="text-xs text-muted-foreground">
+                             {stock.isKorean ? stock.symbol : ''}
+                           </span>
                            {stock.isKorean && (
                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                                {stock.market || 'KRX'}
@@ -177,10 +185,12 @@ export default function Watchlist() {
                              </span>
                            )}
                          </div>
-                         <p className="text-sm text-muted-foreground truncate mt-0.5">{stock.name}</p>
+                         <p className="text-sm text-muted-foreground truncate mt-0.5">
+                           {stock.isKorean ? stock.name : stock.name}
+                         </p>
                        </div>
                        <button
-                         onClick={() => addMutation.mutate(stock.symbol)}
+                         onClick={() => addMutation.mutate({ symbol: stock.symbol, name: stock.name })}
                          disabled={addMutation.isPending || watchlistSymbols.includes(stock.symbol)}
                          className={cn(
                            "p-2 rounded-lg transition-colors shrink-0",
@@ -227,7 +237,14 @@ export default function Watchlist() {
             <div className="mt-4 space-y-2">
               {watchlist.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-                  <span className="font-bold">{item.symbol}</span>
+                  <div className="min-w-0">
+                    <span className="font-bold">{item.symbol}</span>
+                    {isKoreanStock(item.symbol) && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {item.symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI'}
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => removeMutation.mutate(item.symbol)}
                     disabled={removeMutation.isPending}
