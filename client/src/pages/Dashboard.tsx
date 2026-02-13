@@ -94,7 +94,7 @@ export default function Dashboard() {
   const xpPercent = Math.min(100, Math.round((currentXP / xpForNextLevel) * 100));
 
   const completedQuests = quests?.filter(q => q.isCompleted)?.length || 0;
-  const totalQuests = quests?.length || 6;
+  const totalQuests = Math.max(quests?.length || 0, 6);
 
   const moodIndex = moodData?.index ?? 50;
   const moodLabel = moodData?.label ?? "Neutral";
@@ -212,8 +212,8 @@ export default function Dashboard() {
                 data-testid={`stock-row-${quote.symbol}`}
               >
                 <div className="min-w-0">
-                  <p className="text-base font-bold" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
-                  <p className="text-xs text-muted-foreground truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{quote.name}</p>
+                  <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{quote.name || quote.symbol}</p>
+                  <p className="text-xs text-muted-foreground" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">

@@ -157,8 +157,8 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         >
           <div className="flex items-center gap-3">
             <div>
-              <h4 className="font-bold">{quote.symbol}</h4>
-              <p className="text-xs text-muted-foreground">{quote.name}</p>
+              <h4 className="font-bold">{quote.name || quote.symbol}</h4>
+              <p className="text-xs text-muted-foreground">{quote.symbol}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

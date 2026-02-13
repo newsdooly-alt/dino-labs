@@ -13,12 +13,63 @@ interface QuestCardProps {
   quest: Quest;
 }
 
+const FINANCIAL_KEYWORDS = [
+  /\b(P\/E|PER|EPS|RSI|MACD|ROE|ROA|EBITDA|DCF|WACC|EV\/EBIT|EV\/EBITDA|P\/S|P\/B|PBR|PEG)\b/gi,
+  /\b(Bull Flag|Bear Flag|Head and Shoulders|Double Top|Double Bottom|Golden Cross|Death Cross)\b/gi,
+  /\b(상승 깃발형|하락 깃발형|골든 크로스|데스 크로스|삼중 천정|이중 바닥)\b/g,
+  /\b[A-Z]{2,5}\b(?=\s*[\(\)은는이가의를]|\s*\()/g,
+  /\b\d+(\.\d+)?%/g,
+  /\$\d[\d,]*(\.\d+)?/g,
+  /₩[\d,]+/g,
+  /\b(삼성전자|현대차|SK하이닉스|LG에너지솔루션|네이버|카카오|셀트리온|POSCO홀딩스|기아|LG화학)\b/g,
+  /\b(Apple|Microsoft|Google|Amazon|NVIDIA|Tesla|Meta|Netflix|Disney|Coca-Cola)\b/gi,
+  /\b(AAPL|MSFT|GOOGL|AMZN|NVDA|TSLA|META|NFLX|DIS|KO|JPM|BAC|WMT|V|MA)\b/g,
+];
+
+function autoBoldFinancialTerms(text: string): string {
+  if (text.includes('**')) return text;
+  
+  let result = text;
+  const boldRanges: [number, number][] = [];
+  
+  for (const pattern of FINANCIAL_KEYWORDS) {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      boldRanges.push([match.index, match.index + match[0].length]);
+    }
+  }
+  
+  if (boldRanges.length === 0) return text;
+  
+  boldRanges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const range of boldRanges) {
+    if (merged.length > 0 && range[0] <= merged[merged.length - 1][1]) {
+      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], range[1]);
+    } else {
+      merged.push([...range]);
+    }
+  }
+  
+  let output = '';
+  let lastEnd = 0;
+  for (const [start, end] of merged) {
+    output += text.slice(lastEnd, start);
+    output += `**${text.slice(start, end)}**`;
+    lastEnd = end;
+  }
+  output += text.slice(lastEnd);
+  return output;
+}
+
 function renderBoldText(text: string): (string | JSX.Element)[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const processed = autoBoldFinancialTerms(text);
+  const parts = processed.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <span key={i} className="font-bold text-primary">
+        <span key={i} className="font-bold text-foreground">
           {part.slice(2, -2)}
         </span>
       );

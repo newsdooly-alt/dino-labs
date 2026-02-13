@@ -333,7 +333,7 @@ export default function StockDetail() {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold">{symbol}</h1>
+            <h1 className="text-3xl font-bold">{quote?.name || info?.name || symbol}</h1>
             {info?.sector && (
               <Badge variant="secondary">{info.sector}</Badge>
             )}
@@ -344,7 +344,7 @@ export default function StockDetail() {
             )}
           </div>
           <p className="text-muted-foreground mt-1">
-            {quote?.name || info?.name || symbol}
+            {symbol}
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             <span className={cn("w-2 h-2 rounded-full shrink-0", quote?.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />

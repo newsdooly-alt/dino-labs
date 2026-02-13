@@ -275,7 +275,7 @@ export async function registerRoutes(
         quests = await storage.getQuests(userId);
     }
     
-    res.json(quests.filter(q => !q.isCompleted));
+    res.json(quests);
   });
 
   // === Practice Mode Routes (MUST be before :id routes) ===
