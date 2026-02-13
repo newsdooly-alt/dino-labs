@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 
 export type EggRarity = "common" | "rare" | "epic" | "legendary" | "mystery";
 export type EggStatus = "locked" | "incubating" | "hatched";
+export type EggVisual = "speckled" | "golden" | "frozen" | "volcanic" | "crystal" | "mossy";
 
 export interface Egg {
   id: string;
   rarity: EggRarity;
+  visual: EggVisual;
   status: EggStatus;
   currentXp: number;
   requiredXp: number;
@@ -17,6 +19,7 @@ export interface Egg {
 export interface Dino {
   id: string;
   name: string;
+  species: string;
   translationKey: string;
   factKey: string;
   rarity: EggRarity;
@@ -24,75 +27,93 @@ export interface Dino {
   unlockedAt: number;
 }
 
-const DINO_CATALOG: Omit<Dino, "unlockedAt">[] = [
-  { id: "bull", name: "Bull Dino", translationKey: "dino_bull", factKey: "dino_bull_fact", rarity: "common", color: "#22c55e" },
-  { id: "bear", name: "Bear Dino", translationKey: "dino_bear", factKey: "dino_bear_fact", rarity: "common", color: "#ef4444" },
-  { id: "chart", name: "Chart Dino", translationKey: "dino_chart", factKey: "dino_chart_fact", rarity: "common", color: "#3b82f6" },
-  { id: "news", name: "News Dino", translationKey: "dino_news", factKey: "dino_news_fact", rarity: "rare", color: "#f59e0b" },
-  { id: "dividend", name: "Dividend Dino", translationKey: "dino_dividend", factKey: "dino_dividend_fact", rarity: "rare", color: "#8b5cf6" },
-  { id: "growth", name: "Growth Dino", translationKey: "dino_growth", factKey: "dino_growth_fact", rarity: "epic", color: "#10b981" },
-  { id: "value", name: "Value Dino", translationKey: "dino_value", factKey: "dino_value_fact", rarity: "epic", color: "#06b6d4" },
-  { id: "tech", name: "Tech Dino", translationKey: "dino_tech", factKey: "dino_tech_fact", rarity: "legendary", color: "#ec4899" },
-  { id: "global", name: "Global Dino", translationKey: "dino_global", factKey: "dino_global_fact", rarity: "legendary", color: "#14b8a6" },
-  { id: "crypto", name: "Crypto Dino", translationKey: "dino_crypto", factKey: "dino_crypto_fact", rarity: "legendary", color: "#f97316" },
+export const DINO_CATALOG: Omit<Dino, "unlockedAt">[] = [
+  { id: "trex", name: "Rexy", species: "T-Rex", translationKey: "dino_trex", factKey: "dino_trex_fact", rarity: "legendary", color: "#dc2626" },
+  { id: "stego", name: "Spike", species: "Stegosaurus", translationKey: "dino_stego", factKey: "dino_stego_fact", rarity: "rare", color: "#16a34a" },
+  { id: "ptero", name: "Sky", species: "Pterodactyl", translationKey: "dino_ptero", factKey: "dino_ptero_fact", rarity: "epic", color: "#2563eb" },
+  { id: "diplo", name: "Stretch", species: "Diplodocus", translationKey: "dino_diplo", factKey: "dino_diplo_fact", rarity: "rare", color: "#7c3aed" },
+  { id: "trice", name: "Shield", species: "Triceratops", translationKey: "dino_trice", factKey: "dino_trice_fact", rarity: "epic", color: "#ea580c" },
+  { id: "ankylo", name: "Tank", species: "Ankylosaurus", translationKey: "dino_ankylo", factKey: "dino_ankylo_fact", rarity: "common", color: "#854d0e" },
+  { id: "raptor", name: "Dash", species: "Velociraptor", translationKey: "dino_raptor", factKey: "dino_raptor_fact", rarity: "common", color: "#0d9488" },
+  { id: "bronto", name: "Thunder", species: "Brontosaurus", translationKey: "dino_bronto", factKey: "dino_bronto_fact", rarity: "common", color: "#6366f1" },
+  { id: "spino", name: "Fin", species: "Spinosaurus", translationKey: "dino_spino", factKey: "dino_spino_fact", rarity: "legendary", color: "#be185d" },
+  { id: "parasaur", name: "Echo", species: "Parasaurolophus", translationKey: "dino_parasaur", factKey: "dino_parasaur_fact", rarity: "rare", color: "#0891b2" },
+];
+
+export const EGG_VISUALS: { visual: EggVisual; label: string; labelKo: string; colors: [string, string] }[] = [
+  { visual: "speckled", label: "Speckled Egg", labelKo: "점박이 알", colors: ["#a3e635", "#65a30d"] },
+  { visual: "golden", label: "Golden Egg", labelKo: "황금 알", colors: ["#fbbf24", "#d97706"] },
+  { visual: "frozen", label: "Frozen Egg", labelKo: "얼음 알", colors: ["#67e8f9", "#0891b2"] },
+  { visual: "volcanic", label: "Volcanic Egg", labelKo: "화산 알", colors: ["#f87171", "#dc2626"] },
+  { visual: "crystal", label: "Crystal Egg", labelKo: "크리스탈 알", colors: ["#c084fc", "#9333ea"] },
+  { visual: "mossy", label: "Mossy Egg", labelKo: "이끼 알", colors: ["#86efac", "#22c55e"] },
 ];
 
 const XP_REQUIREMENTS: Record<EggRarity, number> = {
-  common: 100,
-  rare: 250,
-  epic: 500,
-  legendary: 1000,
-  mystery: 150,
+  common: 80,
+  rare: 150,
+  epic: 300,
+  legendary: 500,
+  mystery: 100,
 };
 
 const RARITY_WEIGHTS: Record<EggRarity, number> = {
-  common: 50,
+  common: 45,
   rare: 30,
-  epic: 15,
-  legendary: 5,
+  epic: 18,
+  legendary: 7,
   mystery: 0,
 };
 
-const STORAGE_KEY = "dinolingo_eggs";
-const COLLECTION_KEY = "dinolingo_collection";
+const STORAGE_KEY = "dinolingo_eggs_v2";
+const COLLECTION_KEY = "dinolingo_collection_v2";
+const STARTER_EGG_KEY = "dinolingo_starter_egg_given";
 
 function generateEggId(): string {
   return `egg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+function getRandomEggVisual(): EggVisual {
+  const visuals: EggVisual[] = ["speckled", "golden", "frozen", "volcanic", "crystal", "mossy"];
+  return visuals[Math.floor(Math.random() * visuals.length)];
+}
+
+function getRandomRarityFromMystery(): EggRarity {
+  const totalWeight = Object.entries(RARITY_WEIGHTS)
+    .filter(([k]) => k !== "mystery")
+    .reduce((a, [, b]) => a + b, 0);
+  const random = Math.random() * totalWeight;
+  let cumulative = 0;
+
+  for (const [r, weight] of Object.entries(RARITY_WEIGHTS)) {
+    if (r === "mystery") continue;
+    cumulative += weight;
+    if (random <= cumulative) {
+      return r as EggRarity;
+    }
+  }
+  return "common";
+}
+
 function getRandomDino(rarity: EggRarity, existingDinos: Dino[]): Omit<Dino, "unlockedAt"> | null {
   const unlockedIds = existingDinos.map(d => d.id);
-  
-  let eligibleDinos: Omit<Dino, "unlockedAt">[];
-  
+
+  let selectedRarity = rarity;
   if (rarity === "mystery") {
-    const totalWeight = Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
-    const random = Math.random() * totalWeight;
-    let cumulative = 0;
-    let selectedRarity: EggRarity = "common";
-    
-    for (const [r, weight] of Object.entries(RARITY_WEIGHTS)) {
-      cumulative += weight;
-      if (random <= cumulative) {
-        selectedRarity = r as EggRarity;
-        break;
-      }
-    }
-    
-    eligibleDinos = DINO_CATALOG.filter(d => d.rarity === selectedRarity && !unlockedIds.includes(d.id));
-  } else {
-    eligibleDinos = DINO_CATALOG.filter(d => d.rarity === rarity && !unlockedIds.includes(d.id));
+    selectedRarity = getRandomRarityFromMystery();
   }
-  
+
+  let eligibleDinos = DINO_CATALOG.filter(d => d.rarity === selectedRarity && !unlockedIds.includes(d.id));
+
   if (eligibleDinos.length === 0) {
     eligibleDinos = DINO_CATALOG.filter(d => !unlockedIds.includes(d.id));
   }
-  
+
   if (eligibleDinos.length === 0) {
     const randomIndex = Math.floor(Math.random() * DINO_CATALOG.length);
     return DINO_CATALOG[randomIndex];
   }
-  
+
   const randomIndex = Math.floor(Math.random() * eligibleDinos.length);
   return eligibleDinos[randomIndex];
 }
@@ -106,7 +127,7 @@ export function useEggs() {
     try {
       const storedEggs = localStorage.getItem(STORAGE_KEY);
       const storedCollection = localStorage.getItem(COLLECTION_KEY);
-      
+
       if (storedEggs) {
         setEggs(JSON.parse(storedEggs));
       }
@@ -131,16 +152,36 @@ export function useEggs() {
     }
   }, [collection, isLoading]);
 
+  const ensureStarterEgg = useCallback(() => {
+    const hasStarter = localStorage.getItem(STARTER_EGG_KEY);
+    if (!hasStarter && eggs.length === 0) {
+      const starterEgg: Egg = {
+        id: generateEggId(),
+        rarity: "common",
+        visual: "speckled",
+        status: "incubating",
+        currentXp: 0,
+        requiredXp: XP_REQUIREMENTS.common,
+        createdAt: Date.now(),
+      };
+      setEggs([starterEgg]);
+      localStorage.setItem(STARTER_EGG_KEY, "true");
+      return starterEgg;
+    }
+    return null;
+  }, [eggs.length]);
+
   const addEgg = useCallback((rarity: EggRarity = "mystery") => {
     const newEgg: Egg = {
       id: generateEggId(),
       rarity,
+      visual: getRandomEggVisual(),
       status: "incubating",
       currentXp: 0,
       requiredXp: XP_REQUIREMENTS[rarity],
       createdAt: Date.now(),
     };
-    
+
     setEggs(prev => [...prev, newEgg]);
     return newEgg;
   }, []);
@@ -148,7 +189,7 @@ export function useEggs() {
   const addXpToEggs = useCallback((xp: number) => {
     setEggs(prev => prev.map(egg => {
       if (egg.status !== "incubating") return egg;
-      
+
       const newXp = egg.currentXp + xp;
       return {
         ...egg,
@@ -174,8 +215,8 @@ export function useEggs() {
       unlockedAt: Date.now(),
     };
 
-    setEggs(prev => prev.map(e => 
-      e.id === eggId 
+    setEggs(prev => prev.map(e =>
+      e.id === eggId
         ? { ...e, status: "hatched" as EggStatus, dinoId: newDino.id, hatchedAt: Date.now() }
         : e
     ));
@@ -189,11 +230,16 @@ export function useEggs() {
     setEggs(prev => prev.filter(e => e.id !== eggId));
   }, []);
 
+  const hasActiveEgg = useCallback(() => {
+    return eggs.some(e => e.status === "incubating");
+  }, [eggs]);
+
   const resetAll = useCallback(() => {
     setEggs([]);
     setCollection([]);
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(COLLECTION_KEY);
+    localStorage.removeItem(STARTER_EGG_KEY);
   }, []);
 
   const getIncubatingEggs = useCallback(() => {
@@ -213,6 +259,8 @@ export function useEggs() {
     canHatch,
     hatchEgg,
     removeEgg,
+    hasActiveEgg,
+    ensureStarterEgg,
     resetAll,
     getIncubatingEggs,
     getHatchedEggs,

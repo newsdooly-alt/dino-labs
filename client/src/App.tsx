@@ -18,7 +18,6 @@ import MarketTrends from "@/pages/MarketTrends";
 import StockDetail from "@/pages/StockDetail";
 import Recommended from "@/pages/Recommended";
 import Settings from "@/pages/Settings";
-import MyEggs from "@/pages/MyEggs";
 import Collection from "@/pages/Collection";
 import Onboarding from "@/pages/Onboarding";
 import Landing from "@/pages/Landing";
@@ -34,7 +33,7 @@ function Router() {
       <Route path="/market-trends" component={MarketTrends} />
       <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/settings" component={Settings} />
-      <Route path="/eggs" component={MyEggs} />
+      <Route path="/eggs" component={Collection} />
       <Route path="/collection" component={Collection} />
       <Route path="/recommended" component={Recommended} />
       <Route path="/stock/:symbol" component={StockDetail} />
