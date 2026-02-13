@@ -180,7 +180,7 @@ export class DatabaseStorage implements IStorage {
 
   async getLeaderboard(limit: number = 50): Promise<UserProfile[]> {
     return db.select().from(userProfiles)
-      .where(sql`${userProfiles.id} NOT LIKE 'bot_%'`)
+      .where(sql`${userProfiles.id} NOT LIKE 'bot_%' AND ${userProfiles.id} NOT LIKE 'guest_%'`)
       .orderBy(desc(userProfiles.totalXp))
       .limit(limit);
   }

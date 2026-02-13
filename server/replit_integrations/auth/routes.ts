@@ -4,6 +4,7 @@ import { authStorage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 import { registerSchema, loginSchema } from "@shared/models/auth";
 import { randomUUID } from "crypto";
+import { storage } from "../../storage";
 
 // Register auth-specific routes
 export function registerAuthRoutes(app: Express): void {
@@ -135,19 +136,36 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const { language, level } = req.body;
       const guestId = `guest_${randomUUID()}`;
+      const guestLang = language || "en";
+      const guestLevel = level || "beginner";
+      const guestName = guestLang === "ko" ? "게스트" : "Guest";
 
-      // Create a temporary guest session (data stored in localStorage on client)
+      const user = await authStorage.upsertUser({
+        id: guestId,
+        username: guestId,
+        firstName: guestName,
+        authType: "guest",
+      });
+
+      await storage.upsertUserProfile({
+        id: guestId,
+        nickname: guestName,
+        language: guestLang,
+        favoriteStocks: [],
+        skillLevel: guestLevel,
+      });
+
       const sessionUser = {
         claims: {
-          sub: guestId,
-          first_name: "Guest",
+          sub: user.id,
+          first_name: guestName,
         },
         access_token: null,
         refresh_token: null,
-        expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 1 day for guests
+        expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
         authType: "guest",
-        language: language || "en",
-        level: level || "beginner",
+        language: guestLang,
+        level: guestLevel,
       };
 
       req.login(sessionUser, (err: any) => {
@@ -159,8 +177,8 @@ export function registerAuthRoutes(app: Express): void {
           success: true, 
           userId: guestId, 
           isGuest: true,
-          language: language || "en",
-          level: level || "beginner"
+          language: guestLang,
+          level: guestLevel
         });
       });
     } catch (error) {

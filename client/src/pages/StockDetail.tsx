@@ -296,13 +296,14 @@ export default function StockDetail() {
     },
   });
 
-  const chartData = history?.data?.map(d => ({
-    date: new Date(d.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { 
-      month: "short", 
-      day: "numeric" 
-    }),
-    price: d.close,
-  })) || [];
+  const isIntraday = selectedPeriod === "1d";
+  const chartData = history?.data?.map(d => {
+    const dt = new Date(d.date);
+    const label = isIntraday
+      ? dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+      : dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" });
+    return { date: label, rawDate: d.date, price: d.close };
+  }) || [];
 
   const priceChange = chartData.length > 1 
     ? chartData[chartData.length - 1].price - chartData[0].price 
@@ -456,6 +457,16 @@ export default function StockDetail() {
                 />
                 <Tooltip 
                   formatter={(value: number) => [formatPrice(value, { nativeCurrency }), lang === "ko" ? "가격" : "Price"]}
+                  labelFormatter={(label, payload) => {
+                    if (payload?.[0]?.payload?.rawDate) {
+                      const dt = new Date(payload[0].payload.rawDate);
+                      if (isIntraday) {
+                        return dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+                      }
+                      return dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" });
+                    }
+                    return label;
+                  }}
                   contentStyle={{ 
                     backgroundColor: theme === "dark" ? "hsl(140, 25%, 10%)" : "hsl(0, 0%, 100%)", 
                     border: theme === "dark" ? "1px solid hsl(140, 20%, 18%)" : "1px solid hsl(140, 15%, 85%)",
