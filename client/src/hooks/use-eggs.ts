@@ -50,11 +50,11 @@ export const EGG_VISUALS: { visual: EggVisual; label: string; labelKo: string; c
 ];
 
 const XP_REQUIREMENTS: Record<EggRarity, number> = {
-  common: 80,
-  rare: 150,
-  epic: 300,
-  legendary: 500,
-  mystery: 100,
+  common: 700,
+  rare: 1000,
+  epic: 1400,
+  legendary: 2000,
+  mystery: 850,
 };
 
 const RARITY_WEIGHTS: Record<EggRarity, number> = {
@@ -215,11 +215,7 @@ export function useEggs() {
       unlockedAt: Date.now(),
     };
 
-    setEggs(prev => prev.map(e =>
-      e.id === eggId
-        ? { ...e, status: "hatched" as EggStatus, dinoId: newDino.id, hatchedAt: Date.now() }
-        : e
-    ));
+    setEggs(prev => prev.filter(e => e.id !== eggId));
 
     setCollection(prev => [...prev, newDino]);
 

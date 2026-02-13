@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
+import { useEggs } from "@/hooks/use-eggs";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { Check, X, RefreshCw, Dumbbell } from "lucide-react";
@@ -21,6 +22,7 @@ interface PracticeQuest {
 
 export function PracticeMode() {
   const { data: user } = useUser();
+  const { addXpToEggs } = useEggs();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [questCount, setQuestCount] = useState(0);
@@ -49,6 +51,7 @@ export function PracticeMode() {
     onSuccess: (data) => {
       if (data.correct) {
         setTotalXpEarned(prev => prev + 5);
+        addXpToEggs(5);
         confetti({
           particleCount: 50,
           spread: 60,

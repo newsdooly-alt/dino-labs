@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, RefreshCw, Zap, BarChart3, Newspaper, Activity, ArrowUpDown, DollarSign, Globe, LineChart, Factory } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
+import { useEggs } from "@/hooks/use-eggs";
 import { translations } from "@/lib/translations";
 
 type QuizCategory = 'valuation' | 'impact' | 'technical' | 'movement';
@@ -70,6 +71,7 @@ export function BreakingNewsQuiz() {
   const queryClient = useQueryClient();
 
   const { data: user } = useUser();
+  const { addXpToEggs } = useEggs();
   const lang = (user?.language || "en") as keyof typeof translations;
   const level = user?.skillLevel || "beginner";
   const t = translations[lang];
@@ -87,6 +89,9 @@ export function BreakingNewsQuiz() {
   const handleAnswer = (answerIndex: number) => {
     setUserAnswer(answerIndex);
     setAnswered(true);
+    if (answerIndex === quiz?.correctAnswerIndex) {
+      addXpToEggs(15);
+    }
   };
 
   const handleNext = () => {

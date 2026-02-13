@@ -94,8 +94,9 @@ export default function Dashboard() {
   const xpForNextLevel = currentLevel * 100;
   const xpPercent = Math.min(100, Math.round((currentXP / xpForNextLevel) * 100));
 
-  const completedQuests = quests?.filter(q => q.isCompleted)?.length || 0;
-  const totalQuests = Math.max(quests?.length || 0, 6);
+  const DAILY_QUEST_COUNT = 6;
+  const completedQuests = Math.min(quests?.filter(q => q.isCompleted)?.length || 0, DAILY_QUEST_COUNT);
+  const totalQuests = DAILY_QUEST_COUNT;
 
   const moodIndex = moodData?.index ?? 50;
   const moodLabel = moodData?.label ?? "Neutral";

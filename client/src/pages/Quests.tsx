@@ -184,12 +184,6 @@ export default function Quests() {
                       </div>
 
                       <div className="flex flex-wrap gap-3 justify-center">
-                        <Link href="/collection">
-                          <Button className="gap-2" data-testid="button-go-to-collection">
-                            <Egg className="w-4 h-4" />
-                            {t.my_collection}
-                          </Button>
-                        </Link>
                         <Button
                           variant="outline"
                           onClick={() => {
@@ -202,13 +196,17 @@ export default function Quests() {
                           <BookOpen className="w-4 h-4" />
                           {t.learn_more}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setShowCompletionModal(false)}
-                          data-testid="button-dismiss-complete"
-                        >
-                          {lang === "ko" ? "닫기" : "Dismiss"}
-                        </Button>
+                        <Link href="/collection">
+                          <Button variant="outline" className="gap-2" data-testid="button-go-to-collection">
+                            <Egg className="w-4 h-4" />
+                            {t.my_collection}
+                          </Button>
+                        </Link>
+                        <Link href="/">
+                          <Button variant="ghost" className="gap-2" data-testid="button-back-to-dashboard-quest">
+                            {t.back_to_dashboard || (lang === "ko" ? "대시보드로" : "Back to Dashboard")}
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                   </CardContent>

@@ -278,7 +278,7 @@ function HatchModal({ dino, onClose, t }: { dino: Dino; onClose: () => void; t: 
 
 export default function Collection() {
   const { data: user } = useUser();
-  const { eggs, collection, hatchEgg, canHatch, totalEggsHatched, ensureStarterEgg, addEgg, hasActiveEgg } = useEggs();
+  const { eggs, collection, hatchEgg, canHatch, ensureStarterEgg, addEgg, hasActiveEgg } = useEggs();
   const [hatchedDino, setHatchedDino] = useState<Dino | null>(null);
   const [showStarterMsg, setShowStarterMsg] = useState(false);
 
@@ -378,11 +378,11 @@ export default function Collection() {
           </div>
           <p className="text-xs text-muted-foreground">{t.collected_dinos}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-3 text-center" data-testid="card-hatched-stats">
-          <div className="text-2xl font-bold text-green-500" data-testid="text-hatched-count">
-            {totalEggsHatched}
+        <div className="bg-card border border-border rounded-xl p-3 text-center" data-testid="card-progress-stats">
+          <div className="text-2xl font-bold text-green-500" data-testid="text-progress-percent">
+            {Math.round((collection.length / DINO_CATALOG.length) * 100)}%
           </div>
-          <p className="text-xs text-muted-foreground">{t.total_eggs_hatched}</p>
+          <p className="text-xs text-muted-foreground">{lang === "ko" ? "완성도" : "Complete"}</p>
         </div>
       </motion.div>
 
