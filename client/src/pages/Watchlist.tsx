@@ -9,6 +9,7 @@ import { translations } from "@/lib/translations";
 import { useToast } from "@/hooks/use-toast";
 import { LiveStockCard } from "@/components/LiveStockCard";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { cleanCompanyName } from "@/lib/stockUtils";
 
 interface SearchResult {
   id: number;
@@ -240,14 +241,14 @@ export default function Watchlist() {
                   <div className="min-w-0">
                     {isKoreanStock(item.symbol) && item.stockName ? (
                       <>
-                        <span className="font-bold">{item.stockName.split(' (')[0]}</span>
+                        <span className="font-bold">{cleanCompanyName(item.stockName.split(' (')[0])}</span>
                         <span className="ml-2 text-xs text-muted-foreground">{item.symbol}</span>
                         <span className="ml-1 text-[10px] font-bold px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
                           {item.symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI'}
                         </span>
                       </>
                     ) : (
-                      <span className="font-bold">{item.stockName || item.symbol}</span>
+                      <span className="font-bold">{cleanCompanyName(item.stockName || item.symbol)}</span>
                     )}
                   </div>
                   <button

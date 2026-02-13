@@ -609,6 +609,18 @@ export async function registerRoutes(
     "META": { price: 525.25, name: "Meta Platforms Inc." },
   };
   
+  app.get("/api/stocks/recommended", async (req, res) => {
+    try {
+      const pythonRes = await fetch("http://127.0.0.1:5001/recommended");
+      if (!pythonRes.ok) throw new Error("Python service error");
+      const data = await pythonRes.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[Recommended] Error:", error.message);
+      res.status(500).json({ error: error.message, recommended: [] });
+    }
+  });
+
   app.get("/api/stocks/live", async (req, res) => {
     const symbolsParam = req.query.symbols as string;
     if (!symbolsParam) {

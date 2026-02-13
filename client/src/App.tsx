@@ -16,6 +16,7 @@ import Watchlist from "@/pages/Watchlist";
 import Leaderboard from "@/pages/Leaderboard";
 import MarketTrends from "@/pages/MarketTrends";
 import StockDetail from "@/pages/StockDetail";
+import Recommended from "@/pages/Recommended";
 import Settings from "@/pages/Settings";
 import MyEggs from "@/pages/MyEggs";
 import Collection from "@/pages/Collection";
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/eggs" component={MyEggs} />
       <Route path="/collection" component={Collection} />
+      <Route path="/recommended" component={Recommended} />
       <Route path="/stock/:symbol" component={StockDetail} />
       <Route component={NotFound} />
     </Switch>

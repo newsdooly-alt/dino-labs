@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Target, LineChart, Award, Settings, LogOut, TrendingUp, Egg, Trophy } from "lucide-react";
+import { LayoutDashboard, Target, LineChart, Award, Settings, LogOut, TrendingUp, Egg, Trophy, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
@@ -18,6 +18,7 @@ export function Sidebar() {
     { href: "/eggs", label: t.my_eggs, icon: Egg },
     { href: "/collection", label: t.dino_collection, icon: Trophy },
     { href: "/watchlist", label: t.watchlist, icon: LineChart },
+    { href: "/recommended", label: lang === "ko" ? "추천 종목" : "Discover", icon: Sparkles },
     { href: "/market-trends", label: t.market_trends, icon: TrendingUp },
     { href: "/leaderboard", label: t.leaderboard, icon: Award },
   ];

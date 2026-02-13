@@ -754,7 +754,76 @@ def get_stock_news(symbol):
         return jsonify({"error": str(e), "news": [], "symbol": symbol}), 500
 
 
+_recommended_cache = {"data": None, "timestamp": 0}
+RECOMMENDED_CACHE_DURATION = 1800
+
+@app.route('/recommended', methods=['GET'])
+def get_recommended_stocks():
+    """Get recommended stocks based on high volume and price momentum from US and KR markets."""
+    import time
+    now = time.time()
+    if _recommended_cache["data"] and (now - _recommended_cache["timestamp"]) < RECOMMENDED_CACHE_DURATION:
+        return jsonify(_recommended_cache["data"])
+
+    try:
+        us_symbols = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AMD", "NFLX", "AVGO",
+                       "JPM", "V", "MA", "WMT", "UNH", "LLY", "XOM", "PG", "JNJ", "COST"]
+        kr_symbols = ["005930.KS", "000660.KS", "373220.KS", "035420.KS", "035720.KS",
+                       "068270.KS", "051910.KS", "006400.KS", "003670.KS", "207940.KS"]
+
+        all_symbols = us_symbols + kr_symbols
+        results = []
+
+        for symbol in all_symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                fast = ticker.fast_info
+                info = ticker.info
+
+                price = float(fast.get('lastPrice', 0) or fast.get('regularMarketPrice', 0) or 0)
+                prev_close = float(fast.get('previousClose', 0) or fast.get('regularMarketPreviousClose', 0) or price)
+                volume = int(info.get('regularMarketVolume', 0) or info.get('volume', 0) or 0)
+                avg_volume = int(info.get('averageVolume', 0) or info.get('averageDailyVolume10Day', 0) or 1)
+
+                if price <= 0 or volume <= 0:
+                    continue
+
+                change = price - prev_close if prev_close else 0
+                change_pct = (change / prev_close * 100) if prev_close and prev_close != 0 else 0
+                volume_ratio = volume / avg_volume if avg_volume > 0 else 1.0
+
+                is_kr = is_korean_ticker(symbol)
+
+                results.append({
+                    "symbol": symbol.upper(),
+                    "name": info.get('shortName') or info.get('longName') or symbol.upper(),
+                    "price": round(float(price), 2),
+                    "change": round(float(change), 2),
+                    "changePercent": round(float(change_pct), 2),
+                    "volume": volume,
+                    "avgVolume": avg_volume,
+                    "volumeRatio": round(volume_ratio, 2),
+                    "marketCap": fast.get('marketCap'),
+                    "isKorean": is_kr,
+                    "currency": 'KRW' if is_kr else 'USD',
+                })
+            except Exception as e:
+                print(f"[yfinance] Recommended skip {symbol}: {e}")
+                continue
+
+        results.sort(key=lambda x: x['volumeRatio'], reverse=True)
+        top_picks = results[:10]
+
+        response = {"recommended": top_picks, "count": len(top_picks)}
+        _recommended_cache["data"] = response
+        _recommended_cache["timestamp"] = now
+
+        return jsonify(response)
+    except Exception as e:
+        print(f"[yfinance] Error in /recommended: {e}")
+        return jsonify({"error": str(e), "recommended": []}), 500
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
-    # Bind to localhost only for security (Node.js proxies requests)
     app.run(host='127.0.0.1', port=5001, debug=False)

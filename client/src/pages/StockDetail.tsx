@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { cleanCompanyName } from "@/lib/stockUtils";
 
 interface StockQuote {
   symbol: string;
@@ -333,7 +334,7 @@ export default function StockDetail() {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold">{quote?.name || info?.name || symbol}</h1>
+            <h1 className="text-3xl font-bold">{cleanCompanyName(quote?.name || info?.name || symbol)}</h1>
             {info?.sector && (
               <Badge variant="secondary">{info.sector}</Badge>
             )}

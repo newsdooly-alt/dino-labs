@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { cleanCompanyName } from "@/lib/stockUtils";
 
 interface MarketMoodData {
   index: number;
@@ -182,7 +183,7 @@ export default function Dashboard() {
           <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground" data-testid="label-watchlist">
             {t.my_top_picks}
           </h2>
-          <Link href="/watchlist" className="text-xs font-bold text-primary" data-testid="link-view-all-watchlist">
+          <Link href="/recommended" className="text-xs font-bold text-primary" data-testid="link-view-all-recommended">
             {t.view_all}
           </Link>
         </div>
@@ -212,7 +213,7 @@ export default function Dashboard() {
                 data-testid={`stock-row-${quote.symbol}`}
               >
                 <div className="min-w-0">
-                  <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{quote.name || quote.symbol}</p>
+                  <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{cleanCompanyName(quote.name || quote.symbol)}</p>
                   <p className="text-xs text-muted-foreground" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
                 </div>
                 <div className="flex items-center gap-3">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { cleanCompanyName } from "@/lib/stockUtils";
 
 interface LiveStockQuote {
   symbol: string;
@@ -157,7 +158,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         >
           <div className="flex items-center gap-3">
             <div>
-              <h4 className="font-bold">{quote.name || quote.symbol}</h4>
+              <h4 className="font-bold">{cleanCompanyName(quote.name || quote.symbol)}</h4>
               <p className="text-xs text-muted-foreground">{quote.symbol}</p>
             </div>
           </div>
