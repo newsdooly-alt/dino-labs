@@ -238,11 +238,16 @@ export default function Watchlist() {
               {watchlist.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
                   <div className="min-w-0">
-                    <span className="font-bold">{item.symbol}</span>
-                    {isKoreanStock(item.symbol) && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {item.symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI'}
-                      </span>
+                    {isKoreanStock(item.symbol) && item.stockName ? (
+                      <>
+                        <span className="font-bold">{item.stockName.split(' (')[0]}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">{item.symbol}</span>
+                        <span className="ml-1 text-[10px] font-bold px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          {item.symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="font-bold">{item.stockName || item.symbol}</span>
                     )}
                   </div>
                   <button
