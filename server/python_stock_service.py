@@ -527,6 +527,22 @@ def get_history(symbol):
         return jsonify({"error": str(e), "symbol": symbol}), 500
 
 
+def _normalize_dividend_yield(info):
+    """Normalize dividend yield to a standard decimal (e.g. 0.004 = 0.4%).
+    
+    yfinance returns dividendYield as a percentage (0.4 means 0.4%),
+    while trailingAnnualDividendYield is already a decimal (0.00374 means 0.374%).
+    We standardize to decimal so the frontend can simply do (value * 100) for display.
+    """
+    raw = info.get('dividendYield')
+    if raw is not None and raw > 0:
+        return round(raw / 100, 6)
+    trailing = info.get('trailingAnnualDividendYield')
+    if trailing is not None and trailing > 0:
+        return round(trailing, 6)
+    return None
+
+
 @app.route('/info/<path:symbol>', methods=['GET'])
 def get_info(symbol):
     """Get detailed stock information."""
@@ -546,7 +562,7 @@ def get_info(symbol):
             "peRatio": info.get('trailingPE'),
             "forwardPE": info.get('forwardPE'),
             "eps": info.get('trailingEps'),
-            "dividendYield": info.get('dividendYield') or info.get('trailingAnnualDividendYield'),
+            "dividendYield": _normalize_dividend_yield(info),
             "52WeekHigh": info.get('fiftyTwoWeekHigh'),
             "52WeekLow": info.get('fiftyTwoWeekLow'),
             "avgVolume": info.get('averageVolume'),

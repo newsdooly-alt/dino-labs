@@ -121,13 +121,7 @@ function formatNumber(value: number | null, decimals: number = 2): string {
 
 function formatPercent(value: number | null): string {
   if (value === null || value === undefined) return "--";
-  let pct: number;
-  if (value > 1) {
-    pct = value / 100;
-  } else {
-    pct = value * 100;
-  }
-  return `${pct.toFixed(2)}%`;
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 function getDinoInsight(info: StockInfo | null, lang: "en" | "ko"): { title: string; message: string } {
@@ -167,9 +161,8 @@ function getDinoInsight(info: StockInfo | null, lang: "en" | "ko"): { title: str
   }
 
   if (divYield && divYield > 0) {
-    const normalizedYield = divYield > 1 ? divYield / 100 : divYield * 100;
-    const yieldPct = normalizedYield.toFixed(2);
-    const incomePerHundred = normalizedYield.toFixed(2);
+    const yieldPct = (divYield * 100).toFixed(2);
+    const incomePerHundred = yieldPct;
     if (lang === "en") {
       return {
         title: "Dino's Insight",

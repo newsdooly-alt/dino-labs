@@ -1481,8 +1481,7 @@ Return EXACTLY this JSON:
         const capUnit = isKrStock ? `₩${(fundamentals.marketCap / 1e12).toFixed(1)}T` : `$${(fundamentals.marketCap / 1e9).toFixed(0)}B`;
         const peStr = fundamentals.peRatio ? `P/E Ratio: ${fundamentals.peRatio.toFixed(1)}` : '';
         const rawDiv = fundamentals.dividendYield;
-        const normalizedDiv = rawDiv ? (rawDiv > 1 ? rawDiv / 100 : rawDiv * 100) : 0;
-        const divStr = rawDiv ? `Dividend Yield: ${normalizedDiv.toFixed(2)}%` : '';
+        const divStr = rawDiv ? `Dividend Yield: ${(rawDiv * 100).toFixed(2)}%` : '';
         const capStr = fundamentals.marketCap ? `Market Cap: ${capUnit}` : '';
         const betaStr = fundamentals.beta ? `Beta: ${fundamentals.beta.toFixed(2)}` : '';
         const epsStr = fundamentals.eps ? `EPS: ${curr}${fundamentals.eps.toFixed(2)}` : '';
