@@ -50,11 +50,11 @@ export const EGG_VISUALS: { visual: EggVisual; label: string; labelKo: string; c
 ];
 
 const XP_REQUIREMENTS: Record<EggRarity, number> = {
-  common: 700,
-  rare: 1000,
-  epic: 1400,
-  legendary: 2000,
-  mystery: 850,
+  common: 1200,
+  rare: 1500,
+  epic: 1800,
+  legendary: 2400,
+  mystery: 1350,
 };
 
 const RARITY_WEIGHTS: Record<EggRarity, number> = {

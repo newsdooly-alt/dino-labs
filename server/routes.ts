@@ -16,39 +16,6 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 import { calculateLevel, xpForNextLevel } from "@shared/leveling";
 
-const BOT_USERS = [
-  { id: "bot_1", nickname: "BullMarketKing", totalXp: 12500, streak: 12 },
-  { id: "bot_2", nickname: "주식마스터", totalXp: 9800, streak: 8 },
-  { id: "bot_3", nickname: "DiamondHands", totalXp: 7200, streak: 15 },
-  { id: "bot_4", nickname: "투자여왕", totalXp: 6100, streak: 5 },
-  { id: "bot_5", nickname: "WallStreetWolf", totalXp: 4500, streak: 3 },
-  { id: "bot_6", nickname: "가치투자자", totalXp: 3200, streak: 7 },
-  { id: "bot_7", nickname: "TechTrader", totalXp: 2100, streak: 2 },
-  { id: "bot_8", nickname: "초보투자자", totalXp: 1500, streak: 1 },
-];
-
-async function seedBotUsers() {
-  for (const bot of BOT_USERS) {
-    const existing = await storage.getUserProfile(bot.id);
-    if (!existing) {
-      await storage.upsertUserProfile({
-        id: bot.id,
-        nickname: bot.nickname,
-        language: "en",
-        favoriteStocks: [],
-        skillLevel: "intermediate",
-      });
-      await storage.addXp(bot.id, bot.totalXp);
-      if (bot.streak > 0) {
-        const profile = await storage.getUserProfile(bot.id);
-        if (profile) {
-          await storage.updateUserStats(bot.id, bot.streak, profile.xp, profile.level, profile.hearts);
-        }
-      }
-    }
-  }
-}
-
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -60,9 +27,6 @@ export async function registerRoutes(
   // Register integration routes
   registerChatRoutes(app);
   registerImageRoutes(app);
-
-  // Seed bot users for leaderboard
-  seedBotUsers().catch(err => console.error("Failed to seed bot users:", err));
 
   // Helper to get user ID from session
   const getUserId = (req: any): string | null => {
@@ -1041,25 +1005,39 @@ export async function registerRoutes(
   });
 
   // === Mark News as Read (for quest progress) ===
-  let newsReadCount: Record<number, number> = {}; // Simple in-memory tracker per user
+  const newsReadCount: Record<string, { count: number; date: string }> = {};
+
+  function getTodayDate(): string {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  function getUserNewsCount(userId: string): number {
+    const entry = newsReadCount[userId];
+    if (!entry || entry.date !== getTodayDate()) return 0;
+    return entry.count;
+  }
   
-  app.post("/api/news/read", async (req, res) => {
-    const { userId } = req.body;
-    
-    if (!newsReadCount[userId]) {
-      newsReadCount[userId] = 0;
+  app.post("/api/news/read", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const today = getTodayDate();
+    if (!newsReadCount[userId] || newsReadCount[userId].date !== today) {
+      newsReadCount[userId] = { count: 0, date: today };
     }
-    newsReadCount[userId]++;
+    newsReadCount[userId].count++;
+    const count = newsReadCount[userId].count;
     
     res.json({ 
-      count: newsReadCount[userId],
-      message: newsReadCount[userId] >= 3 ? "Quest complete!" : `${3 - newsReadCount[userId]} more to go!`
+      count,
+      message: count >= 3 ? "Quest complete!" : `${3 - count} more to go!`
     });
   });
 
-  app.get("/api/news/read-count", async (req, res) => {
-    const userId = Number(req.query.userId) || 1;
-    res.json({ count: newsReadCount[userId] || 0 });
+  app.get("/api/news/read-count", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    res.json({ count: getUserNewsCount(userId) });
   });
 
   // === Breaking News Quiz Engine (v3 - 7 Sources, Keyword Highlighting, Anti-Repetition) ===
@@ -1502,7 +1480,9 @@ Return EXACTLY this JSON:
         const curr = isKrStock ? '₩' : '$';
         const capUnit = isKrStock ? `₩${(fundamentals.marketCap / 1e12).toFixed(1)}T` : `$${(fundamentals.marketCap / 1e9).toFixed(0)}B`;
         const peStr = fundamentals.peRatio ? `P/E Ratio: ${fundamentals.peRatio.toFixed(1)}` : '';
-        const divStr = fundamentals.dividendYield ? `Dividend Yield: ${(fundamentals.dividendYield * 100).toFixed(2)}%` : '';
+        const rawDiv = fundamentals.dividendYield;
+        const normalizedDiv = rawDiv ? (rawDiv > 1 ? rawDiv / 100 : rawDiv * 100) : 0;
+        const divStr = rawDiv ? `Dividend Yield: ${normalizedDiv.toFixed(2)}%` : '';
         const capStr = fundamentals.marketCap ? `Market Cap: ${capUnit}` : '';
         const betaStr = fundamentals.beta ? `Beta: ${fundamentals.beta.toFixed(2)}` : '';
         const epsStr = fundamentals.eps ? `EPS: ${curr}${fundamentals.eps.toFixed(2)}` : '';

@@ -73,6 +73,7 @@ export function DailyNews() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/news/read-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
     },
   });
 
