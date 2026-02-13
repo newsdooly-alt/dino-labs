@@ -14,6 +14,40 @@ import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
+import { calculateLevel, xpForNextLevel } from "@shared/leveling";
+
+const BOT_USERS = [
+  { id: "bot_1", nickname: "BullMarketKing", totalXp: 12500, streak: 12 },
+  { id: "bot_2", nickname: "주식마스터", totalXp: 9800, streak: 8 },
+  { id: "bot_3", nickname: "DiamondHands", totalXp: 7200, streak: 15 },
+  { id: "bot_4", nickname: "투자여왕", totalXp: 6100, streak: 5 },
+  { id: "bot_5", nickname: "WallStreetWolf", totalXp: 4500, streak: 3 },
+  { id: "bot_6", nickname: "가치투자자", totalXp: 3200, streak: 7 },
+  { id: "bot_7", nickname: "TechTrader", totalXp: 2100, streak: 2 },
+  { id: "bot_8", nickname: "초보투자자", totalXp: 1500, streak: 1 },
+];
+
+async function seedBotUsers() {
+  for (const bot of BOT_USERS) {
+    const existing = await storage.getUserProfile(bot.id);
+    if (!existing) {
+      await storage.upsertUserProfile({
+        id: bot.id,
+        nickname: bot.nickname,
+        language: "en",
+        favoriteStocks: [],
+        skillLevel: "intermediate",
+      });
+      await storage.addXp(bot.id, bot.totalXp);
+      if (bot.streak > 0) {
+        const profile = await storage.getUserProfile(bot.id);
+        if (profile) {
+          await storage.updateUserStats(bot.id, bot.streak, profile.xp, profile.level, profile.hearts);
+        }
+      }
+    }
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -26,6 +60,9 @@ export async function registerRoutes(
   // Register integration routes
   registerChatRoutes(app);
   registerImageRoutes(app);
+
+  // Seed bot users for leaderboard
+  seedBotUsers().catch(err => console.error("Failed to seed bot users:", err));
 
   // Helper to get user ID from session
   const getUserId = (req: any): string | null => {
@@ -98,6 +135,70 @@ export async function registerRoutes(
     await storage.clearQuests(userId);
     
     res.json(profile);
+  });
+
+  // Update profile settings (nickname, themeColor)
+  app.patch("/api/profiles/settings", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    const settingsSchema = z.object({
+      nickname: z.string().min(1).max(30).optional(),
+      themeColor: z.enum(["green", "blue", "pink"]).optional(),
+    });
+    const parsed = settingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid settings", errors: parsed.error.issues });
+    }
+    const updates: { nickname?: string; themeColor?: string } = {};
+    if (parsed.data.nickname !== undefined) updates.nickname = parsed.data.nickname;
+    if (parsed.data.themeColor !== undefined) updates.themeColor = parsed.data.themeColor;
+    
+    const profile = await storage.updateProfileSettings(userId, updates);
+    res.json(profile);
+  });
+
+  // Leaderboard
+  app.get("/api/leaderboard", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    const profiles = await storage.getLeaderboard(50);
+    
+    const leaderboard = profiles.map((p, idx) => ({
+      id: p.id,
+      nickname: p.nickname || "Player",
+      totalXp: p.totalXp,
+      level: calculateLevel(p.totalXp),
+      streak: p.streak,
+      isMe: p.id === userId,
+    }));
+    
+    res.json(leaderboard);
+  });
+
+  // Level info endpoint
+  app.get("/api/profiles/level-info", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    
+    const profile = await storage.getUserProfile(userId);
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+    
+    const level = calculateLevel(profile.totalXp);
+    const xpForCurrent = xpForNextLevel(level);
+    
+    let xpAccumulated = 0;
+    for (let l = 1; l < level; l++) {
+      xpAccumulated += Math.floor(100 * Math.pow(l, 1.2));
+    }
+    const xpInCurrentLevel = profile.totalXp - xpAccumulated;
+    
+    res.json({
+      level,
+      totalXp: profile.totalXp,
+      xpInCurrentLevel,
+      xpForNextLevel: xpForCurrent,
+      streak: profile.streak,
+    });
   });
 
   // Check if current user is a guest
@@ -348,10 +449,11 @@ export async function registerRoutes(
         const profile = await storage.getUserProfile(userId);
         if (profile) {
             const newXp = profile.xp + quest.xpReward;
-            const newLevel = Math.floor(newXp / 100) + 1;
+            const newTotalXp = profile.totalXp + quest.xpReward;
+            const newLevel = calculateLevel(newTotalXp);
             const newStreak = profile.streak + (profile.lastDailyQuestAt ? 0 : 1);
             
-            await storage.updateUserStats(userId, newStreak, newXp, newLevel, profile.hearts);
+            await storage.updateUserStats(userId, newStreak, newXp, newLevel, profile.hearts, quest.xpReward);
             
             return res.json({
                 success: true,

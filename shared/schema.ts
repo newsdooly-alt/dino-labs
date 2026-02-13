@@ -13,8 +13,10 @@ export const userProfiles = pgTable("user_profiles", {
   nickname: text("nickname"),
   streak: integer("streak").default(0).notNull(),
   xp: integer("xp").default(0).notNull(),
+  totalXp: integer("total_xp").default(0).notNull(),
   level: integer("level").default(1).notNull(),
   hearts: integer("hearts").default(5).notNull(),
+  themeColor: text("theme_color").default("green").notNull(), // "green" | "blue" | "pink"
   favoriteStocks: text("favorite_stocks").array().default([]).notNull(),
   language: text("language").default("en").notNull(),
   skillLevel: text("skill_level").default("beginner").notNull(), // "beginner" | "intermediate" | "advanced"
@@ -93,7 +95,7 @@ export const dinoEggs = pgTable("dino_eggs", {
 
 // === SCHEMAS ===
 
-export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ streak: true, xp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ streak: true, xp: true, totalXp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
 export const insertStockSchema = createInsertSchema(stocks).omit({ id: true, updatedAt: true });
 export const insertQuestSchema = createInsertSchema(quests).omit({ id: true, isCompleted: true, createdAt: true });
 export const insertUserStockSchema = createInsertSchema(userStocks).omit({ id: true, addedAt: true });

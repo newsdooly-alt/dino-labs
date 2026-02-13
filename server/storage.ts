@@ -17,11 +17,15 @@ export interface IStorage {
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number): Promise<UserProfile>;
+  addXp(id: string, xpAmount: number): Promise<UserProfile>;
   updateUserLanguage(id: string, language: string): Promise<UserProfile>;
   updateSkillLevel(id: string, skillLevel: string): Promise<UserProfile>;
   replenishHearts(id: string, amount: number): Promise<UserProfile>;
   updateFavoriteStocks(id: string, stocks: string[]): Promise<UserProfile>;
   updateNickname(id: string, nickname: string): Promise<UserProfile>;
+  updateThemeColor(id: string, themeColor: string): Promise<UserProfile>;
+  updateProfileSettings(id: string, settings: { nickname?: string; themeColor?: string }): Promise<UserProfile>;
+  getLeaderboard(limit?: number): Promise<UserProfile[]>;
 
   // Stocks
   getStockBySymbol(symbol: string): Promise<Stock | undefined>;
@@ -92,9 +96,24 @@ export class DatabaseStorage implements IStorage {
     return profile;
   }
 
-  async updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number): Promise<UserProfile> {
+  async updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number, xpGained?: number): Promise<UserProfile> {
+    const setData: any = { streak, xp, level, hearts };
+    if (xpGained && xpGained > 0) {
+      setData.totalXp = sql`${userProfiles.totalXp} + ${xpGained}`;
+    }
     const [profile] = await db.update(userProfiles)
-      .set({ streak, xp, level, hearts })
+      .set(setData)
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return profile;
+  }
+
+  async addXp(id: string, xpAmount: number): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
+      .set({
+        xp: sql`${userProfiles.xp} + ${xpAmount}`,
+        totalXp: sql`${userProfiles.totalXp} + ${xpAmount}`,
+      })
       .where(eq(userProfiles.id, id))
       .returning();
     return profile;
@@ -138,6 +157,31 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userProfiles.id, id))
       .returning();
     return profile;
+  }
+
+  async updateThemeColor(id: string, themeColor: string): Promise<UserProfile> {
+    const [profile] = await db.update(userProfiles)
+      .set({ themeColor })
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return profile;
+  }
+
+  async updateProfileSettings(id: string, settings: { nickname?: string; themeColor?: string }): Promise<UserProfile> {
+    const updateData: any = {};
+    if (settings.nickname !== undefined) updateData.nickname = settings.nickname;
+    if (settings.themeColor !== undefined) updateData.themeColor = settings.themeColor;
+    const [profile] = await db.update(userProfiles)
+      .set(updateData)
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return profile;
+  }
+
+  async getLeaderboard(limit: number = 50): Promise<UserProfile[]> {
+    return db.select().from(userProfiles)
+      .orderBy(desc(userProfiles.totalXp))
+      .limit(limit);
   }
 
   // Stocks

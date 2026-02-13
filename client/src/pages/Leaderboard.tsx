@@ -1,20 +1,37 @@
-import { Trophy, Medal, User, Flame } from "lucide-react";
+import { Trophy, Medal, User, Flame, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
+import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 
-const mockUsers = [
-  { id: 2, username: "BullMarketKing", xp: 12500, level: 42, streak: 12 },
-  { id: 1, username: "DinoExplorer", xp: 8450, level: 28, streak: 5, isMe: true },
-  { id: 3, username: "CryptoQueen", xp: 7200, level: 24, streak: 8 },
-  { id: 4, username: "DiamondHands", xp: 6100, level: 21, streak: 3 },
-  { id: 5, username: "WallStreetWolf", xp: 4500, level: 15, streak: 0 },
-];
+interface LeaderboardEntry {
+  id: string;
+  nickname: string;
+  totalXp: number;
+  level: number;
+  streak: number;
+  isMe: boolean;
+}
 
 export default function Leaderboard() {
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
   const isKo = lang === "ko";
+
+  const { data: leaderboard, isLoading } = useQuery<LeaderboardEntry[]>({
+    queryKey: ["/api/leaderboard"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const entries = leaderboard || [];
 
   return (
     <div className="p-4 md:p-10 max-w-4xl mx-auto w-full">
@@ -36,14 +53,17 @@ export default function Leaderboard() {
         </div>
 
         <div className="divide-y divide-border">
-          {mockUsers.map((u, idx) => (
-            <div 
-              key={u.id} 
+          {entries.map((u, idx) => (
+            <motion.div
+              key={u.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.05 }}
               className={cn(
                 "flex items-center gap-3 p-4 md:grid md:grid-cols-12 md:gap-4 md:p-6 transition-colors",
                 u.isMe ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50"
               )}
-              data-testid={`row-leaderboard-${u.id}`}
+              data-testid={`row-leaderboard-${idx}`}
             >
               <div className="shrink-0 md:col-span-2 md:flex md:justify-center">
                 {idx === 0 ? (
@@ -58,12 +78,15 @@ export default function Leaderboard() {
               </div>
               
               <div className="flex-1 min-w-0 md:col-span-6 flex items-center gap-3 md:gap-4">
-                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-background border border-border flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                <div className={cn(
+                  "w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border",
+                  u.isMe ? "bg-primary/20 border-primary/30" : "bg-background border-border"
+                )}>
+                  <User className={cn("w-4 h-4 md:w-5 md:h-5", u.isMe ? "text-primary" : "text-muted-foreground")} />
                 </div>
                 <div className="min-w-0">
                   <div className="font-bold text-sm md:text-lg flex items-center gap-2 flex-wrap">
-                    <span className="truncate">{u.username}</span>
+                    <span className="truncate">{u.nickname}</span>
                     {u.isMe && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full shrink-0">{isKo ? "나" : "You"}</span>}
                   </div>
                   <div className="text-xs md:text-sm text-muted-foreground flex items-center gap-1">
@@ -82,10 +105,10 @@ export default function Leaderboard() {
               <div className="shrink-0 text-right md:col-span-2">
                 <div className="text-xs text-muted-foreground md:hidden">XP</div>
                 <div className="font-mono font-bold text-sm md:text-base">
-                  {u.xp.toLocaleString()}
+                  {u.totalXp.toLocaleString()}
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

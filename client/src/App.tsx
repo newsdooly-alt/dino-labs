@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ThemeColorProvider } from "@/contexts/ThemeColorContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -104,10 +105,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <CurrencyProvider>
-          <TooltipProvider>
-            <AppContent />
-            <Toaster />
-          </TooltipProvider>
+          <ThemeColorProvider>
+            <TooltipProvider>
+              <AppContent />
+              <Toaster />
+            </TooltipProvider>
+          </ThemeColorProvider>
         </CurrencyProvider>
       </ThemeProvider>
     </QueryClientProvider>

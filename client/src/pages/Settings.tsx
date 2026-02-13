@@ -52,15 +52,16 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useThemeColor } from "@/contexts/ThemeColorContext";
 
-type DinoColor = "green" | "blue" | "pink";
+type ThemeColor = "green" | "blue" | "pink";
 type RefreshInterval = "manual" | "1min" | "5min";
 type Currency = "usd" | "krw";
 type SkillLevel = "beginner" | "intermediate" | "advanced";
 
 interface AppSettings {
   nickname: string;
-  dinoColor: DinoColor;
+  themeColor: ThemeColor;
   refreshInterval: RefreshInterval;
   currency: Currency;
   dailyGoal: number;
@@ -69,14 +70,14 @@ interface AppSettings {
 
 const defaultSettings: AppSettings = {
   nickname: "",
-  dinoColor: "green",
+  themeColor: "green",
   refreshInterval: "1min",
   currency: "usd",
   dailyGoal: 50,
   marketAlerts: true,
 };
 
-const DINO_COLORS: { value: DinoColor; colorClass: string }[] = [
+const THEME_COLORS: { value: ThemeColor; colorClass: string }[] = [
   { value: "green", colorClass: "bg-green-500" },
   { value: "blue", colorClass: "bg-blue-500" },
   { value: "pink", colorClass: "bg-pink-500" },
@@ -94,6 +95,8 @@ export default function Settings() {
   const t = translations[lang];
   const { currency: activeCurrency, setCurrency: setGlobalCurrency, exchangeRate } = useCurrency();
 
+  const { themeColor: activeThemeColor, setThemeColor: setGlobalThemeColor } = useThemeColor();
+
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
   const [skillLevel, setSkillLevel] = useState<SkillLevel>("beginner");
@@ -101,6 +104,7 @@ export default function Settings() {
   const [upgradeUsername, setUpgradeUsername] = useState("");
   const [upgradePassword, setUpgradePassword] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const isGuest = (user as any)?.authType === "guest";
 
@@ -109,7 +113,7 @@ export default function Settings() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSettings({ ...defaultSettings, ...parsed });
+        setSettings({ ...defaultSettings, ...parsed, themeColor: activeThemeColor });
       } catch (e) {
         console.error("Failed to parse settings:", e);
       }
@@ -120,20 +124,33 @@ export default function Settings() {
     if (user?.skillLevel) {
       setSkillLevel(user.skillLevel as SkillLevel);
     }
-  }, [user?.nickname, user?.skillLevel]);
+    setSettings(prev => ({ ...prev, themeColor: activeThemeColor }));
+  }, [user?.nickname, user?.skillLevel, activeThemeColor]);
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
+    setIsSaving(true);
+    try {
+      await apiRequest("PATCH", "/api/profiles/settings", {
+        nickname: settings.nickname,
+        themeColor: settings.themeColor,
+      });
+      setGlobalThemeColor(settings.themeColor);
+      queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
+    } catch (e) {
+      console.error("Failed to save profile settings:", e);
+    }
     localStorage.setItem("dinolingo_settings", JSON.stringify(settings));
     localStorage.setItem("dinolingo_refresh_interval", settings.refreshInterval);
     localStorage.setItem("dinolingo_currency", settings.currency);
     localStorage.setItem("dinolingo_daily_goal", String(settings.dailyGoal));
-    localStorage.setItem("dinolingo_dino_color", settings.dinoColor);
+    localStorage.setItem("dinolingo_theme_color", settings.themeColor);
     setHasChanges(false);
+    setIsSaving(false);
     toast({
       title: t.changes_saved,
       duration: 2000,
@@ -212,7 +229,7 @@ export default function Settings() {
     logout();
   };
 
-  const colorLabel = (color: DinoColor) => {
+  const colorLabel = (color: ThemeColor) => {
     switch (color) {
       case "green": return t.color_green;
       case "blue": return t.color_blue;
@@ -257,19 +274,22 @@ export default function Settings() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-medium" data-testid="label-dino-color">{t.dino_color}</Label>
+            <Label className="text-sm font-medium" data-testid="label-theme-color">{t.theme_color}</Label>
             <div className="flex gap-3">
-              {DINO_COLORS.map((color) => (
+              {THEME_COLORS.map((color) => (
                 <Button
                   key={color.value}
-                  variant={settings.dinoColor === color.value ? "default" : "outline"}
-                  onClick={() => updateSetting("dinoColor", color.value)}
+                  variant={settings.themeColor === color.value ? "default" : "outline"}
+                  onClick={() => {
+                    updateSetting("themeColor", color.value);
+                    setGlobalThemeColor(color.value);
+                  }}
                   className="flex-1 h-12 gap-2"
                   data-testid={`button-color-${color.value}`}
                 >
                   <span className={cn("w-5 h-5 rounded-full", color.colorClass)} />
                   <span className="text-sm font-medium">{colorLabel(color.value)}</span>
-                  {settings.dinoColor === color.value && (
+                  {settings.themeColor === color.value && (
                     <Check className="w-4 h-4" />
                   )}
                 </Button>
@@ -632,9 +652,10 @@ export default function Settings() {
             <Button
               onClick={saveSettings}
               className="w-full h-12 font-semibold"
+              disabled={isSaving}
               data-testid="button-save-settings"
             >
-              <Check className="w-5 h-5 mr-2" />
+              {isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
               {t.save_changes}
             </Button>
           </div>

@@ -5,6 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { calculateLevel, xpProgressInLevel } from "@shared/leveling";
 import {
   Flame,
   Eye,
@@ -45,9 +46,10 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
     onClose();
   };
 
-  const level = Math.floor((user?.xp || 0) / 100) + 1;
-  const xpProgress = ((user?.xp || 0) % 100);
-  const eggsHatched = Math.floor((user?.xp || 0) / 1000);
+  const totalXp = (user as any)?.totalXp || 0;
+  const level = calculateLevel(totalXp);
+  const progress = xpProgressInLevel(totalXp);
+  const eggsHatched = Math.floor(totalXp / 1000);
 
   return (
     <AnimatePresence>
@@ -99,7 +101,7 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
                       {t.level} {level}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {user?.xp || 0} {t.xp}
+                      {totalXp} {t.xp}
                     </span>
                   </div>
                 </div>
@@ -108,11 +110,11 @@ export function UserMenu({ isOpen, onClose }: UserMenuProps) {
               <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all duration-500"
-                  style={{ width: `${xpProgress}%` }}
+                  style={{ width: `${progress.percent}%` }}
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1 text-right">
-                {xpProgress}/100 {t.to_next_level}
+                {progress.currentXpInLevel}/{progress.xpNeededForNext} {t.to_next_level}
               </p>
             </div>
 

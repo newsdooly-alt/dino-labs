@@ -10,6 +10,7 @@ import { translations } from "@/lib/translations";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
+import { calculateLevel, xpProgressInLevel } from "@shared/leveling";
 
 interface MarketMoodData {
   index: number;
@@ -89,10 +90,10 @@ export default function Dashboard() {
     );
   }
 
-  const currentLevel = user?.level || 1;
-  const currentXP = user?.xp || 0;
-  const xpForNextLevel = currentLevel * 100;
-  const xpPercent = Math.min(100, Math.round((currentXP / xpForNextLevel) * 100));
+  const totalXp = (user as any)?.totalXp || 0;
+  const currentLevel = calculateLevel(totalXp);
+  const levelProgress = xpProgressInLevel(totalXp);
+  const xpPercent = levelProgress.percent;
 
   const DAILY_QUEST_COUNT = 6;
   const completedQuests = Math.min(quests?.filter(q => q.isCompleted)?.length || 0, DAILY_QUEST_COUNT);
@@ -305,7 +306,7 @@ export default function Dashboard() {
               <Trophy className="w-3.5 h-3.5 text-yellow-500" />
               <span className="font-medium">{t.level} {currentLevel}</span>
               <span>·</span>
-              <span>{currentXP}/{xpForNextLevel} {t.xp}</span>
+              <span>{levelProgress.currentXpInLevel}/{levelProgress.xpNeededForNext} {t.xp}</span>
             </div>
             {(user as any)?.streak > 0 && (
               <div className="flex items-center gap-1">
