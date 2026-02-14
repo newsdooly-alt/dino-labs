@@ -6,7 +6,7 @@ import { translations } from "@/lib/translations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Newspaper, RefreshCw, CheckCircle2, Trophy, ArrowLeft, BookOpen } from "lucide-react";
+import { ExternalLink, Newspaper, RefreshCw, CheckCircle2, Trophy, ArrowLeft, BookOpen, ChevronDown, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
@@ -35,6 +35,16 @@ interface NewsItem {
   relatedSymbol: string;
   thumbnail: string | null;
   koreanSummary?: string;
+  isMarketOverview?: boolean;
+}
+
+interface NewsResponse {
+  news: NewsItem[];
+  count: number;
+  total: number;
+  page: number;
+  hasMore: boolean;
+  source: string;
 }
 
 export function DailyNews() {
@@ -46,17 +56,28 @@ export function DailyNews() {
   const t = translations[lang] as Record<string, string>;
 
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showExtraNews, setShowExtraNews] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [allNews, setAllNews] = useState<NewsItem[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const { data, isLoading } = useQuery<{ news: NewsItem[]; count: number }>({
-    queryKey: ["/api/news", lang],
+  const { data, isLoading } = useQuery<NewsResponse>({
+    queryKey: ["/api/news", lang, 1],
     queryFn: async () => {
-      const res = await fetch(`/api/news?lang=${lang}`);
+      const res = await fetch(`/api/news?lang=${lang}&page=1&limit=5`);
       if (!res.ok) throw new Error("Failed to fetch news");
       return res.json();
     },
     staleTime: 300000,
   });
+
+  useEffect(() => {
+    if (data?.news) {
+      setAllNews(data.news);
+      setHasMore(data.hasMore || false);
+      setCurrentPage(1);
+    }
+  }, [data]);
 
   const { data: readCount } = useQuery<{ count: number }>({
     queryKey: ["/api/news/read-count"],
@@ -102,6 +123,24 @@ export function DailyNews() {
     window.open(link, "_blank", "noopener,noreferrer");
   };
 
+  const handleLoadMore = async () => {
+    const nextPage = currentPage + 1;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/news?lang=${lang}&page=${nextPage}&limit=5`);
+      if (res.ok) {
+        const result: NewsResponse = await res.json();
+        setAllNews(prev => [...prev, ...result.news]);
+        setHasMore(result.hasMore || false);
+        setCurrentPage(nextPage);
+      }
+    } catch (err) {
+      console.error("Failed to load more news:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     return date.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", {
@@ -111,9 +150,6 @@ export function DailyNews() {
       minute: "2-digit"
     });
   };
-
-  const newsItems = data?.news || [];
-  const visibleNews = questComplete && !showExtraNews ? newsItems.slice(0, DAILY_NEWS_GOAL) : newsItems;
 
   return (
     <div className="space-y-6">
@@ -175,7 +211,6 @@ export function DailyNews() {
                     <Button
                       onClick={() => {
                         setShowCelebration(false);
-                        setShowExtraNews(true);
                       }}
                       className="gap-2"
                       data-testid="button-read-more-news"
@@ -207,32 +242,22 @@ export function DailyNews() {
         )}
       </AnimatePresence>
 
-      {questComplete && !showCelebration && !showExtraNews && (
+      {questComplete && !showCelebration && (
         <Card className="border-blue-500/30 bg-blue-500/5 dark:bg-blue-500/10">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 <span className="font-medium text-green-600 dark:text-green-400">{t.daily_news_complete}</span>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowExtraNews(true)}
-                  data-testid="button-read-more-after-complete"
-                >
-                  {t.read_more_news}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => navigate("/")}
-                  data-testid="button-go-dashboard-from-news"
-                >
-                  {t.back_to_dashboard}
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => navigate("/")}
+                data-testid="button-go-dashboard-from-news"
+              >
+                {t.back_to_dashboard}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -254,16 +279,16 @@ export function DailyNews() {
             </Card>
           ))}
         </div>
-      ) : visibleNews.length > 0 ? (
+      ) : allNews.length > 0 ? (
         <div className="space-y-4">
-          {visibleNews.map((item, idx) => (
+          {allNews.map((item, idx) => (
             <motion.div
-              key={idx}
+              key={`${item.title}-${idx}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: Math.min(idx, 5) * 0.1 }}
             >
-              <Card className="overflow-hidden hover:border-primary/50 transition-colors">
+              <Card className={`overflow-hidden transition-colors ${item.isMarketOverview ? 'border-blue-500/30 bg-blue-500/5 dark:bg-blue-500/10' : ''}`}>
                 <CardContent className="py-4">
                   <div className="flex items-start gap-4">
                     {item.thumbnail && (
@@ -274,10 +299,15 @@ export function DailyNews() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Badge variant="secondary" className="text-xs">
                           {item.relatedSymbol}
                         </Badge>
+                        {item.isMarketOverview && (
+                          <Badge variant="outline" className="text-xs text-blue-500 border-blue-500/30">
+                            {lang === "ko" ? "시장 전체" : "Market Overview"}
+                          </Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {item.publisher}
                         </span>
@@ -314,6 +344,25 @@ export function DailyNews() {
               </Card>
             </motion.div>
           ))}
+
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="gap-2"
+                data-testid="button-load-more-news"
+              >
+                {loadingMore ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+                {lang === "ko" ? "더보기" : "Read More"}
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <Card>

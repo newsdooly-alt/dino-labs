@@ -954,24 +954,71 @@ export async function registerRoutes(
     }
   ];
   
+  const marketOverviewFallback = {
+    title: "Market Overview: Major indices mixed as investors weigh economic data and earnings season",
+    publisher: "Market Analysis",
+    link: "https://finance.yahoo.com",
+    publishedAt: Math.floor(Date.now() / 1000) - 1800,
+    relatedSymbol: "SPY",
+    thumbnail: null,
+    koreanSummary: "시장 전체 상황: 투자자들이 경제 지표와 실적 시즌을 주시하는 가운데 주요 지수가 혼조세를 보이고 있습니다.",
+    isMarketOverview: true,
+  };
+
+  const marketOverviewKeywords = ['market', 'index', 'indices', 's&p', 'dow', 'nasdaq', 'wall street', 'fed', 'economy', 'inflation', 'gdp', 'jobs', 'employment', 'rate', 'recession', 'rally', 'sell-off', 'bull', 'bear'];
+
+  function isMarketOverviewArticle(title: string): boolean {
+    const lower = title.toLowerCase();
+    return marketOverviewKeywords.some(kw => lower.includes(kw));
+  }
+
+  let cachedAllNews: any[] = [];
+  let newsCacheTime = 0;
+  const NEWS_CACHE_DURATION = 5 * 60 * 1000;
+
   app.get("/api/news", async (req, res) => {
     const lang = (req.query.lang as string) || 'en';
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
     
     try {
-      console.log("[News API] Fetching market news...");
-      const newsItems = await getMarketNews();
-      console.log(`[News API] Received ${newsItems.length} news items from yfinance`);
-      
-      // Use fallback if no news items returned
-      if (!newsItems || newsItems.length === 0) {
-        console.log("[News API] No news from yfinance, using fallback data");
-        return res.json({ news: fallbackNews, count: fallbackNews.length, source: "fallback" });
+      const now = Date.now();
+      if (cachedAllNews.length === 0 || (now - newsCacheTime) > NEWS_CACHE_DURATION) {
+        console.log("[News API] Fetching market news...");
+        const newsItems = await getMarketNews();
+        console.log(`[News API] Received ${newsItems.length} news items from yfinance`);
+        
+        if (newsItems && newsItems.length > 0) {
+          cachedAllNews = newsItems.map(item => ({
+            ...item,
+            isMarketOverview: isMarketOverviewArticle(item.title),
+          }));
+          newsCacheTime = now;
+        }
       }
       
-      // If Korean language requested, generate AI summaries
-      if (lang === 'ko' && newsItems.length > 0) {
+      let allNews = cachedAllNews.length > 0 ? [...cachedAllNews] : [...fallbackNews];
+      
+      const hasOverview = allNews.slice(0, 3).some(n => n.isMarketOverview);
+      if (!hasOverview) {
+        const overviewIdx = allNews.findIndex(n => n.isMarketOverview);
+        if (overviewIdx > 2) {
+          const overview = allNews.splice(overviewIdx, 1)[0];
+          allNews.splice(0, 0, overview);
+        } else if (overviewIdx === -1) {
+          allNews.unshift(marketOverviewFallback);
+        }
+      }
+      
+      const total = allNews.length;
+      const startIdx = (page - 1) * limit;
+      const pageItems = allNews.slice(startIdx, startIdx + limit);
+      const hasMore = startIdx + limit < total;
+      
+      if (lang === 'ko' && pageItems.length > 0) {
         const newsWithSummaries = await Promise.all(
-          newsItems.slice(0, 5).map(async (item) => {
+          pageItems.map(async (item) => {
+            if (item.koreanSummary) return item;
             try {
               const summaryResponse = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
@@ -981,26 +1028,25 @@ export async function registerRoutes(
                 ],
                 max_tokens: 100,
               });
-              
               return {
                 ...item,
                 koreanSummary: summaryResponse.choices[0]?.message?.content || item.title
               };
             } catch (summaryError) {
-              console.error("[News API] Korean summary generation failed:", summaryError);
               return { ...item, koreanSummary: item.title };
             }
           })
         );
         
-        return res.json({ news: newsWithSummaries, count: newsWithSummaries.length, source: "live" });
+        return res.json({ news: newsWithSummaries, count: newsWithSummaries.length, total, page, hasMore, source: "live" });
       }
       
-      res.json({ news: newsItems.slice(0, 5), count: Math.min(newsItems.length, 5), source: "live" });
+      res.json({ news: pageItems, count: pageItems.length, total, page, hasMore, source: cachedAllNews.length > 0 ? "live" : "fallback" });
     } catch (error: any) {
       console.error("[News API] Error fetching news:", error.message || error);
-      console.log("[News API] Returning fallback news data");
-      res.json({ news: fallbackNews, count: fallbackNews.length, source: "fallback" });
+      const startIdx = (page - 1) * limit;
+      const pageItems = fallbackNews.slice(startIdx, startIdx + limit);
+      res.json({ news: pageItems, count: pageItems.length, total: fallbackNews.length, page, hasMore: startIdx + limit < fallbackNews.length, source: "fallback" });
     }
   });
 
@@ -1040,7 +1086,7 @@ export async function registerRoutes(
     res.json({ count: getUserNewsCount(userId) });
   });
 
-  // === Breaking News Quiz Engine (v3 - 7 Sources, Keyword Highlighting, Anti-Repetition) ===
+  // === Breaking News Quiz Engine (v4 - 20 Sources, 100+ Categories, Market-Aware) ===
   type QuizCategory = 'valuation' | 'impact' | 'technical' | 'movement';
 
   const categoryOptions: Record<QuizCategory, { en: [string, string]; ko: [string, string] }> = {
@@ -1050,7 +1096,7 @@ export async function registerRoutes(
     movement:  { en: ['Upward (상승)', 'Downward (하락)'],            ko: ['상승 (Upward)', '하락 (Downward)'] },
   };
 
-  type DataSource = 'live_news' | 'pe_ratios' | 'dividend_yield' | 'technical_rsi' | 'fear_greed' | 'earnings' | 'macro_events' | 'moving_average' | 'industry_trends' | 'kospi_news';
+  type DataSource = 'live_news' | 'pe_ratios' | 'dividend_yield' | 'technical_rsi' | 'fear_greed' | 'earnings' | 'macro_events' | 'moving_average' | 'industry_trends' | 'kospi_news' | 'market_cap_analysis' | 'revenue_growth' | 'debt_equity' | 'sector_rotation' | 'insider_trading' | 'short_interest' | 'options_flow' | 'global_markets' | 'commodity_impact' | 'currency_fx';
 
   const dataSourceToCategory: Record<DataSource, QuizCategory> = {
     live_news: 'impact',
@@ -1063,6 +1109,16 @@ export async function registerRoutes(
     moving_average: 'technical',
     industry_trends: 'impact',
     kospi_news: 'impact',
+    market_cap_analysis: 'valuation',
+    revenue_growth: 'impact',
+    debt_equity: 'valuation',
+    sector_rotation: 'movement',
+    insider_trading: 'impact',
+    short_interest: 'technical',
+    options_flow: 'movement',
+    global_markets: 'movement',
+    commodity_impact: 'impact',
+    currency_fx: 'movement',
   };
 
   const quizHistory: Map<string, string[]> = new Map();
@@ -1099,6 +1155,8 @@ export async function registerRoutes(
     const sources: DataSource[] = [
       'live_news', 'pe_ratios', 'earnings', 'technical_rsi', 'fear_greed',
       'dividend_yield', 'macro_events', 'moving_average', 'industry_trends', 'kospi_news',
+      'market_cap_analysis', 'revenue_growth', 'debt_equity', 'sector_rotation', 'insider_trading',
+      'short_interest', 'options_flow', 'global_markets', 'commodity_impact', 'currency_fx',
     ];
     const current = sessionSourceIndex.get(sessionKey) ?? -1;
     const next = (current + 1) % sources.length;
@@ -1259,6 +1317,86 @@ export async function registerRoutes(
           'Create a question about Korean industry competitiveness (semiconductors, batteries, entertainment) in the global market.',
         ],
       },
+      market_cap_analysis: {
+        focus: 'Focus on market capitalization trends, large-cap vs small-cap dynamics, market cap relative to revenue/earnings, and whether the company size justifies its valuation.',
+        templates: [
+          'Ask whether a company\'s market cap is justified given its revenue multiple compared to peers.',
+          'Present a scenario where market cap has grown faster than fundamentals and ask for a valuation assessment.',
+          'Create a question about market cap concentration in an index and what it signals about the stock\'s valuation.',
+        ],
+      },
+      revenue_growth: {
+        focus: 'Focus on revenue growth trends: year-over-year growth rates, revenue acceleration/deceleration, organic vs. acquisition-driven growth, and revenue quality.',
+        templates: [
+          'Present a revenue growth acceleration or deceleration scenario and ask whether it is positive or negative for the stock.',
+          'Ask about the implications of a company shifting from high growth to stable growth on investor sentiment.',
+          'Create a question about revenue quality (recurring vs. one-time) and its impact on the stock.',
+        ],
+      },
+      debt_equity: {
+        focus: 'Focus on debt-to-equity ratios, leverage levels, interest coverage, credit ratings, and balance sheet health relative to industry norms.',
+        templates: [
+          'Ask whether a company\'s debt-to-equity ratio suggests it is overvalued or undervalued given industry benchmarks.',
+          'Present a scenario of rising leverage amid falling earnings and ask for a valuation assessment.',
+          'Create a question about how a credit rating change impacts the perceived valuation of the company.',
+        ],
+      },
+      sector_rotation: {
+        focus: 'Focus on sector rotation patterns: money flowing from defensive to cyclical sectors (or vice versa), sector performance divergence, and business cycle positioning.',
+        templates: [
+          'Ask about the likely market direction when institutional money rotates from growth to value sectors.',
+          'Present a scenario of capital flowing into defensive sectors and ask what it signals for market direction.',
+          'Create a question about sector ETF flow data and what the rotation pattern suggests about the market cycle.',
+        ],
+      },
+      insider_trading: {
+        focus: 'Focus on insider buying/selling patterns: CEO purchases, cluster buying, Form 4 filings, insider selling after lockup expiration, and what insider activity signals.',
+        templates: [
+          'Present a scenario of significant insider buying by multiple executives and ask if it is positive or negative news.',
+          'Ask about the implications of a CEO selling a large stake shortly after earnings guidance was raised.',
+          'Create a question about cluster insider buying at a multi-year low and its signal for investors.',
+        ],
+      },
+      short_interest: {
+        focus: 'Focus on short interest levels, days-to-cover ratios, short squeeze potential, and changes in short positions as contrarian or confirming indicators.',
+        templates: [
+          'Ask whether elevated short interest with declining borrow availability suggests the stock is overbought or oversold.',
+          'Present a short squeeze scenario with rapidly rising short interest and ask for a technical assessment.',
+          'Create a question about declining short interest after a prolonged sell-off and what it signals technically.',
+        ],
+      },
+      options_flow: {
+        focus: 'Focus on unusual options activity: large call/put sweeps, put-call ratio shifts, implied volatility skew, and what smart money positioning in the options market signals.',
+        templates: [
+          'Ask what a surge in call option volume with rising implied volatility suggests about expected market direction.',
+          'Present a scenario of heavy put buying ahead of earnings and ask about the expected directional move.',
+          'Create a question about put-call ratio extremes and what they historically signal for near-term market direction.',
+        ],
+      },
+      global_markets: {
+        focus: 'Focus on international market movements: European/Asian market performance, global risk-on/risk-off dynamics, cross-market correlations, and how overseas sessions impact U.S. markets.',
+        templates: [
+          'Ask about the likely U.S. market direction when Asian and European markets rally overnight on stimulus news.',
+          'Present a scenario of emerging market currency crises and ask about the expected direction for global equities.',
+          'Create a question about divergence between U.S. and international markets and what it signals for direction.',
+        ],
+      },
+      commodity_impact: {
+        focus: 'Focus on commodity price movements: oil price shocks, gold as a safe haven, copper as an economic indicator, agricultural commodities, and their impact on related equities.',
+        templates: [
+          'Ask whether a sharp rise in oil prices is positive or negative news for airline and transportation stocks.',
+          'Present a scenario of surging gold prices amid geopolitical tensions and ask about the impact on mining stocks.',
+          'Create a question about copper price trends and what they signal about industrial sector health.',
+        ],
+      },
+      currency_fx: {
+        focus: 'Focus on foreign exchange movements: USD strength/weakness, EUR/USD, USD/JPY, emerging market currencies, and how currency moves impact multinational earnings and trade competitiveness.',
+        templates: [
+          'Ask about the likely direction of export-heavy stocks when the domestic currency strengthens significantly.',
+          'Present a scenario of rapid dollar weakening and ask about the expected impact on U.S. market direction.',
+          'Create a question about currency hedging costs rising and what it signals for multinational stock direction.',
+        ],
+      },
     };
 
     const sourceConfig = sourceTemplates[source] || sourceTemplates['live_news'];
@@ -1274,7 +1412,8 @@ export async function registerRoutes(
     if (isKorean) {
       return `${fundamentals.name} (${fundamentals.symbol})의 실시간 데이터를 기반으로 투자자 교육용 퀴즈 문제 1개를 만들어주세요.
 
-현재 데이터: 주가 ${currencySymbol}${currencySymbol === '₩' ? Math.round(fundamentals.price).toLocaleString() : fundamentals.price.toFixed(2)}, 등락 ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
+오늘 날짜: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+현재 데이터: 주가 ${currencySymbol}${currencySymbol === '₩' ? Math.round(fundamentals.price).toLocaleString() : fundamentals.price.toFixed(2)}, 등락 ${fundamentals.changePercent.toFixed(2)}%, 오늘 세션 변동: ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
 
 데이터 초점: ${dataFocus}
 문제 패턴: ${templateHint}
@@ -1288,6 +1427,7 @@ export async function registerRoutes(
 - category는 반드시 "${cat}"으로 설정
 - correctAnswer는 반드시 ${categoryAnswerGuide[cat]}
 - 이전 문제와 다른 새로운 관점의 질문을 만들어주세요
+- 관련이 있을 때 오늘의 실제 시장 상황과 날짜를 질문에 반영하세요
 
 JSON 형식으로 정확히 반환:
 {"headline": "한국어 질문 내용 (핵심어 **볼드**)", "category": "${cat}", "correctAnswer": "${categoryAnswerGuide[cat]}", "explanation": "한국어 2-3문장의 전문적인 해설 (핵심어 **볼드**)"}`;
@@ -1295,7 +1435,8 @@ JSON 형식으로 정확히 반환:
 
     return `Create 1 professional investment quiz question based on real data for ${fundamentals.name} (${fundamentals.symbol}).
 
-Current data: Price ${currencySymbol}${currencySymbol === '₩' ? Math.round(fundamentals.price).toLocaleString() : fundamentals.price.toFixed(2)}, Change ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
+Today's date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+Current data: Price ${currencySymbol}${currencySymbol === '₩' ? Math.round(fundamentals.price).toLocaleString() : fundamentals.price.toFixed(2)}, Change ${fundamentals.changePercent.toFixed(2)}%, Today's session change: ${fundamentals.changePercent.toFixed(2)}%, ${fundamentalsContext}
 
 Data focus: ${dataFocus}
 Question pattern: ${templateHint}
@@ -1307,6 +1448,7 @@ Rules:
 - category MUST be "${cat}"
 - correctAnswer MUST ${categoryAnswerGuide[cat]}
 - Create a unique question that differs from previous ones
+- Reference today's actual market conditions and date in your question when relevant.
 
 Return EXACTLY this JSON:
 {"headline": "question text with **bold keywords**", "category": "${cat}", "correctAnswer": "answer matching category", "explanation": "2-3 sentence explanation with **bold keywords**"}`;
@@ -1379,6 +1521,36 @@ Return EXACTLY this JSON:
     { id: "fb42", source: "kospi_news", level: "advanced", symbol: "373220.KS", companyName: "LG Energy Solution", category: "impact", correctAnswerIndex: 0, headline: "**LG Energy Solution** achieves **400Wh/kg** energy density in **solid-state battery** prototype testing, **1.5x** current lithium-ion battery performance. Mass production target set for **2027**. Impact on the battery industry?", explanation: "Achieving **400Wh/kg** energy density represents a technological breakthrough in next-gen batteries. **1.5x** performance improvement over current tech with a concrete production timeline boosts investor confidence, making this **positive**." },
     { id: "fb43", source: "kospi_news", level: "advanced", symbol: "068270.KS", companyName: "Celltrion", category: "impact", correctAnswerIndex: 0, headline: "**Celltrion's** biosimilar **Zymfentra** receives **FDA** approval for subcutaneous self-injection. The U.S. market size is **$12B**, and it will launch at **30%** below the originator drug price. Impact assessment?", explanation: "**FDA** approval in a **$12B** U.S. market opens a massive revenue opportunity. **30%** price competitiveness supports market share capture, making this **positive** for the biosimilar company." },
     { id: "fb44", source: "kospi_news", level: "beginner", symbol: "259960.KS", companyName: "Krafton", category: "impact", correctAnswerIndex: 0, headline: "**Krafton's** **PUBG** surpasses **$10B** in lifetime global revenue. Its new game **Dark and Darker Mobile** reaches **20M** pre-registrations, raising expectations for the next hit title. What does this mean?", explanation: "Breaking **$10B** lifetime revenue proves the IP's sustained monetization power. **20M pre-registrations** for the new title show strong early demand, making this **positive** for the gaming company." },
+
+    { id: "fb45", source: "market_cap_analysis", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "valuation", correctAnswerIndex: 0, headline: "**Apple's** market cap reaches **$3.5 trillion**, trading at **9x revenue** while the tech sector average is **5x revenue**. Revenue growth has slowed to **2%** annually. Is this stock overvalued or undervalued?", explanation: "A **9x revenue** multiple is nearly double the sector average, and **2% revenue growth** does not justify the premium. The massive **$3.5T market cap** appears stretched relative to fundamentals, suggesting **overvaluation**." },
+    { id: "fb46", source: "market_cap_analysis", level: "advanced", symbol: "MSFT", companyName: "Microsoft Corp", category: "valuation", correctAnswerIndex: 1, headline: "**Microsoft** trades at **$2.8T** market cap with a **price-to-FCF ratio** of **28x**, below its 5-year average of **35x**. **Cloud revenue** is growing at **29%** and now represents **55%** of total revenue. Assessment?", explanation: "Trading below historical **price-to-FCF** multiples while **cloud revenue** accelerates to 55% of the mix signals improving business quality. The market cap is well-supported by **high-margin recurring revenue**, suggesting the stock is **undervalued**." },
+
+    { id: "fb47", source: "revenue_growth", level: "beginner", symbol: "AMZN", companyName: "Amazon.com Inc.", category: "impact", correctAnswerIndex: 0, headline: "**Amazon** reports **quarterly revenue** of **$170B**, up **14% YoY**, accelerating from **9%** growth last quarter. **AWS** revenue growth reaccelerates to **19%**. Is this positive or negative?", explanation: "Revenue growth **accelerating** from 9% to 14% shows improving business momentum. **AWS** reacceleration to 19% confirms strengthening cloud demand. Growth acceleration is clearly **positive** for investor sentiment." },
+    { id: "fb48", source: "revenue_growth", level: "advanced", symbol: "CRM", companyName: "Salesforce Inc.", category: "impact", correctAnswerIndex: 1, headline: "**Salesforce** reports **$9.5B** quarterly revenue, up **8% YoY**, decelerating from **11%** last quarter. **Organic growth** excluding acquisitions is only **5%**. Management attributes slowdown to **enterprise spending caution**. Impact?", explanation: "Revenue growth **decelerating** from 11% to 8% with organic growth at just **5%** signals weakening demand. **Enterprise spending caution** suggests the slowdown may persist, making this **negative** for the stock." },
+
+    { id: "fb49", source: "debt_equity", level: "beginner", symbol: "META", companyName: "Meta Platforms", category: "valuation", correctAnswerIndex: 1, headline: "**Meta** has a **debt-to-equity ratio** of **0.25x**, well below the tech sector average of **0.8x**. The company holds **$65B** in cash and equivalents with **zero net debt**. How should this balance sheet be assessed?", explanation: "A **D/E ratio** of 0.25x with **$65B cash** and no net debt represents exceptional financial strength. This fortress balance sheet provides flexibility for buybacks, M&A, and investment, suggesting the stock may be **undervalued**." },
+    { id: "fb50", source: "debt_equity", level: "advanced", symbol: "NFLX", companyName: "Netflix Inc.", category: "valuation", correctAnswerIndex: 0, headline: "A media company's **debt-to-equity** surges to **2.5x** from **1.2x** after a **$15B** acquisition. **Interest coverage** drops to **3.2x** while **EBITDA margins** compress **500bps**. The **credit rating** is placed on negative watch. Assessment?", explanation: "**D/E doubling** to 2.5x with deteriorating **interest coverage** at 3.2x and a negative credit watch signals balance sheet stress. Combined with **margin compression**, the elevated leverage suggests **overvaluation** given increased financial risk." },
+
+    { id: "fb51", source: "sector_rotation", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "Institutional investors are **rotating** heavily from **technology** and **growth stocks** into **utilities**, **healthcare**, and **consumer staples**. The **defensive sector ETFs** have outperformed by **8%** over the past month. Expected market direction?", explanation: "Rotation into **defensive sectors** like utilities and healthcare signals institutional investors are preparing for economic slowdown. This risk-off behavior historically precedes market weakness, suggesting a **downward** direction." },
+    { id: "fb52", source: "sector_rotation", level: "advanced", symbol: "QQQ", companyName: "Invesco QQQ Trust", category: "movement", correctAnswerIndex: 0, headline: "Fund flow data shows **$25B** rotating from **bonds and cash** into **cyclical sectors**: **industrials** (+$8B), **financials** (+$7B), and **materials** (+$5B) over two weeks. The **ISM Manufacturing PMI** rebounds to **52.5** from **48.7**. Direction?", explanation: "Massive rotation from safety assets into **cyclical sectors** combined with **PMI** crossing above 50 signals an economic recovery narrative. This risk-on rotation with improving manufacturing data points to **upward** market momentum." },
+
+    { id: "fb53", source: "insider_trading", level: "beginner", symbol: "GOOGL", companyName: "Alphabet Inc.", category: "impact", correctAnswerIndex: 0, headline: "Three **Alphabet** executives purchase a combined **$12M** in company stock on the open market within one week. The **CEO** alone bought **$5M** worth of shares, his largest personal purchase in **3 years**. Is this positive or negative?", explanation: "**Cluster insider buying** by multiple executives, especially a large **CEO purchase**, signals strong management confidence in the company's future. Insiders rarely risk personal capital unless they believe the stock is undervalued, making this clearly **positive**." },
+    { id: "fb54", source: "insider_trading", level: "advanced", symbol: "TSLA", companyName: "Tesla, Inc.", category: "impact", correctAnswerIndex: 1, headline: "A CEO sells **$4.5B** in company stock over 10 days via a **10b5-1 plan** filed just **45 days** after raising full-year guidance. Two other C-suite officers also sell **$800M** combined. The insider **sell-to-buy ratio** hits **50:1**. Impact?", explanation: "**$5.3B** in combined insider selling with a **50:1 sell-to-buy ratio** shortly after a guidance raise raises serious concerns. The concentrated selling window despite positive guidance suggests insiders may lack conviction, making this **negative** for sentiment." },
+
+    { id: "fb55", source: "short_interest", level: "beginner", symbol: "AMD", companyName: "Advanced Micro Devices", category: "technical", correctAnswerIndex: 0, headline: "**AMD's** short interest surges to **12%** of float, up from **5%** three months ago. **Days-to-cover** reaches **8 days** as borrow fees spike to **15%** annually. Is this stock overbought or oversold?", explanation: "While high **short interest** at 12% reflects bearish bets, the elevated **days-to-cover** of 8 and spiking **borrow fees** create short squeeze potential. The stock is technically in **overbought** territory due to the squeeze dynamics pushing prices higher." },
+    { id: "fb56", source: "short_interest", level: "advanced", symbol: "NVDA", companyName: "NVIDIA Corp", category: "technical", correctAnswerIndex: 1, headline: "**Short interest** in a chip stock drops from **9%** to **2.5%** of float over 6 weeks after a **40% price decline**. **Put open interest** is also declining while **call skew** normalizes. The **days-to-cover** ratio falls to **1.2 days**. Assessment?", explanation: "Rapidly declining **short interest** from 9% to 2.5% after a major selloff means bears are covering positions, reducing downward pressure. Combined with normalizing **options skew** and low **days-to-cover**, this suggests the stock is **oversold** and shorts see limited further downside." },
+
+    { id: "fb57", source: "options_flow", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "movement", correctAnswerIndex: 0, headline: "Unusual **options activity** detected: **$50M** in **call sweeps** on **Apple** at the **$200 strike**, expiring in 2 weeks. The **put-call ratio** drops to **0.5**, well below the 6-month average of **0.85**. Expected direction?", explanation: "Large **call sweeps** worth $50M represent aggressive bullish bets by institutional traders. A **put-call ratio** of 0.5 (far below average) shows overwhelming call buying, signaling expected **upward** movement." },
+    { id: "fb58", source: "options_flow", level: "advanced", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "**SPY options** show **$2B** in protective **put buying** at the **$420 strike** by a single institutional block. **Implied volatility** on 30-day puts jumps **40%** while the **VIX term structure** inverts. **Call-put open interest ratio** drops to **0.7**. Direction?", explanation: "A **$2B put block** signals major institutional hedging. **Inverted VIX term structure** means near-term fear exceeds long-term, a classic pre-decline signal. Combined with the low **call-put ratio**, smart money is positioned for **downward** movement." },
+
+    { id: "fb59", source: "global_markets", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 0, headline: "Overnight, **European markets** rally **2.5%** after the **ECB** announces a surprise stimulus package. **Asian markets** close up **1.8%** with **Japan's Nikkei** hitting a new all-time high. What direction will the U.S. market likely open?", explanation: "Strong rallies across **European** and **Asian** markets create positive momentum that typically carries into U.S. trading. The **ECB stimulus** adds global liquidity, and international strength signals risk-on sentiment, pointing to an **upward** U.S. open." },
+    { id: "fb60", source: "global_markets", level: "advanced", symbol: "QQQ", companyName: "Invesco QQQ Trust", category: "movement", correctAnswerIndex: 1, headline: "**China's** stock market falls **6%** in one session as property developer defaults trigger **$300B** in contagion fears. **European banks** with China exposure drop **4%**. The **MSCI Emerging Markets Index** enters a bear market, down **22%**. Direction for U.S. equities?", explanation: "A **6% China crash** with contagion spreading to **European banks** and emerging markets entering a **bear market** creates systemic risk-off pressure. Cross-market correlations tighten during crises, making **downward** pressure on U.S. equities highly likely." },
+
+    { id: "fb61", source: "commodity_impact", level: "beginner", symbol: "AAPL", companyName: "Apple Inc.", category: "impact", correctAnswerIndex: 1, headline: "**Oil prices** surge **25%** to **$110/barrel** after major supply disruptions in the Middle East. **Transportation costs** spike and **consumer spending** forecasts are revised downward. How does this impact most consumer-facing companies?", explanation: "A **25% oil price surge** increases transportation and production costs for consumer companies while reducing **consumer spending** power. Higher energy costs act as a tax on consumers and businesses, making this broadly **negative** for consumer-facing stocks." },
+    { id: "fb62", source: "commodity_impact", level: "advanced", symbol: "GOOGL", companyName: "Alphabet Inc.", category: "impact", correctAnswerIndex: 0, headline: "**Copper prices** rise **18%** over 3 months to **$5.20/lb**, driven by global **data center construction** and **EV infrastructure** buildout. **Mining stocks** lag copper's advance with copper-to-gold ratio at a **2-year high**. Impact on industrial demand-linked sectors?", explanation: "**Copper** rising 18% on **data center** and **EV** demand signals robust industrial expansion. The high **copper-to-gold ratio** confirms risk-on conditions. Strong copper demand driven by secular growth trends is **positive** for industrial and infrastructure sectors." },
+
+    { id: "fb63", source: "currency_fx", level: "beginner", symbol: "MSFT", companyName: "Microsoft Corp", category: "movement", correctAnswerIndex: 1, headline: "The **U.S. dollar** strengthens **8%** against a basket of major currencies over the past quarter. **Multinational companies** with over **50%** international revenue face significant **currency headwinds**. What direction does this push export-heavy stock prices?", explanation: "A stronger **dollar** reduces the value of overseas earnings when converted back to USD. For companies with **50%+ international revenue**, an **8% dollar appreciation** creates substantial headwinds, pushing stock prices **downward**." },
+    { id: "fb64", source: "currency_fx", level: "advanced", symbol: "AAPL", companyName: "Apple Inc.", category: "movement", correctAnswerIndex: 0, headline: "The **Dollar Index (DXY)** falls **5%** in 6 weeks as the **Fed** signals rate cuts while **ECB** and **BOJ** hold rates. **USD/JPY** drops from **155 to 142** and **EUR/USD** rises to **1.15**. Impact on U.S. multinational earnings direction?", explanation: "A **5% DXY decline** provides a **tailwind** to multinational earnings as foreign revenues translate into more dollars. Favorable **USD/JPY** and **EUR/USD** moves boost major markets like Japan and Europe for U.S. exporters, pointing to **upward** earnings revisions." },
   ];
 
   const fallbackQuizzesKo: FallbackQuiz[] = [
@@ -1451,6 +1623,36 @@ Return EXACTLY this JSON:
     { id: "fb44", source: "kospi_news", level: "beginner", symbol: "259960.KS", companyName: "크래프톤", category: "impact", correctAnswerIndex: 0,
       headline: "**크래프톤**의 **배틀그라운드** 글로벌 누적 매출이 **$100억**을 돌파했습니다. 신규 게임 **다크앤다커 모바일**의 사전 등록 수가 **2,000만 건**을 기록하며 차기 히트작 기대감이 높아지고 있습니다. 이 소식은?",
       explanation: "**$100억** 누적 매출 돌파는 IP의 지속적 수익 창출력을 증명합니다. 신작 **사전 등록 2,000만 건**은 강한 초기 수요를 보여주며, 게임사에 **호재**입니다." },
+
+    { id: "fb45", source: "market_cap_analysis", level: "beginner", symbol: "AAPL", companyName: "애플", category: "valuation", correctAnswerIndex: 0, headline: "**애플**의 시가총액이 **$3.5조**에 도달했으며, **매출 대비 9배**로 거래되고 있습니다. 테크 섹터 평균은 **5배**이며 매출 성장률은 연 **2%**로 둔화되었습니다. 이 종목은 고평가일까요, 저평가일까요?", explanation: "**매출 대비 9배** 멀티플은 섹터 평균의 거의 2배이며, **2% 매출 성장**은 이 프리미엄을 정당화하지 못합니다. **$3.5조** 시가총액은 펀더멘털 대비 과도하여 **고평가**를 시사합니다." },
+    { id: "fb46", source: "market_cap_analysis", level: "advanced", symbol: "MSFT", companyName: "마이크로소프트", category: "valuation", correctAnswerIndex: 1, headline: "**마이크로소프트**가 **$2.8조** 시가총액에 **FCF 대비 28배**로 거래 중이며, 이는 5년 평균 **35배**보다 낮습니다. **클라우드 매출**이 **29%** 성장하며 전체 매출의 **55%**를 차지합니다. 평가는?", explanation: "역사적 **FCF 배수** 아래에서 거래되면서 **클라우드 매출**이 가속화되는 것은 사업 품질 개선을 의미합니다. **고마진 반복 매출**이 시가총액을 뒷받침하며 **저평가**를 시사합니다." },
+
+    { id: "fb47", source: "revenue_growth", level: "beginner", symbol: "AMZN", companyName: "아마존", category: "impact", correctAnswerIndex: 0, headline: "**아마존**이 분기 매출 **$1,700억**을 보고하며 전년 대비 **14%** 성장했습니다. 전분기 **9%** 성장에서 가속화되었고 **AWS** 매출 성장률도 **19%**로 재가속되었습니다. 이는 긍정적일까요, 부정적일까요?", explanation: "매출 성장이 9%에서 **14%로 가속**된 것은 사업 모멘텀 개선을 보여줍니다. **AWS**의 19% 재가속은 클라우드 수요 강화를 확인하며 투자 심리에 명확한 **호재**입니다." },
+    { id: "fb48", source: "revenue_growth", level: "advanced", symbol: "CRM", companyName: "세일즈포스", category: "impact", correctAnswerIndex: 1, headline: "**세일즈포스**가 분기 매출 **$95억**을 보고하며 전년 대비 **8%** 성장했지만, 전분기 **11%**에서 둔화되었습니다. 인수를 제외한 **유기적 성장**은 **5%**에 불과합니다. 경영진은 **기업 지출 신중론**을 원인으로 꼽았습니다. 영향은?", explanation: "매출 성장이 11%에서 **8%로 감속**되고 유기적 성장이 **5%**에 그치는 것은 수요 약화를 의미합니다. **기업 지출 신중론**은 둔화 지속 가능성을 시사하며 주식에 **악재**입니다." },
+
+    { id: "fb49", source: "debt_equity", level: "beginner", symbol: "META", companyName: "메타", category: "valuation", correctAnswerIndex: 1, headline: "**메타**의 **부채비율**이 **0.25배**로 테크 섹터 평균 **0.8배**보다 훨씬 낮습니다. 현금 및 현금성 자산이 **$650억**이며 **순부채는 제로**입니다. 이 재무제표를 어떻게 평가해야 할까요?", explanation: "**부채비율 0.25배**에 **$650억 현금**, 순부채 제로는 탁월한 재무 건전성을 의미합니다. 이 요새 같은 재무제표는 자사주매입, M&A, 투자 유연성을 제공하며 **저평가**를 시사합니다." },
+    { id: "fb50", source: "debt_equity", level: "advanced", symbol: "NFLX", companyName: "넷플릭스", category: "valuation", correctAnswerIndex: 0, headline: "한 미디어 기업의 **부채비율**이 **$150억** 인수 후 **1.2배**에서 **2.5배**로 급등했습니다. **이자보상비율**은 **3.2배**로 하락하고 **EBITDA 마진**은 **500bp** 압축되었습니다. **신용등급**도 부정적 관찰 대상에 올랐습니다. 평가는?", explanation: "**부채비율 2배 이상 상승**과 **이자보상비율 3.2배** 악화, 신용등급 부정적 관찰은 재무제표 스트레스를 의미합니다. **마진 압축**과 결합된 높은 레버리지는 재무 리스크 증가에 따른 **고평가**를 시사합니다." },
+
+    { id: "fb51", source: "sector_rotation", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "기관 투자자들이 **기술주**와 **성장주**에서 **유틸리티**, **헬스케어**, **필수소비재**로 대규모 **로테이션** 중입니다. 지난 한 달간 **방어주 ETF**가 **8%** 아웃퍼폼했습니다. 예상되는 시장 방향은?", explanation: "유틸리티, 헬스케어 등 **방어 섹터**로의 로테이션은 기관 투자자들이 경기 둔화에 대비하고 있음을 의미합니다. 이 리스크오프 행동은 역사적으로 시장 약세의 전조이며 **하락** 방향을 시사합니다." },
+    { id: "fb52", source: "sector_rotation", level: "advanced", symbol: "QQQ", companyName: "인베스코 QQQ", category: "movement", correctAnswerIndex: 0, headline: "펀드 플로우 데이터에 따르면 2주간 **채권과 현금**에서 **경기순환 섹터**로 **$250억**이 유입되었습니다: **산업재** (+$80억), **금융** (+$70억), **소재** (+$50억). **ISM 제조업 PMI**가 **48.7**에서 **52.5**로 반등했습니다. 방향은?", explanation: "안전자산에서 **경기순환 섹터**로의 대규모 로테이션과 **PMI** 50 돌파는 경기 회복 내러티브를 의미합니다. 제조업 개선과 함께한 리스크온 로테이션은 **상승** 모멘텀을 가리킵니다." },
+
+    { id: "fb53", source: "insider_trading", level: "beginner", symbol: "GOOGL", companyName: "알파벳", category: "impact", correctAnswerIndex: 0, headline: "**알파벳** 임원 3명이 1주일 내에 공개 시장에서 총 **$1,200만** 규모의 자사주를 매수했습니다. **CEO**만 **$500만** 어치를 매수하며 **3년 만에** 최대 개인 매수를 기록했습니다. 이는 긍정적일까요, 부정적일까요?", explanation: "다수 임원의 **대규모 내부자 매수**와 특히 **CEO의 $500만 매수**는 경영진의 강한 자신감을 의미합니다. 내부자들은 주가가 저평가되었다고 확신할 때만 개인 자본을 투입하며 이는 명확한 **호재**입니다." },
+    { id: "fb54", source: "insider_trading", level: "advanced", symbol: "TSLA", companyName: "테슬라", category: "impact", correctAnswerIndex: 1, headline: "한 CEO가 연간 실적 전망 상향 후 **45일** 만에 **10b5-1 플랜**을 통해 10일간 **$45억** 규모의 자사주를 매도했습니다. 다른 C레벨 임원 2명도 **$8억**을 매도했습니다. 내부자 **매도/매수 비율**이 **50:1**에 달합니다. 영향은?", explanation: "가이던스 상향 직후 **$53억** 규모의 내부자 매도와 **50:1 매도/매수 비율**은 심각한 우려를 제기합니다. 긍정적 전망에도 불구한 집중 매도는 내부자의 확신 부족을 시사하며 **악재**입니다." },
+
+    { id: "fb55", source: "short_interest", level: "beginner", symbol: "AMD", companyName: "AMD", category: "technical", correctAnswerIndex: 0, headline: "**AMD**의 공매도 비율이 3개월 전 **5%**에서 유통주식의 **12%**로 급등했습니다. **숏커버 소요일수**가 **8일**에 달하고 **대차 수수료**가 연 **15%**로 급등했습니다. 이 종목은 과매수일까요, 과매도일까요?", explanation: "**공매도 비율 12%**는 약세 베팅을 반영하지만, **숏커버 소요일수 8일**과 급등하는 **대차 수수료**는 숏스퀴즈 가능성을 만듭니다. 스퀴즈 역학이 가격을 밀어올려 기술적으로 **과매수** 영역입니다." },
+    { id: "fb56", source: "short_interest", level: "advanced", symbol: "NVDA", companyName: "엔비디아", category: "technical", correctAnswerIndex: 1, headline: "한 반도체 종목의 **공매도 비율**이 **40% 주가 하락** 후 6주간 **9%**에서 **2.5%**로 급감했습니다. **풋 미결제약정**도 감소하고 **콜 스큐**가 정상화되었습니다. **숏커버 소요일수**는 **1.2일**입니다. 평가는?", explanation: "대규모 하락 후 **공매도 비율**이 9%에서 2.5%로 급감한 것은 약세 세력이 포지션을 청산하고 있음을 의미합니다. **옵션 스큐** 정상화와 낮은 **숏커버 소요일수**는 추가 하락 여력이 제한적임을 시사하며 **과매도** 상태입니다." },
+
+    { id: "fb57", source: "options_flow", level: "beginner", symbol: "AAPL", companyName: "애플", category: "movement", correctAnswerIndex: 0, headline: "**애플**에서 이례적 **옵션 활동**이 감지되었습니다: 2주 만기 **$200 행사가** **콜옵션 스윕** **$5,000만** 규모. **풋/콜 비율**이 6개월 평균 **0.85**에서 **0.5**로 하락했습니다. 예상되는 방향은?", explanation: "**$5,000만** 규모의 대형 **콜 스윕**은 기관 투자자의 공격적 강세 베팅을 의미합니다. **풋/콜 비율 0.5**(평균 대비 매우 낮음)는 압도적 콜 매수를 보여주며 **상승** 움직임을 시사합니다." },
+    { id: "fb58", source: "options_flow", level: "advanced", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 1, headline: "**SPY 옵션**에서 단일 기관 블록이 **$420 행사가** 방어적 **풋 매수** **$20억** 규모를 집행했습니다. 30일 풋 **내재변동성**이 **40%** 급등하고 **VIX 기간구조**가 역전되었습니다. **콜/풋 미결제약정 비율**은 **0.7**입니다. 방향은?", explanation: "**$20억 풋 블록**은 대형 기관의 헤지를 의미합니다. **VIX 기간구조 역전**은 단기 공포가 장기를 초과하는 하락 전 전형적 신호입니다. 낮은 **콜/풋 비율**과 함께 스마트 머니는 **하락**에 대비하고 있습니다." },
+
+    { id: "fb59", source: "global_markets", level: "beginner", symbol: "SPY", companyName: "S&P 500 ETF", category: "movement", correctAnswerIndex: 0, headline: "야간 시간대에 **유럽 시장**이 **ECB**의 깜짝 경기부양책 발표로 **2.5%** 상승했습니다. **아시아 시장**도 **1.8%** 상승 마감하며 **일본 닛케이**가 사상 최고치를 경신했습니다. 미국 시장은 어떤 방향으로 개장할까요?", explanation: "**유럽**과 **아시아** 시장의 강한 랠리는 미국 거래에 긍정적 모멘텀을 만듭니다. **ECB 부양책**은 글로벌 유동성을 높이고 국제적 강세는 리스크온 심리를 나타내며 **상승** 개장을 가리킵니다." },
+    { id: "fb60", source: "global_markets", level: "advanced", symbol: "QQQ", companyName: "인베스코 QQQ", category: "movement", correctAnswerIndex: 1, headline: "**중국** 주식시장이 부동산 개발사 디폴트로 촉발된 **$3,000억** 전염 우려 속에 하루 만에 **6%** 급락했습니다. 중국 익스포저가 있는 **유럽 은행**들이 **4%** 하락했고 **MSCI 이머징마켓 지수**가 **22%** 하락하며 베어마켓에 진입했습니다. 미국 주식 방향은?", explanation: "**중국 6% 급락**에 **유럽 은행** 전염과 이머징마켓 **베어마켓** 진입은 시스템적 리스크오프 압력을 만듭니다. 위기 시 시장 간 상관관계가 높아지며 미국 주식에도 **하락** 압력이 높습니다." },
+
+    { id: "fb61", source: "commodity_impact", level: "beginner", symbol: "AAPL", companyName: "애플", category: "impact", correctAnswerIndex: 1, headline: "중동 공급 차질로 **유가**가 **배럴당 $110**으로 **25%** 급등했습니다. **운송비**가 치솟고 **소비 지출** 전망이 하향 조정되었습니다. 대부분의 소비재 기업에 미치는 영향은?", explanation: "**유가 25% 급등**은 소비재 기업의 운송 및 생산 비용을 높이는 동시에 **소비자 구매력**을 감소시킵니다. 에너지 비용 상승은 소비자와 기업 모두에게 세금과 같은 효과를 주며 소비재 기업에 **악재**입니다." },
+    { id: "fb62", source: "commodity_impact", level: "advanced", symbol: "GOOGL", companyName: "알파벳", category: "impact", correctAnswerIndex: 0, headline: "**구리 가격**이 3개월간 **파운드당 $5.20**으로 **18%** 상승했으며, 글로벌 **데이터센터 건설**과 **EV 인프라** 확대가 주요 원인입니다. **광산주**는 구리 상승에 뒤처지고 **구리/금 비율**은 **2년 최고**입니다. 산업 수요 관련 섹터 영향은?", explanation: "**데이터센터**와 **EV** 수요에 의한 **구리 18% 상승**은 강건한 산업 확장을 의미합니다. 높은 **구리/금 비율**은 리스크온 환경을 확인하며 구조적 성장 트렌드에 의한 원자재 강세는 산업 섹터에 **호재**입니다." },
+
+    { id: "fb63", source: "currency_fx", level: "beginner", symbol: "MSFT", companyName: "마이크로소프트", category: "movement", correctAnswerIndex: 1, headline: "**미국 달러**가 지난 분기 주요 통화 바스켓 대비 **8%** 강세를 보였습니다. 해외 매출 비중 **50%** 이상인 **다국적 기업**들이 상당한 **환율 역풍**에 직면합니다. 수출 중심 주가는 어느 방향으로 움직일까요?", explanation: "달러 강세는 해외 수익을 달러로 환산할 때 가치를 줄입니다. **50% 이상 해외 매출** 기업에게 **8% 달러 강세**는 상당한 역풍을 만들어 주가를 **하락** 방향으로 압박합니다." },
+    { id: "fb64", source: "currency_fx", level: "advanced", symbol: "AAPL", companyName: "애플", category: "movement", correctAnswerIndex: 0, headline: "**달러 인덱스(DXY)**가 **연준** 금리인하 시사 이후 6주간 **5%** 하락했습니다. **ECB**와 **일본은행**은 금리를 동결했습니다. **USD/JPY**가 **155에서 142**로, **EUR/USD**가 **1.15**로 상승했습니다. 미국 다국적 기업 실적 방향은?", explanation: "**DXY 5% 하락**은 해외 수익이 더 많은 달러로 환산되어 다국적 기업 실적에 **순풍**이 됩니다. 유리한 **USD/JPY**와 **EUR/USD** 움직임은 주요 시장 수익을 높이며 **상승** 실적 수정을 가리킵니다." },
   ];
 
   app.get("/api/news/quiz", async (req, res) => {

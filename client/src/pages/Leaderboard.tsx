@@ -31,16 +31,20 @@ export default function Leaderboard() {
     );
   }
 
-  const entries = leaderboard || [];
+  const allEntries = leaderboard || [];
+  const top10 = allEntries.slice(0, 10);
+  const myEntry = allEntries.find(u => u.isMe);
+  const myRank = myEntry ? allEntries.indexOf(myEntry) + 1 : null;
+  const isMyEntryInTop10 = myRank !== null && myRank <= 10;
 
   return (
-    <div className="p-4 md:p-10 max-w-4xl mx-auto w-full">
+    <div className="p-4 md:p-10 max-w-4xl mx-auto w-full pb-28">
       <div className="text-center mb-8 md:mb-12">
         <h1 className="text-3xl md:text-4xl font-display font-bold mb-4" data-testid="text-leaderboard-title">
           {isKo ? "리더보드" : "Leaderboard"}
         </h1>
         <p className="text-muted-foreground text-lg" data-testid="text-leaderboard-subtitle">
-          {isKo ? "다른 트레이더들과 비교해보세요." : "See how you stack up against other traders."}
+          {isKo ? "Top 10 트레이더 순위입니다." : "Top 10 traders ranking."}
         </p>
       </div>
 
@@ -53,7 +57,7 @@ export default function Leaderboard() {
         </div>
 
         <div className="divide-y divide-border">
-          {entries.map((u, idx) => (
+          {top10.map((u, idx) => (
             <motion.div
               key={u.id}
               initial={{ opacity: 0, y: 10 }}
@@ -110,8 +114,47 @@ export default function Leaderboard() {
               </div>
             </motion.div>
           ))}
+
+          {top10.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground">
+              {isKo ? "아직 랭킹 데이터가 없습니다." : "No ranking data yet."}
+            </div>
+          )}
         </div>
       </div>
+
+      {myEntry && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] md:left-[var(--sidebar-width,16rem)]" data-testid="sticky-my-rank">
+          <div className="max-w-4xl mx-auto flex items-center gap-3 p-4 md:px-10">
+            <div className="shrink-0 flex items-center gap-2">
+              <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+                <User className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">{isKo ? "내 순위" : "My Rank"}</div>
+                <div className="font-bold text-lg text-primary" data-testid="text-my-rank">#{myRank}</div>
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm truncate">{myEntry.nickname}</div>
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                {isKo ? `${myEntry.streak}일 연속` : `${myEntry.streak} day streak`} <Flame className="w-3 h-3 text-orange-500" />
+              </div>
+            </div>
+
+            <div className="shrink-0 text-right">
+              <div className="text-xs text-muted-foreground">{isKo ? "레벨" : "Level"}</div>
+              <div className="font-bold text-secondary">{myEntry.level}</div>
+            </div>
+
+            <div className="shrink-0 text-right">
+              <div className="text-xs text-muted-foreground">{isKo ? "총 XP" : "Total XP"}</div>
+              <div className="font-mono font-bold" data-testid="text-my-xp">{myEntry.totalXp.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

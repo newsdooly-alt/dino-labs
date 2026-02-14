@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings, Trophy, Sparkles } from "lucide-react";
+import { X, Home, Target, TrendingUp, Star, User, Settings, Trophy, Sparkles, Award } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ const menuItems = [
   { path: "/market-trends", icon: TrendingUp, translationKey: "mobile_menu_trends" as const },
   { path: "/recommended", icon: Sparkles, translationKey: "mobile_menu_recommended" as const },
   { path: "/watchlist", icon: Star, translationKey: "mobile_menu_watchlist" as const },
-  { path: "/leaderboard", icon: User, translationKey: "mobile_menu_profile" as const },
+  { path: "/leaderboard", icon: Award, translationKey: "leaderboard" as const },
   { path: "/settings", icon: Settings, translationKey: "mobile_menu_settings" as const },
 ];
 
