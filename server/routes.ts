@@ -811,6 +811,148 @@ export async function registerRoutes(
     }
   });
 
+  // === Global Macro Dashboard ===
+  const MACRO_SYMBOLS = [
+    "ES=F", "NQ=F", "YM=F", "NK=F",
+    "GC=F", "CL=F", "HG=F",
+    "DX-Y.NYB", "USDKRW=X",
+    "^TNX", "^IRX",
+    "^VIX", "BTC-USD"
+  ];
+
+  const MACRO_PYTHON_URL = 'http://localhost:5001';
+
+  app.get("/api/macro/dashboard", async (req, res) => {
+    try {
+      const [quotesResult, sparklineResult] = await Promise.allSettled([
+        getMultipleQuotes(MACRO_SYMBOLS),
+        fetch(`${MACRO_PYTHON_URL}/macro/sparklines?symbols=${MACRO_SYMBOLS.join(',')}`, {
+          signal: AbortSignal.timeout(15000)
+        }).then(r => r.ok ? r.json() : { sparklines: {} }).catch(() => ({ sparklines: {} }))
+      ]);
+
+      const quotes = quotesResult.status === 'fulfilled' ? quotesResult.value : [];
+      const sparklines: Record<string, number[]> = 
+        (sparklineResult.status === 'fulfilled' ? sparklineResult.value?.sparklines : {}) || {};
+
+      const quoteMap: Record<string, any> = {};
+      for (const q of quotes) {
+        quoteMap[q.symbol] = q;
+      }
+
+      const tnxQuote = quoteMap['^TNX'];
+      const vixQuote = quoteMap['^VIX'];
+
+      const correlationSignals: Record<string, { label: string; direction: 'pressure' | 'support' | 'fear' | 'neutral' }[]> = {};
+
+      if (tnxQuote && tnxQuote.changePercent > 0.5) {
+        correlationSignals['NQ=F'] = correlationSignals['NQ=F'] || [];
+        correlationSignals['NQ=F'].push({ label: 'Yield Rising', direction: 'pressure' });
+        correlationSignals['ES=F'] = correlationSignals['ES=F'] || [];
+        correlationSignals['ES=F'].push({ label: 'Yield Rising', direction: 'pressure' });
+      } else if (tnxQuote && tnxQuote.changePercent < -0.5) {
+        correlationSignals['NQ=F'] = correlationSignals['NQ=F'] || [];
+        correlationSignals['NQ=F'].push({ label: 'Yield Falling', direction: 'support' });
+        correlationSignals['ES=F'] = correlationSignals['ES=F'] || [];
+        correlationSignals['ES=F'].push({ label: 'Yield Falling', direction: 'support' });
+      }
+
+      if (vixQuote && vixQuote.price > 25) {
+        correlationSignals['ES=F'] = correlationSignals['ES=F'] || [];
+        correlationSignals['ES=F'].push({ label: 'High Fear', direction: 'fear' });
+        correlationSignals['NQ=F'] = correlationSignals['NQ=F'] || [];
+        correlationSignals['NQ=F'].push({ label: 'High Fear', direction: 'fear' });
+      }
+
+      const dxQuote = quoteMap['DX-Y.NYB'];
+      if (dxQuote && dxQuote.changePercent > 0.4) {
+        correlationSignals['GC=F'] = correlationSignals['GC=F'] || [];
+        correlationSignals['GC=F'].push({ label: 'Strong Dollar', direction: 'pressure' });
+      }
+
+      const clQuote = quoteMap['CL=F'];
+      if (clQuote && clQuote.changePercent > 2) {
+        correlationSignals['ES=F'] = correlationSignals['ES=F'] || [];
+        correlationSignals['ES=F'].push({ label: 'Oil Spike', direction: 'pressure' });
+      }
+
+      const categories = [
+        {
+          id: 'futures',
+          label: 'Equity Futures',
+          labelKo: '주식 선물',
+          symbols: ['ES=F', 'NQ=F', 'YM=F', 'NK=F'],
+          icon: 'trending-up',
+        },
+        {
+          id: 'commodities',
+          label: 'Commodities',
+          labelKo: '원자재',
+          symbols: ['GC=F', 'CL=F', 'HG=F'],
+          icon: 'package',
+        },
+        {
+          id: 'forex',
+          label: 'Forex',
+          labelKo: '외환',
+          symbols: ['DX-Y.NYB', 'USDKRW=X'],
+          icon: 'dollar-sign',
+        },
+        {
+          id: 'bonds',
+          label: 'Bonds & Rates',
+          labelKo: '채권 & 금리',
+          symbols: ['^TNX', '^IRX'],
+          icon: 'percent',
+          invertedSignal: true,
+        },
+        {
+          id: 'sentiment',
+          label: 'Sentiment & Crypto',
+          labelKo: '심리 & 크립토',
+          symbols: ['^VIX', 'BTC-USD'],
+          icon: 'activity',
+          invertedSignal: true,
+        },
+      ];
+
+      const assets = MACRO_SYMBOLS.map(symbol => {
+        const q = quoteMap[symbol] || {
+          symbol,
+          name: symbol,
+          price: 0,
+          change: 0,
+          changePercent: 0,
+          isMarketOpen: false,
+          lastUpdated: new Date().toISOString(),
+          isStale: true,
+        };
+        return {
+          ...q,
+          sparkline: sparklines[symbol] || [],
+          correlations: correlationSignals[symbol] || [],
+        };
+      });
+
+      const fetchedAt = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/New_York'
+      }) + ' ET';
+
+      res.json({
+        assets,
+        categories,
+        fetchedAt,
+        correlationSignals,
+      });
+    } catch (error: any) {
+      console.error("[Macro Dashboard] Error:", error.message);
+      res.status(500).json({ error: "Failed to fetch macro data" });
+    }
+  });
+
   // === Stock History for Charts ===
   app.get("/api/stocks/history/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();

@@ -840,6 +840,52 @@ def get_recommended_stocks():
         return jsonify({"error": str(e), "recommended": []}), 500
 
 
+_macro_sparklines_cache = {"data": None, "timestamp": 0, "symbols": ""}
+MACRO_SPARKLINES_CACHE_DURATION = 60
+
+@app.route('/macro/sparklines', methods=['GET'])
+def get_macro_sparklines():
+    """Get 1-day sparkline data (5-minute intervals) for multiple macro symbols."""
+    import time
+    symbols_param = request.args.get('symbols', '')
+    if not symbols_param:
+        return jsonify({"error": "No symbols provided"}), 400
+
+    symbols = [s.strip() for s in symbols_param.split(',') if s.strip()]
+    cache_key = ','.join(sorted(symbols))
+    now = time.time()
+
+    if (_macro_sparklines_cache["data"] and
+        _macro_sparklines_cache["symbols"] == cache_key and
+        (now - _macro_sparklines_cache["timestamp"]) < MACRO_SPARKLINES_CACHE_DURATION):
+        return jsonify(_macro_sparklines_cache["data"])
+
+    result = {}
+    for symbol in symbols:
+        try:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period='1d', interval='5m')
+            if not hist.empty:
+                closes = [round(float(v), 4) for v in hist['Close'].tolist() if not pd.isna(v)]
+                result[symbol] = closes
+            else:
+                hist2 = ticker.history(period='5d', interval='1h')
+                if not hist2.empty:
+                    closes = [round(float(v), 4) for v in hist2['Close'].tolist()[-24:] if not pd.isna(v)]
+                    result[symbol] = closes
+                else:
+                    result[symbol] = []
+        except Exception as e:
+            print(f"[macro sparklines] Error for {symbol}: {e}")
+            result[symbol] = []
+
+    response = {"sparklines": result, "fetchedAt": datetime.now().isoformat()}
+    _macro_sparklines_cache["data"] = response
+    _macro_sparklines_cache["timestamp"] = now
+    _macro_sparklines_cache["symbols"] = cache_key
+    return jsonify(response)
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)
