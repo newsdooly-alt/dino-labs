@@ -95,16 +95,35 @@ function cleanupPython() {
 
 process.on("exit", cleanupPython);
 process.on("SIGINT", () => {
+  console.log("[server] Received SIGINT");
+  isShuttingDown = true;
   cleanupPython();
   process.exit();
 });
 process.on("SIGTERM", () => {
+  console.log("[server] Received SIGTERM");
+  isShuttingDown = true;
   cleanupPython();
   process.exit();
 });
+if (process.env.NODE_ENV !== "production") {
+  process.on("SIGHUP", () => {
+    console.log("[server] Received SIGHUP - ignoring (dev mode)");
+  });
+
+  const originalExit = process.exit;
+  process.exit = ((code?: number) => {
+    if (code === 1 && !isShuttingDown) {
+      console.error("[server] Intercepted process.exit(1) - Vite esbuild crash, keeping server alive (dev mode)");
+      return undefined as never;
+    }
+    return originalExit(code);
+  }) as typeof process.exit;
+}
 
 // Start the Python service
 startPythonService();
+
 
 const app = express();
 const httpServer = createServer(app);
@@ -152,11 +171,13 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        const jsonStr = JSON.stringify(capturedJsonResponse);
+        logLine += ` :: ${jsonStr.length > 200 ? jsonStr.slice(0, 200) + '...' : jsonStr}`;
       }
 
       log(logLine);
     }
+    capturedJsonResponse = undefined;
   });
 
   next();
@@ -169,8 +190,10 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    log(`Error: ${message}`, "express");
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
   });
 
   // importantly only setup vite in development and after
