@@ -98,8 +98,10 @@ function CustomTooltip({ active, payload, lang, onSelect }: any) {
   const d = payload[0]?.payload;
   if (!d) return null;
   const q = QUADRANT_CONFIG[d.quadrant as keyof typeof QUADRANT_CONFIG];
+  if (!q) return null;
   const label = SECTOR_LABELS[d.symbol];
   const flow = FLOW_DESCRIPTION[d.quadrant as keyof typeof FLOW_DESCRIPTION];
+  if (!flow) return null;
   return (
     <div
       className="bg-popover border border-border rounded-xl shadow-xl p-3 max-w-[220px] cursor-pointer"
@@ -320,7 +322,7 @@ export function RRGChart() {
             />
 
             <Tooltip
-              content={<CustomTooltip lang={lang} onSelect={setSelected} />}
+              content={(props) => <CustomTooltip {...props} lang={lang} onSelect={setSelected} />}
               cursor={{ strokeDasharray: "3 3", stroke: "rgba(128,128,128,0.3)" }}
             />
 
