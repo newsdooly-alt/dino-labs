@@ -47,7 +47,7 @@ const DISPLAY_NAMES: Record<string, { en: string; ko: string }> = {
   "ES=F":      { en: "S&P 500 Futures",   ko: "S&P500 선물" },
   "NQ=F":      { en: "Nasdaq Futures",     ko: "나스닥 선물" },
   "YM=F":      { en: "Dow Futures",        ko: "다우 선물" },
-  "NK=F":      { en: "Nikkei Futures",     ko: "닛케이 선물" },
+  "^N225":     { en: "Nikkei 225",          ko: "닛케이 225" },
   "GC=F":      { en: "Gold",               ko: "금" },
   "CL=F":      { en: "Crude Oil (WTI)",    ko: "원유 (WTI)" },
   "HG=F":      { en: "Copper (Dr. Cu)",    ko: "구리 (닥터 구리)" },

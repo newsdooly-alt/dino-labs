@@ -840,6 +840,208 @@ def get_recommended_stocks():
         return jsonify({"error": str(e), "recommended": []}), 500
 
 
+_macro_quotes_cache = {}
+MACRO_QUOTES_CACHE_DURATION = 55
+
+@app.route('/macro/quotes', methods=['GET'])
+def get_macro_quotes():
+    """Dedicated fast endpoint for macro instrument quotes (futures, bonds, forex, crypto)."""
+    import time
+    now = time.time()
+
+    symbols_param = request.args.get('symbols', '')
+    cache_key = symbols_param.strip()
+    if cache_key in _macro_quotes_cache:
+        entry = _macro_quotes_cache[cache_key]
+        if entry["data"] and (now - entry["timestamp"]) < MACRO_QUOTES_CACHE_DURATION:
+            return jsonify(entry["data"])
+    if not symbols_param:
+        return jsonify({"error": "No symbols provided"}), 400
+
+    symbols = [s.strip() for s in symbols_param.split(',') if s.strip()]
+    results = []
+    now_et = datetime.now(US_EASTERN)
+    us_market_open = is_market_open()
+
+    for symbol in symbols:
+        try:
+            ticker = yf.Ticker(symbol)
+            price = 0.0
+            prev_close = 0.0
+            name = symbol
+
+            try:
+                fast = ticker.fast_info
+                price = float(fast.get('lastPrice', 0) or 0)
+                if price == 0:
+                    price = float(fast.get('regularMarketPrice', 0) or 0)
+                prev_close = float(fast.get('previousClose', 0) or 0)
+                if prev_close == 0:
+                    prev_close = float(fast.get('regularMarketPreviousClose', 0) or price)
+                print(f"[macro] {symbol}: price={price}, prev_close={prev_close}")
+            except Exception as e:
+                print(f"[macro] {symbol} fast_info failed: {e}")
+                price = 0.0
+                prev_close = 0.0
+
+            if price > 0 and name == symbol:
+                try:
+                    info = ticker.info
+                    name = info.get('shortName') or info.get('longName') or symbol
+                except Exception:
+                    pass
+
+            change = price - prev_close if price > 0 and prev_close > 0 else 0
+            change_pct = (change / prev_close * 100) if prev_close > 0 else 0
+
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "price": round(price, 4),
+                "change": round(change, 4),
+                "changePercent": round(change_pct, 4),
+                "isMarketOpen": us_market_open,
+                "isStale": price <= 0,
+                "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+                "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET'),
+            })
+        except Exception as e:
+            print(f"[macro] Error for {symbol}: {e}")
+            results.append({
+                "symbol": symbol,
+                "name": symbol,
+                "price": 0,
+                "change": 0,
+                "changePercent": 0,
+                "isMarketOpen": us_market_open,
+                "isStale": True,
+                "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+                "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET'),
+                "error": str(e),
+            })
+
+    response = {
+        "quotes": results,
+        "fetchedAt": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
+        "fetchedAtFormatted": now_et.strftime('%I:%M %p ET'),
+        "isMarketOpen": us_market_open,
+    }
+    _macro_quotes_cache[cache_key] = {"data": response, "timestamp": now}
+    return jsonify(response)
+
+
+_rrg_cache = {"data": None, "timestamp": 0}
+RRG_CACHE_DURATION = 300  # 5 minutes - daily data doesn't change often
+
+@app.route('/rrg/data', methods=['GET'])
+def get_rrg_data():
+    """Compute RRG (Relative Rotation Graph) data for US sector ETFs vs SPY benchmark."""
+    import time
+    now = time.time()
+    if _rrg_cache["data"] and (now - _rrg_cache["timestamp"]) < RRG_CACHE_DURATION:
+        return jsonify(_rrg_cache["data"])
+
+    benchmark = request.args.get('benchmark', 'SPY')
+    sectors_param = request.args.get('sectors', 'XLK,XLF,XLV,XLE,XLY,XLP,XLI,XLB,XLRE,XLU,XLC')
+    tail_length = int(request.args.get('tail', '10'))
+    sectors = [s.strip() for s in sectors_param.split(',') if s.strip()]
+
+    all_symbols = [benchmark] + sectors
+    period = '60d'
+    interval = '1d'
+
+    try:
+        raw = yf.download(all_symbols, period=period, interval=interval, progress=False, auto_adjust=True)
+        if raw.empty:
+            return jsonify({"error": "No data", "sectors": []}), 500
+
+        closes = raw['Close'] if 'Close' in raw.columns else raw
+        closes = closes.dropna(how='all')
+
+        if benchmark not in closes.columns:
+            return jsonify({"error": f"Benchmark {benchmark} not found", "sectors": []}), 500
+
+        spy = closes[benchmark]
+        rrg_sectors = []
+
+        for sector in sectors:
+            if sector not in closes.columns:
+                print(f"[RRG] {sector} not found in data")
+                continue
+            try:
+                sec_prices = closes[sector].dropna()
+                spy_aligned = spy.reindex(sec_prices.index).dropna()
+                sec_aligned = sec_prices.reindex(spy_aligned.index).dropna()
+
+                if len(sec_aligned) < 20:
+                    print(f"[RRG] {sector} insufficient data: {len(sec_aligned)} rows")
+                    continue
+
+                rs_raw = (sec_aligned / spy_aligned) * 100.0
+
+                # RS-Ratio: 10-period EMA of RS relative to its own 10-period EMA
+                ema10 = rs_raw.ewm(span=10, adjust=False).mean()
+                rs_ratio = (rs_raw / ema10) * 100.0
+
+                # RS-Momentum: 5-period EMA of RS-Ratio relative to its own EMA
+                ema5 = rs_ratio.ewm(span=5, adjust=False).mean()
+                rs_momentum = (rs_ratio / ema5) * 100.0
+
+                # Take last `tail_length` valid points
+                points = []
+                n = min(tail_length, len(rs_ratio))
+                for i in range(n):
+                    idx = -(n - i)
+                    try:
+                        rr = float(rs_ratio.iloc[idx])
+                        rm = float(rs_momentum.iloc[idx])
+                        if pd.isna(rr) or pd.isna(rm):
+                            continue
+                        points.append({"rsRatio": round(rr, 3), "rsMomentum": round(rm, 3)})
+                    except Exception:
+                        continue
+
+                if not points:
+                    continue
+
+                current = points[-1]
+                rr_val = current["rsRatio"]
+                rm_val = current["rsMomentum"]
+
+                if rr_val >= 100 and rm_val >= 100:
+                    quadrant = "leading"
+                elif rr_val >= 100 and rm_val < 100:
+                    quadrant = "weakening"
+                elif rr_val < 100 and rm_val >= 100:
+                    quadrant = "improving"
+                else:
+                    quadrant = "lagging"
+
+                rrg_sectors.append({
+                    "symbol": sector,
+                    "quadrant": quadrant,
+                    "rsRatio": rr_val,
+                    "rsMomentum": rm_val,
+                    "tail": points,
+                })
+            except Exception as e:
+                print(f"[RRG] Error computing {sector}: {e}")
+                continue
+
+        response = {
+            "benchmark": benchmark,
+            "sectors": rrg_sectors,
+            "tailLength": tail_length,
+            "fetchedAt": datetime.now(US_EASTERN).strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        _rrg_cache["data"] = response
+        _rrg_cache["timestamp"] = now
+        return jsonify(response)
+    except Exception as e:
+        print(f"[RRG] Fatal error: {e}")
+        return jsonify({"error": str(e), "sectors": []}), 500
+
+
 _macro_sparklines_cache = {"data": None, "timestamp": 0, "symbols": ""}
 MACRO_SPARKLINES_CACHE_DURATION = 60
 

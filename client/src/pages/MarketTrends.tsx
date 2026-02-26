@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, BarChart3, Globe } from "lucide-react";
+import { TrendingUp, BarChart3, Globe, GitBranch } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { LiveStockCard } from "@/components/LiveStockCard";
 import { GlobalMacroDashboard } from "@/components/GlobalMacroDashboard";
+import { RRGChart } from "@/components/RRGChart";
 
 export default function MarketTrends() {
   const { data: user } = useUser();
@@ -17,6 +17,22 @@ export default function MarketTrends() {
         <p className="text-muted-foreground mt-2">{t.market_pulse}</p>
       </div>
 
+      {/* RRG Chart — Energy Flow Summary */}
+      <section className="mb-10">
+        <h2 className="text-2xl font-bold flex items-center gap-3 mb-2">
+          <GitBranch className="w-6 h-6 text-indigo-500" />
+          {lang === "ko" ? "섹터 에너지 흐름" : "Sector Energy Flow"}
+        </h2>
+        <p className="text-muted-foreground text-sm mb-5">
+          {lang === "ko"
+            ? "자금이 어떤 섹터에서 빠져나와 어디로 이동하는지 — 순환매 타이밍 포착"
+            : "Where capital is rotating in and out — catch the rotation before it happens"
+          }
+        </p>
+        <RRGChart />
+      </section>
+
+      {/* Major Indices + Trending Stocks */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
         <section>
           <h2 className="text-2xl font-bold flex items-center gap-3 mb-6">
@@ -39,6 +55,7 @@ export default function MarketTrends() {
         </section>
       </div>
 
+      {/* Global Macro Dashboard */}
       <section className="mb-8">
         <h2 className="text-2xl font-bold flex items-center gap-3 mb-2">
           <Globe className="w-6 h-6 text-blue-500" />

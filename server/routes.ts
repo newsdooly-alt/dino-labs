@@ -813,7 +813,7 @@ export async function registerRoutes(
 
   // === Global Macro Dashboard ===
   const MACRO_SYMBOLS = [
-    "ES=F", "NQ=F", "YM=F", "NK=F",
+    "ES=F", "NQ=F", "YM=F", "^N225",
     "GC=F", "CL=F", "HG=F",
     "DX-Y.NYB", "USDKRW=X",
     "^TNX", "^IRX",
@@ -824,21 +824,31 @@ export async function registerRoutes(
 
   app.get("/api/macro/dashboard", async (req, res) => {
     try {
+      const symbolsStr = MACRO_SYMBOLS.join(',');
+
+      // Use dedicated macro/quotes endpoint (bypasses health check, has its own cache)
       const [quotesResult, sparklineResult] = await Promise.allSettled([
-        getMultipleQuotes(MACRO_SYMBOLS),
-        fetch(`${MACRO_PYTHON_URL}/macro/sparklines?symbols=${MACRO_SYMBOLS.join(',')}`, {
-          signal: AbortSignal.timeout(15000)
+        fetch(`${MACRO_PYTHON_URL}/macro/quotes?symbols=${symbolsStr}`, {
+          signal: AbortSignal.timeout(25000)
+        }).then(r => r.ok ? r.json() : { quotes: [] }).catch(() => ({ quotes: [] })),
+        fetch(`${MACRO_PYTHON_URL}/macro/sparklines?symbols=${symbolsStr}`, {
+          signal: AbortSignal.timeout(20000)
         }).then(r => r.ok ? r.json() : { sparklines: {} }).catch(() => ({ sparklines: {} }))
       ]);
 
-      const quotes = quotesResult.status === 'fulfilled' ? quotesResult.value : [];
+      const rawQuotes: any[] = quotesResult.status === 'fulfilled'
+        ? (quotesResult.value?.quotes || [])
+        : [];
+
       const sparklines: Record<string, number[]> = 
         (sparklineResult.status === 'fulfilled' ? sparklineResult.value?.sparklines : {}) || {};
 
       const quoteMap: Record<string, any> = {};
-      for (const q of quotes) {
+      for (const q of rawQuotes) {
         quoteMap[q.symbol] = q;
       }
+
+      console.log(`[Macro Dashboard] Got ${rawQuotes.length} quotes, symbols with price: ${rawQuotes.filter((q: any) => q.price > 0).map((q: any) => q.symbol).join(', ')}`);
 
       const tnxQuote = quoteMap['^TNX'];
       const vixQuote = quoteMap['^VIX'];
@@ -881,7 +891,7 @@ export async function registerRoutes(
           id: 'futures',
           label: 'Equity Futures',
           labelKo: '주식 선물',
-          symbols: ['ES=F', 'NQ=F', 'YM=F', 'NK=F'],
+          symbols: ['ES=F', 'NQ=F', 'YM=F', '^N225'],
           icon: 'trending-up',
         },
         {
@@ -927,6 +937,9 @@ export async function registerRoutes(
           lastUpdated: new Date().toISOString(),
           isStale: true,
         };
+        if (!q.price || q.price === 0) {
+          console.warn(`[Macro Dashboard] Zero price for ${symbol}. Raw:`, JSON.stringify(q));
+        }
         return {
           ...q,
           sparkline: sparklines[symbol] || [],
@@ -950,6 +963,31 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[Macro Dashboard] Error:", error.message);
       res.status(500).json({ error: "Failed to fetch macro data" });
+    }
+  });
+
+  // === RRG (Relative Rotation Graph) ===
+  app.get("/api/rrg/data", async (req, res) => {
+    try {
+      const benchmark = (req.query.benchmark as string) || 'SPY';
+      const sectors = (req.query.sectors as string) || 'XLK,XLF,XLV,XLE,XLY,XLP,XLI,XLB,XLRE,XLU,XLC';
+      const tail = (req.query.tail as string) || '10';
+
+      const response = await fetch(
+        `${MACRO_PYTHON_URL}/rrg/data?benchmark=${benchmark}&sectors=${sectors}&tail=${tail}`,
+        { signal: AbortSignal.timeout(30000) }
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        return res.status(500).json({ error: err.error || 'RRG computation failed', sectors: [] });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[RRG] Error:", error.message);
+      res.status(500).json({ error: "RRG data unavailable", sectors: [] });
     }
   });
 
