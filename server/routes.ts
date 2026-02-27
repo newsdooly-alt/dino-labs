@@ -15,6 +15,7 @@ import { registerImageRoutes } from "./replit_integrations/image";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 import { getEventsByMonth } from "./economicCalendarData";
+import { SUPER_INVESTORS, getSuperInvestorById } from "./superInvestorData";
 import { calculateLevel, xpForNextLevel } from "@shared/leveling";
 
 export async function registerRoutes(
