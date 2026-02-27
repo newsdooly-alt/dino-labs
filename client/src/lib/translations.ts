@@ -129,6 +129,7 @@ export const translations = {
     mobile_menu_watchlist: "Watchlist",
     mobile_menu_profile: "My Profile",
     mobile_menu_settings: "Settings",
+    mobile_menu_calendar: "Calendar",
     close_menu: "Close menu",
     // Settings page translations
     settings_title: "Settings",
@@ -375,6 +376,7 @@ export const translations = {
     mobile_menu_watchlist: "관심 종목",
     mobile_menu_profile: "마이페이지",
     mobile_menu_settings: "설정",
+    mobile_menu_calendar: "경제 캘린더",
     close_menu: "메뉴 닫기",
     // Settings page translations
     settings_title: "설정",
