@@ -17,6 +17,13 @@ The core experience centers around:
 - Multi-language support (English and Korean)
 - Live USD/KRW currency conversion with real-time exchange rates (CurrencyContext provider)
 - Skill level-based quest difficulty (beginner/intermediate/advanced) with 24+ fallback quests per language
+- Professional Economic Calendar with 40+ curated events (Feb–Aug 2026) covering NFP, CPI, PCE, FOMC, GDP, Retail Sales, ISM PMIs and more
+  - KST auto-conversion using `Intl.DateTimeFormat` with `Asia/Seoul` timezone (accounts for US DST automatically)
+  - Expandable event deep-dives: Definition, Market Impact (color-coded), Correlation Insight, Linked Indicators
+  - Color-coded calendar dots by importance (red/orange/blue) for High/Medium/Low impact events
+  - Adjacent month prefetching for smooth navigation; event list scrolls into view on date select
+  - Bilingual support (English/Korean) throughout
+  - Backend: `GET /api/economic-calendar?year=YYYY&month=M` (authenticated)
 
 ## User Preferences
 

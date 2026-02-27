@@ -14,6 +14,7 @@ import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
+import { getEventsByMonth } from "./economicCalendarData";
 import { calculateLevel, xpForNextLevel } from "@shared/leveling";
 
 export async function registerRoutes(
@@ -1939,6 +1940,21 @@ Return EXACTLY this JSON:
       isRealTime: false,
       source: chosen.source,
     });
+  });
+
+  // === Economic Calendar ===
+  app.get("/api/economic-calendar", isAuthenticated, (req, res) => {
+    try {
+      const yearParam = parseInt(req.query.year as string);
+      const monthParam = parseInt(req.query.month as string);
+      const now = new Date();
+      const year = isNaN(yearParam) ? now.getUTCFullYear() : yearParam;
+      const month = isNaN(monthParam) ? now.getUTCMonth() + 1 : monthParam;
+      const events = getEventsByMonth(year, month);
+      res.json({ events, year, month });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch economic calendar" });
+    }
   });
 
   // Seed initial stock data (if empty)
