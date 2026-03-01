@@ -35,7 +35,20 @@ export async function registerRoutes(
     return req.user?.claims?.sub || null;
   };
 
-  // === User Profiles (authenticated) ===
+    // Super Investor Portfolios
+    app.get("/api/super-investors", isAuthenticated, (_req, res) => {
+      res.json(SUPER_INVESTORS);
+    });
+
+    app.get("/api/super-investors/:id", isAuthenticated, (req, res) => {
+      const investor = getSuperInvestorById(req.params.id);
+      if (!investor) {
+        return res.status(404).json({ message: "Investor not found" });
+      }
+      res.json(investor);
+    });
+
+    // === User Profiles (authenticated) ===
   app.get(api.profiles.get.path, isAuthenticated, async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
