@@ -132,6 +132,30 @@ Preferred communication style: Simple, everyday language.
 - **Recharts**: Stock charts and data visualization
 - **Lucide React**: Icon system
 
+### Super Investors (SEC 13F Live Data)
+- **Service**: `server/sec13FService.ts` — v2 rewrite (March 2026)
+- **Data Source**: SEC EDGAR public API (free, no key required)
+- **19 verified investors** with CIK map (Buffett, Druckenmiller, Dalio, Ackman, Burry, etc.)
+- **3-stage XML discovery** to handle all SEC filing variants:
+  1. Common filename candidates: `form13fInfoTable.xml`, `infotable.xml`, etc.
+  2. Index HTML scan as fallback — extracts all XML hrefs and tests each one
+  3. `isInfoTableXML()` guard — requires actual `<nameOfIssuer>` content, not just namespace declarations
+- **Automatic unit detection**: Most filers use $000s, but Berkshire (Buffett) and Ackman file in actual dollars. If max position value > $100M, detected as dollars and normalized ÷ 1000
+- **Manual weight calculation**: `(position_value / sum_of_all_positions) * 100` — never trusts API weights
+- **CUSIP → Ticker mapping**: 200+ entries in static map
+- **24h in-memory cache** per investor
+- **Filing labels**: `periodOfReport`, `filingDate`, `accessionNumber` always surfaced in UI
+- **Verified Q4 2025**: Druckenmiller #1 = NTRA at 12.80% ✓, Dalio #1 = SPY ETF ✓, Ackman = 11 holdings ✓
+- Routes: `GET /api/13f/:investorId`, `GET /api/13f-status`, `POST /api/13f-cache/clear`
+
+### Market Data (Multi-Country)
+- **RRG Chart**: Country tabs US🇺🇸/Korea🇰🇷/Japan🇯🇵/Europe🇪🇺 with `react-zoom-pan-pinch` zoom/pan
+- **MarketTrends.tsx**: US + Korean (005930.KS etc.) + Japanese (7203.T etc.) + European ADR (ASML, SAP etc.) prices
+- **Python service** (`server/python_stock_service.py`): yfinance batch quotes, country-keyed RRG caches
+
+### Financial Data API Keys
+- `FMP_API_KEY`: Financial Modeling Prep — available in secrets. Note: free tier does NOT include institutional/13F endpoints. Used as future upgrade path.
+
 ### Replit Integrations
 The project includes pre-built integration modules in `server/replit_integrations/`:
 - **chat/**: Conversation management with AI chat capabilities

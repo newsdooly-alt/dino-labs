@@ -692,41 +692,66 @@ export default function SuperInvestors() {
                     </div>
                   )}
                   {!isLoading13F && real13F && (
-                    <div className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
-                        <CheckCircle2 className="w-4 h-4" />
-                        {lang === "ko" ? (
-                          <>SEC EDGAR 실제 데이터 · {real13F.holdingCount}개 종목 · 보고 기간: {real13F.periodOfReport}</>
-                        ) : (
-                          <>Live SEC EDGAR data · {real13F.holdingCount} holdings · Period: {real13F.periodOfReport}</>
-                        )}
+                    <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 overflow-hidden">
+                      {/* Main info row */}
+                      <div className="flex items-center justify-between gap-2 px-4 py-2.5">
+                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          {lang === "ko" ? (
+                            <>SEC EDGAR 실제 데이터 · {real13F.holdingCount}개 종목 전체</>
+                          ) : (
+                            <>Live SEC EDGAR · {real13F.holdingCount} total holdings (top 50 shown)</>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <a
+                            href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${real13F.cik}&type=13F-HR&dateb=&owner=include&count=10`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 hover:underline"
+                            data-testid="link-sec-edgar"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            SEC.gov
+                          </a>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[11px] px-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                            onClick={() => {
+                              clearCacheMutation.mutate(undefined, {
+                                onSuccess: () => refetch13F(),
+                              });
+                            }}
+                            disabled={clearCacheMutation.isPending}
+                            data-testid="button-refresh-13f"
+                          >
+                            <RefreshCw className={`w-3 h-3 mr-1 ${clearCacheMutation.isPending ? "animate-spin" : ""}`} />
+                            {lang === "ko" ? "새로고침" : "Refresh"}
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${real13F.cik}&type=13F-HR&dateb=&owner=include&count=10`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
-                          data-testid="link-sec-edgar"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          SEC.gov
-                        </a>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
-                          onClick={() => {
-                            clearCacheMutation.mutate(undefined, {
-                              onSuccess: () => refetch13F(),
-                            });
-                          }}
-                          disabled={clearCacheMutation.isPending}
-                          data-testid="button-refresh-13f"
-                        >
-                          <RefreshCw className={`w-3 h-3 mr-1 ${clearCacheMutation.isPending ? "animate-spin" : ""}`} />
-                          {lang === "ko" ? "새로고침" : "Refresh"}
-                        </Button>
+                      {/* Filing label row */}
+                      <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-emerald-500/5 border-t border-emerald-500/15 text-[11px] text-emerald-700 dark:text-emerald-400">
+                        <span className="flex items-center gap-1">
+                          <span className="font-bold">{lang === "ko" ? "보고 기간:" : "Period:"}</span>
+                          <span className="font-mono">{real13F.periodOfReport}</span>
+                        </span>
+                        <span className="opacity-40">·</span>
+                        <span className="flex items-center gap-1">
+                          <span className="font-bold">{lang === "ko" ? "제출일:" : "Filed:"}</span>
+                          <span className="font-mono">{real13F.filingDate}</span>
+                        </span>
+                        <span className="opacity-40">·</span>
+                        <span className="flex items-center gap-1">
+                          <span className="font-bold">{lang === "ko" ? "출처:" : "Source:"}</span>
+                          <span>SEC 13F-HR (EDGAR)</span>
+                        </span>
+                        <span className="opacity-40">·</span>
+                        <span className="flex items-center gap-1">
+                          <span className="font-bold">{lang === "ko" ? "비중 산출:" : "Weights:"}</span>
+                          <span>{lang === "ko" ? "직접 계산 (합계=100%)" : "Manually calculated (sum=100%)"}</span>
+                        </span>
                       </div>
                     </div>
                   )}
@@ -734,8 +759,8 @@ export default function SuperInvestors() {
                     <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {lang === "ko"
-                        ? "SEC EDGAR 데이터를 불러올 수 없어 저장된 데이터를 표시합니다. 이 투자자는 13F 공시가 없을 수 있습니다."
-                        : "Could not load live SEC data — showing curated static holdings. This investor may not file 13F with the SEC."}
+                        ? "SEC EDGAR 데이터 로드 실패 — 저장된 데이터를 표시합니다. 이 투자자는 13F 공시 의무가 없거나 미국 주식 보유량이 기준 이하일 수 있습니다."
+                        : "Could not load live SEC data — showing curated static holdings. This investor may not be required to file 13F with the SEC (e.g. non-US managers or AUM below threshold)."}
                     </div>
                   )}
 
