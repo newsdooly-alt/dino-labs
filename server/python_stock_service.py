@@ -434,6 +434,67 @@ def search_stocks():
         'T': 'AT&T Inc.',
         'VZ': 'Verizon Communications Inc.',
         'TMUS': 'T-Mobile US Inc.',
+        # ── Japan (Nikkei 225 major stocks) ──────────────────────────────────
+        '7203.T': 'Toyota Motor Corporation',
+        '6758.T': 'Sony Group Corporation',
+        '8306.T': 'Mitsubishi UFJ Financial Group',
+        '4502.T': 'Takeda Pharmaceutical',
+        '9984.T': 'SoftBank Group',
+        '6501.T': 'Hitachi Ltd',
+        '3382.T': 'Seven & i Holdings',
+        '8802.T': 'Mitsubishi Estate',
+        '9501.T': 'Tokyo Electric Power (TEPCO)',
+        '4661.T': 'Oriental Land (Tokyo Disneyland)',
+        '7267.T': 'Honda Motor Company',
+        '6702.T': 'Fujitsu Ltd',
+        '6954.T': 'Fanuc Corporation',
+        '4503.T': 'Astellas Pharma',
+        '8035.T': 'Tokyo Electron',
+        '6367.T': 'Daikin Industries',
+        '7751.T': 'Canon Inc.',
+        '4568.T': 'Daiichi Sankyo',
+        '9432.T': 'NTT (Nippon Telegraph)',
+        '2914.T': 'Japan Tobacco International',
+        # ── Europe ADRs & major tickers ──────────────────────────────────────
+        'ASML': 'ASML Holding (Netherlands)',
+        'SAP': 'SAP SE (Germany)',
+        'NVO': 'Novo Nordisk (Denmark)',
+        'BP': 'BP plc (UK)',
+        'SHEL': 'Shell plc (UK/Netherlands)',
+        'AZN': 'AstraZeneca (UK/Sweden)',
+        'UL': 'Unilever plc (UK)',
+        'GSK': 'GSK plc (UK)',
+        'EADSY': 'Airbus SE (France/Germany)',
+        'VWAGY': 'Volkswagen AG (Germany)',
+        'BMWYY': 'BMW AG (Germany)',
+        'DMLRY': 'Mercedes-Benz Group (Germany)',
+        'MC.PA': 'LVMH Moët Hennessy (France)',
+        'TTE.PA': 'TotalEnergies (France)',
+        'SAN.PA': 'Sanofi (France)',
+        'BNP.PA': 'BNP Paribas (France)',
+        'AI.PA': 'Air Liquide (France)',
+        'SIE.DE': 'Siemens AG (Germany)',
+        'ALV.DE': 'Allianz SE (Germany)',
+        'BAS.DE': 'BASF SE (Germany)',
+        'MBG.DE': 'Mercedes-Benz Group (Germany)',
+        'DTE.DE': 'Deutsche Telekom (Germany)',
+        'IFX.DE': 'Infineon Technologies (Germany)',
+        'NESN.SW': 'Nestle SA (Switzerland)',
+        'ROG.SW': 'Roche Holding (Switzerland)',
+        'NOVN.SW': 'Novartis AG (Switzerland)',
+        'UHR.SW': 'Swatch Group (Switzerland)',
+        # ── European ETFs (country rotation) ────────────────────────────────
+        'EWG': 'iShares MSCI Germany ETF',
+        'EWQ': 'iShares MSCI France ETF',
+        'EWI': 'iShares MSCI Italy ETF',
+        'EWP': 'iShares MSCI Spain ETF',
+        'EWN': 'iShares MSCI Netherlands ETF',
+        'EWL': 'iShares MSCI Switzerland ETF',
+        'EWU': 'iShares MSCI United Kingdom ETF',
+        'EWD': 'iShares MSCI Sweden ETF',
+        'EWO': 'iShares MSCI Austria ETF',
+        'ENOR': 'iShares MSCI Norway ETF',
+        'VGK': 'Vanguard FTSE Europe ETF',
     }
     
     # First, check if query matches a symbol exactly
@@ -930,21 +991,48 @@ def get_macro_quotes():
     return jsonify(response)
 
 
-_rrg_cache = {"data": None, "timestamp": 0}
-RRG_CACHE_DURATION = 300  # 5 minutes - daily data doesn't change often
+# Per-country RRG caches: key = "benchmark|sectors" string
+_rrg_caches: dict = {}
+RRG_CACHE_DURATION = 300  # 5 minutes
+
+COUNTRY_RRG_DEFAULTS = {
+    'us': {
+        'benchmark': 'SPY',
+        'sectors': 'XLK,XLF,XLV,XLE,XLY,XLP,XLI,XLB,XLRE,XLU,XLC',
+    },
+    'kr': {
+        'benchmark': '^KS11',
+        'sectors': '005930.KS,000660.KS,005380.KS,068270.KS,105560.KS,051910.KS,035420.KS,003670.KS,017670.KS,373220.KS',
+    },
+    'jp': {
+        'benchmark': '^N225',
+        'sectors': '7203.T,6758.T,8306.T,4502.T,9984.T,6501.T,3382.T,8802.T,9501.T,4661.T',
+    },
+    'eu': {
+        'benchmark': 'VGK',
+        'sectors': 'EWG,EWQ,EWI,EWP,EWN,EWL,EWU,EWD,EWO,ENOR',
+    },
+}
 
 @app.route('/rrg/data', methods=['GET'])
 def get_rrg_data():
-    """Compute RRG (Relative Rotation Graph) data for US sector ETFs vs SPY benchmark."""
+    """Compute RRG data for any country's sectors vs benchmark."""
     import time
     now = time.time()
-    if _rrg_cache["data"] and (now - _rrg_cache["timestamp"]) < RRG_CACHE_DURATION:
-        return jsonify(_rrg_cache["data"])
 
-    benchmark = request.args.get('benchmark', 'SPY')
-    sectors_param = request.args.get('sectors', 'XLK,XLF,XLV,XLE,XLY,XLP,XLI,XLB,XLRE,XLU,XLC')
+    country = request.args.get('country', 'us').lower()
+    country_defaults = COUNTRY_RRG_DEFAULTS.get(country, COUNTRY_RRG_DEFAULTS['us'])
+
+    benchmark = request.args.get('benchmark', country_defaults['benchmark'])
+    sectors_param = request.args.get('sectors', country_defaults['sectors'])
     tail_length = int(request.args.get('tail', '10'))
     sectors = [s.strip() for s in sectors_param.split(',') if s.strip()]
+
+    cache_key = f"{benchmark}|{sectors_param}"
+    if cache_key in _rrg_caches:
+        entry = _rrg_caches[cache_key]
+        if entry["data"] and (now - entry["timestamp"]) < RRG_CACHE_DURATION:
+            return jsonify(entry["data"])
 
     all_symbols = [benchmark] + sectors
     period = '60d'
@@ -1030,12 +1118,12 @@ def get_rrg_data():
 
         response = {
             "benchmark": benchmark,
+            "country": country,
             "sectors": rrg_sectors,
             "tailLength": tail_length,
             "fetchedAt": datetime.now(US_EASTERN).strftime('%Y-%m-%dT%H:%M:%S'),
         }
-        _rrg_cache["data"] = response
-        _rrg_cache["timestamp"] = now
+        _rrg_caches[cache_key] = {"data": response, "timestamp": now}
         return jsonify(response)
     except Exception as e:
         print(f"[RRG] Fatal error: {e}")

@@ -1,4 +1,4 @@
-import { TrendingUp, BarChart3, Globe, GitBranch } from "lucide-react";
+import { TrendingUp, BarChart3, Globe, GitBranch, Flag } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { LiveStockCard } from "@/components/LiveStockCard";
@@ -17,43 +17,83 @@ export default function MarketTrends() {
         <p className="text-muted-foreground mt-2">{t.market_pulse}</p>
       </div>
 
-      {/* RRG Chart — Energy Flow Summary */}
+      {/* RRG Chart — multi-country */}
       <section className="mb-10">
         <h2 className="text-2xl font-bold flex items-center gap-3 mb-2">
           <GitBranch className="w-6 h-6 text-indigo-500" />
-          {lang === "ko" ? "섹터 에너지 흐름" : "Sector Energy Flow"}
+          {lang === "ko" ? "글로벌 섹터 순환 (RRG)" : "Global Sector Rotation (RRG)"}
         </h2>
         <p className="text-muted-foreground text-sm mb-5">
           {lang === "ko"
-            ? "자금이 어떤 섹터에서 빠져나와 어디로 이동하는지 — 순환매 타이밍 포착"
-            : "Where capital is rotating in and out — catch the rotation before it happens"
+            ? "미국·한국·일본·유럽 — 자금이 어느 섹터로 이동하는지 국가별로 추적하세요"
+            : "US · Korea · Japan · Europe — track where capital rotates across markets worldwide"
           }
         </p>
         <RRGChart />
       </section>
 
-      {/* Major Indices + Trending Stocks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      {/* US Indices + Trending */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <section>
           <h2 className="text-2xl font-bold flex items-center gap-3 mb-6">
             <BarChart3 className="w-6 h-6 text-primary" />
-            {t.major_indices}
+            🇺🇸 {lang === "ko" ? "미국 주요 지수" : "US Major Indices"}
           </h2>
           <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
-            <LiveStockCard symbols={["SPY", "QQQ", "DIA"]} />
+            <LiveStockCard symbols={["SPY", "QQQ", "DIA", "IWM"]} />
           </div>
         </section>
 
         <section>
           <h2 className="text-2xl font-bold flex items-center gap-3 mb-6">
             <TrendingUp className="w-6 h-6 text-accent" />
-            {t.trending_stocks}
+            {lang === "ko" ? "🔥 미국 인기 종목" : "🔥 US Trending Stocks"}
           </h2>
           <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
             <LiveStockCard symbols={["NVDA", "TSLA", "AAPL", "MSFT", "AMZN"]} />
           </div>
         </section>
       </div>
+
+      {/* Korean Market */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <section>
+          <h2 className="text-xl font-bold flex items-center gap-3 mb-6">
+            <Flag className="w-5 h-5 text-rose-500" />
+            🇰🇷 {lang === "ko" ? "한국 주요 종목" : "Korea Top Stocks"}
+          </h2>
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+            <LiveStockCard symbols={["005930.KS", "000660.KS", "005380.KS", "035420.KS", "068270.KS"]} />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold flex items-center gap-3 mb-6">
+            <Flag className="w-5 h-5 text-red-600" />
+            🇯🇵 {lang === "ko" ? "일본 주요 종목" : "Japan Top Stocks"}
+          </h2>
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+            <LiveStockCard symbols={["7203.T", "6758.T", "9984.T", "8306.T", "4502.T"]} />
+          </div>
+        </section>
+      </div>
+
+      {/* European Market */}
+      <section className="mb-8">
+        <h2 className="text-xl font-bold flex items-center gap-3 mb-4">
+          <Globe className="w-5 h-5 text-blue-500" />
+          🇪🇺 {lang === "ko" ? "유럽 주요 종목 (ADR/US상장)" : "Europe Top Stocks (US-listed ADRs)"}
+        </h2>
+        <p className="text-muted-foreground text-sm mb-5">
+          {lang === "ko"
+            ? "미국 거래소에 상장된 유럽 대표 기업들 — ASML, SAP, NVO, BP, SHEL, AZN 등"
+            : "Major European companies listed on US exchanges — ASML, SAP, NVO, BP, SHEL, AZN and more"
+          }
+        </p>
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+          <LiveStockCard symbols={["ASML", "SAP", "NVO", "BP", "SHEL", "AZN", "UL", "GSK"]} />
+        </div>
+      </section>
 
       {/* Global Macro Dashboard */}
       <section className="mb-8">
@@ -79,8 +119,8 @@ export default function MarketTrends() {
             <p className="font-bold text-lg mb-1">{t.dino_says}</p>
             <p className="text-muted-foreground">
               {lang === "ko"
-                ? "시장 지수는 전체 시장의 건강 상태를 보여줍니다. SPY는 S&P 500을, QQQ는 나스닥을, DIA는 다우존스를 추적합니다!"
-                : "Market indices show the overall health of the market. SPY tracks the S&P 500, QQQ tracks Nasdaq, and DIA tracks the Dow Jones!"
+                ? "이제 미국·한국·일본·유럽 시장을 한눈에! RRG 차트에서 국가를 바꿔가며 어느 섹터로 자금이 흐르는지 확인해보세요. 핀치(모바일)나 스크롤(PC)로 차트를 확대할 수 있어요."
+                : "Now covering US, Korea, Japan & Europe all in one place! Switch countries on the RRG chart to see where capital is flowing. Pinch on mobile or scroll on PC to zoom into the chart."
               }
             </p>
           </div>

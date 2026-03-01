@@ -1019,16 +1019,21 @@ export async function registerRoutes(
     }
   });
 
-  // === RRG (Relative Rotation Graph) ===
+  // === RRG (Relative Rotation Graph) — multi-country support ===
   app.get("/api/rrg/data", async (req, res) => {
     try {
-      const benchmark = (req.query.benchmark as string) || 'SPY';
-      const sectors = (req.query.sectors as string) || 'XLK,XLF,XLV,XLE,XLY,XLP,XLI,XLB,XLRE,XLU,XLC';
+      const country = (req.query.country as string) || 'us';
+      const benchmark = (req.query.benchmark as string) || '';
+      const sectors = (req.query.sectors as string) || '';
       const tail = (req.query.tail as string) || '10';
 
+      const params = new URLSearchParams({ country, tail });
+      if (benchmark) params.set('benchmark', benchmark);
+      if (sectors)   params.set('sectors', sectors);
+
       const response = await fetch(
-        `${MACRO_PYTHON_URL}/rrg/data?benchmark=${benchmark}&sectors=${sectors}&tail=${tail}`,
-        { signal: AbortSignal.timeout(30000) }
+        `${MACRO_PYTHON_URL}/rrg/data?${params.toString()}`,
+        { signal: AbortSignal.timeout(45000) }
       );
 
       if (!response.ok) {
