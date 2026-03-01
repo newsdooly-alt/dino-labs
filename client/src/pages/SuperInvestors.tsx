@@ -195,7 +195,7 @@ export default function SuperInvestors() {
                     </Card>
                     <Card className="border-2">
                       <CardContent className="pt-6">
-                        <p className="text-sm font-bold uppercase text-muted-foreground">{t.last_updated}</p>
+                        <p className="text-sm font-bold uppercase text-muted-foreground">{t.last_updated_quarter}</p>
                         <p className="text-2xl font-display font-bold text-foreground mt-1">
                           {selectedInvestor.lastUpdated}
                         </p>
