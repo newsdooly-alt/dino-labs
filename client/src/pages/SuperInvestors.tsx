@@ -1,23 +1,167 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Briefcase, Info, TrendingUp, TrendingDown, Minus, PieChart as PieChartIcon, List } from "lucide-react";
+import {
+  ArrowLeft, Briefcase, Info, TrendingUp, TrendingDown, Minus,
+  PieChart as PieChartIcon, List, Search, ChevronDown, ChevronUp, Globe,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
-import type { SuperInvestor } from "@shared/super-investor";
+import type { SuperInvestor, InvestorCategory } from "@shared/super-investor";
+
+const CATEGORY_LABELS: Record<InvestorCategory | "all", { en: string; ko: string; emoji: string }> = {
+  all:      { en: "All",           ko: "전체",      emoji: "🌐" },
+  value:    { en: "Value",         ko: "가치",      emoji: "💎" },
+  growth:   { en: "Growth",        ko: "성장",      emoji: "🚀" },
+  macro:    { en: "Macro",         ko: "매크로",    emoji: "🌍" },
+  hedge:    { en: "Hedge Fund",    ko: "헤지펀드",  emoji: "⚡" },
+  activist: { en: "Activist",      ko: "행동주의",  emoji: "📣" },
+  sovereign:{ en: "Sovereign Fund",ko: "국부펀드",  emoji: "🏛️" },
+  index:    { en: "Index / Passive",ko: "인덱스",   emoji: "📊" },
+};
+
+const KO_COMPANY_NAMES: Record<string, string> = {
+  "Apple Inc.": "애플",
+  "Microsoft Corp.": "마이크로소프트",
+  "Microsoft Corp": "마이크로소프트",
+  "Alphabet Inc.": "알파벳",
+  "Amazon.com": "아마존",
+  "NVIDIA Corporation": "엔비디아",
+  "Meta Platforms": "메타",
+  "Tesla Inc.": "테슬라",
+  "Berkshire Hathaway": "버크셔 해서웨이",
+  "JPMorgan Chase": "JP모건 체이스",
+  "Visa Inc.": "비자",
+  "Mastercard": "마스터카드",
+  "Bank of America": "뱅크오브아메리카",
+  "Wells Fargo": "웰스파고",
+  "Goldman Sachs": "골드만삭스",
+  "Morgan Stanley": "모건스탠리",
+  "Chevron Corp": "셰브론",
+  "Exxon Mobil": "엑슨모빌",
+  "Johnson & Johnson": "존슨앤드존슨",
+  "Procter & Gamble": "프록터앤드갬블",
+  "Coca-Cola": "코카콜라",
+  "PepsiCo": "펩시코",
+  "Walmart Inc.": "월마트",
+  "Costco": "코스트코",
+  "Home Depot": "홈디포",
+  "McDonald's": "맥도날드",
+  "Starbucks": "스타벅스",
+  "Nike Inc.": "나이키",
+  "Walt Disney": "월트 디즈니",
+  "Netflix Inc.": "넷플릭스",
+  "Salesforce": "세일즈포스",
+  "Adobe Inc.": "어도비",
+  "Intel Corporation": "인텔",
+  "Qualcomm": "퀄컴",
+  "Broadcom": "브로드컴",
+  "PayPal": "페이팔",
+  "Shopify": "쇼피파이",
+  "Uber Technologies": "우버",
+  "Airbnb": "에어비앤비",
+  "Spotify": "스포티파이",
+  "Palantir Technologies": "팔란티어",
+  "Snowflake": "스노우플레이크",
+  "CrowdStrike": "크라우드스트라이크",
+  "Palo Alto Networks": "팰로앨토 네트웍스",
+  "ServiceNow": "서비스나우",
+  "Workday": "워크데이",
+  "Eli Lilly & Co.": "일라이 릴리",
+  "AbbVie": "애브비",
+  "Bristol-Myers Squibb": "브리스톨-마이어스 스큅",
+  "UnitedHealth Group": "유나이티드헬스 그룹",
+  "Cigna": "시그나",
+  "CVS Health": "CVS 헬스",
+  "Humana": "휴마나",
+  "American Express": "아메리칸 익스프레스",
+  "Occidental Petroleum": "옥시덴탈 페트롤리엄",
+  "Kraft Heinz": "크래프트 하인즈",
+  "Moody's Corp": "무디스",
+  "VeriSign Inc.": "베리사인",
+  "DaVita Inc.": "다비타",
+  "Marriott International": "메리어트 인터내셔널",
+  "Booking Holdings": "부킹 홀딩스",
+  "JD.com Inc.": "JD닷컴",
+  "Alibaba Group": "알리바바",
+  "Baidu": "바이두",
+  "Tencent": "텐센트",
+  "SPDR S&P 500 ETF": "S&P 500 ETF (SPY)",
+  "iShares Emerging Markets ETF": "이머징마켓 ETF (EEM)",
+  "SPDR Gold Shares ETF": "금 ETF (GLD)",
+  "iShares Core S&P 500 ETF": "iShares S&P 500 ETF",
+  "GEO Group Inc.": "지오 그룹",
+  "HCA Healthcare": "HCA 헬스케어",
+  "Pfizer Inc.": "화이자",
+  "Biogen": "바이오젠",
+  "CRISPR Therapeutics": "CRISPR 테라퓨틱스",
+  "Barrick Gold": "배릭 골드",
+  "Wheaton Precious Metals": "휘튼 프리셔스 메탈스",
+  "Omega Healthcare": "오메가 헬스케어",
+  "Pinterest": "핀터레스트",
+  "Texas Instruments": "텍사스 인스트루먼트",
+  "Chipotle Mexican Grill": "치폴레",
+  "Howard Hughes Holdings": "하워드 휴즈 홀딩스",
+  "DBS Group Holdings": "DBS 그룹",
+  "Sea Limited": "씨 리미티드",
+  "Toyota Motor": "토요타 자동차",
+  "SoftBank Group": "소프트뱅크 그룹",
+  "Nintendo": "닌텐도",
+  "Coinbase": "코인베이스",
+  "Roku Inc.": "로쿠",
+  "MercadoLibre": "메르카도리브레",
+  "Vistra Corp": "비스트라",
+  "CVR Energy": "CVR 에너지",
+  "Qurate Retail": "쿠레이트 리테일",
+  "PTC Inc.": "PTC",
+  "Everi Holdings": "에버리 홀딩스",
+  "Rain Industries": "레인 인더스트리스",
+  "Allison Transmission": "앨리슨 트랜스미션",
+  "Cellebrite DI": "셀레브라이트",
+  "Eli Lilly & Co": "일라이 릴리",
+  "삼성전자 (Samsung Electronics)": "삼성전자",
+  "SK하이닉스 (SK Hynix)": "SK하이닉스",
+  "현대자동차 (Hyundai Motor)": "현대자동차",
+  "NAVER Corp.": "네이버",
+};
+
+function getCompanyName(company: string, lang: string): string {
+  if (lang === "ko" && KO_COMPANY_NAMES[company]) {
+    return KO_COMPANY_NAMES[company];
+  }
+  return company;
+}
+
+function getCategoryLabel(category: string | undefined): { en: string; ko: string; emoji: string } {
+  return CATEGORY_LABELS[category as InvestorCategory] ?? CATEGORY_LABELS["value"];
+}
+
+function getCurrencySymbol(country: string): string {
+  if (country === "KR") return "₩";
+  if (country === "JP") return "¥";
+  if (country === "SG" || country === "AE" || country === "SA") return "$";
+  return "$";
+}
 
 export default function SuperInvestors() {
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<InvestorCategory | "all">("all");
+  const [showAllHoldings, setShowAllHoldings] = useState(false);
+  const [whyDialogHolding, setWhyDialogHolding] = useState<{
+    ticker: string; company: string; en: string; ko: string;
+  } | null>(null);
 
   const { data: investors, isLoading } = useQuery<SuperInvestor[]>({
     queryKey: ["/api/super-investors"],
@@ -25,12 +169,39 @@ export default function SuperInvestors() {
 
   const selectedInvestor = investors?.find((inv) => inv.id === selectedId);
 
+  const filteredInvestors = useMemo(() => {
+    if (!investors) return [];
+    return investors.filter((inv) => {
+      const matchesCategory = activeCategory === "all" || inv.category === activeCategory;
+      if (!matchesCategory) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const nameMatch = inv.name.toLowerCase().includes(q);
+      const firmMatch = inv.firm.toLowerCase().includes(q);
+      const holdingMatch = inv.holdings.some(
+        (h) => h.ticker.toLowerCase().includes(q) || h.company.toLowerCase().includes(q)
+      );
+      return nameMatch || firmMatch || holdingMatch;
+    });
+  }, [investors, activeCategory, searchQuery]);
+
+  const displayedHoldings = useMemo(() => {
+    if (!selectedInvestor) return [];
+    return showAllHoldings
+      ? selectedInvestor.holdings
+      : selectedInvestor.holdings.slice(0, 20);
+  }, [selectedInvestor, showAllHoldings]);
+
+  const categoryKeys: (InvestorCategory | "all")[] = [
+    "all", "value", "growth", "macro", "hedge", "activist", "sovereign", "index"
+  ];
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
         <div className="h-10 w-64 bg-muted animate-pulse rounded-lg" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="h-48 animate-pulse" />
           ))}
         </div>
@@ -40,6 +211,39 @@ export default function SuperInvestors() {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Why They Bought Dialog */}
+      <Dialog open={!!whyDialogHolding} onOpenChange={() => setWhyDialogHolding(null)}>
+        <DialogContent className="max-w-md rounded-2xl border-2">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Info className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold">
+                  {lang === "ko" ? "매수 이유" : "Why They Bought"}
+                </DialogTitle>
+                <p className="text-xs font-mono text-muted-foreground">
+                  {whyDialogHolding?.ticker} · {whyDialogHolding ? getCompanyName(whyDialogHolding.company, lang) : ""}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+              <p className="text-sm leading-relaxed text-foreground">
+                {lang === "ko" ? whyDialogHolding?.ko : whyDialogHolding?.en}
+              </p>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              {lang === "ko"
+                ? "* 교육 목적의 투자 철학 해설입니다. 투자 조언이 아닙니다."
+                : "* Educational investment philosophy summary. Not financial advice."}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AnimatePresence mode="wait">
         {!selectedId ? (
           <motion.div
@@ -49,6 +253,7 @@ export default function SuperInvestors() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Header */}
             <div>
               <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
                 <Briefcase className="w-8 h-8 text-primary" />
@@ -59,48 +264,112 @@ export default function SuperInvestors() {
               </p>
             </div>
 
+            {/* Search Bar */}
+            <div className="relative max-w-lg">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={lang === "ko" ? "투자자명, 회사명, 종목 검색..." : "Search investors, firms, or tickers..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 rounded-xl border-2 bg-background"
+                data-testid="input-investor-search"
+              />
+            </div>
+
+            {/* Category Filter Chips */}
+            <div className="flex flex-wrap gap-2">
+              {categoryKeys.map((cat) => {
+                const label = CATEGORY_LABELS[cat];
+                const count = cat === "all"
+                  ? investors?.length ?? 0
+                  : investors?.filter((i) => i.category === cat).length ?? 0;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    data-testid={`filter-${cat}`}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold border-2 transition-all ${
+                      activeCategory === cat
+                        ? "bg-primary text-primary-foreground border-primary shadow-md"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    <span>{label.emoji}</span>
+                    <span>{lang === "ko" ? label.ko : label.en}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                      activeCategory === cat ? "bg-white/20" : "bg-muted"
+                    }`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Results Count */}
+            <p className="text-sm text-muted-foreground font-medium">
+              {lang === "ko"
+                ? `${filteredInvestors.length}명의 투자자`
+                : `${filteredInvestors.length} investor${filteredInvestors.length !== 1 ? "s" : ""}`}
+              {searchQuery && (
+                <span className="ml-1 text-primary">
+                  {lang === "ko" ? `"${searchQuery}" 검색 결과` : `for "${searchQuery}"`}
+                </span>
+              )}
+            </p>
+
+            {/* Investor Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {investors?.map((investor) => (
-                <Card 
+              {filteredInvestors.map((investor) => (
+                <Card
                   key={investor.id}
-                  className="group hover:border-primary/50 transition-all cursor-pointer overflow-hidden border-2"
-                  onClick={() => setSelectedId(investor.id)}
+                  className="group hover:border-primary/50 transition-all cursor-pointer overflow-hidden border-2 hover:shadow-lg"
+                  onClick={() => { setSelectedId(investor.id); setShowAllHoldings(false); }}
                   data-testid={`card-investor-${investor.id}`}
                 >
                   <CardHeader className="pb-4">
                     <div className="flex items-center gap-4">
-                      <div 
-                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg"
+                      <div
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shadow-lg flex-shrink-0"
                         style={{ backgroundColor: investor.avatarColor }}
                       >
                         {investor.initials}
                       </div>
-                      <div>
-                        <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                      <div className="min-w-0">
+                        <CardTitle className="text-base group-hover:text-primary transition-colors leading-tight truncate">
                           {investor.name}
                         </CardTitle>
-                        <CardDescription className="font-medium">
+                        <CardDescription className="font-medium text-xs leading-tight line-clamp-2">
                           {investor.firm}
                         </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                       <div className="flex justify-between items-end">
                         <div>
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                             {t.portfolio_value}
                           </p>
-                          <p className="text-2xl font-display font-bold text-primary">
-                            {investor.country === "US" ? "$" : "₩"}{investor.aum}{investor.aumUnit}
+                          <p className="text-xl font-display font-bold text-primary">
+                            {getCurrencySymbol(investor.country)}{investor.aum}{investor.aumUnit}
                           </p>
                         </div>
-                        <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary">
-                          {investor.country}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary text-[10px]">
+                            {investor.country}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-muted"
+                            style={{ backgroundColor: investor.avatarColor + "15", color: investor.avatarColor }}
+                          >
+                            {lang === "ko"
+                              ? getCategoryLabel(investor.category).ko
+                              : getCategoryLabel(investor.category).en}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {(lang === "ko" ? investor.styleTagsKo : investor.styleTagsEn).slice(0, 2).map((tag) => (
                           <Badge key={tag} variant="secondary" className="text-[10px] font-bold uppercase tracking-tighter">
                             {tag}
@@ -115,6 +384,18 @@ export default function SuperInvestors() {
                 </Card>
               ))}
             </div>
+
+            {filteredInvestors.length === 0 && (
+              <div className="text-center py-16">
+                <Globe className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-lg font-bold text-muted-foreground">
+                  {lang === "ko" ? "검색 결과가 없습니다." : "No investors found."}
+                </p>
+                <Button variant="ghost" onClick={() => { setSearchQuery(""); setActiveCategory("all"); }} className="mt-3">
+                  {lang === "ko" ? "필터 초기화" : "Clear filters"}
+                </Button>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div
@@ -124,8 +405,8 @@ export default function SuperInvestors() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => setSelectedId(null)}
               className="group -ml-2 text-muted-foreground hover:text-primary transition-colors"
               data-testid="button-back"
@@ -139,13 +420,13 @@ export default function SuperInvestors() {
                 {/* Profile Section */}
                 <div className="lg:col-span-1 space-y-6">
                   <Card className="border-2 shadow-xl overflow-hidden">
-                    <div 
+                    <div
                       className="h-32 w-full relative"
-                      style={{ backgroundColor: selectedInvestor.avatarColor + '20' }}
+                      style={{ backgroundColor: selectedInvestor.avatarColor + "20" }}
                     >
                       <div className="absolute -bottom-10 left-6">
-                        <div 
-                          className="w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-bold text-white shadow-2xl border-4 border-card"
+                        <div
+                          className="w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-bold text-white shadow-2xl border-4 border-card"
                           style={{ backgroundColor: selectedInvestor.avatarColor }}
                         >
                           {selectedInvestor.initials}
@@ -153,10 +434,25 @@ export default function SuperInvestors() {
                       </div>
                     </div>
                     <CardHeader className="pt-14 pb-4">
-                      <CardTitle className="text-2xl">{selectedInvestor.name}</CardTitle>
-                      <CardDescription className="text-lg font-semibold text-primary">
+                      <CardTitle className="text-xl leading-tight">{selectedInvestor.name}</CardTitle>
+                      <CardDescription className="text-base font-semibold text-primary leading-tight">
                         {selectedInvestor.firm}
                       </CardDescription>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary text-xs">
+                          {selectedInvestor.country}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-xs"
+                          style={{ backgroundColor: selectedInvestor.avatarColor + "15", color: selectedInvestor.avatarColor, borderColor: selectedInvestor.avatarColor + "40" }}
+                        >
+                          {getCategoryLabel(selectedInvestor.category).emoji}{" "}
+                          {lang === "ko"
+                            ? getCategoryLabel(selectedInvestor.category).ko
+                            : getCategoryLabel(selectedInvestor.category).en}
+                        </Badge>
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="space-y-2">
@@ -189,7 +485,7 @@ export default function SuperInvestors() {
                       <CardContent className="pt-6">
                         <p className="text-sm font-bold uppercase opacity-80">{t.portfolio_value}</p>
                         <p className="text-4xl font-display font-bold mt-1">
-                          {selectedInvestor.country === "US" ? "$" : "₩"}{selectedInvestor.aum}{selectedInvestor.aumUnit}
+                          {getCurrencySymbol(selectedInvestor.country)}{selectedInvestor.aum}{selectedInvestor.aumUnit}
                         </p>
                       </CardContent>
                     </Card>
@@ -218,69 +514,125 @@ export default function SuperInvestors() {
 
                     <TabsContent value="holdings" className="mt-6">
                       <Card className="border-2 overflow-hidden">
-                        <ScrollArea className="h-[500px] w-full">
-                          <div className="min-w-[600px]">
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[580px]">
                             <table className="w-full text-sm">
-                              <thead className="bg-muted/50 sticky top-0 z-10">
+                              <thead className="bg-muted/50">
                                 <tr>
-                                  <th className="px-6 py-4 text-left font-bold text-muted-foreground uppercase tracking-wider">{t.company}</th>
-                                  <th className="px-6 py-4 text-right font-bold text-muted-foreground uppercase tracking-wider">{t.weight}</th>
-                                  <th className="px-6 py-4 text-center font-bold text-muted-foreground uppercase tracking-wider">{t.change}</th>
-                                  <th className="px-6 py-4 text-right font-bold text-muted-foreground uppercase tracking-wider">{t.why_bought}</th>
+                                  <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px] w-8">#</th>
+                                  <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.company}</th>
+                                  <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.weight}</th>
+                                  <th className="px-4 py-3 text-center font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.change}</th>
+                                  <th className="px-4 py-3 text-center font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.why_bought}</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border">
-                                {selectedInvestor.holdings.map((holding) => (
+                                {displayedHoldings.map((holding, idx) => (
                                   <tr key={holding.ticker} className="hover:bg-muted/30 transition-colors">
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-4 text-muted-foreground font-mono text-xs">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="px-4 py-4">
                                       <div>
-                                        <div className="font-bold text-foreground">{holding.company}</div>
-                                        <div className="text-xs font-medium text-muted-foreground tracking-widest">{holding.ticker}</div>
+                                        <div className="font-bold text-foreground">
+                                          {getCompanyName(holding.company, lang)}
+                                        </div>
+                                        <div className="text-xs font-mono text-muted-foreground tracking-widest">
+                                          {holding.ticker}
+                                        </div>
                                       </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-4 py-4 text-right">
                                       <div className="text-lg font-display font-bold text-primary">{holding.weight}%</div>
                                       <div className="text-[10px] text-muted-foreground font-medium uppercase">{holding.sector}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-4 py-4 text-center">
                                       <div className="flex flex-col items-center gap-1">
-                                        {holding.change === "Bought" && <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none"><TrendingUp className="w-3 h-3 mr-1" /> {t.bought}</Badge>}
-                                        {holding.change === "Sold" && <Badge className="bg-rose-500 hover:bg-rose-600 border-none"><TrendingDown className="w-3 h-3 mr-1" /> {t.sold}</Badge>}
-                                        {holding.change === "Held" && <Badge variant="secondary" className="bg-muted text-muted-foreground border-none"><Minus className="w-3 h-3 mr-1" /> {t.held}</Badge>}
-                                        {holding.change === "New" && <Badge className="bg-primary hover:bg-primary/90 border-none">{t.new_pos}</Badge>}
-                                        {holding.changePct && (
+                                        {holding.change === "Bought" && (
+                                          <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none text-[10px]">
+                                            <TrendingUp className="w-3 h-3 mr-1" />{t.bought}
+                                          </Badge>
+                                        )}
+                                        {holding.change === "Sold" && (
+                                          <Badge className="bg-rose-500 hover:bg-rose-600 border-none text-[10px]">
+                                            <TrendingDown className="w-3 h-3 mr-1" />{t.sold}
+                                          </Badge>
+                                        )}
+                                        {holding.change === "Held" && (
+                                          <Badge variant="secondary" className="bg-muted text-muted-foreground border-none text-[10px]">
+                                            <Minus className="w-3 h-3 mr-1" />{t.held}
+                                          </Badge>
+                                        )}
+                                        {holding.change === "New" && (
+                                          <Badge className="bg-primary hover:bg-primary/90 border-none text-[10px]">
+                                            {t.new_pos}
+                                          </Badge>
+                                        )}
+                                        {holding.changePct !== null && holding.changePct !== 0 && (
                                           <span className={holding.changePct > 0 ? "text-emerald-500 text-[10px] font-bold" : "text-rose-500 text-[10px] font-bold"}>
                                             {holding.changePct > 0 ? "+" : ""}{holding.changePct}%
                                           </span>
                                         )}
                                       </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button variant="outline" size="sm" className="rounded-full h-8 font-bold border-2 hover:bg-primary hover:text-white hover:border-primary transition-all">
-                                              <Info className="w-4 h-4 mr-2" />
-                                              {t.learn_why}
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent className="max-w-xs p-4 bg-card border-2 shadow-2xl rounded-2xl" side="left">
-                                            <div className="space-y-2">
-                                              <p className="text-xs font-bold uppercase text-primary tracking-wider">{t.why_bought}</p>
-                                              <p className="text-sm leading-relaxed">
-                                                {lang === "ko" ? holding.whyTheyBoughtKo : holding.whyTheyBoughtEn}
-                                              </p>
-                                            </div>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                    <td className="px-4 py-4 text-center">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setWhyDialogHolding({
+                                          ticker: holding.ticker,
+                                          company: holding.company,
+                                          en: holding.whyTheyBoughtEn,
+                                          ko: holding.whyTheyBoughtKo,
+                                        })}
+                                        className="rounded-full h-8 text-xs font-bold border-2 hover:bg-primary hover:text-white hover:border-primary transition-all"
+                                        data-testid={`button-why-${holding.ticker}`}
+                                      >
+                                        <Info className="w-3 h-3 mr-1" />
+                                        {t.learn_why}
+                                      </Button>
                                     </td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
-                        </ScrollArea>
+                        </div>
+
+                        {/* View All / Show Less */}
+                        {selectedInvestor.holdings.length > 20 && (
+                          <div className="border-t border-border p-4 text-center">
+                            <Button
+                              variant="ghost"
+                              onClick={() => setShowAllHoldings(!showAllHoldings)}
+                              className="font-bold text-primary hover:text-primary hover:bg-primary/10"
+                              data-testid="button-toggle-holdings"
+                            >
+                              {showAllHoldings ? (
+                                <>
+                                  <ChevronUp className="w-4 h-4 mr-2" />
+                                  {lang === "ko" ? "접기" : "Show Less"}
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-4 h-4 mr-2" />
+                                  {lang === "ko"
+                                    ? `전체 보기 (${selectedInvestor.holdings.length}개)`
+                                    : `View All ${selectedInvestor.holdings.length} Holdings`}
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                        {selectedInvestor.holdings.length <= 20 && (
+                          <div className="border-t border-border px-4 py-3">
+                            <p className="text-[10px] text-muted-foreground text-center font-medium">
+                              {lang === "ko"
+                                ? `총 ${selectedInvestor.holdings.length}개 보유 종목 · 상위 포지션 기준`
+                                : `${selectedInvestor.holdings.length} holdings shown · Top positions by weight`}
+                            </p>
+                          </div>
+                        )}
                       </Card>
                     </TabsContent>
 
@@ -303,12 +655,13 @@ export default function SuperInvestors() {
                                   <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                                 ))}
                               </Pie>
-                              <RechartsTooltip 
-                                contentStyle={{ borderRadius: '16px', border: '2px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                itemStyle={{ fontWeight: 'bold' }}
+                              <RechartsTooltip
+                                contentStyle={{ borderRadius: "16px", border: "2px solid #e2e8f0", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
+                                formatter={(value: number) => [`${value}%`, ""]}
+                                itemStyle={{ fontWeight: "bold" }}
                               />
-                              <Legend 
-                                verticalAlign="bottom" 
+                              <Legend
+                                verticalAlign="bottom"
                                 height={36}
                                 formatter={(value) => <span className="text-sm font-bold text-foreground">{value}</span>}
                               />
