@@ -16,6 +16,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 import { getEventsByMonth } from "./economicCalendarData";
 import { SUPER_INVESTORS, getSuperInvestorById } from "./superInvestorData";
+import { get13FData, has13FData, clearCache, INVESTOR_CIK_MAP } from "./sec13FService";
 import { calculateLevel, xpForNextLevel } from "@shared/leveling";
 
 export async function registerRoutes(
@@ -46,6 +47,43 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Investor not found" });
       }
       res.json(investor);
+    });
+
+    // ─── Real 13F Data from SEC EDGAR ────────────────────────────────────────
+    // GET /api/13f/:investorId — fetch real holdings for an investor that files 13F
+    app.get("/api/13f/:investorId", isAuthenticated, async (req, res) => {
+      const { investorId } = req.params;
+      if (!has13FData(investorId)) {
+        return res.status(404).json({
+          message: `No SEC EDGAR CIK mapping for investor: ${investorId}`,
+          availableIds: Object.keys(INVESTOR_CIK_MAP),
+        });
+      }
+      try {
+        const data = await get13FData(investorId);
+        return res.json(data);
+      } catch (err: any) {
+        console.error(`[13F] Error fetching data for ${investorId}:`, err.message);
+        return res.status(502).json({
+          message: `Failed to fetch 13F data from SEC EDGAR: ${err.message}`,
+          investorId,
+        });
+      }
+    });
+
+    // GET /api/13f-status — list which investors have real 13F support
+    app.get("/api/13f-status", isAuthenticated, (_req, res) => {
+      res.json({
+        supportedInvestors: Object.keys(INVESTOR_CIK_MAP),
+        cikMap: INVESTOR_CIK_MAP,
+        source: "SEC EDGAR EDGAR full-text search API (free, no API key required)",
+      });
+    });
+
+    // POST /api/13f-cache/clear — force a fresh fetch next time
+    app.post("/api/13f-cache/clear", isAuthenticated, (_req, res) => {
+      clearCache();
+      res.json({ message: "13F cache cleared. Next fetch will pull fresh SEC data." });
     });
 
     // === User Profiles (authenticated) ===

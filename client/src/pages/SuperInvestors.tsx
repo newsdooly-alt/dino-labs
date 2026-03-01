@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,10 +12,37 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Briefcase, Info, TrendingUp, TrendingDown, Minus,
   PieChart as PieChartIcon, List, Search, ChevronDown, ChevronUp, Globe,
+  RefreshCw, CheckCircle2, ExternalLink, AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 import type { SuperInvestor, InvestorCategory } from "@shared/super-investor";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+// Real 13F data shape from SEC EDGAR
+interface Real13FHolding {
+  rank: number;
+  ticker: string;
+  company: string;
+  cusip: string;
+  value: number;
+  shares: number;
+  weight: number;
+  putCall: string;
+}
+interface Real13FData {
+  investorId: string;
+  cik: string;
+  entityName: string;
+  periodOfReport: string;
+  filingDate: string;
+  accessionNumber: string;
+  totalValueUSD: number;
+  holdingCount: number;
+  holdings: Real13FHolding[];
+  fetchedAt: string;
+  source: string;
+}
 
 const CATEGORY_LABELS: Record<InvestorCategory | "all", { en: string; ko: string; emoji: string }> = {
   all:      { en: "All",           ko: "전체",      emoji: "🌐" },
@@ -275,6 +302,34 @@ export default function SuperInvestors() {
 
   const selectedInvestor = investors?.find((inv) => inv.id === selectedId);
 
+  // Real SEC EDGAR 13F data — fetched on demand when investor detail is opened
+  const {
+    data: real13F,
+    isLoading: isLoading13F,
+    isError: isError13F,
+    refetch: refetch13F,
+  } = useQuery<Real13FData>({
+    queryKey: ["/api/13f", selectedId],
+    queryFn: async () => {
+      if (!selectedId) throw new Error("No investor selected");
+      const res = await fetch(`/api/13f/${selectedId}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`13F fetch failed: ${res.status}`);
+      return res.json();
+    },
+    enabled: !!selectedId,
+    staleTime: 24 * 60 * 60 * 1000, // 24h — same as server cache
+    retry: 1,
+  });
+
+  const clearCacheMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/13f-cache/clear");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/13f"] });
+    },
+  });
+
   const filteredInvestors = useMemo(() => {
     if (!investors) return [];
     return investors
@@ -300,12 +355,42 @@ export default function SuperInvestors() {
       });
   }, [investors, activeCategory, searchQuery]);
 
-  const displayedHoldings = useMemo(() => {
+  // Merge real SEC EDGAR data with static editorial commentary (whyTheyBought)
+  const effectiveHoldings = useMemo(() => {
     if (!selectedInvestor) return [];
-    return showAllHoldings
-      ? selectedInvestor.holdings
-      : selectedInvestor.holdings.slice(0, 10);
-  }, [selectedInvestor, showAllHoldings]);
+    if (!real13F || !real13F.holdings?.length) return selectedInvestor.holdings;
+
+    // Build a ticker→static-holding map for commentary lookup
+    const staticByTicker = new Map(
+      selectedInvestor.holdings.map((h) => [h.ticker.toUpperCase(), h])
+    );
+
+    return real13F.holdings.map((rh) => {
+      const staticMatch = staticByTicker.get(rh.ticker.toUpperCase());
+      return {
+        ticker: rh.ticker || rh.cusip,
+        company: rh.company,
+        sector: staticMatch?.sector || (rh.putCall ? "Options" : "Equity"),
+        shares: rh.shares,
+        weight: rh.weight,
+        change: (staticMatch?.change || "Held") as "Bought" | "Sold" | "Held" | "New",
+        changePct: staticMatch?.changePct ?? null,
+        whyTheyBoughtEn: staticMatch?.whyTheyBoughtEn ||
+          `${rh.company} represents ${rh.weight}% of the portfolio with $${(rh.value / 1000).toFixed(1)}M position size (${rh.shares.toLocaleString()} shares). Source: SEC EDGAR 13F filing, CUSIP ${rh.cusip}.`,
+        whyTheyBoughtKo: staticMatch?.whyTheyBoughtKo ||
+          `${rh.company}는 포트폴리오의 ${rh.weight}%를 차지하며 $${(rh.value / 1000).toFixed(1)}M 포지션 (${rh.shares.toLocaleString()}주)입니다. 출처: SEC EDGAR 13F, CUSIP ${rh.cusip}.`,
+        _isRealData: true,
+        _cusip: rh.cusip,
+        _valueUSD: rh.value,
+        _putCall: rh.putCall,
+      };
+    });
+  }, [selectedInvestor, real13F]);
+
+  const displayedHoldings = useMemo(() => {
+    const src = effectiveHoldings.length > 0 ? effectiveHoldings : (selectedInvestor?.holdings ?? []);
+    return showAllHoldings ? src : src.slice(0, 10);
+  }, [effectiveHoldings, selectedInvestor, showAllHoldings]);
 
   const categoryKeys: (InvestorCategory | "all")[] = [
     "all", "value", "growth", "macro", "hedge", "activist", "sovereign", "index"
@@ -597,13 +682,77 @@ export default function SuperInvestors() {
 
                 {/* Portfolio Content */}
                 <div className="lg:col-span-2 space-y-8">
+                  {/* SEC EDGAR Live Data Status Banner */}
+                  {isLoading13F && (
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 text-sm font-medium">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      {lang === "ko"
+                        ? "SEC EDGAR에서 최신 13F 파일링 데이터 불러오는 중…"
+                        : "Fetching latest 13F filing from SEC EDGAR…"}
+                    </div>
+                  )}
+                  {!isLoading13F && real13F && (
+                    <div className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
+                        <CheckCircle2 className="w-4 h-4" />
+                        {lang === "ko" ? (
+                          <>SEC EDGAR 실제 데이터 · {real13F.holdingCount}개 종목 · 보고 기간: {real13F.periodOfReport}</>
+                        ) : (
+                          <>Live SEC EDGAR data · {real13F.holdingCount} holdings · Period: {real13F.periodOfReport}</>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${real13F.cik}&type=13F-HR&dateb=&owner=include&count=10`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
+                          data-testid="link-sec-edgar"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          SEC.gov
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                          onClick={() => {
+                            clearCacheMutation.mutate(undefined, {
+                              onSuccess: () => refetch13F(),
+                            });
+                          }}
+                          disabled={clearCacheMutation.isPending}
+                          data-testid="button-refresh-13f"
+                        >
+                          <RefreshCw className={`w-3 h-3 mr-1 ${clearCacheMutation.isPending ? "animate-spin" : ""}`} />
+                          {lang === "ko" ? "새로고침" : "Refresh"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {!isLoading13F && isError13F && (
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      {lang === "ko"
+                        ? "SEC EDGAR 데이터를 불러올 수 없어 저장된 데이터를 표시합니다. 이 투자자는 13F 공시가 없을 수 있습니다."
+                        : "Could not load live SEC data — showing curated static holdings. This investor may not file 13F with the SEC."}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card className="bg-primary text-primary-foreground border-none shadow-lg">
                       <CardContent className="pt-6">
                         <p className="text-sm font-bold uppercase opacity-80">{t.portfolio_value}</p>
                         <p className="text-4xl font-display font-bold mt-1">
-                          {formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, lang, krwRate)}
+                          {real13F
+                            ? `$${(real13F.totalValueUSD / 1e9).toFixed(2)}B`
+                            : formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, lang, krwRate)}
                         </p>
+                        {real13F && (
+                          <p className="text-xs opacity-70 mt-1">
+                            {lang === "ko" ? "SEC 13F 실제 신고 기준" : "Per SEC 13F filing"}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                     <Card className="border-2">
@@ -612,13 +761,24 @@ export default function SuperInvestors() {
                           {lang === "ko" ? "데이터 기준" : "Data as of"}
                         </p>
                         <p className="text-2xl font-display font-bold text-foreground mt-1">
-                          {selectedInvestor.lastUpdated}
+                          {real13F ? real13F.periodOfReport : selectedInvestor.lastUpdated}
                         </p>
-                        <p className="text-xs text-muted-foreground font-medium mt-1">{selectedInvestor.filingType}</p>
-                        <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          {lang === "ko" ? "최신 데이터" : "Latest Data"}
-                        </div>
+                        <p className="text-xs text-muted-foreground font-medium mt-1">
+                          {real13F
+                            ? (lang === "ko" ? `신고일: ${real13F.filingDate}` : `Filed: ${real13F.filingDate}`)
+                            : selectedInvestor.filingType}
+                        </p>
+                        {real13F ? (
+                          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            {lang === "ko" ? "SEC EDGAR 실제 데이터" : "Live SEC EDGAR"}
+                          </div>
+                        ) : (
+                          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            {lang === "ko" ? "최신 데이터" : "Latest Data"}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -723,7 +883,7 @@ export default function SuperInvestors() {
                         </div>
 
                         {/* View All / Show Less */}
-                        {selectedInvestor.holdings.length > 10 && (
+                        {(real13F ? real13F.holdingCount : selectedInvestor.holdings.length) > 10 && (
                           <div className="border-t border-border p-4 text-center">
                             <Button
                               variant="ghost"
@@ -740,8 +900,8 @@ export default function SuperInvestors() {
                                 <>
                                   <ChevronDown className="w-4 h-4 mr-2" />
                                   {lang === "ko"
-                                    ? `전체 보기 (${selectedInvestor.holdings.length}개)`
-                                    : `View All ${selectedInvestor.holdings.length} Holdings`}
+                                    ? `전체 보기 (${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개)`
+                                    : `View All ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} Holdings`}
                                 </>
                               )}
                             </Button>
@@ -751,8 +911,8 @@ export default function SuperInvestors() {
                           <div className="border-t border-border px-4 py-3">
                             <p className="text-[10px] text-muted-foreground text-center font-medium">
                               {lang === "ko"
-                                ? `총 ${selectedInvestor.holdings.length}개 보유 종목 · 상위 포지션 기준`
-                                : `${selectedInvestor.holdings.length} holdings shown · Top positions by weight`}
+                                ? `총 ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개 보유 종목 · 상위 포지션 기준`
+                                : `${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} holdings shown · Top positions by weight`}
                             </p>
                           </div>
                         )}
