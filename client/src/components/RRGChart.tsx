@@ -36,12 +36,18 @@ interface StockQuote {
 }
 
 // ─── Country Configurations ───────────────────────────────────────────────────
+interface SectorGroup {
+  id: string;
+  members: string[];
+}
+
 const COUNTRY_CONFIGS: Record<Country, {
   nameEn: string; nameKo: string; flag: string;
   descEn: string; descKo: string;
   sectorLabels: Record<string, { en: string; ko: string }>;
   sectorColors: Record<string, string>;
   top10: Record<string, string[]>;
+  sectorGroups?: SectorGroup[];
 }> = {
   us: {
     nameEn: "US (S&P 500)", nameKo: "미국 (S&P 500)", flag: "🇺🇸",
@@ -81,72 +87,82 @@ const COUNTRY_CONFIGS: Record<Country, {
   },
   kr: {
     nameEn: "Korea (KOSPI)", nameKo: "한국 (코스피)", flag: "🇰🇷",
-    descEn: "Major KOSPI blue-chips vs KOSPI Index",
-    descKo: "코스피 대형주 vs 코스피 지수",
+    descEn: "8 KOSPI sectors vs KOSPI Index — sector rotation",
+    descKo: "8개 코스피 섹터 vs 코스피 지수 — 섹터 순환",
+    sectorGroups: [
+      { id: "KR_SEMI",  members: ["005930.KS","000660.KS"] },
+      { id: "KR_AUTO",  members: ["005380.KS"] },
+      { id: "KR_BIO",   members: ["068270.KS"] },
+      { id: "KR_FIN",   members: ["105560.KS"] },
+      { id: "KR_CHEM",  members: ["051910.KS","373220.KS"] },
+      { id: "KR_NET",   members: ["035420.KS"] },
+      { id: "KR_STEEL", members: ["003670.KS"] },
+      { id: "KR_TELE",  members: ["017670.KS"] },
+    ],
     sectorLabels: {
-      "005930.KS": { en: "Samsung (Tech)",      ko: "삼성전자 (기술)" },
-      "000660.KS": { en: "SK Hynix (Semi)",     ko: "SK하이닉스 (반도체)" },
-      "005380.KS": { en: "Hyundai (Auto)",      ko: "현대차 (자동차)" },
-      "068270.KS": { en: "Celltrion (Bio)",     ko: "셀트리온 (바이오)" },
-      "105560.KS": { en: "KB Financial",        ko: "KB금융" },
-      "051910.KS": { en: "LG Chem (Chem)",      ko: "LG화학 (화학)" },
-      "035420.KS": { en: "NAVER (Internet)",    ko: "네이버 (인터넷)" },
-      "003670.KS": { en: "POSCO (Steel)",       ko: "포스코 (철강)" },
-      "017670.KS": { en: "SK Telecom",          ko: "SK텔레콤 (통신)" },
-      "373220.KS": { en: "LG Energy (EV Bat.)", ko: "LG에너지 (배터리)" },
+      KR_SEMI:  { en: "Semiconductors",  ko: "반도체" },
+      KR_AUTO:  { en: "Automotive",      ko: "자동차" },
+      KR_BIO:   { en: "Bio/Pharma",      ko: "바이오/제약" },
+      KR_FIN:   { en: "Finance",         ko: "금융" },
+      KR_CHEM:  { en: "Chem/Battery",    ko: "화학/배터리" },
+      KR_NET:   { en: "Internet",        ko: "인터넷" },
+      KR_STEEL: { en: "Steel/Materials", ko: "철강/소재" },
+      KR_TELE:  { en: "Telecom",         ko: "통신" },
     },
     sectorColors: {
-      "005930.KS": "#6366f1", "000660.KS": "#8b5cf6", "005380.KS": "#f59e0b",
-      "068270.KS": "#10b981", "105560.KS": "#f97316", "051910.KS": "#84cc16",
-      "035420.KS": "#06b6d4", "003670.KS": "#ef4444", "017670.KS": "#a855f7",
-      "373220.KS": "#ec4899",
+      KR_SEMI:  "#6366f1", KR_AUTO:  "#f59e0b", KR_BIO:   "#10b981",
+      KR_FIN:   "#f97316", KR_CHEM:  "#8b5cf6", KR_NET:   "#06b6d4",
+      KR_STEEL: "#ef4444", KR_TELE:  "#a855f7",
     },
     top10: {
-      "005930.KS": ["000660.KS","035420.KS","035720.KS","066570.KS","009150.KS","018260.KS","034730.KS","259960.KS","036570.KS","293490.KQ"],
-      "000660.KS": ["005930.KS","009150.KS","018260.KS","034730.KS","066570.KS","051910.KS","373220.KS","006400.KS","086520.KS","247540.KS"],
-      "005380.KS": ["000270.KS","012330.KS","005380.KS","096770.KS","003550.KS","028260.KS","032830.KS","034730.KS","000660.KS","066570.KS"],
-      "068270.KS": ["207940.KS","068270.KS","051910.KS","373220.KS","006400.KS","247540.KS","086520.KS","000660.KS","005930.KS","035420.KS"],
-      "105560.KS": ["105560.KS","055550.KS","032830.KS","086790.KS","138930.KS","316140.KS","029780.KS","003550.KS","000270.KS","096770.KS"],
-      "051910.KS": ["051910.KS","003670.KS","006400.KS","373220.KS","247540.KS","086520.KS","096770.KS","011170.KS","010950.KS","011790.KS"],
-      "035420.KS": ["035420.KS","035720.KS","259960.KS","036570.KS","293490.KQ","041510.KQ","122870.KQ","263750.KQ","352820.KS","018260.KS"],
-      "003670.KS": ["003670.KS","010950.KS","051910.KS","006400.KS","096770.KS","011170.KS","247540.KS","086520.KS","373220.KS","028260.KS"],
-      "017670.KS": ["017670.KS","030200.KS","066570.KS","035420.KS","035720.KS","018260.KS","034730.KS","003550.KS","009150.KS","018260.KS"],
-      "373220.KS": ["373220.KS","006400.KS","051910.KS","247540.KS","086520.KS","000660.KS","011170.KS","010950.KS","096770.KS","011790.KS"],
+      KR_SEMI:  ["005930.KS","000660.KS","009150.KS","018260.KS","066570.KS","034730.KS","293490.KQ","086520.KS","247540.KS","006400.KS"],
+      KR_AUTO:  ["005380.KS","000270.KS","012330.KS","004170.KS","096770.KS","007070.KS","011390.KS","003620.KS","006490.KS","094280.KS"],
+      KR_BIO:   ["068270.KS","207940.KS","128940.KS","302440.KS","326030.KS","105940.KS","145020.KS","131970.KS","009290.KS","000100.KS"],
+      KR_FIN:   ["105560.KS","055550.KS","086790.KS","138930.KS","003550.KS","316140.KS","032830.KS","029780.KS","023360.KS","006860.KS"],
+      KR_CHEM:  ["051910.KS","373220.KS","006400.KS","247540.KS","086520.KS","011170.KS","010950.KS","011790.KS","003670.KS","004020.KS"],
+      KR_NET:   ["035420.KS","035720.KS","259960.KS","036570.KS","293490.KQ","041510.KQ","122870.KQ","263750.KQ","352820.KS","018260.KS"],
+      KR_STEEL: ["003670.KS","004020.KS","010120.KS","001040.KS","006120.KS","047050.KS","003490.KS","011780.KS","020560.KS","000660.KS"],
+      KR_TELE:  ["017670.KS","030200.KS","066570.KS","018260.KS","034730.KS","003550.KS","009150.KS","005930.KS","035420.KS","032640.KS"],
     },
   },
   jp: {
     nameEn: "Japan (Nikkei 225)", nameKo: "일본 (닛케이 225)", flag: "🇯🇵",
-    descEn: "Nikkei 225 blue-chips vs N225 benchmark",
-    descKo: "닛케이 225 주요 종목 vs N225 지수",
+    descEn: "8 Nikkei sectors vs N225 benchmark — sector rotation",
+    descKo: "8개 닛케이 섹터 vs N225 지수 — 섹터 순환",
+    sectorGroups: [
+      { id: "JP_AUTO",   members: ["7203.T"] },
+      { id: "JP_ELEC",   members: ["6758.T","6501.T"] },
+      { id: "JP_FIN",    members: ["8306.T"] },
+      { id: "JP_PHARM",  members: ["4502.T"] },
+      { id: "JP_IT",     members: ["9984.T"] },
+      { id: "JP_RETAIL", members: ["3382.T"] },
+      { id: "JP_RE",     members: ["8802.T"] },
+      { id: "JP_UTIL",   members: ["9501.T","4661.T"] },
+    ],
     sectorLabels: {
-      "7203.T": { en: "Toyota (Auto)",       ko: "도요타 (자동차)" },
-      "6758.T": { en: "Sony (Electronics)",  ko: "소니 (전자)" },
-      "8306.T": { en: "MUFG (Finance)",      ko: "미쓰비시UFJ (금융)" },
-      "4502.T": { en: "Takeda (Pharma)",     ko: "다케다 (제약)" },
-      "9984.T": { en: "SoftBank (Tech)",     ko: "소프트뱅크 (기술)" },
-      "6501.T": { en: "Hitachi (Industry)",  ko: "히타치 (산업)" },
-      "3382.T": { en: "7-Eleven (Retail)",   ko: "세븐앤아이 (유통)" },
-      "8802.T": { en: "Mitsubishi (RE)",     ko: "미쓰비시 부동산" },
-      "9501.T": { en: "TEPCO (Utility)",     ko: "도쿄전력 (유틸)" },
-      "4661.T": { en: "Disney JP (Leisure)", ko: "오리엔탈랜드 (레저)" },
+      JP_AUTO:   { en: "Automotive",     ko: "자동차" },
+      JP_ELEC:   { en: "Electronics",    ko: "전자/기술" },
+      JP_FIN:    { en: "Finance",        ko: "금융" },
+      JP_PHARM:  { en: "Pharma",         ko: "제약" },
+      JP_IT:     { en: "IT/Tech",        ko: "IT/기술" },
+      JP_RETAIL: { en: "Retail",         ko: "유통" },
+      JP_RE:     { en: "Real Estate",    ko: "부동산" },
+      JP_UTIL:   { en: "Utility/Leisure",ko: "유틸/레저" },
     },
     sectorColors: {
-      "7203.T": "#ef4444", "6758.T": "#6366f1", "8306.T": "#f59e0b",
-      "4502.T": "#10b981", "9984.T": "#8b5cf6", "6501.T": "#f97316",
-      "3382.T": "#06b6d4", "8802.T": "#84cc16", "9501.T": "#14b8a6",
-      "4661.T": "#ec4899",
+      JP_AUTO:   "#ef4444", JP_ELEC:   "#6366f1", JP_FIN:    "#f59e0b",
+      JP_PHARM:  "#10b981", JP_IT:     "#8b5cf6", JP_RETAIL: "#06b6d4",
+      JP_RE:     "#84cc16", JP_UTIL:   "#14b8a6",
     },
     top10: {
-      "7203.T": ["7203.T","7267.T","7270.T","7201.T","7211.T","7269.T","7272.T","6902.T","6857.T","6954.T"],
-      "6758.T": ["6758.T","6752.T","7751.T","6701.T","6702.T","6764.T","6301.T","6762.T","6861.T","7261.T"],
-      "8306.T": ["8306.T","8316.T","8411.T","8354.T","8601.T","8604.T","8766.T","8630.T","8750.T","8795.T"],
-      "4502.T": ["4502.T","4503.T","4568.T","4519.T","4523.T","4507.T","4506.T","4516.T","4151.T","4204.T"],
-      "9984.T": ["9984.T","4689.T","6758.T","4755.T","3632.T","3659.T","3765.T","7974.T","9602.T","4697.T"],
-      "6501.T": ["6501.T","6954.T","6367.T","6301.T","6302.T","6326.T","6361.T","6366.T","7752.T","6723.T"],
-      "3382.T": ["3382.T","8267.T","8028.T","8200.T","3099.T","3086.T","3048.T","2651.T","2689.T","8233.T"],
-      "8802.T": ["8802.T","8801.T","8804.T","8830.T","3003.T","1925.T","1928.T","5214.T","1801.T","1812.T"],
-      "9501.T": ["9501.T","9502.T","9503.T","9513.T","9531.T","9533.T","9508.T","9507.T","9504.T","9506.T"],
-      "4661.T": ["4661.T","9022.T","9020.T","9021.T","9044.T","9007.T","9005.T","9041.T","2206.T","2282.T"],
+      JP_AUTO:   ["7203.T","7267.T","7270.T","7201.T","7211.T","7269.T","6902.T","7261.T","7272.T","6954.T"],
+      JP_ELEC:   ["6758.T","6501.T","6752.T","7751.T","6701.T","6702.T","6764.T","6762.T","6861.T","6971.T"],
+      JP_FIN:    ["8306.T","8316.T","8411.T","8354.T","8601.T","8604.T","8766.T","8630.T","8750.T","8795.T"],
+      JP_PHARM:  ["4502.T","4503.T","4568.T","4519.T","4523.T","4507.T","4506.T","4516.T","4151.T","4204.T"],
+      JP_IT:     ["9984.T","4689.T","3659.T","4755.T","3632.T","7974.T","9602.T","4765.T","4307.T","9613.T"],
+      JP_RETAIL: ["3382.T","8267.T","8028.T","8200.T","3099.T","3086.T","3048.T","2651.T","2689.T","8233.T"],
+      JP_RE:     ["8802.T","8801.T","8804.T","8830.T","1925.T","1928.T","5214.T","1801.T","1812.T","3003.T"],
+      JP_UTIL:   ["9501.T","4661.T","9502.T","9503.T","9513.T","9531.T","9022.T","9020.T","9021.T","9044.T"],
     },
   },
   eu: {
@@ -199,6 +215,37 @@ const FLOW_DESCRIPTION: Record<string, { en: string; ko: string }> = {
   lagging:   { en: "Capital is leaving — this sector is underperforming the market.",      ko: "소외된 섹터 — 시장 대비 부진합니다." },
   improving: { en: "Opportunity zone — capital is beginning to rotate back in.",           ko: "기회 구간 — 자금이 돌아오기 시작합니다." },
 };
+
+// ─── Sector Aggregation ────────────────────────────────────────────────────────
+function getQuadrant(rsRatio: number, rsMomentum: number): RRGSector["quadrant"] {
+  if (rsRatio >= 100 && rsMomentum >= 100) return "leading";
+  if (rsRatio >= 100 && rsMomentum < 100)  return "weakening";
+  if (rsRatio < 100  && rsMomentum < 100)  return "lagging";
+  return "improving";
+}
+
+function aggregateSectors(rawSectors: RRGSector[], sectorGroups: SectorGroup[]): RRGSector[] {
+  const result: RRGSector[] = [];
+  for (const group of sectorGroups) {
+    const members = rawSectors.filter(s => group.members.includes(s.symbol));
+    if (members.length === 0) continue;
+    const avgRsRatio = members.reduce((sum, m) => sum + m.rsRatio, 0) / members.length;
+    const avgRsMomentum = members.reduce((sum, m) => sum + m.rsMomentum, 0) / members.length;
+    const minTailLen = Math.min(...members.map(m => m.tail?.length ?? 0));
+    const avgTail: RRGPoint[] = Array.from({ length: minTailLen }, (_, i) => ({
+      rsRatio:    members.reduce((s, m) => s + (m.tail[i]?.rsRatio ?? 100), 0) / members.length,
+      rsMomentum: members.reduce((s, m) => s + (m.tail[i]?.rsMomentum ?? 100), 0) / members.length,
+    }));
+    result.push({
+      symbol:     group.id,
+      rsRatio:    avgRsRatio,
+      rsMomentum: avgRsMomentum,
+      quadrant:   getQuadrant(avgRsRatio, avgRsMomentum),
+      tail:       avgTail,
+    });
+  }
+  return result;
+}
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 function CustomDot(props: any) {
@@ -414,16 +461,20 @@ export function RRGChart() {
   }
 
   // ── Data preparation ─────────────────────────────────────────────────────
-  const scatterData = data.sectors.map(s => ({
+  const displaySectors: RRGSector[] = cfg.sectorGroups
+    ? aggregateSectors(data.sectors, cfg.sectorGroups)
+    : data.sectors;
+
+  const scatterData = displaySectors.map(s => ({
     ...s,
     x: s.rsRatio,
     y: s.rsMomentum,
     _color: cfg.sectorColors[s.symbol] || "#6366f1",
-    _shortLabel: s.symbol.includes(".") ? s.symbol.split(".")[0] : s.symbol,
+    _shortLabel: s.symbol.replace(/^(KR|JP)_/, ""),
   }));
 
-  const allX = data.sectors.map(s => s.rsRatio);
-  const allY = data.sectors.map(s => s.rsMomentum);
+  const allX = displaySectors.map(s => s.rsRatio);
+  const allY = displaySectors.map(s => s.rsMomentum);
   const xPad = Math.max(Math.abs(Math.min(...allX) - 100), Math.abs(Math.max(...allX) - 100), 1.5) + 1;
   const yPad = Math.max(Math.abs(Math.min(...allY) - 100), Math.abs(Math.max(...allY) - 100), 1.5) + 1;
   const xMin = Math.round((100 - xPad) * 10) / 10;
@@ -432,7 +483,7 @@ export function RRGChart() {
   const yMax = Math.round((100 + yPad) * 10) / 10;
 
   const quadrantCounts = { leading: 0, weakening: 0, lagging: 0, improving: 0 };
-  for (const s of data.sectors) quadrantCounts[s.quadrant]++;
+  for (const s of displaySectors) quadrantCounts[s.quadrant]++;
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -587,7 +638,7 @@ export function RRGChart() {
                       />
 
                       {/* Tail lines */}
-                      {data.sectors.map(sector => {
+                      {displaySectors.map(sector => {
                         if (!sector.tail || sector.tail.length < 2) return null;
                         const color = cfg.sectorColors[sector.symbol] || "#6366f1";
                         const tailPoints = sector.tail.slice(0, -1).map((p, i, arr) => ({
@@ -629,11 +680,12 @@ export function RRGChart() {
 
       {/* Sector legend chips */}
       <div className="px-5 pb-4 pt-2 flex flex-wrap gap-2">
-        {data.sectors.map(s => {
+        {displaySectors.map(s => {
           const label = cfg.sectorLabels[s.symbol];
           const color = cfg.sectorColors[s.symbol] || "#6366f1";
           const q = QUADRANT_CONFIG[s.quadrant];
           const isSelected = selected?.symbol === s.symbol;
+          const shortId = s.symbol.replace(/^(KR|JP)_/, "");
           return (
             <button key={s.symbol} onClick={() => setSelected(isSelected ? null : s)}
               className={cn(
@@ -643,7 +695,7 @@ export function RRGChart() {
               data-testid={`rrg-sector-${s.symbol}`}
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-              <span className="font-semibold">{s.symbol.includes(".") ? s.symbol.split(".")[0] : s.symbol}</span>
+              <span className="font-semibold">{s.symbol.includes(".") ? s.symbol.split(".")[0] : shortId}</span>
               {label && <span className="text-muted-foreground hidden sm:inline">{lang === "ko" ? label.ko : label.en}</span>}
               <span className="font-bold" style={{ color: q.color }}>·</span>
             </button>
@@ -669,8 +721,10 @@ export function RRGChart() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: cfg.sectorColors[selected.symbol] }} />
-                  <span className="font-bold">{selected.symbol}</span>
-                  {label && <span className="text-xs text-muted-foreground">{lang === "ko" ? label.ko : label.en}</span>}
+                  <span className="font-bold">
+                    {label ? (lang === "ko" ? label.ko : label.en) : selected.symbol.replace(/^(KR|JP)_/, "")}
+                  </span>
+                  {label && <span className="text-xs text-muted-foreground">{selected.symbol.replace(/^(KR|JP)_/, "")}</span>}
                 </div>
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full mb-2"
                   style={{ background: "white", color: q.color, border: `1px solid ${q.border}` }}

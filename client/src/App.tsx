@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/Header";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeColorProvider } from "@/contexts/ThemeColorContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { TimezoneProvider } from "@/contexts/TimezoneContext";
 import { useAuth } from "@/hooks/use-auth";
 
 // Pages
@@ -24,6 +25,7 @@ import Onboarding from "@/pages/Onboarding";
 import Landing from "@/pages/Landing";
 import EconomicCalendar from "@/pages/EconomicCalendar";
 import SuperInvestors from "@/pages/SuperInvestors";
+import GlobalSearch from "@/pages/GlobalSearch";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect, useMemo } from "react";
 
@@ -41,6 +43,7 @@ function Router() {
       <Route path="/eggs" component={Collection} />
       <Route path="/collection" component={Collection} />
       <Route path="/recommended" component={Recommended} />
+      <Route path="/search" component={GlobalSearch} />
       <Route path="/stock/:symbol" component={StockDetail} />
       <Route component={NotFound} />
     </Switch>
@@ -79,7 +82,6 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
-  // Show loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -91,12 +93,10 @@ function AppContent() {
     );
   }
 
-  // Show landing page for unauthenticated users
   if (!isAuthenticated) {
     return <Landing />;
   }
 
-  // Show app for authenticated users
   return (
     <AuthenticatedLayout>
       <Router />
@@ -109,12 +109,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <CurrencyProvider>
-          <ThemeColorProvider>
-            <TooltipProvider>
-              <AppContent />
-              <Toaster />
-            </TooltipProvider>
-          </ThemeColorProvider>
+          <TimezoneProvider>
+            <ThemeColorProvider>
+              <TooltipProvider>
+                <AppContent />
+                <Toaster />
+              </TooltipProvider>
+            </ThemeColorProvider>
+          </TimezoneProvider>
         </CurrencyProvider>
       </ThemeProvider>
     </QueryClientProvider>

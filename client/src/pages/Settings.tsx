@@ -49,21 +49,22 @@ import {
   GraduationCap,
   UserPlus,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useCurrency, type CurrencyType } from "@/contexts/CurrencyContext";
 import { useThemeColor } from "@/contexts/ThemeColorContext";
+import { useTimezone, TZ_OPTIONS, type TimezoneKey } from "@/contexts/TimezoneContext";
 
 type ThemeColor = "green" | "blue" | "pink";
 type RefreshInterval = "manual" | "1min" | "5min";
-type Currency = "usd" | "krw";
 type SkillLevel = "beginner" | "intermediate" | "advanced";
 
 interface AppSettings {
   nickname: string;
   themeColor: ThemeColor;
   refreshInterval: RefreshInterval;
-  currency: Currency;
+  currency: CurrencyType;
   dailyGoal: number;
   marketAlerts: boolean;
 }
@@ -93,7 +94,8 @@ export default function Settings() {
 
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
-  const { currency: activeCurrency, setCurrency: setGlobalCurrency, exchangeRate } = useCurrency();
+  const { currency: activeCurrency, setCurrency: setGlobalCurrency, exchangeRate, exchangeRateJPY } = useCurrency();
+  const { timezone, setTimezone } = useTimezone();
 
   const { themeColor: activeThemeColor, setThemeColor: setGlobalThemeColor } = useThemeColor();
 
@@ -390,20 +392,17 @@ export default function Settings() {
               </SelectContent>
             </Select>
           </div>
-          <div className="p-4 flex items-center justify-between">
+          <div className="p-4 space-y-3">
             <div className="flex items-center gap-3">
               <DollarSign className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="font-medium" data-testid="label-currency">{t.currency}</p>
                 <p className="text-sm text-muted-foreground" data-testid="text-exchange-rate">
-                  {activeCurrency === "usd" 
-                    ? `1 USD = ₩${Math.round(exchangeRate).toLocaleString()}`
-                    : `₩${Math.round(exchangeRate).toLocaleString()} = 1 USD`
-                  }
+                  {`1 USD = ₩${Math.round(exchangeRate).toLocaleString()} / ¥${Math.round(exchangeRateJPY)}`}
                 </p>
               </div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               <Button
                 variant={activeCurrency === "usd" ? "default" : "outline"}
                 size="sm"
@@ -422,6 +421,40 @@ export default function Settings() {
               >
                 {t.currency_krw}
               </Button>
+              <Button
+                variant={activeCurrency === "jpy" ? "default" : "outline"}
+                size="sm"
+                onClick={() => { setGlobalCurrency("jpy"); updateSetting("currency", "jpy"); }}
+                className="h-9"
+                data-testid="button-currency-jpy"
+              >
+                {t.currency_jpy}
+              </Button>
+            </div>
+          </div>
+          <div className="p-4 space-y-3 border-t border-border">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium" data-testid="label-timezone">{t.timezone_settings}</p>
+                <p className="text-sm text-muted-foreground">
+                  {TZ_OPTIONS.find(o => o.value === timezone)?.[lang === "ko" ? "labelKo" : "labelEn"] ?? timezone.toUpperCase()}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {TZ_OPTIONS.map(opt => (
+                <Button
+                  key={opt.value}
+                  variant={timezone === opt.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimezone(opt.value)}
+                  className="h-9 text-xs"
+                  data-testid={`button-timezone-${opt.value}`}
+                >
+                  {opt.value.toUpperCase()}
+                </Button>
+              ))}
             </div>
           </div>
         </div>

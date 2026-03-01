@@ -584,7 +584,7 @@ export async function registerRoutes(
   const MOOD_CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
   // === Exchange Rate API ===
-  let cachedExchangeRate: { rate: number; source: string; timestamp: number } | null = null;
+  let cachedExchangeRate: { rate: number; rateJPY: number; rates: { KRW: number; JPY: number }; source: string; timestamp: number } | null = null;
   const EXCHANGE_RATE_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   app.get("/api/exchange-rate", async (_req, res) => {
@@ -598,6 +598,8 @@ export async function registerRoutes(
       if (data.result === "success" && data.rates?.KRW) {
         cachedExchangeRate = {
           rate: data.rates.KRW,
+          rateJPY: data.rates.JPY || 150,
+          rates: { KRW: data.rates.KRW, JPY: data.rates.JPY || 150 },
           source: "er-api.com",
           timestamp: Date.now(),
         };
@@ -613,6 +615,8 @@ export async function registerRoutes(
       if (data2.rates?.KRW) {
         cachedExchangeRate = {
           rate: data2.rates.KRW,
+          rateJPY: data2.rates.JPY || 150,
+          rates: { KRW: data2.rates.KRW, JPY: data2.rates.JPY || 150 },
           source: "exchangerate-api.com",
           timestamp: Date.now(),
         };
@@ -622,7 +626,7 @@ export async function registerRoutes(
       console.error("Fallback exchange rate API error:", error2);
     }
 
-    res.json({ rate: 1380, source: "fallback", timestamp: Date.now() });
+    res.json({ rate: 1380, rateJPY: 150, rates: { KRW: 1380, JPY: 150 }, source: "fallback", timestamp: Date.now() });
   });
 
   const labelTranslations: Record<string, string> = {
@@ -785,6 +789,7 @@ export async function registerRoutes(
           dinoMessage: "Market data is temporarily unavailable. Showing recent prices!",
           isMarketOpen: false,
           fetchedAtFormatted: fallbackTimestamp,
+          fetchedAtUTC: Date.now(),
           source: "fallback",
         });
       }
@@ -806,6 +811,7 @@ export async function registerRoutes(
           : null,
         isMarketOpen: quotes[0]?.isMarketOpen ?? false,
         fetchedAtFormatted,
+        fetchedAtUTC: Date.now(),
         source: "live",
       });
     } catch (error: any) {
@@ -839,6 +845,7 @@ export async function registerRoutes(
         dinoMessage: "Dino couldn't reach the market. Here are recent prices!",
         isMarketOpen: false,
         fetchedAtFormatted: fallbackTimestamp,
+        fetchedAtUTC: Date.now(),
         source: "fallback",
       });
     }

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useTimezone } from "@/contexts/TimezoneContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { calculateLevel, xpProgressInLevel } from "@shared/leveling";
 
@@ -34,6 +35,7 @@ interface LiveStockResponse {
   dinoMessage: string | null;
   isMarketOpen: boolean;
   fetchedAtFormatted?: string;
+  fetchedAtUTC?: number;
   source?: string;
 }
 
@@ -56,6 +58,7 @@ export default function Dashboard() {
   const t = translations[lang];
   const isKo = lang === "ko";
   const { formatPrice, isKoreanStock } = useCurrency();
+  const { formatTime, timezoneLabel } = useTimezone();
 
   const displayName = getNickname(user?.nickname || "Guest");
 
@@ -247,10 +250,12 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground" data-testid="market-status">
             <span className={cn("w-2 h-2 rounded-full shrink-0", stockData.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
             <span>{stockData.isMarketOpen ? t.market_open : t.market_closed}</span>
-            {stockData.fetchedAtFormatted && (
+            {(stockData.fetchedAtUTC || stockData.fetchedAtFormatted) && (
               <>
                 <span className="mx-1">·</span>
-                <span>{stockData.fetchedAtFormatted}</span>
+                <span data-testid="text-market-time">
+                  {stockData.fetchedAtUTC ? formatTime(stockData.fetchedAtUTC) : stockData.fetchedAtFormatted}
+                </span>
               </>
             )}
           </div>

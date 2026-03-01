@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings, Trophy, Sparkles, Award, Calendar, Briefcase } from "lucide-react";
+import { X, Home, Target, TrendingUp, Star, User, Settings, Trophy, Sparkles, Award, Calendar, Briefcase, Search } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ const menuItems = [
   { path: "/", icon: Home, translationKey: "mobile_menu_dashboard" as const },
   { path: "/quests", icon: Target, translationKey: "mobile_menu_quests" as const },
   { path: "/collection", icon: Trophy, translationKey: "mobile_menu_collection" as const },
+  { path: "/search", icon: Search, translationKey: "mobile_menu_search" as const },
   { path: "/calendar", icon: Calendar, translationKey: "mobile_menu_calendar" as const },
   { path: "/investors", icon: Briefcase, translationKey: "mobile_menu_investors" as const },
   { path: "/market-trends", icon: TrendingUp, translationKey: "mobile_menu_trends" as const },
@@ -67,7 +68,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                  className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors touch-manipulation"
                   aria-label={t.close_menu}
                   data-testid="button-close-mobile-menu"
                 >
@@ -75,7 +76,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 </button>
               </div>
 
-              <div className="flex-1 py-4 px-3 space-y-1">
+              <div className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
                 {menuItems.map((item) => {
                   const isActive = location === item.path;
                   const Icon = item.icon;
