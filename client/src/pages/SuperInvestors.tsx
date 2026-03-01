@@ -133,6 +133,46 @@ const KO_COMPANY_NAMES: Record<string, string> = {
   "NAVER Corp.": "네이버",
 };
 
+const KO_INVESTOR_NAMES: Record<string, string> = {
+  "Warren Buffett": "워런 버핏",
+  "Seth Klarman": "세스 클라만",
+  "Carl Icahn": "칼 아이칸",
+  "David Einhorn": "데이비드 아인혼",
+  "Mohnish Pabrai": "모니시 파브라이",
+  "Bill Miller": "빌 밀러",
+  "Chase Coleman III": "체이스 콜먼",
+  "Cathie Wood": "캐시 우드",
+  "Ray Dalio": "레이 달리오",
+  "George Soros": "조지 소로스",
+  "Stanley Druckenmiller": "스탠리 드러켄밀러",
+  "Ken Griffin": "켄 그리핀",
+  "Izzy Englander": "이지 잉글랜더",
+  "Michael Burry": "마이클 버리",
+  "Jim Simons": "짐 사이먼스",
+  "Steve Cohen": "스티브 코헨",
+  "Bill Ackman": "빌 애크먼",
+  "Paul Singer": "폴 싱어",
+  "Dan Loeb": "댄 로브",
+  "국민연금공단 (NPS)": "국민연금공단",
+  "GPIF": "GPIF (일본)",
+  "GIC Singapore": "GIC 싱가포르",
+  "Temasek Holdings": "테마섹",
+  "Norway Pension Fund (NBIM)": "노르웨이 국부펀드",
+  "ADIA": "아부다비투자청",
+  "Saudi Arabia PIF": "사우디 PIF",
+  "CalPERS": "캘퍼스",
+  "BlackRock": "블랙록",
+  "Vanguard Group": "뱅가드",
+  "State Street SSGA": "스테이트 스트리트",
+  "Fidelity Investments": "피델리티",
+  "T. Rowe Price": "T. 로우 프라이스",
+};
+
+function getInvestorDisplayName(name: string, lang: string): string {
+  if (lang === "ko" && KO_INVESTOR_NAMES[name]) return KO_INVESTOR_NAMES[name];
+  return name;
+}
+
 function getCompanyName(company: string, lang: string): string {
   if (lang === "ko" && KO_COMPANY_NAMES[company]) {
     return KO_COMPANY_NAMES[company];
@@ -144,11 +184,39 @@ function getCategoryLabel(category: string | undefined): { en: string; ko: strin
   return CATEGORY_LABELS[category as InvestorCategory] ?? CATEGORY_LABELS["value"];
 }
 
-function getCurrencySymbol(country: string): string {
-  if (country === "KR") return "₩";
-  if (country === "JP") return "¥";
-  if (country === "SG" || country === "AE" || country === "SA") return "$";
-  return "$";
+function formatAum(aum: number, aumUnit: string, lang: string, krwRate: number): string {
+  let usdBillions: number;
+  if (aumUnit === "T₩") {
+    usdBillions = (aum * 1000) / krwRate;
+  } else if (aumUnit === "T¥") {
+    usdBillions = (aum * 1000) / 150;
+  } else {
+    usdBillions = aum;
+  }
+
+  if (lang === "ko") {
+    if (aumUnit === "T₩") {
+      return aum >= 1000
+        ? `${aum.toLocaleString()}조 원`
+        : `${aum}조 원`;
+    }
+    if (aumUnit === "T¥") {
+      return `${aum}조 엔`;
+    }
+    const krwTotal = usdBillions * 1e9 * krwRate;
+    const jo = Math.floor(krwTotal / 1e12);
+    const eok = Math.floor((krwTotal % 1e12) / 1e8);
+    if (jo >= 10000) return `약 ${(jo / 10000).toFixed(1)}경 원`;
+    if (jo >= 100) return `약 ${Math.round(jo / 100) * 100}조 원`;
+    if (jo >= 1) return eok >= 100 ? `약 ${jo}조 ${Math.round(eok / 100) * 100}억 원` : `약 ${jo}조 원`;
+    return `약 ${Math.round(krwTotal / 1e8)}억 원`;
+  }
+
+  if (aumUnit === "T₩" || aumUnit === "T¥") {
+    const rounded = Math.round(usdBillions);
+    return rounded >= 1000 ? `$${(rounded / 1000).toFixed(1)}T` : `$${rounded}B`;
+  }
+  return aum >= 1000 ? `$${(aum / 1000).toFixed(1)}T` : `$${aum}B`;
 }
 
 export default function SuperInvestors() {
@@ -167,6 +235,11 @@ export default function SuperInvestors() {
     queryKey: ["/api/super-investors"],
   });
 
+  const { data: exchangeRateData } = useQuery<{ rate: number }>({
+    queryKey: ["/api/exchange-rate"],
+  });
+  const krwRate = exchangeRateData?.rate ?? 1440;
+
   const selectedInvestor = investors?.find((inv) => inv.id === selectedId);
 
   const filteredInvestors = useMemo(() => {
@@ -177,11 +250,12 @@ export default function SuperInvestors() {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const nameMatch = inv.name.toLowerCase().includes(q);
+      const koNameMatch = KO_INVESTOR_NAMES[inv.name]?.toLowerCase().includes(q) ?? false;
       const firmMatch = inv.firm.toLowerCase().includes(q);
       const holdingMatch = inv.holdings.some(
         (h) => h.ticker.toLowerCase().includes(q) || h.company.toLowerCase().includes(q)
       );
-      return nameMatch || firmMatch || holdingMatch;
+      return nameMatch || koNameMatch || firmMatch || holdingMatch;
     });
   }, [investors, activeCategory, searchQuery]);
 
@@ -189,7 +263,7 @@ export default function SuperInvestors() {
     if (!selectedInvestor) return [];
     return showAllHoldings
       ? selectedInvestor.holdings
-      : selectedInvestor.holdings.slice(0, 20);
+      : selectedInvestor.holdings.slice(0, 10);
   }, [selectedInvestor, showAllHoldings]);
 
   const categoryKeys: (InvestorCategory | "all")[] = [
@@ -335,7 +409,7 @@ export default function SuperInvestors() {
                       </div>
                       <div className="min-w-0">
                         <CardTitle className="text-base group-hover:text-primary transition-colors leading-tight truncate">
-                          {investor.name}
+                          {getInvestorDisplayName(investor.name, lang)}
                         </CardTitle>
                         <CardDescription className="font-medium text-xs leading-tight line-clamp-2">
                           {investor.firm}
@@ -351,7 +425,7 @@ export default function SuperInvestors() {
                             {t.portfolio_value}
                           </p>
                           <p className="text-xl font-display font-bold text-primary">
-                            {getCurrencySymbol(investor.country)}{investor.aum}{investor.aumUnit}
+                            {formatAum(investor.aum, investor.aumUnit, lang, krwRate)}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -434,7 +508,9 @@ export default function SuperInvestors() {
                       </div>
                     </div>
                     <CardHeader className="pt-14 pb-4">
-                      <CardTitle className="text-xl leading-tight">{selectedInvestor.name}</CardTitle>
+                      <CardTitle className="text-xl leading-tight">
+                        {getInvestorDisplayName(selectedInvestor.name, lang)}
+                      </CardTitle>
                       <CardDescription className="text-base font-semibold text-primary leading-tight">
                         {selectedInvestor.firm}
                       </CardDescription>
@@ -485,7 +561,7 @@ export default function SuperInvestors() {
                       <CardContent className="pt-6">
                         <p className="text-sm font-bold uppercase opacity-80">{t.portfolio_value}</p>
                         <p className="text-4xl font-display font-bold mt-1">
-                          {getCurrencySymbol(selectedInvestor.country)}{selectedInvestor.aum}{selectedInvestor.aumUnit}
+                          {formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, lang, krwRate)}
                         </p>
                       </CardContent>
                     </Card>
@@ -600,7 +676,7 @@ export default function SuperInvestors() {
                         </div>
 
                         {/* View All / Show Less */}
-                        {selectedInvestor.holdings.length > 20 && (
+                        {selectedInvestor.holdings.length > 10 && (
                           <div className="border-t border-border p-4 text-center">
                             <Button
                               variant="ghost"
@@ -624,7 +700,7 @@ export default function SuperInvestors() {
                             </Button>
                           </div>
                         )}
-                        {selectedInvestor.holdings.length <= 20 && (
+                        {selectedInvestor.holdings.length <= 10 && (
                           <div className="border-t border-border px-4 py-3">
                             <p className="text-[10px] text-muted-foreground text-center font-medium">
                               {lang === "ko"
@@ -663,7 +739,11 @@ export default function SuperInvestors() {
                               <Legend
                                 verticalAlign="bottom"
                                 height={36}
-                                formatter={(value) => <span className="text-sm font-bold text-foreground">{value}</span>}
+                                formatter={(value, entry: any) => (
+                                  <span className="text-sm font-bold text-foreground">
+                                    {value} <span className="text-muted-foreground font-normal">{entry?.payload?.weight}%</span>
+                                  </span>
+                                )}
                               />
                             </PieChart>
                           </ResponsiveContainer>
