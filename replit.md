@@ -1,8 +1,8 @@
-# US Stock Hero (Dinolingo)
+# DinoInvest
 
 ## Overview
 
-US Stock Hero is a gamified stock market education platform that teaches users about US stocks through daily quests, interactive quizzes, and a Duolingo-inspired learning experience. The app features a dinosaur mascot ("Dino") that guides users through their learning journey, complete with XP rewards, streaks, levels, and a watchlist for tracking stocks.
+DinoInvest is a gamified stock market education platform that teaches users about US and Korean stocks through daily quests, interactive quizzes, and a Duolingo-inspired learning experience. The app features a dinosaur mascot ("Dino") that guides users through their learning journey, complete with XP rewards, streaks, levels, and a watchlist for tracking stocks.
 
 The core experience centers around:
 - Daily AI-generated quests covering financial terms, chart patterns, market news, stock search, stock comparison, and valuation concepts (6 varied quests per day)

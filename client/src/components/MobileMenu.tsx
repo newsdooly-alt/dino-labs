@@ -63,7 +63,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       <path d="M16 16c0-4.4-3.6-8-8-8s-8 3.6-8 8" />
                     </svg>
                   </div>
-                  <span className="font-display font-bold text-xl text-white">Dinolingo</span>
+                  <span className="font-display font-bold text-xl text-white">DinoInvest</span>
                 </div>
                 <button
                   onClick={onClose}

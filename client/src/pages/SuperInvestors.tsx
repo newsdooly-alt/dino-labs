@@ -168,6 +168,34 @@ const KO_INVESTOR_NAMES: Record<string, string> = {
   "T. Rowe Price": "T. 로우 프라이스",
 };
 
+const KO_SECTOR_NAMES: Record<string, string> = {
+  "Technology": "기술주",
+  "Healthcare": "헬스케어",
+  "Financials": "금융",
+  "Consumer Staples": "필수소비재",
+  "Consumer Discretionary": "경기소비재",
+  "Energy": "에너지",
+  "Communication Services": "통신 서비스",
+  "Industrials": "산업재",
+  "Materials": "소재",
+  "Real Estate": "부동산",
+  "Utilities": "유틸리티",
+  "Fixed Income": "채권",
+  "ETFs": "ETF",
+  "Commodities": "원자재",
+  "Cash & Others": "현금 및 기타",
+  "Other": "기타",
+};
+
+const POPULARITY_ORDER = [
+  "buffett", "dalio", "wood", "burry", "ackman",
+  "soros", "druckenmiller", "simons", "griffin", "cohen",
+  "loeb", "singer", "englander", "klarman", "icahn",
+  "einhorn", "pabrai", "miller", "coleman",
+  "blackrock", "vanguard", "statestreet", "fidelity", "troweprice",
+  "nps", "gpif", "nbim", "gic", "temasek", "calpers", "adia", "pif",
+];
+
 function getInvestorDisplayName(name: string, lang: string): string {
   if (lang === "ko" && KO_INVESTOR_NAMES[name]) return KO_INVESTOR_NAMES[name];
   return name;
@@ -178,6 +206,11 @@ function getCompanyName(company: string, lang: string): string {
     return KO_COMPANY_NAMES[company];
   }
   return company;
+}
+
+function getSectorName(sector: string, lang: string): string {
+  if (lang === "ko" && KO_SECTOR_NAMES[sector]) return KO_SECTOR_NAMES[sector];
+  return sector;
 }
 
 function getCategoryLabel(category: string | undefined): { en: string; ko: string; emoji: string } {
@@ -244,19 +277,27 @@ export default function SuperInvestors() {
 
   const filteredInvestors = useMemo(() => {
     if (!investors) return [];
-    return investors.filter((inv) => {
-      const matchesCategory = activeCategory === "all" || inv.category === activeCategory;
-      if (!matchesCategory) return false;
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      const nameMatch = inv.name.toLowerCase().includes(q);
-      const koNameMatch = KO_INVESTOR_NAMES[inv.name]?.toLowerCase().includes(q) ?? false;
-      const firmMatch = inv.firm.toLowerCase().includes(q);
-      const holdingMatch = inv.holdings.some(
-        (h) => h.ticker.toLowerCase().includes(q) || h.company.toLowerCase().includes(q)
-      );
-      return nameMatch || koNameMatch || firmMatch || holdingMatch;
-    });
+    return investors
+      .filter((inv) => {
+        const matchesCategory = activeCategory === "all" || inv.category === activeCategory;
+        if (!matchesCategory) return false;
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        const nameMatch = inv.name.toLowerCase().includes(q);
+        const koNameMatch = KO_INVESTOR_NAMES[inv.name]?.toLowerCase().includes(q) ?? false;
+        const firmMatch = inv.firm.toLowerCase().includes(q);
+        const holdingMatch = inv.holdings.some(
+          (h) => h.ticker.toLowerCase().includes(q) || h.company.toLowerCase().includes(q)
+        );
+        return nameMatch || koNameMatch || firmMatch || holdingMatch;
+      })
+      .sort((a, b) => {
+        const ai = POPULARITY_ORDER.indexOf(a.id);
+        const bi = POPULARITY_ORDER.indexOf(b.id);
+        const aRank = ai === -1 ? 999 : ai;
+        const bRank = bi === -1 ? 999 : bi;
+        return aRank - bRank;
+      });
   }, [investors, activeCategory, searchQuery]);
 
   const displayedHoldings = useMemo(() => {
@@ -567,11 +608,17 @@ export default function SuperInvestors() {
                     </Card>
                     <Card className="border-2">
                       <CardContent className="pt-6">
-                        <p className="text-sm font-bold uppercase text-muted-foreground">{t.last_updated_quarter}</p>
+                        <p className="text-sm font-bold uppercase text-muted-foreground">
+                          {lang === "ko" ? "데이터 기준" : "Data as of"}
+                        </p>
                         <p className="text-2xl font-display font-bold text-foreground mt-1">
                           {selectedInvestor.lastUpdated}
                         </p>
                         <p className="text-xs text-muted-foreground font-medium mt-1">{selectedInvestor.filingType}</p>
+                        <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          {lang === "ko" ? "최신 데이터" : "Latest Data"}
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
@@ -620,7 +667,7 @@ export default function SuperInvestors() {
                                     </td>
                                     <td className="px-4 py-4 text-right">
                                       <div className="text-lg font-display font-bold text-primary">{holding.weight}%</div>
-                                      <div className="text-[10px] text-muted-foreground font-medium uppercase">{holding.sector}</div>
+                                      <div className="text-[10px] text-muted-foreground font-medium uppercase">{getSectorName(holding.sector, lang)}</div>
                                     </td>
                                     <td className="px-4 py-4 text-center">
                                       <div className="flex flex-col items-center gap-1">
@@ -714,16 +761,19 @@ export default function SuperInvestors() {
 
                     <TabsContent value="allocation" className="mt-6">
                       <Card className="border-2 p-6">
-                        <div className="h-[400px] w-full">
+                        <div className="h-[420px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
-                                data={selectedInvestor.sectorAllocation}
+                                data={selectedInvestor.sectorAllocation.map(s => ({
+                                  ...s,
+                                  sector: getSectorName(s.sector, lang),
+                                }))}
                                 cx="50%"
-                                cy="50%"
-                                innerRadius={80}
-                                outerRadius={140}
-                                paddingAngle={5}
+                                cy="45%"
+                                innerRadius={70}
+                                outerRadius={130}
+                                paddingAngle={4}
                                 dataKey="weight"
                                 nameKey="sector"
                               >
@@ -733,14 +783,14 @@ export default function SuperInvestors() {
                               </Pie>
                               <RechartsTooltip
                                 contentStyle={{ borderRadius: "16px", border: "2px solid #e2e8f0", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
-                                formatter={(value: number) => [`${value}%`, ""]}
+                                formatter={(value: number, name: string) => [`${value}%`, name]}
                                 itemStyle={{ fontWeight: "bold" }}
                               />
                               <Legend
                                 verticalAlign="bottom"
-                                height={36}
+                                height={60}
                                 formatter={(value, entry: any) => (
-                                  <span className="text-sm font-bold text-foreground">
+                                  <span className="text-xs font-semibold text-foreground">
                                     {value} <span className="text-muted-foreground font-normal">{entry?.payload?.weight}%</span>
                                   </span>
                                 )}
@@ -748,6 +798,11 @@ export default function SuperInvestors() {
                             </PieChart>
                           </ResponsiveContainer>
                         </div>
+                        <p className="text-[10px] text-muted-foreground text-center mt-2 font-medium">
+                          {lang === "ko"
+                            ? `기준일: ${selectedInvestor.lastUpdated} · ${selectedInvestor.filingType}`
+                            : `As of ${selectedInvestor.lastUpdated} · ${selectedInvestor.filingType}`}
+                        </p>
                       </Card>
                     </TabsContent>
                   </Tabs>

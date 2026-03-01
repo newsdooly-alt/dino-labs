@@ -32,7 +32,7 @@ export function Header() {
                  <path d="M16 16c0-4.4-3.6-8-8-8s-8 3.6-8 8" />
               </svg>
             </div>
-            <span className="font-display font-bold text-lg">Dinolingo</span>
+            <span className="font-display font-bold text-lg">DinoInvest</span>
           </div>
         </div>
 

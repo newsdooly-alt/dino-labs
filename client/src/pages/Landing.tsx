@@ -32,7 +32,7 @@ const translations = {
     readyStart: "Ready to Start Your Journey?",
     joinNow: "Join now and get your first mystery egg when you complete your daily quests!",
     joinFree: "Join Now - It's Free!",
-    footer: "© 2026 US Stock Hero. Learn investing the fun way.",
+    footer: "© 2026 DinoInvest. Learn investing the fun way.",
     username: "Username",
     password: "Password",
     email: "Email (optional)",
@@ -75,7 +75,7 @@ const translations = {
     readyStart: "여정을 시작할 준비가 되셨나요?",
     joinNow: "지금 가입하고 데일리 퀘스트를 완료하면 첫 번째 미스터리 알을 받으세요!",
     joinFree: "지금 가입 - 무료!",
-    footer: "© 2026 US Stock Hero. 재미있게 투자를 배우세요.",
+    footer: "© 2026 DinoInvest. 재미있게 투자를 배우세요.",
     username: "사용자 이름",
     password: "비밀번호",
     email: "이메일 (선택)",
@@ -300,7 +300,7 @@ export default function Landing() {
             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
               <Egg className="w-6 h-6 text-primary" />
             </div>
-            <span className="font-bold text-xl">US Stock Hero</span>
+            <span className="font-bold text-xl">DinoInvest</span>
           </div>
           <div className="flex items-center gap-2">
             <Button

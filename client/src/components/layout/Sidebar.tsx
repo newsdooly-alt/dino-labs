@@ -37,7 +37,7 @@ export function Sidebar() {
              <path d="M17 13l3-3 3 3" />
            </svg>
         </div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Dinolingo</h1>
+        <h1 className="text-2xl font-display font-bold text-foreground">DinoInvest</h1>
       </div>
 
       <nav className="flex-1 space-y-2">

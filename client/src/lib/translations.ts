@@ -154,7 +154,7 @@ export const translations = {
     close_menu: "Close menu",
     // Settings page translations
     settings_title: "Settings",
-    settings_subtitle: "Customize your Dinolingo experience",
+    settings_subtitle: "Customize your DinoInvest experience",
     profile_avatar: "Profile & Avatar",
     nickname: "Nickname",
     nickname_placeholder: "Enter your nickname",
@@ -422,7 +422,7 @@ export const translations = {
     close_menu: "메뉴 닫기",
     // Settings page translations
     settings_title: "설정",
-    settings_subtitle: "디노링고 경험을 맞춤 설정하세요",
+    settings_subtitle: "DinoInvest 경험을 맞춤 설정하세요",
     profile_avatar: "프로필 & 아바타",
     nickname: "닉네임",
     nickname_placeholder: "닉네임을 입력하세요",

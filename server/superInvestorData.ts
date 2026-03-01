@@ -59,7 +59,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "장기적 가치 투자. 지속적인 경쟁 우위, 예측 가능한 현금 흐름, 뛰어난 경영진을 갖춘 기업에 집중합니다.",
     styleTagsEn: ["Value Investing", "Long-Term", "Economic Moat", "Dividends"],
     styleTagsKo: ["가치 투자", "장기 투자", "경제적 해자", "배당주"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Financials", weight: 36.2, color: "#3b82f6" },
@@ -100,7 +100,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "안전마진에 중점을 둔 심층 가치 투자. 부실 채권, 부동산, 주식 등 다양한 자산에 투자합니다. 위기 시 배포를 위해 상당한 현금 보유량을 유지합니다.",
     styleTagsEn: ["Deep Value", "Margin of Safety", "Distressed Assets", "Cash Heavy"],
     styleTagsKo: ["심층 가치", "안전마진", "부실자산", "현금 중심"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Healthcare", weight: 31.2, color: "#ef4444" },
@@ -139,7 +139,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "행동주의 투자 — 집중 포지션을 취하고 가치 실현을 위해 운영 개선, 자사주 매입 또는 기업 구조조정을 추진합니다.",
     styleTagsEn: ["Activist", "Concentrated", "Restructuring", "Value Creation"],
     styleTagsKo: ["행동주의", "집중 투자", "구조조정", "가치 창출"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Industrials", weight: 28.3, color: "#f59e0b" },
@@ -177,7 +177,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "기본 분석과 고평가 기업의 공매도를 결합한 롱/숏 가치 접근법. 심층 리서치와 역발상 포지션 취하기로 유명합니다.",
     styleTagsEn: ["Long/Short", "Value", "Contrarian", "Short Selling"],
     styleTagsKo: ["롱/숏", "가치", "역발상", "공매도"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 35.2, color: "#8b5cf6" },
@@ -215,7 +215,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "버핏과 멍거에서 영감을 받은 집중 가치 투자. 5-10개 종목만 보유하고 큰 안전마진이 있을 때만 투자하며 비대칭 리스크/보상에 집중합니다.",
     styleTagsEn: ["Concentrated", "Value Cloning", "Asymmetric Risk", "Margin of Safety"],
     styleTagsKo: ["집중 투자", "가치 복제", "비대칭 리스크", "안전마진"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 42.3, color: "#8b5cf6" },
@@ -252,7 +252,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "전통적인 밸류에이션 지표를 무시하고 미래 현금 흐름 기반의 내재 가치에 집중하는 가치 투자. 실패 가격에 거래될 때 혁신 기술의 조기 채택자.",
     styleTagsEn: ["Unconventional Value", "Disruption", "Long-Term FCF", "Contrarian"],
     styleTagsKo: ["비전통적 가치", "혁신", "장기 FCF", "역발상"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 48.2, color: "#8b5cf6" },
@@ -290,7 +290,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "확신에 찬 기술 및 소비자 인터넷 투자. 강력한 네트워크 효과, 전환 비용, 대규모 복리 성장 여지를 가진 빠르게 성장하는 회사에 집중합니다.",
     styleTagsEn: ["High-Growth Tech", "Network Effects", "Internet", "Long-Term Compounding"],
     styleTagsKo: ["고성장 기술", "네트워크 효과", "인터넷", "장기 복리"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 62.4, color: "#8b5cf6" },
@@ -328,7 +328,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "AI, 유전체학, 자율주행, 블록체인, 우주 분야의 혁신 기술 투자. 지수적 기술 채택 곡선에 대한 높은 확신을 갖고 5년 지평으로 투자합니다.",
     styleTagsEn: ["Disruptive Tech", "Genomics", "AI", "Exponential Growth"],
     styleTagsKo: ["혁신 기술", "유전체학", "AI", "지수적 성장"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 38.4, color: "#8b5cf6" },
@@ -367,7 +367,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "모든 경제 환경에서 탄력적인 '올웨더' 포트폴리오 구성에 초점을 맞춘 글로벌 매크로 투자. 리스크 패리티 — 자본이 아닌 위험을 경제 환경 전반에서 균형 있게 배분합니다.",
     styleTagsEn: ["Global Macro", "Risk Parity", "All Weather", "Diversification"],
     styleTagsKo: ["글로벌 매크로", "리스크 패리티", "올웨더", "분산투자"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "ETFs / Index", weight: 42.3, color: "#3b82f6" },
@@ -402,7 +402,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "시장과 펀더멘털이 피드백 루프에서 서로 영향을 미치는 '반사성'에 기반한 매크로 투자. 가격 오류를 식별하고 이를 활용하기 위해 대규모 레버리지 포지션을 취합니다.",
     styleTagsEn: ["Global Macro", "Reflexivity", "Currency", "Leveraged Bets"],
     styleTagsKo: ["글로벌 매크로", "반사성", "통화", "레버리지 베팅"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 28.4, color: "#8b5cf6" },
@@ -440,7 +440,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "유동성 조건, 중앙은행 정책, 통화 흐름에 집중하는 하향식 매크로 접근법. 확신이 높을 때 매우 집중적인 베팅을 취하고 실수에 대해 손실 한도를 엄격히 적용합니다.",
     styleTagsEn: ["Global Macro", "Liquidity Focus", "Concentrated Bets", "Disciplined Stops"],
     styleTagsKo: ["글로벌 매크로", "유동성 집중", "집중 베팅", "엄격한 손절"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 44.2, color: "#8b5cf6" },
@@ -478,7 +478,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "전 세계 모든 자산 클래스에서 기본 분석, 통계적 차익거래, 시장 조성, 고정 수익 전략을 결합한 다전략 퀀트 투자.",
     styleTagsEn: ["Multi-Strategy", "Quantitative", "Statistical Arb", "Market Making"],
     styleTagsKo: ["다전략", "퀀트", "통계적 차익거래", "시장 조성"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 22.4, color: "#8b5cf6" },
@@ -517,7 +517,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "각자의 포트폴리오를 운용하는 수백 명의 독립 포트폴리오 매니저를 통한 다전략 접근법. 극단적 분산투자와 위험 관리가 모든 시장에서 일관된 수익을 보장합니다.",
     styleTagsEn: ["Multi-Strategy", "Pod Structure", "Risk Management", "Consistent Returns"],
     styleTagsKo: ["다전략", "팟 구조", "위험 관리", "일관된 수익"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 24.2, color: "#8b5cf6" },
@@ -556,7 +556,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "심층 가치 역발상 투자. 비인기적이거나 잘못 이해된 섹터에서 내재 가치보다 훨씬 낮게 가격이 책정된 자산을 찾습니다. 매크로 공매도 베팅과 집중적 종목 선정으로 유명합니다.",
     styleTagsEn: ["Deep Value", "Contrarian", "Concentrated", "Short Selling"],
     styleTagsKo: ["심층 가치", "역발상", "집중 투자", "공매도"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 34.8, color: "#8b5cf6" },
@@ -589,7 +589,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "수학적 모델, 패턴 인식, 통계적 신호를 사용한 순수 퀀트 투자. 기본 분석 없음 — 오직 데이터, 신호, 알고리즘만 사용합니다.",
     styleTagsEn: ["Pure Quant", "Algorithmic", "Pattern Recognition", "Mathematical Models"],
     styleTagsKo: ["순수 퀀트", "알고리즘", "패턴 인식", "수학적 모델"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 26.3, color: "#8b5cf6" },
@@ -628,7 +628,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "매우 빠른 아이디어 생성과 정보 우위 투자. 포인트72의 분석가들은 매월 수백 개의 아이디어를 생성합니다. 단기 촉매제와 실적 추정치 개정 사이클에 집중합니다.",
     styleTagsEn: ["Information Edge", "Catalyst-Driven", "Short-Term", "High Turnover"],
     styleTagsKo: ["정보 우위", "촉매 중심", "단기", "높은 회전율"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 28.4, color: "#8b5cf6" },
@@ -667,7 +667,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "집중 행동주의 투자 — 소수의 회사에 대규모 지분을 취득하고 공개적으로 변화를 주창합니다. 경영진에 상당한 영향력을 가진 6-10개 포지션을 보유합니다.",
     styleTagsEn: ["Activist", "Concentrated", "Public Advocacy", "Value Catalyst"],
     styleTagsKo: ["행동주의", "집중 투자", "공개 주창", "가치 촉매"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Consumer", weight: 32.4, color: "#f59e0b" },
@@ -705,7 +705,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "부실 채권, 기업 구조조정, 이벤트 중심 전략에 전문성을 가진 공격적인 행동주의 투자. 법적 조치나 공개 전쟁을 두려워하지 않습니다.",
     styleTagsEn: ["Activist", "Distressed Debt", "Event-Driven", "Aggressive Tactics"],
     styleTagsKo: ["행동주의", "부실 채권", "이벤트 중심", "공격적 전술"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 28.4, color: "#8b5cf6" },
@@ -743,7 +743,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "경영진 교체, 기업 구조조정, 분할, M&A 등 촉매에 집중하는 이벤트 중심 행동주의 투자. 행동주의 포지션과 함께 분산된 롱/숏 포지션도 유지합니다.",
     styleTagsEn: ["Activist", "Event-Driven", "Spin-offs", "Management Change"],
     styleTagsKo: ["행동주의", "이벤트 중심", "기업 분할", "경영진 교체"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 32.4, color: "#8b5cf6" },
@@ -782,7 +782,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "국내 주식, 해외 주식, 채권, 대체 자산에 걸친 장기 기관 분산투자. 폭락 시 '시장 안정자' 역할을 합니다.",
     styleTagsEn: ["Long-Term", "Diversified", "Institutional", "ESG-Aware"],
     styleTagsKo: ["장기 투자", "분산투자", "기관 투자", "ESG 고려"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "공시 데이터 (Public Disclosure)",
     sectorAllocation: [
       { sector: "Technology", weight: 28.4, color: "#8b5cf6" },
@@ -819,7 +819,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "엄격한 위험 한도로 국내/해외 주식과 채권에 걸쳐 패시브 운용합니다. 일본 고령화 인구의 수익 개선을 위해 2014년 채권에서 주식으로 전환했습니다.",
     styleTagsEn: ["Passive", "Long-Term", "Diversified", "Government-Managed"],
     styleTagsKo: ["패시브", "장기", "분산투자", "정부 운용"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Quarterly Disclosure (Japan)",
     sectorAllocation: [
       { sector: "Domestic Bonds", weight: 25.0, color: "#3b82f6" },
@@ -851,7 +851,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "전 세계적으로 분산된 장기 투자 접근법. 20년 이상의 관점으로 사모 시장, 부동산, 주식에 투자합니다. 모든 자산 클래스에 ESG를 통합합니다.",
     styleTagsEn: ["Long-Term", "Sovereign", "Private Markets", "Global Diversification"],
     styleTagsKo: ["장기", "국부 펀드", "사모 시장", "글로벌 분산"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Annual Report (Singapore)",
     sectorAllocation: [
       { sector: "Developed Equities", weight: 37.0, color: "#3b82f6" },
@@ -886,7 +886,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "장기적 관점의 적극적인 소유권. 디지털화, 지속 가능한 생활, 장수, 아시아 신흥 성장 등 변혁적 메가트렌드에 집중합니다.",
     styleTagsEn: ["Active Ownership", "Megatrends", "Asia Growth", "Long-Term"],
     styleTagsKo: ["적극적 소유권", "메가트렌드", "아시아 성장", "장기"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Annual Review (Singapore)",
     sectorAllocation: [
       { sector: "Financial Services", weight: 24.0, color: "#3b82f6" },
@@ -918,7 +918,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "ESG 위반에 대한 적극적 제외와 함께 70개 이상의 국가에서 규칙 기반 패시브 투자. 전 세계 거의 모든 상장 기업의 일부를 소유합니다.",
     styleTagsEn: ["Passive", "ESG Leader", "Global Diversification", "Sovereign"],
     styleTagsKo: ["패시브", "ESG 선도자", "글로벌 분산", "국부 펀드"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Annual Report (Norway)",
     sectorAllocation: [
       { sector: "Equities", weight: 70.0, color: "#3b82f6" },
@@ -948,7 +948,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "상장 주식, 대체 자산, 부동산, 인프라에 걸친 글로벌 다자산 클래스 투자. 기술 및 신흥시장 노출을 확대하는 매우 장기적(수십 년) 관점.",
     styleTagsEn: ["Sovereign", "Multi-Asset", "Oil Revenue", "Generational"],
     styleTagsKo: ["국부 펀드", "다자산", "석유 수입", "세대를 위한"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Annual Report",
     sectorAllocation: [
       { sector: "Developed Equities", weight: 32.0, color: "#3b82f6" },
@@ -980,7 +980,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "비전 2030 다각화에 초점을 맞춘 공격적인 글로벌 투자 전략. 전통 금융과 함께 스포츠(뉴캐슬, LIV 골프), 기술, 게임에 고프로파일 투자합니다.",
     styleTagsEn: ["Vision 2030", "Diversification", "Sports & Entertainment", "Tech"],
     styleTagsKo: ["비전 2030", "다각화", "스포츠 & 엔터", "기술"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Annual Report",
     sectorAllocation: [
       { sector: "Financial Services", weight: 22.0, color: "#3b82f6" },
@@ -1012,7 +1012,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "상당한 ESG 중심의 분산 기관 투자. 기업 지배구조 문제와 기후변화 공시 요건에 대한 주주 행동주의로 유명합니다.",
     styleTagsEn: ["ESG Pioneer", "Corporate Governance", "Diversified", "Activist Shareholder"],
     styleTagsKo: ["ESG 선도", "기업 지배구조", "분산투자", "행동주의 주주"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "Public Pension Disclosure",
     sectorAllocation: [
       { sector: "Global Equities", weight: 42.0, color: "#3b82f6" },
@@ -1044,7 +1044,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "패시브 인덱스 운용과 액티브 운용을 결합합니다. iShares ETF는 거의 모든 글로벌 지수를 추종합니다. 알라딘 리스크 관리 시스템이 전 세계 20조 달러 이상의 자산을 뒷받침합니다.",
     styleTagsEn: ["Passive Giant", "ETF Pioneer", "Scale Advantage", "iShares"],
     styleTagsKo: ["패시브 거물", "ETF 개척자", "규모 우위", "iShares"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 28.4, color: "#8b5cf6" },
@@ -1077,7 +1077,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "가능한 가장 낮은 비용의 순수 패시브 인덱스 투자. 뱅가드의 투자자 소유 구조가 이익 동기를 제거하여 업계에서 가장 낮은 비용 비율을 가능하게 합니다.",
     styleTagsEn: ["Ultra Low Cost", "Passive Pioneer", "Investor-Owned", "Long-Term"],
     styleTagsKo: ["초저비용", "패시브 개척자", "투자자 소유", "장기"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 29.2, color: "#8b5cf6" },
@@ -1109,7 +1109,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "ESG 문제에 적극적인 관여를 하는 패시브 ETF 투자. SPY와 SPDR ETF 패밀리의 창시자. 다양성과 기후에 대한 의결권 행사를 통한 강력한 지배구조 관여.",
     styleTagsEn: ["ETF Creator", "ESG Engagement", "Governance", "Passive"],
     styleTagsKo: ["ETF 창시자", "ESG 관여", "지배구조", "패시브"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 27.8, color: "#8b5cf6" },
@@ -1140,7 +1140,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "하이브리드 액티브/패시브 운용사. 액티브 펀드는 기본적 상향식 종목 선정을 사용하며, 패시브는 지수를 추종합니다. 업계를 파괴한 수수료 제로 인덱스 펀드로 유명합니다.",
     styleTagsEn: ["Active + Passive", "Zero-Fee Funds", "Stock Research", "Long-Term"],
     styleTagsKo: ["액티브 + 패시브", "수수료 제로", "주식 리서치", "장기"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 30.4, color: "#8b5cf6" },
@@ -1172,7 +1172,7 @@ export const SUPER_INVESTORS: SuperInvestor[] = [
     styleKo: "심층 기본 리서치를 갖춘 성장 지향 액티브 운용. 낮은 포트폴리오 회전율의 장기 투자자들. 잘 알려지기 전에 성장 기업에 투자하는 것을 개척했습니다.",
     styleTagsEn: ["Growth Investing", "Active Research", "Low Turnover", "Long-Term"],
     styleTagsKo: ["성장 투자", "액티브 리서치", "낮은 회전율", "장기"],
-    lastUpdated: "Q3 2025",
+    lastUpdated: "Q4 2025",
     filingType: "13F Filing (SEC)",
     sectorAllocation: [
       { sector: "Technology", weight: 32.8, color: "#8b5cf6" },
