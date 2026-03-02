@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -11,7 +11,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Brush,
 } from "recharts";
 import {
   TrendingUp,
@@ -155,6 +154,9 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   const [showBB, setShowBB] = useState(false);
   const [showSR, setShowSR] = useState(true);
   const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
+  const brushDomainRef = useRef(brushDomain);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { brushDomainRef.current = brushDomain; }, [brushDomain]);
 
   const periodOpt = PERIOD_OPTIONS.find(p => p.key === period) || PERIOD_OPTIONS[2];
   const isIntraday = period === "1d" || period === "1w";
@@ -163,8 +165,18 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
     queryKey: ["/api/stocks/history", symbol, periodOpt.period, periodOpt.interval],
     enabled: isOpen,
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/history?symbol=${symbol}&period=${periodOpt.period}&interval=${periodOpt.interval}`);
-      return res.json();
+      const res = await fetch(`/api/stocks/history/${symbol}?period=${periodOpt.period}&interval=${periodOpt.interval}`);
+      if (!res.ok) return { history: [] };
+      const raw = await res.json();
+      const data: HistoryData[] = (raw.data || []).map((d: any) => ({
+        t: d.date,
+        o: d.open ?? d.close,
+        h: d.high ?? d.close,
+        l: d.low ?? d.close,
+        c: d.close,
+        v: d.volume ?? 0,
+      }));
+      return { history: data };
     },
   });
 
@@ -199,6 +211,58 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
       };
     });
   }, [history, sma20, sma60, sma120, upperBB, lowerBB, middleBB, rsiValues, macdResult]);
+
+  const visibleData = useMemo(() => {
+    const n = chartData.length;
+    if (n === 0) return chartData;
+    const s = brushDomain.startIndex ?? 0;
+    const e = brushDomain.endIndex ?? n - 1;
+    return chartData.slice(Math.max(0, s), Math.min(n - 1, e) + 1);
+  }, [chartData, brushDomain]);
+
+  useEffect(() => {
+    const el = chartContainerRef.current;
+    if (!el) return;
+    let pinchStartDist = 0;
+    let pinchStartS = 0;
+    let pinchStartE = 0;
+    let isPinching = false;
+    let raf: number | null = null;
+    const dist = (t1: Touch, t2: Touch) => Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) { isPinching = false; return; }
+      isPinching = true;
+      pinchStartDist = dist(e.touches[0], e.touches[1]);
+      const bd = brushDomainRef.current;
+      const n = chartData.length;
+      pinchStartS = bd.startIndex ?? 0;
+      pinchStartE = bd.endIndex ?? n - 1;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isPinching || e.touches.length !== 2) return;
+      e.preventDefault();
+      const currentDist = dist(e.touches[0], e.touches[1]);
+      const scale = pinchStartDist / Math.max(currentDist, 1);
+      const n = chartData.length;
+      const origRange = pinchStartE - pinchStartS;
+      const newRange = Math.min(n - 1, Math.max(3, Math.round(origRange * scale)));
+      const center = Math.round((pinchStartS + pinchStartE) / 2);
+      const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
+      const newE = Math.min(n - 1, newS + newRange);
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+    };
+    const onTouchEnd = () => { isPinching = false; };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [chartData.length]);
 
   const ret = periodReturn(history);
   const retPositive = ret !== null && ret >= 0;
@@ -412,55 +476,46 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
               ) : chartData.length === 0 ? (
                 <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 없음" : "No data"}</div>
               ) : (
-                <ResponsiveContainer width="100%" height={260} style={{ touchAction: "pan-y", maxWidth: "100vw" }}>
-                  <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency, compact: true })} width={52} />
-                    <Tooltip content={renderTooltip} />
-                    {showSR && srLevels.support.map((s, i) => (
-                      <ReferenceLine key={`s-${i}`} y={s} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" />
-                    ))}
-                    {showSR && srLevels.resistance.map((r, i) => (
-                      <ReferenceLine key={`r-${i}`} y={r} stroke="#ef4444" strokeWidth={1} strokeDasharray="4 3" />
-                    ))}
-                    {showBB && !isIntraday && (
-                      <>
-                        <Area type="monotone" dataKey="upperBB" stroke="#6b7280" fill="none" strokeWidth={1} strokeDasharray="3 3" dot={false} />
-                        <Area type="monotone" dataKey="lowerBB" stroke="#6b7280" fill="#6b728020" strokeWidth={1} strokeDasharray="3 3" dot={false} />
-                        <Line type="monotone" dataKey="middleBB" stroke="#9ca3af" strokeWidth={1} dot={false} />
-                      </>
-                    )}
-                    {chartType === "area" ? (
-                      <Area type="monotone" dataKey="close" stroke="#8b5cf6" fill="#8b5cf620" strokeWidth={2} dot={false} />
-                    ) : (
-                      <Bar dataKey="close" fill="#8b5cf6" opacity={0.9} radius={[1, 1, 0, 0]} />
-                    )}
-                    {showMA && !isIntraday && (
-                      <>
-                        <Line type="monotone" dataKey="sma20" stroke="#f59e0b" strokeWidth={1.5} dot={false} />
-                        <Line type="monotone" dataKey="sma60" stroke="#3b82f6" strokeWidth={1.5} dot={false} />
-                        <Line type="monotone" dataKey="sma120" stroke="#a855f7" strokeWidth={1.5} dot={false} />
-                      </>
-                    )}
-                    <Brush
-                      dataKey="date"
-                      height={16}
-                      travellerWidth={8}
-                      startIndex={brushDomain.startIndex}
-                      endIndex={brushDomain.endIndex}
-                      onChange={(e: any) => setBrushDomain({ startIndex: e.startIndex, endIndex: e.endIndex })}
-                      fill={isDark ? "#1f2937" : "#f3f4f6"}
-                      stroke={isDark ? "#374151" : "#e5e7eb"}
-                      gap={1}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div ref={chartContainerRef} style={{ touchAction: "pan-y", maxWidth: "100vw" }}>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <ComposedChart data={visibleData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                      <XAxis dataKey="date" tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency, compact: true })} width={52} />
+                      <Tooltip content={renderTooltip} />
+                      {showSR && srLevels.support.map((s, i) => (
+                        <ReferenceLine key={`s-${i}`} y={s} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" />
+                      ))}
+                      {showSR && srLevels.resistance.map((r, i) => (
+                        <ReferenceLine key={`r-${i}`} y={r} stroke="#ef4444" strokeWidth={1} strokeDasharray="4 3" />
+                      ))}
+                      {showBB && !isIntraday && (
+                        <>
+                          <Area type="monotone" dataKey="upperBB" stroke="#6b7280" fill="none" strokeWidth={1} strokeDasharray="3 3" dot={false} />
+                          <Area type="monotone" dataKey="lowerBB" stroke="#6b7280" fill="#6b728020" strokeWidth={1} strokeDasharray="3 3" dot={false} />
+                          <Line type="monotone" dataKey="middleBB" stroke="#9ca3af" strokeWidth={1} dot={false} />
+                        </>
+                      )}
+                      {chartType === "area" ? (
+                        <Area type="monotone" dataKey="close" stroke="#8b5cf6" fill="#8b5cf620" strokeWidth={2} dot={false} isAnimationActive={false} />
+                      ) : (
+                        <Bar dataKey="close" fill="#8b5cf6" opacity={0.9} radius={[1, 1, 0, 0]} isAnimationActive={false} />
+                      )}
+                      {showMA && !isIntraday && (
+                        <>
+                          <Line type="monotone" dataKey="sma20" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                          <Line type="monotone" dataKey="sma60" stroke="#3b82f6" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                          <Line type="monotone" dataKey="sma120" stroke="#a855f7" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                        </>
+                      )}
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
               )}
 
               {/* Volume sub-chart */}
-              {chartData.length > 0 && (
+              {visibleData.length > 0 && (
                 <ResponsiveContainer width="100%" height={55}>
-                  <ComposedChart data={chartData} margin={{ top: 0, right: 4, left: -10, bottom: 0 }}>
+                  <ComposedChart data={visibleData} margin={{ top: 0, right: 4, left: -10, bottom: 0 }}>
                     <XAxis dataKey="date" hide />
                     <YAxis hide domain={[0, "auto"]} />
                     <Bar dataKey="volume" fill="#8b5cf660" radius={[1, 1, 0, 0]} />

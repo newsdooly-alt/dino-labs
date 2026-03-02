@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import {
@@ -40,7 +40,6 @@ import {
   ReferenceLine,
   Cell,
   ReferenceArea,
-  Brush,
 } from "recharts";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -232,6 +231,9 @@ export default function StockDetail() {
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
   const [showProModal, setShowProModal] = useState(false);
   const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
+  const brushDomainRef = useRef(brushDomain);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { brushDomainRef.current = brushDomain; }, [brushDomain]);
   const { toast } = useToast();
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock } = useCurrency();
@@ -377,16 +379,69 @@ export default function StockDetail() {
     });
   }, [rawHistoryData, ma20Values, ma60Values, ma120Values, rsiValues, bbValues, signalMap, isIntraday, lang]);
 
+  const visibleData = useMemo(() => {
+    const n = chartData.length;
+    if (n === 0) return chartData;
+    const s = brushDomain.startIndex ?? 0;
+    const e = brushDomain.endIndex ?? n - 1;
+    return chartData.slice(Math.max(0, s), Math.min(n - 1, e) + 1);
+  }, [chartData, brushDomain]);
+
+  useEffect(() => {
+    const el = chartContainerRef.current;
+    if (!el) return;
+    let pinchStartDist = 0;
+    let pinchStartS = 0;
+    let pinchStartE = 0;
+    let isPinching = false;
+    let raf: number | null = null;
+    const dist = (t1: Touch, t2: Touch) => Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) { isPinching = false; return; }
+      isPinching = true;
+      pinchStartDist = dist(e.touches[0], e.touches[1]);
+      const bd = brushDomainRef.current;
+      const n = chartData.length;
+      pinchStartS = bd.startIndex ?? 0;
+      pinchStartE = bd.endIndex ?? n - 1;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isPinching || e.touches.length !== 2) return;
+      e.preventDefault();
+      const currentDist = dist(e.touches[0], e.touches[1]);
+      const scale = pinchStartDist / Math.max(currentDist, 1);
+      const n = chartData.length;
+      const origRange = pinchStartE - pinchStartS;
+      const newRange = Math.min(n - 1, Math.max(3, Math.round(origRange * scale)));
+      const center = Math.round((pinchStartS + pinchStartE) / 2);
+      const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
+      const newE = Math.min(n - 1, newS + newRange);
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+    };
+    const onTouchEnd = () => { isPinching = false; };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [chartData.length]);
+
   const { yDomainMin, yDomainMax } = useMemo(() => {
-    if (!chartData.length) return { yDomainMin: 0, yDomainMax: 100 };
-    const allLows  = chartData.map(d => d.low  > 0 ? d.low  : d.price).filter(v => v > 0);
-    const allHighs = chartData.map(d => d.high > 0 ? d.high : d.price).filter(v => v > 0);
-    const maVals = chartData.flatMap(d => [d.ma20, d.ma60, d.ma120, d.bbUpper, d.bbLower]).filter((v): v is number => v !== null && v > 0);
+    const d = visibleData.length > 0 ? visibleData : chartData;
+    if (!d.length) return { yDomainMin: 0, yDomainMax: 100 };
+    const allLows  = d.map(d => d.low  > 0 ? d.low  : d.price).filter(v => v > 0);
+    const allHighs = d.map(d => d.high > 0 ? d.high : d.price).filter(v => v > 0);
+    const maVals = d.flatMap(d => [d.ma20, d.ma60, d.ma120, d.bbUpper, d.bbLower]).filter((v): v is number => v !== null && v > 0);
     const allMin = Math.min(...allLows, ...maVals);
     const allMax = Math.max(...allHighs, ...maVals);
     const pad = (allMax - allMin) * 0.06;
     return { yDomainMin: allMin - pad, yDomainMax: allMax + pad };
-  }, [chartData]);
+  }, [visibleData]);
 
   const candlestickShape = useMemo(() => {
     const dMin = yDomainMin;
@@ -688,11 +743,11 @@ export default function StockDetail() {
               {/* Pro Dashboard overlay button */}
               <button
                 onClick={() => setShowProModal(true)}
-                className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation"
+                className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation whitespace-nowrap"
                 data-testid="button-pro-analysis"
               >
-                <Zap className="w-3 h-3" />
-                <span className="hidden sm:inline">{lang === "ko" ? "자세히 보기" : "Pro View"}</span>
+                <Zap className="w-3 h-3 shrink-0" />
+                {lang === "ko" ? "자세히 보기" : "Pro View"}
               </button>
             </div>
           </div>
@@ -731,8 +786,9 @@ export default function StockDetail() {
           ) : chartData.length > 0 ? (
             <>
               {/* ── Main chart ── */}
-              <ResponsiveContainer width="100%" height={300} style={{ touchAction: "pan-y" }}>
-                <ComposedChart data={chartData} margin={{ top: 6, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
+              <div ref={chartContainerRef} style={{ touchAction: "pan-y" }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <ComposedChart data={visibleData} margin={{ top: 6, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -827,38 +883,25 @@ export default function StockDetail() {
                   )}
 
                   {/* Candlestick signal overlays */}
-                  {showSignals && chartType === "candle" && !isIntraday && chartData.map((d, i) => {
+                  {showSignals && chartType === "candle" && !isIntraday && visibleData.map((d, i) => {
                     if (!d.signal) return null;
                     const isBuy = d.signal === "buy";
                     return <ReferenceLine key={`sigline-${i}`} x={d.date} stroke={isBuy ? "#22c55e" : "#ef4444"} strokeDasharray="3 3" strokeWidth={1.5} strokeOpacity={0.6} />;
                   })}
-
-                  {/* Brush navigator for zoom/pan */}
-                  <Brush
-                    dataKey="date"
-                    height={18}
-                    travellerWidth={8}
-                    startIndex={brushDomain.startIndex}
-                    endIndex={brushDomain.endIndex}
-                    onChange={(e: any) => setBrushDomain({ startIndex: e.startIndex, endIndex: e.endIndex })}
-                    fill={isDark ? "#1f2937" : "#f3f4f6"}
-                    stroke={isDark ? "#374151" : "#e5e7eb"}
-                    traveller={{ fill: isDark ? "#6b7280" : "#9ca3af" }}
-                    gap={1}
-                  />
                 </ComposedChart>
               </ResponsiveContainer>
+              </div>
 
               {/* ── Volume sub-chart ── */}
               {showVolume && (
                 <div className="border-t border-border/30 pt-0.5">
                   <p className="text-[9px] text-muted-foreground text-center mb-0.5">{lang === "ko" ? "거래량" : "Volume"}</p>
                   <ResponsiveContainer width="100%" height={60}>
-                    <BarChart data={chartData} margin={{ top: 0, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
+                    <BarChart data={visibleData} margin={{ top: 0, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
                       <XAxis dataKey="date" hide />
                       <YAxis hide />
                       <Bar dataKey="volume" radius={[1, 1, 0, 0]} maxBarSize={16} isAnimationActive={false}>
-                        {chartData.map((entry, idx) => (
+                        {visibleData.map((entry, idx) => (
                           <Cell key={`vol-${idx}`} fill={entry.isUp ? "rgba(34,197,94,0.5)" : "rgba(239,68,68,0.5)"} />
                         ))}
                       </Bar>
@@ -872,7 +915,7 @@ export default function StockDetail() {
                 <div className="border-t border-border/30 pt-0.5">
                   <p className="text-[9px] text-muted-foreground text-center mb-0.5">RSI (14)</p>
                   <ResponsiveContainer width="100%" height={80}>
-                    <ComposedChart data={chartData} margin={{ top: 2, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
+                    <ComposedChart data={visibleData} margin={{ top: 2, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
                       <XAxis dataKey="date" hide />
                       <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: tickColor }} ticks={[30, 50, 70]} width={24} />
                       {/* Overbought zone */}
