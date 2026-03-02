@@ -668,7 +668,98 @@ export default function SuperInvestors() {
                     </TabsList>
 
                     <TabsContent value="holdings" className="mt-6">
-                      <Card className="border-2 overflow-hidden">
+                      {/* ── Mobile card layout (< sm) ── */}
+                      <div className="block sm:hidden space-y-2 overflow-x-hidden">
+                        {displayedHoldings.map((holding, idx) => (
+                          <Card key={holding.ticker} className="border overflow-hidden" data-testid={`card-holding-mobile-${holding.ticker}`}>
+                            <CardContent className="p-3">
+                              {/* Row 1: index + name + weight */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-2 min-w-0 flex-1">
+                                  <span className="text-muted-foreground font-mono text-xs mt-0.5 shrink-0 w-5 text-right">{idx + 1}</span>
+                                  <span className="font-bold text-sm leading-tight">{getCompanyName(holding.company, lang)}</span>
+                                </div>
+                                <span className="text-lg font-display font-bold text-primary shrink-0">{holding.weight}%</span>
+                              </div>
+                              {/* Row 2: ticker · sector · change badges */}
+                              <div className="flex items-center gap-1.5 mt-1 ml-7 flex-wrap">
+                                <span className="text-xs font-mono text-muted-foreground">{holding.ticker}</span>
+                                {holding.putCall && holding.putCall !== "None" && holding.putCall !== "" && (
+                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">{holding.putCall}</span>
+                                )}
+                                <span className="text-muted-foreground text-xs">·</span>
+                                <span className="text-[10px] text-muted-foreground uppercase">{getSectorName(holding.sector, lang)}</span>
+                                {holding.change === "Bought" && (
+                                  <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none text-[10px] h-4 px-1.5">
+                                    <TrendingUp className="w-2.5 h-2.5 mr-0.5" />{t.bought}
+                                  </Badge>
+                                )}
+                                {holding.change === "Sold" && (
+                                  <Badge className="bg-rose-500 hover:bg-rose-600 border-none text-[10px] h-4 px-1.5">
+                                    <TrendingDown className="w-2.5 h-2.5 mr-0.5" />{t.sold}
+                                  </Badge>
+                                )}
+                                {holding.change === "Held" && (
+                                  <Badge variant="secondary" className="bg-muted text-muted-foreground border-none text-[10px] h-4 px-1.5">
+                                    <Minus className="w-2.5 h-2.5 mr-0.5" />{t.held}
+                                  </Badge>
+                                )}
+                                {holding.change === "New" && (
+                                  <Badge className="bg-primary hover:bg-primary/90 border-none text-[10px] h-4 px-1.5">
+                                    {t.new_pos}
+                                  </Badge>
+                                )}
+                                {holding.changePct !== null && holding.changePct !== 0 && (
+                                  <span className={holding.changePct > 0 ? "text-emerald-500 text-[10px] font-bold" : "text-rose-500 text-[10px] font-bold"}>
+                                    {holding.changePct > 0 ? "+" : ""}{holding.changePct}%
+                                  </span>
+                                )}
+                              </div>
+                              {/* Row 3: full-width Why They Bought button */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setWhyDialogHolding({
+                                    ticker: holding.ticker,
+                                    company: holding.company,
+                                    en: holding.whyTheyBoughtEn,
+                                    ko: holding.whyTheyBoughtKo,
+                                  });
+                                }}
+                                className="w-full mt-2 rounded-lg h-8 text-xs font-bold border hover:bg-primary hover:text-white hover:border-primary transition-all"
+                                data-testid={`button-why-mobile-${holding.ticker}`}
+                              >
+                                <Info className="w-3 h-3 mr-1" />
+                                {t.learn_why}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
+                        {/* View All / Show Less (mobile) */}
+                        {(real13F ? real13F.holdingCount : selectedInvestor.holdings.length) > 10 && (
+                          <div className="text-center pt-1">
+                            <Button
+                              variant="ghost"
+                              onClick={() => setShowAllHoldings(!showAllHoldings)}
+                              className="font-bold text-primary hover:text-primary hover:bg-primary/10"
+                              data-testid="button-toggle-holdings-mobile"
+                            >
+                              {showAllHoldings ? (
+                                <><ChevronUp className="w-4 h-4 mr-2" />{lang === "ko" ? "접기" : "Show Less"}</>
+                              ) : (
+                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개)` : `View All ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} Holdings`}</>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── Desktop table layout (≥ sm) ── */}
+                      <Card className="hidden sm:block border-2 overflow-hidden">
                         <div className="overflow-x-auto">
                           <div className="min-w-[580px]">
                             <table className="w-full text-sm">
@@ -684,9 +775,7 @@ export default function SuperInvestors() {
                               <tbody className="divide-y divide-border">
                                 {displayedHoldings.map((holding, idx) => (
                                   <tr key={holding.ticker} className="hover:bg-muted/30 transition-colors">
-                                    <td className="px-4 py-4 text-muted-foreground font-mono text-xs">
-                                      {idx + 1}
-                                    </td>
+                                    <td className="px-4 py-4 text-muted-foreground font-mono text-xs">{idx + 1}</td>
                                     <td className="px-4 py-4">
                                       <div>
                                         <div className="font-bold text-foreground text-sm leading-tight">
@@ -762,7 +851,7 @@ export default function SuperInvestors() {
                           </div>
                         </div>
 
-                        {/* View All / Show Less */}
+                        {/* View All / Show Less (desktop) */}
                         {(real13F ? real13F.holdingCount : selectedInvestor.holdings.length) > 10 && (
                           <div className="border-t border-border p-4 text-center">
                             <Button
@@ -772,17 +861,9 @@ export default function SuperInvestors() {
                               data-testid="button-toggle-holdings"
                             >
                               {showAllHoldings ? (
-                                <>
-                                  <ChevronUp className="w-4 h-4 mr-2" />
-                                  {lang === "ko" ? "접기" : "Show Less"}
-                                </>
+                                <><ChevronUp className="w-4 h-4 mr-2" />{lang === "ko" ? "접기" : "Show Less"}</>
                               ) : (
-                                <>
-                                  <ChevronDown className="w-4 h-4 mr-2" />
-                                  {lang === "ko"
-                                    ? `전체 보기 (${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개)`
-                                    : `View All ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} Holdings`}
-                                </>
+                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개)` : `View All ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} Holdings`}</>
                               )}
                             </Button>
                           </div>

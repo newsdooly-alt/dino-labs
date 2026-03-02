@@ -333,8 +333,8 @@ function CustomTooltip({ active, payload, lang, country, onSelect }: {
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="w-3 h-3 rounded-full shrink-0" style={{ background: d._color }} />
-        <span className="font-bold text-sm">{d.symbol}</span>
-        {label && <span className="text-xs text-muted-foreground">{lang === "ko" ? label.ko : label.en}</span>}
+        <span className="font-bold text-sm">{label ? (lang === "ko" ? label.ko : label.en) : d.symbol}</span>
+        {label && <span className="text-xs text-muted-foreground font-mono">({d.symbol.replace(/^(KR|JP)_/, "")})</span>}
       </div>
       <div className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full mb-2"
         style={{ background: q.bg, color: q.color, border: `1px solid ${q.border}` }}
@@ -510,13 +510,17 @@ export function RRGChart() {
     ? aggregateSectors(data.sectors, cfg.sectorGroups)
     : data.sectors;
 
-  const scatterData = displaySectors.map(s => ({
-    ...s,
-    x: s.rsRatio,
-    y: s.rsMomentum,
-    _color: cfg.sectorColors[s.symbol] || "#6366f1",
-    _shortLabel: s.symbol.replace(/^(KR|JP)_/, ""),
-  }));
+  const scatterData = displaySectors.map(s => {
+    const label = cfg.sectorLabels[s.symbol];
+    const localName = label ? (lang === "ko" ? label.ko : label.en) : s.symbol.replace(/^(KR|JP)_/, "");
+    return {
+      ...s,
+      x: s.rsRatio,
+      y: s.rsMomentum,
+      _color: cfg.sectorColors[s.symbol] || "#6366f1",
+      _shortLabel: localName,
+    };
+  });
 
   const allX = displaySectors.map(s => s.rsRatio);
   const allY = displaySectors.map(s => s.rsMomentum);
@@ -742,8 +746,8 @@ export function RRGChart() {
               data-testid={`rrg-sector-${s.symbol}`}
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-              <span className="font-semibold">{s.symbol.includes(".") ? s.symbol.split(".")[0] : shortId}</span>
-              {label && <span className="text-muted-foreground hidden sm:inline">{lang === "ko" ? label.ko : label.en}</span>}
+              <span className="font-semibold">{label ? (lang === "ko" ? label.ko : label.en) : shortId}</span>
+              <span className="text-muted-foreground text-[10px] font-mono">({s.symbol.includes(".") ? s.symbol.split(".")[0] : shortId})</span>
               <span className="font-bold" style={{ color: q.color }}>·</span>
             </button>
           );
