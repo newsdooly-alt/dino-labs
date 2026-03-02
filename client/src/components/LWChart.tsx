@@ -558,7 +558,7 @@ export function LWChart({
       macdChart?.remove();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, isDark, chartType, showVolume, showMA, showBB, showRSI, showMACD, showSR, logScale, height]);
+  }, [data, isDark, isIntraday, chartType, showVolume, showMA, showBB, showRSI, showMACD, showSR, logScale, height]);
 
   return (
     <div className={cn("relative select-none", className)} style={{ touchAction: "none" }}>

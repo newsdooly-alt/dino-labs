@@ -10,7 +10,7 @@ import { calculateSMA, calculateRSI, calculateBollingerBands, calculateSupportRe
 import { cn } from "@/lib/utils";
 import {
   ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  ReferenceArea, CartesianGrid,
+  ReferenceArea, CartesianGrid, ReferenceLine,
 } from "recharts";
 import { LWChart, type LWCandlePoint } from "@/components/LWChart";
 import { Input } from "@/components/ui/input";
@@ -136,6 +136,7 @@ export default function AdvancedDashboard() {
   const [showMA, setShowMA] = useState(true);
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
   const [showMACD, setShowMACD] = useState(false);
+  const [showRSI, setShowRSI] = useState(false);
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
 
@@ -216,7 +217,7 @@ export default function AdvancedDashboard() {
   const periodConfig = PERIOD_OPTIONS.find(p => p.key === selectedPeriod) ?? PERIOD_OPTIONS[2];
   const isIntraday = selectedPeriod === "1d";
 
-  const { data: history, isLoading: isHistoryLoading } = useQuery<any>({
+  const { data: history, isLoading: isHistoryLoading, isFetching: isHistoryFetching } = useQuery<any>({
     queryKey: ["/api/stocks/history", selectedSymbol, periodConfig.period, periodConfig.interval],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/history/${selectedSymbol}?period=${periodConfig.period}&interval=${periodConfig.interval}`);
@@ -226,6 +227,9 @@ export default function AdvancedDashboard() {
     enabled: !!selectedSymbol,
     staleTime: 60000,
   });
+
+  // Only render chart when data for the EXACT selected period/symbol is confirmed loaded.
+  const isChartReady = !isHistoryLoading && !isHistoryFetching && history?.period === periodConfig.period && history?.symbol === selectedSymbol;
 
   const rawHistory = history?.data ?? [];
   const closes = rawHistory.map((d: any) => d.close as number);
@@ -400,6 +404,7 @@ export default function AdvancedDashboard() {
           { key: "sr",   label: lang === "ko" ? "S/R선" : "S/R",   state: showSR,     set: () => setShowSR(v => !v),     cls: "text-amber-500 bg-amber-500/10 border-amber-500/30" },
           { key: "vol",  label: lang === "ko" ? "거래량" : "Vol",   state: showVolume, set: () => setShowVolume(v => !v), cls: "text-blue-500 bg-blue-500/10 border-blue-500/30" },
           { key: "ma",   label: "MA 50/200",                         state: showMA,     set: () => setShowMA(v => !v),     cls: "text-orange-500 bg-orange-500/10 border-orange-500/30" },
+          { key: "rsi",  label: "RSI",                               state: showRSI,    set: () => setShowRSI(v => !v),    cls: "text-purple-500 bg-purple-500/10 border-purple-500/30" },
           { key: "macd", label: "MACD",                              state: showMACD,   set: () => setShowMACD(v => !v),   cls: "text-indigo-500 bg-indigo-500/10 border-indigo-500/30" },
         ].map(btn => (
           <button key={btn.key} onClick={btn.set}
@@ -427,7 +432,7 @@ export default function AdvancedDashboard() {
 
       {/* Main chart */}
       <div className="flex-1 overflow-hidden min-h-0 px-1 flex flex-col">
-        {isHistoryLoading ? (
+        {!isChartReady ? (
           <div className="h-full flex items-center justify-center">
             <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
@@ -444,7 +449,7 @@ export default function AdvancedDashboard() {
             showMA={showMA && !isIntraday}
             maPeriods={[50, 200]}
             maColors={["#f59e0b", "#ef4444"]}
-            showRSI={false}
+            showRSI={showRSI && !isIntraday}
             showMACD={showMACD && !isIntraday}
             showSR={showSR}
             srLevels={srLevels}

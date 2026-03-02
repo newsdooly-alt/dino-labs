@@ -278,7 +278,7 @@ export default function StockDetail() {
 
   const periodConfig = periodOptions.find(p => p.key === selectedPeriod) || periodOptions[2];
 
-  const { data: history, isLoading: isHistoryLoading } = useQuery<HistoryData>({
+  const { data: history, isLoading: isHistoryLoading, isFetching: isHistoryFetching } = useQuery<HistoryData>({
     queryKey: ["/api/stocks/history", symbol, periodConfig.period, periodConfig.interval],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/history/${symbol}?period=${periodConfig.period}&interval=${periodConfig.interval}`);
@@ -288,6 +288,10 @@ export default function StockDetail() {
     enabled: !!symbol,
     staleTime: 60000,
   });
+
+  // Only consider the chart ready when data for the EXACT selected period is loaded.
+  // This prevents showing old (longer) data while transitioning to a new timeframe.
+  const isChartReady = !isHistoryLoading && !isHistoryFetching && history?.period === periodConfig.period;
 
   const { data: watchlist } = useQuery<WatchlistItem[]>({
     queryKey: ["/api/watchlist"],
@@ -569,7 +573,7 @@ export default function StockDetail() {
         </CardHeader>
 
         <CardContent className="px-1 pb-3 sm:px-4">
-          {isHistoryLoading ? (
+          {!isChartReady ? (
             <div className="h-72 flex items-center justify-center">
               <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
