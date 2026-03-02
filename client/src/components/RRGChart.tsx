@@ -8,7 +8,8 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
-import { TrendingUp, RefreshCw, Info, X, ZoomIn, ZoomOut, Minimize2, TrendingDown } from "lucide-react";
+import { TrendingUp, RefreshCw, Info, X, ZoomIn, ZoomOut, Minimize2, TrendingDown, ExternalLink, Star, AlertTriangle, Sparkles } from "lucide-react";
+import { useLocation } from "wouter";
 
 // ─── Exchange-aware currency helpers ─────────────────────────────────────────
 function getTickerCurrencySymbol(symbol: string): string {
@@ -357,8 +358,27 @@ function CustomTooltip({ active, payload, lang, country, onSelect }: {
   );
 }
 
-// Top 10 companies sub-component with live prices
-function SectorTop10({ tickers, lang, sectorName }: { tickers: string[]; lang: string; sectorName: string }) {
+// ─── Insight Tag definitions ──────────────────────────────────────────────────
+type InsightTag = "주도주" | "낙폭과대" | "유망주" | "약세전환";
+
+const INSIGHT_CONFIG: Record<InsightTag, { ko: string; en: string; color: string; bg: string; icon: JSX.Element }> = {
+  "주도주":  { ko: "주도주",   en: "Leader",    color: "#22c55e", bg: "rgba(34,197,94,0.12)",   icon: <Star className="w-2.5 h-2.5" /> },
+  "낙폭과대":{ ko: "낙폭과대", en: "Laggard",   color: "#ef4444", bg: "rgba(239,68,68,0.12)",   icon: <AlertTriangle className="w-2.5 h-2.5" /> },
+  "유망주":  { ko: "유망주",   en: "Improving", color: "#3b82f6", bg: "rgba(59,130,246,0.12)",  icon: <Sparkles className="w-2.5 h-2.5" /> },
+  "약세전환":{ ko: "약세전환", en: "Weakening", color: "#eab308", bg: "rgba(234,179,8,0.12)",   icon: <AlertTriangle className="w-2.5 h-2.5" /> },
+};
+
+// Top 10 companies sub-component with live prices, clickable links, and insight tags
+function SectorTop10({
+  tickers, lang, sectorName, sectorQuadrant, sectorRsRatio,
+}: {
+  tickers: string[];
+  lang: string;
+  sectorName: string;
+  sectorQuadrant: string;
+  sectorRsRatio: number;
+}) {
+  const [, navigate] = useLocation();
   const symbolsStr = tickers.join(",");
 
   const { data, isLoading } = useQuery<{ quotes: StockQuote[] }>({
@@ -384,49 +404,178 @@ function SectorTop10({ tickers, lang, sectorName }: { tickers: string[]; lang: s
 
   const quotes = data?.quotes ?? [];
 
+  // Build enriched stock list
+  const stockList = tickers.map((ticker, i) => {
+    const q = quotes.find(x => x.symbol === ticker);
+    const rawName   = q?.name ? cleanStockName(q.name) : ticker;
+    const localName = getLocalizedCompanyName(rawName, lang);
+    return { ticker, q, rawName, localName, idx: i };
+  });
+
+  // ── Compute insight tags based on sector quadrant + live data ───────────────
+  const insightTags: Record<string, InsightTag> = {};
+  const validQuotes = stockList.filter(s => s.q && s.q.price > 0);
+
+  if (validQuotes.length > 0) {
+    const sorted = [...validQuotes].sort((a, b) =>
+      (b.q?.changePercent ?? 0) - (a.q?.changePercent ?? 0)
+    );
+    const topGainer = sorted[0];
+    const topLoser = sorted[sorted.length - 1];
+
+    if (sectorQuadrant === "leading") {
+      // Leader: top 1-2 stocks by positive momentum
+      if (topGainer) insightTags[topGainer.ticker] = "주도주";
+      if (sorted[1] && (sorted[1].q?.changePercent ?? 0) > 0) insightTags[sorted[1].ticker] = "주도주";
+    } else if (sectorQuadrant === "improving") {
+      // Improving: stock(s) with best momentum gain
+      if (topGainer) insightTags[topGainer.ticker] = "유망주";
+      if (sorted[1]) insightTags[sorted[1].ticker] = "유망주";
+    } else if (sectorQuadrant === "lagging") {
+      // Laggard: most beaten-down stock(s)
+      if (topLoser && (topLoser.q?.changePercent ?? 0) < 0) insightTags[topLoser.ticker] = "낙폭과대";
+      const secondLoser = sorted[sorted.length - 2];
+      if (secondLoser && (secondLoser.q?.changePercent ?? 0) < 0) insightTags[secondLoser.ticker] = "낙폭과대";
+    } else if (sectorQuadrant === "weakening") {
+      // Weakening: top previously strong stock now losing momentum
+      if (topGainer) insightTags[topGainer.ticker] = "약세전환";
+    }
+  }
+
+  // ── Sector leadership commentary ─────────────────────────────────────────
+  const leaderStock  = stockList.find(s => insightTags[s.ticker] === "주도주");
+  const laggardStock = stockList.find(s => insightTags[s.ticker] === "낙폭과대");
+  const improvingStock = stockList.find(s => insightTags[s.ticker] === "유망주");
+  const sorted2 = [...stockList.filter(s => s.q && s.q.price > 0)].sort((a, b) =>
+    (b.q?.changePercent ?? 0) - (a.q?.changePercent ?? 0)
+  );
+
+  function buildCommentary(): string {
+    if (lang === "ko") {
+      if (sectorQuadrant === "leading") {
+        const leader = leaderStock?.localName ?? sorted2[0]?.localName;
+        const second = sorted2[1]?.localName;
+        const underval = laggardStock?.localName ?? stockList[stockList.length - 1]?.localName;
+        if (leader && second)
+          return `현재 이 섹터는 ${leader}이(가) 이끌고 있으며, ${second}도 강한 상승 모멘텀을 보이고 있습니다. RS-Ratio ${sectorRsRatio.toFixed(2)}로 시장 대비 우위에 있습니다.`;
+        if (leader)
+          return `현재 이 섹터는 ${leader}이(가) 이끌고 있습니다. RS-Ratio ${sectorRsRatio.toFixed(2)}로 선도 구간에 위치합니다.`;
+      } else if (sectorQuadrant === "improving") {
+        const s = improvingStock?.localName ?? sorted2[0]?.localName;
+        return s
+          ? `${s}의 모멘텀 개선이 눈에 띕니다. 이 섹터는 저평가 구간에서 회복 신호를 보이고 있어 유망주로 주목할 만합니다.`
+          : `이 섹터는 모멘텀이 개선되는 회복 구간에 있습니다. 상승 반전 가능성에 주목하세요.`;
+      } else if (sectorQuadrant === "lagging") {
+        const s = laggardStock?.localName ?? sorted2[sorted2.length - 1]?.localName;
+        const s2 = sorted2[0]?.localName;
+        return s
+          ? `현재 이 섹터는 시장 대비 부진한 구간으로, ${s}은(는) 상대적으로 저평가 상태입니다.${s2 ? ` ${s2}의 반등 여부를 모니터링하세요.` : ""}`
+          : `이 섹터는 현재 침체 구간에 있습니다. 신중한 접근이 필요합니다.`;
+      } else if (sectorQuadrant === "weakening") {
+        const s = sorted2[0]?.localName;
+        return s
+          ? `이 섹터는 강도는 유지하고 있으나 모멘텀이 둔화되고 있습니다. ${s}의 추세 변화에 주의하세요.`
+          : `이 섹터는 수익 실현 구간으로, 모멘텀 약화 신호에 주목하세요.`;
+      }
+      return `이 섹터의 RS-Ratio는 ${sectorRsRatio.toFixed(2)}입니다.`;
+    } else {
+      if (sectorQuadrant === "leading") {
+        const leader = leaderStock?.localName ?? sorted2[0]?.rawName;
+        const second = sorted2[1]?.rawName;
+        return leader
+          ? `${leader} is leading this sector${second ? `, alongside ${second}` : ""}. RS-Ratio ${sectorRsRatio.toFixed(2)} — outperforming the benchmark.`
+          : `This sector is in the Leading quadrant with RS-Ratio ${sectorRsRatio.toFixed(2)}.`;
+      } else if (sectorQuadrant === "improving") {
+        const s = improvingStock?.rawName ?? sorted2[0]?.rawName;
+        return s
+          ? `${s}'s momentum improvement is notable. This sector is showing recovery signals from undervalued levels.`
+          : `This sector is in the Improving quadrant — watch for a potential rotation into Leading.`;
+      } else if (sectorQuadrant === "lagging") {
+        const s = laggardStock?.rawName ?? sorted2[sorted2.length - 1]?.rawName;
+        return s
+          ? `${s} appears relatively undervalued in this lagging sector. Monitor for a potential mean-reversion bounce.`
+          : `This sector is underperforming the benchmark. Approach with caution.`;
+      } else if (sectorQuadrant === "weakening") {
+        const s = sorted2[0]?.rawName;
+        return s
+          ? `This sector maintains strength but is losing momentum. Watch ${s} for trend changes.`
+          : `This sector is in the Weakening quadrant — profit-taking signals may emerge.`;
+      }
+      return `This sector has an RS-Ratio of ${sectorRsRatio.toFixed(2)}.`;
+    }
+  }
+
+  const commentary = buildCommentary();
+
   return (
-    <div className="mt-2 space-y-0.5">
-      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-2">
+    <div className="mt-2">
+      {/* Sector leadership commentary */}
+      <div className="mb-3 px-3 py-2.5 rounded-xl bg-background/80 border border-border/40">
+        <p className="text-[11px] leading-relaxed text-foreground/80 italic">{commentary}</p>
+      </div>
+
+      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-2 px-1">
         {lang === "ko" ? `${sectorName} 주요 종목` : `Top ${sectorName} Holdings`}
       </p>
-      {tickers.map((ticker, i) => {
-        const q = quotes.find(x => x.symbol === ticker);
-        const rawName   = q?.name ? cleanStockName(q.name) : ticker;
-        const localName = getLocalizedCompanyName(rawName, lang);
-        const priceStr  = q && q.price > 0 ? formatTickerPrice(q.price, ticker) : "—";
-        const lastKST   = q?.lastUpdated ? toKST(q.lastUpdated) : null;
 
-        return (
-          <div key={ticker}
-            className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-background/60 hover:bg-background/90 transition-colors"
-            data-testid={`rrg-top10-${ticker}-${i}`}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0">{i + 1}</span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1 min-w-0">
-                  <span className="text-xs font-bold truncate">{localName}</span>
-                  <span className="text-[10px] text-muted-foreground font-mono shrink-0 hidden sm:inline">({ticker})</span>
+      <div className="space-y-0.5">
+        {stockList.map(({ ticker, q, localName, rawName, idx }) => {
+          const priceStr = q && q.price > 0 ? formatTickerPrice(q.price, ticker) : "—";
+          const lastKST  = q?.lastUpdated ? toKST(q.lastUpdated) : null;
+          const tag      = insightTags[ticker] as InsightTag | undefined;
+          const tagConf  = tag ? INSIGHT_CONFIG[tag] : null;
+
+          return (
+            <button
+              key={ticker}
+              onClick={() => navigate(`/stock/${encodeURIComponent(ticker)}`)}
+              className="w-full flex items-center justify-between px-2 py-2 rounded-lg bg-background/60 hover:bg-background/95 hover:shadow-sm transition-all group text-left"
+              data-testid={`rrg-top10-${ticker}-${idx}`}
+              aria-label={lang === "ko" ? `${localName} 상세 보기` : `View ${rawName} detail`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0 text-center">{idx + 1}</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                      {localName}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0 hidden sm:inline">
+                      ({ticker.replace(/\.(KS|KQ|T|DE|PA|MI|AS|SW|L|MC|ST|OL|CO|VI)$/i, "")})
+                    </span>
+                    <ExternalLink className="w-2.5 h-2.5 text-primary/0 group-hover:text-primary/50 transition-colors shrink-0" />
+                    {tagConf && (
+                      <span
+                        className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{ color: tagConf.color, background: tagConf.bg }}
+                      >
+                        {tagConf.icon}
+                        {lang === "ko" ? tagConf.ko : tagConf.en}
+                      </span>
+                    )}
+                  </div>
+                  {lastKST && (
+                    <span className="text-[9px] text-muted-foreground/50 hidden sm:block">{lastKST} KST</span>
+                  )}
                 </div>
-                {lastKST && (
-                  <span className="text-[9px] text-muted-foreground/50 hidden sm:block">{lastKST} KST</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono text-xs font-semibold">{priceStr}</span>
+                {q && q.price > 0 && (
+                  <span className={cn("text-[10px] font-bold flex items-center gap-0.5 min-w-[48px] justify-end",
+                    (q.changePercent ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
+                  )}>
+                    {(q.changePercent ?? 0) >= 0
+                      ? <TrendingUp className="w-2.5 h-2.5" />
+                      : <TrendingDown className="w-2.5 h-2.5" />}
+                    {Math.abs(q.changePercent ?? 0).toFixed(2)}%
+                  </span>
                 )}
               </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="font-mono text-xs font-semibold">{priceStr}</span>
-              {q && q.price > 0 && (
-                <span className={cn("text-[10px] font-bold flex items-center gap-0.5",
-                  (q.changePercent ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
-                )}>
-                  {(q.changePercent ?? 0) >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                  {Math.abs(q.changePercent ?? 0).toFixed(2)}%
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -833,7 +982,13 @@ export function RRGChart() {
                 </button>
                 {showTop10 && (
                   <div className="mt-2">
-                    <SectorTop10 tickers={top10Tickers} lang={lang} sectorName={sectorName} />
+                    <SectorTop10
+                      tickers={top10Tickers}
+                      lang={lang}
+                      sectorName={sectorName}
+                      sectorQuadrant={selected.quadrant}
+                      sectorRsRatio={selected.rsRatio}
+                    />
                   </div>
                 )}
               </div>
