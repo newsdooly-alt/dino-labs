@@ -25,6 +25,17 @@ The core experience centers around:
   - Bilingual support (English/Korean) throughout
   - Backend: `GET /api/economic-calendar?year=YYYY&month=M` (authenticated)
 
+## Pro Dashboard (Advanced Mode) — /pro
+
+- **Route**: `/pro` — accessible via "프로 대시보드 / Pro Dashboard" sidebar item
+- **4-pane desktop layout**: CSS grid `[200px 1fr 185px 185px]` — Screener | Chart | Fundamentals | Analysis
+- **Mobile**: 4-tab system (Screener / Chart / Fundamentals / Analysis) with full-height panels
+- **Pattern Screener (Left)**: 15 curated stocks (US + KR), sortable by RS or alphabetical. RS = stock.changePercent - SPY.changePercent. Pattern tags: 급등/Strong/Neutral/Weak/Breakdown colored badges
+- **Chart (Center)**: Candlestick/Line toggle, SMA50 (amber) + SMA200 (red) overlays, S/R auto-lines, Volume sub-chart, period tabs 1D/1W/1M/1Y/5Y/ALL, period return % displayed live
+- **Fundamentals (Right)**: Market Cap, P/E, Dividend Yield, EPS, 52W High/Low, Beta, Avg Volume, 52W range slider, About (truncated), link to full StockDetail
+- **Analysis (Far Right)**: Stage Analysis (Stage 1-4 from SMA50/200), Market Breadth (screener RS %), US Sector Breadth bars (static), Mini RRG Scatter chart (ScatterChart + ReferenceArea quadrants), link to full RRG
+- **Localization**: Korean names, Korean labels, currency-aware prices
+
 ## Global Search System & Name Localization
 
 - `client/src/lib/stockNames.ts` — Shared stock name library (single source of truth):
