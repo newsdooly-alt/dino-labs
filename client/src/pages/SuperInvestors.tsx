@@ -125,6 +125,26 @@ function formatAum(aum: number, aumUnit: string, lang: string, krwRate: number):
   return aum >= 1000 ? `$${(aum / 1000).toFixed(1)}T` : `$${aum}B`;
 }
 
+// Format a USD value in the user's preferred display currency
+function formatValueUSD(usd: number, lang: string, krwRate: number, jpyRate = 155): string {
+  if (lang === "ko") {
+    const krw = usd * krwRate;
+    const jo = Math.floor(krw / 1e12);
+    const eok = Math.floor((krw % 1e12) / 1e8);
+    if (jo >= 10000) return `약 ${(jo / 10000).toFixed(1)}경 원`;
+    if (jo >= 1000) return `약 ${Math.round(jo / 100) * 100}조 원`;
+    if (jo >= 100) return `약 ${Math.round(jo / 10) * 10}조 원`;
+    if (jo >= 1) return eok >= 100 ? `약 ${jo}조 ${Math.round(eok / 100) * 100}억 원` : `약 ${jo}조 원`;
+    const eokOnly = Math.floor(krw / 1e8);
+    if (eokOnly >= 1) return `약 ${eokOnly.toLocaleString("ko-KR")}억 원`;
+    return `약 ${Math.round(krw / 1e4).toLocaleString("ko-KR")}만 원`;
+  }
+  if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
+  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
+  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(1)}M`;
+  return `$${Math.round(usd).toLocaleString()}`;
+}
+
 export default function SuperInvestors() {
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
@@ -275,6 +295,115 @@ export default function SuperInvestors() {
     const src = effectiveHoldings;
     return showAllHoldings ? src : src.slice(0, 10);
   }, [effectiveHoldings, showAllHoldings]);
+
+  // Tickers for live price fetching — US-style tickers (batch 1); KRX/JPN fetched separately below
+  const liveQuoteTickers = useMemo(() => {
+    if (!effectiveHoldings.length) return [];
+    return effectiveHoldings
+      .slice(0, 25)
+      .map((h) => h.ticker)
+      .filter((t) => t && !t.includes("CUSIP") && !t.endsWith(".KS") && !t.endsWith(".T") && !t.endsWith(".TI"));
+  }, [effectiveHoldings]);
+
+  const liveQuoteLocalTickers = useMemo(() => {
+    if (!effectiveHoldings.length) return [];
+    return effectiveHoldings
+      .slice(0, 25)
+      .map((h) => h.ticker)
+      .filter((t) => t && (t.endsWith(".KS") || t.endsWith(".T")));
+  }, [effectiveHoldings]);
+
+  const { data: liveQuoteData } = useQuery<{ quotes: { symbol: string; price: number; isStale: boolean }[] }>({
+    queryKey: ["/api/stocks/quotes", liveQuoteTickers.join(",")],
+    queryFn: async () => {
+      if (!liveQuoteTickers.length) return { quotes: [] };
+      const res = await fetch(`/api/stocks/quotes?symbols=${liveQuoteTickers.join(",")}`, { credentials: "include" });
+      if (!res.ok) return { quotes: [] };
+      return res.json();
+    },
+    enabled: !!liveQuoteTickers.length && !!selectedId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: liveQuoteLocalData } = useQuery<{ quotes: { symbol: string; price: number; isStale: boolean }[] }>({
+    queryKey: ["/api/stocks/quotes", liveQuoteLocalTickers.join(",")],
+    queryFn: async () => {
+      if (!liveQuoteLocalTickers.length) return { quotes: [] };
+      const res = await fetch(`/api/stocks/quotes?symbols=${liveQuoteLocalTickers.join(",")}`, { credentials: "include" });
+      if (!res.ok) return { quotes: [] };
+      return res.json();
+    },
+    enabled: !!liveQuoteLocalTickers.length && !!selectedId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Map ticker → current price for quick lookups
+  const livePriceMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const q of liveQuoteData?.quotes ?? []) {
+      if (q.price > 0) m.set(q.symbol.toUpperCase(), q.price);
+    }
+    for (const q of liveQuoteLocalData?.quotes ?? []) {
+      if (q.price > 0) m.set(q.symbol.toUpperCase(), q.price);
+    }
+    return m;
+  }, [liveQuoteData, liveQuoteLocalData]);
+
+  // Estimated current portfolio value (live prices × share counts, + priceApprox fallback for KRX/JPN)
+  const estimatedCurrentValueUSD = useMemo(() => {
+    if (!effectiveHoldings.length) return null;
+    let total = 0;
+    let covered = 0;
+    for (const h of effectiveHoldings) {
+      const ticker = h.ticker.toUpperCase();
+      const livePrice = livePriceMap.get(ticker);
+      const priceApprox = (h as any).priceApprox as number | undefined;
+      const isKRX = h.ticker.endsWith(".KS");
+      const isJPN = h.ticker.endsWith(".T");
+
+      if (livePrice && livePrice > 0 && h.shares > 0) {
+        // KRX live prices are in KRW, JPN in JPY — convert to USD
+        const usdVal = isKRX
+          ? (livePrice * h.shares) / krwRate
+          : isJPN
+          ? (livePrice * h.shares) / 155
+          : livePrice * h.shares;
+        total += usdVal;
+        covered++;
+      } else if (priceApprox && priceApprox > 0 && h.shares > 0) {
+        // Convert local currency to USD for KRX/JPN holdings
+        const usdVal = isKRX
+          ? (priceApprox * h.shares) / krwRate
+          : isJPN
+          ? (priceApprox * h.shares) / 155
+          : priceApprox * h.shares;
+        total += usdVal;
+        covered++;
+      }
+    }
+    // Only return if we have prices for ≥3 holdings (to avoid misleading partial estimates)
+    return covered >= 3 ? { value: total, coveredCount: covered, totalCount: effectiveHoldings.length } : null;
+  }, [livePriceMap, effectiveHoldings, krwRate]);
+
+  // Coverage scope label for 13F vs sovereign funds
+  const coverageScopeNote = useMemo(() => {
+    if (!selectedInvestor) return null;
+    if (real13F && !real13F.notSynced) {
+      return {
+        en: `US-listed equities only (SEC 13F). Total AUM may be higher — includes non-US holdings, bonds, private equity, and cash not required to be disclosed.`,
+        ko: `미국 상장 주식만 포함 (SEC 13F 공시). 실제 운용 자산은 더 클 수 있음 — 비미국 보유 종목, 채권, 사모 펀드, 현금은 13F 공시 대상 아님.`,
+      };
+    }
+    if (selectedInvestor.category === "sovereign" || selectedInvestor.category === "index") {
+      return {
+        en: `Displayed holdings are key positions from official disclosures. Total AUM (${formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, "en", krwRate)}) includes domestic equities, foreign equities, bonds, and alternatives across all markets.`,
+        ko: `표시된 보유 종목은 공식 공시의 주요 포지션입니다. 총 운용 자산 (${formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, "ko", krwRate)})은 국내외 주식, 채권, 대체 자산 등 모든 시장을 포함합니다.`,
+      };
+    }
+    return null;
+  }, [selectedInvestor, real13F, krwRate]);
 
   const categoryKeys: (InvestorCategory | "all")[] = [
     "all", "value", "growth", "macro", "hedge", "activist", "sovereign", "index"
@@ -742,23 +871,48 @@ export default function SuperInvestors() {
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* ── Portfolio Value Card ── */}
                     <Card className="bg-primary text-primary-foreground border-none shadow-lg">
-                      <CardContent className="pt-6">
-                        <p className="text-sm font-bold uppercase opacity-80">{t.portfolio_value}</p>
-                        <p className="text-4xl font-display font-bold mt-1">
+                      <CardContent className="pt-5 pb-4">
+                        {/* Top: Filing-date value */}
+                        <p className="text-xs font-bold uppercase opacity-70 tracking-wider">
                           {real13F && !real13F.notSynced
-                            ? `$${(real13F.totalValueUSD / 1e9).toFixed(2)}B`
+                            ? (lang === "ko" ? "공시 기준 포트폴리오 가치" : "Portfolio Value (Filing Date)")
+                            : (lang === "ko" ? "총 운용 자산 (AUM)" : "Total AUM")}
+                        </p>
+                        <p className="text-4xl font-display font-bold mt-1 leading-none">
+                          {real13F && !real13F.notSynced
+                            ? formatValueUSD(real13F.totalValueUSD * 1000, lang, krwRate)
                             : formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, lang, krwRate)}
                         </p>
-                        {real13F && !real13F.notSynced && (
-                          <p className="text-xs opacity-70 mt-1">
-                            {lang === "ko" ? "SEC 13F 검증 데이터 기준" : "Per verified SEC 13F filing"}
-                          </p>
+                        <p className="text-[11px] opacity-60 mt-1">
+                          {real13F && !real13F.notSynced
+                            ? (lang === "ko" ? `${real13F.periodOfReport} 기준 · 공시 일자: ${real13F.filingDate}` : `As of ${real13F.periodOfReport} · Filed ${real13F.filingDate}`)
+                            : (lang === "ko" ? `${selectedInvestor.lastUpdated} 기준` : `As of ${selectedInvestor.lastUpdated}`)}
+                        </p>
+
+                        {/* Divider */}
+                        {estimatedCurrentValueUSD && (
+                          <div className="mt-3 pt-3 border-t border-white/20">
+                            <p className="text-[10px] font-bold uppercase opacity-70 tracking-wider">
+                              {lang === "ko" ? "실시간 추정 현재가치" : "Est. Current Market Value"}
+                            </p>
+                            <p className="text-2xl font-display font-bold mt-0.5 opacity-95">
+                              {formatValueUSD(estimatedCurrentValueUSD.value, lang, krwRate)}
+                            </p>
+                            <p className="text-[10px] opacity-55 mt-0.5">
+                              {lang === "ko"
+                                ? `현재가 × 보유주수 (${estimatedCurrentValueUSD.coveredCount}/${estimatedCurrentValueUSD.totalCount}개 종목)`
+                                : `Live price × shares held (${estimatedCurrentValueUSD.coveredCount}/${estimatedCurrentValueUSD.totalCount} positions)`}
+                            </p>
+                          </div>
                         )}
                       </CardContent>
                     </Card>
+
+                    {/* ── Report Period / Coverage Card ── */}
                     <Card className="border-2">
-                      <CardContent className="pt-6">
+                      <CardContent className="pt-5 pb-4">
                         <p className="text-sm font-bold uppercase text-muted-foreground">
                           {lang === "ko" ? "보고서 기준일" : "Report Period"}
                         </p>
@@ -789,6 +943,14 @@ export default function SuperInvestors() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* Coverage scope disclaimer */}
+                  {coverageScopeNote && (
+                    <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-muted/60 border border-border/50 text-muted-foreground text-[11px]">
+                      <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary/60" />
+                      <span>{lang === "ko" ? coverageScopeNote.ko : coverageScopeNote.en}</span>
+                    </div>
+                  )}
 
                   <Tabs defaultValue="holdings" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 h-12 bg-muted p-1 rounded-xl">
@@ -863,6 +1025,39 @@ export default function SuperInvestors() {
                                 <div className="text-right shrink-0">
                                   <span className="text-xl font-display font-bold text-primary block">{holding.weight}%</span>
                                   <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "비중" : "weight"}</span>
+                                  {(() => {
+                                    const ticker = holding.ticker;
+                                    const isKRX = ticker.endsWith(".KS");
+                                    const isJPN = ticker.endsWith(".T");
+                                    const livePrice = livePriceMap.get(ticker.toUpperCase());
+                                    const priceApprox = (holding as any).priceApprox as number | undefined;
+                                    const filingVal = (holding as any)._valueUSD ? (holding as any)._valueUSD * 1000 : null;
+                                    let estVal: number | null = null;
+                                    let isLive = false;
+                                    if (livePrice && livePrice > 0 && holding.shares > 0) {
+                                      // KRX live prices are in KRW, JPN in JPY — convert to USD
+                                      estVal = isKRX
+                                        ? (livePrice * holding.shares) / krwRate
+                                        : isJPN
+                                        ? (livePrice * holding.shares) / 155
+                                        : livePrice * holding.shares;
+                                      isLive = true;
+                                    } else if (priceApprox && priceApprox > 0 && holding.shares > 0) {
+                                      estVal = isKRX
+                                        ? (priceApprox * holding.shares) / krwRate
+                                        : isJPN
+                                        ? (priceApprox * holding.shares) / 155
+                                        : priceApprox * holding.shares;
+                                    }
+                                    const displayVal = estVal ?? filingVal;
+                                    if (!displayVal) return null;
+                                    return (
+                                      <span className={`text-[10px] block mt-0.5 font-mono font-semibold ${estVal ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                                        {formatValueUSD(displayVal, lang, krwRate)}
+                                        {estVal && <span className="font-normal opacity-70 ml-0.5">{isLive ? (lang === "ko" ? "실시간" : "live") : (lang === "ko" ? "추정" : "est")}</span>}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                               {/* Row 2: ticker · sector · dataStatus · change badges */}
@@ -966,6 +1161,9 @@ export default function SuperInvestors() {
                                   <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px] w-8">#</th>
                                   <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.company}</th>
                                   <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.weight}</th>
+                                  <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-wider text-[10px]">
+                                    {lang === "ko" ? "현재 추정가치" : "Est. Value"}
+                                  </th>
                                   <th className="px-4 py-3 text-center font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.change}</th>
                                   <th className="px-4 py-3 text-center font-bold text-muted-foreground uppercase tracking-wider text-[10px]">{t.why_bought}</th>
                                 </tr>
@@ -1009,6 +1207,67 @@ export default function SuperInvestors() {
                                           <RefreshCw className="w-2.5 h-2.5" />{lang === "ko" ? "확인 중" : "Verifying..."}
                                         </div>
                                       )}
+                                    </td>
+                                    <td className="px-4 py-4 text-right">
+                                      {(() => {
+                                        const ticker = holding.ticker;
+                                        const isKRX = ticker.endsWith(".KS");
+                                        const isJPN = ticker.endsWith(".T");
+                                        const livePrice = livePriceMap.get(ticker.toUpperCase());
+                                        const priceApprox = (holding as any).priceApprox as number | undefined;
+                                        const filingVal = (holding as any)._valueUSD ? (holding as any)._valueUSD * 1000 : null;
+
+                                        let estCurrentVal: number | null = null;
+                                        let isLive = false;
+                                        if (livePrice && livePrice > 0 && holding.shares > 0) {
+                                          // KRX live prices are in KRW, JPN in JPY — convert to USD
+                                          estCurrentVal = isKRX
+                                            ? (livePrice * holding.shares) / krwRate
+                                            : isJPN
+                                            ? (livePrice * holding.shares) / 155
+                                            : livePrice * holding.shares;
+                                          isLive = true;
+                                        } else if (priceApprox && priceApprox > 0 && holding.shares > 0) {
+                                          estCurrentVal = isKRX
+                                            ? (priceApprox * holding.shares) / krwRate
+                                            : isJPN
+                                            ? (priceApprox * holding.shares) / 155
+                                            : priceApprox * holding.shares;
+                                        }
+
+                                        return (
+                                          <div>
+                                            {estCurrentVal ? (
+                                              <>
+                                                <div className="text-sm font-bold text-foreground font-mono">
+                                                  {formatValueUSD(estCurrentVal, lang, krwRate)}
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                  {isLive
+                                                    ? (lang === "ko" ? "현재가 추정" : "live est.")
+                                                    : (lang === "ko" ? "근사치 추정" : "approx. est.")}
+                                                </div>
+                                                {filingVal && isLive && (
+                                                  <div className="text-[10px] text-muted-foreground/50 mt-0.5">
+                                                    {formatValueUSD(filingVal, lang, krwRate)} {lang === "ko" ? "공시 기준" : "at filing"}
+                                                  </div>
+                                                )}
+                                              </>
+                                            ) : filingVal ? (
+                                              <>
+                                                <div className="text-sm font-semibold text-muted-foreground font-mono">
+                                                  {formatValueUSD(filingVal, lang, krwRate)}
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                                  {lang === "ko" ? "공시 기준" : "at filing"}
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <span className="text-muted-foreground/30 text-xs">—</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
                                     </td>
                                     <td className="px-4 py-4 text-center">
                                       <div className="flex flex-col items-center gap-1">

@@ -190,14 +190,11 @@ Preferred communication style: Simple, everyday language.
 - **Recharts**: Stock charts and data visualization
 - **Lucide React**: Icon system
 
-### Super Investors (SEC 13F Live Data)
+### Super Investors (SEC 13F Live Data + Sovereign Static Data)
 - **Service**: `server/sec13FService.ts` — v2 rewrite (March 2026)
-- **Data Source**: SEC EDGAR public API (free, no key required)
+- **Data Source**: SEC EDGAR public API (free, no key required) for US hedge funds; static curated data for sovereign/index funds
 - **19 verified investors** with CIK map (Buffett, Druckenmiller, Dalio, Ackman, Burry, etc.)
-- **3-stage XML discovery** to handle all SEC filing variants:
-  1. Common filename candidates: `form13fInfoTable.xml`, `infotable.xml`, etc.
-  2. Index HTML scan as fallback — extracts all XML hrefs and tests each one
-  3. `isInfoTableXML()` guard — requires actual `<nameOfIssuer>` content, not just namespace declarations
+- **3-stage XML discovery** to handle all SEC filing variants
 - **Automatic unit detection**: Most filers use $000s, but Berkshire (Buffett) and Ackman file in actual dollars. If max position value > $100M, detected as dollars and normalized ÷ 1000
 - **Manual weight calculation**: `(position_value / sum_of_all_positions) * 100` — never trusts API weights
 - **CUSIP → Ticker mapping**: 200+ entries in static map
@@ -205,6 +202,24 @@ Preferred communication style: Simple, everyday language.
 - **Filing labels**: `periodOfReport`, `filingDate`, `accessionNumber` always surfaced in UI
 - **Verified Q4 2025**: Druckenmiller #1 = NTRA at 12.80% ✓, Dalio #1 = SPY ETF ✓, Ackman = 11 holdings ✓
 - Routes: `GET /api/13f/:investorId`, `GET /api/13f-status`, `POST /api/13f-cache/clear`
+
+### NPS / GPIF Static Holdings (Sovereign Fund Data)
+- **NPS (국민연금)**: 14 holdings — 10 domestic KRX (.KS) + 4 US equities (AAPL, MSFT, NVDA, META)
+  - KRX holdings: Samsung, SK Hynix, Hyundai Motor, KB금융, 신한지주, Samsung Biologics, LG Chem, Celltrion, Kakao, NAVER
+  - All holdings have `priceApprox` in local currency (KRW) for fallback estimation
+  - Data sourced from DART 대량보유 공시 (dart.fss.or.kr)
+- **GPIF**: 7 holdings — 5 Japanese (.T) + 1 ETF (SPY) + 1 pharmaceutical
+  - All .T holdings have `priceApprox` in JPY for fallback estimation
+  - Added Takeda Pharmaceutical (4502.T) to holdings
+
+### Super Investors Value Estimation
+- **Dual live queries**: US tickers in batch 1, KRX/.T tickers in batch 2 (separate yfinance query)
+- **Currency conversion**: KRX live prices (KRW) ÷ krwRate → USD; JPY live prices ÷ 155 → USD
+- **Fallback**: `priceApprox` (local currency) used when live price unavailable
+- **Per-holding Est. Value column** (desktop table): Shows live est. with filing-period comparison; approx. est. label for priceApprox fallback
+- **Mobile card inline value**: Green "live"/"est" label below weight percentage
+- **Portfolio Total Card**: "Est. Current Market Value" aggregates all covered holdings with currency-adjusted amounts
+- **Coverage Scope Disclaimer**: "US-listed equities only (SEC 13F)" for US hedge funds; sovereign fund note shows full AUM context
 
 ### Market Data (Multi-Country)
 - **RRG Chart**: Country tabs US🇺🇸/Korea🇰🇷/Japan🇯🇵/Europe🇪🇺 with `react-zoom-pan-pinch` zoom/pan
