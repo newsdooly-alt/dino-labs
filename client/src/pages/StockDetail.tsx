@@ -11,7 +11,6 @@ import {
   Check, 
   Building2, 
   BarChart3, 
-  AlertCircle,
   RefreshCw,
   Lightbulb,
   Newspaper,
@@ -22,22 +21,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { LWChart, type LWCandlePoint, type LWSRLevels } from "@/components/LWChart";
+import { TradingViewChart } from "@/components/TradingViewChart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
-import {
-  calculateSMA,
-  calculateEMA,
-  calculateRSI,
-  calculateBollingerBands,
-  detectMACrossover,
-  calculateSupportResistance,
-} from "@/lib/technicalAnalysis";
 import { StockAnalysisModal } from "@/components/StockAnalysisModal";
 
 interface StockQuote {
@@ -83,14 +74,6 @@ interface NewsItem {
 interface StockNewsResponse {
   news: NewsItem[];
   symbol: string;
-}
-
-interface HistoryData {
-  symbol: string;
-  period: string;
-  interval: string;
-  data: { date: string; close: number; open: number; high: number; low: number; volume: number }[];
-  count: number;
 }
 
 interface WatchlistItem {
@@ -207,28 +190,16 @@ export default function StockDetail() {
   const [, params] = useRoute("/stock/:symbol");
   const symbol = params?.symbol?.toUpperCase() || "";
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
-  const [showVolume, setShowVolume] = useState(true);
-  const [showSignals, setShowSignals] = useState(false);
-  const [showSR, setShowSR] = useState(true);
-  const [showMA, setShowMA] = useState(false);
-  const [showRSI, setShowRSI] = useState(false);
-  const [showBB, setShowBB] = useState(false);
-  const [showMACD, setShowMACD] = useState(false);
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
   const [showProModal, setShowProModal] = useState(false);
-  const [logScale, setLogScale] = useState(false);
-  const [hoveredCandle, setHoveredCandle] = useState<LWCandlePoint | null>(null);
   const { toast } = useToast();
   const { theme } = useTheme();
-  const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock, currency, exchangeRate, exchangeRateJPY } = useCurrency();
+  const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock } = useCurrency();
   const isKr = isKoreanStock(symbol);
   const isJp = isJapaneseStock(symbol);
   const nativeCurrency = isKr ? 'KRW' : isJp ? 'JPY' : 'USD';
-  const priceMultiplier = (!isKr && !isJp) ? (currency === 'krw' ? exchangeRate : currency === 'jpy' ? exchangeRateJPY : 1) : 1;
-  const displayNative = isKr ? 'KRW' : isJp ? 'JPY' : currency === 'krw' ? 'KRW' : currency === 'jpy' ? 'JPY' : 'USD';
 
   const isDark = theme === "dark";
-  const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
 
   const { data: user } = useQuery<{ language: string }>({
     queryKey: ["/api/profiles/me"],
@@ -276,23 +247,6 @@ export default function StockDetail() {
     staleTime: 120000,
   });
 
-  const periodConfig = periodOptions.find(p => p.key === selectedPeriod) || periodOptions[2];
-
-  const { data: history, isLoading: isHistoryLoading, isFetching: isHistoryFetching } = useQuery<HistoryData>({
-    queryKey: ["/api/stocks/history", symbol, periodConfig.period, periodConfig.interval],
-    queryFn: async () => {
-      const res = await fetch(`/api/stocks/history/${symbol}?period=${periodConfig.period}&interval=${periodConfig.interval}`);
-      if (!res.ok) throw new Error("Failed to fetch history");
-      return res.json();
-    },
-    enabled: !!symbol,
-    staleTime: 60000,
-  });
-
-  // Only consider the chart ready when data for the EXACT selected period is loaded.
-  // This prevents showing old (longer) data while transitioning to a new timeframe.
-  const isChartReady = !isHistoryLoading && !isHistoryFetching && history?.period === periodConfig.period;
-
   const { data: watchlist } = useQuery<WatchlistItem[]>({
     queryKey: ["/api/watchlist"],
   });
@@ -310,112 +264,9 @@ export default function StockDetail() {
     },
   });
 
-  const isIntraday = selectedPeriod === "1d";
-  const rawHistoryData = history?.data || [];
-  const closePrices = rawHistoryData.map(d => d.close);
-
-  const ma20Values  = calculateSMA(closePrices, 20);
-  const ma60Values  = calculateSMA(closePrices, 60);
-  const ma120Values = calculateSMA(closePrices, 120);
-  const rsiValues   = calculateRSI(closePrices, 14);
-  const bbValues    = calculateBollingerBands(closePrices, 20);
-
-  const crossoverSignals = (!isIntraday && closePrices.length >= 62)
-    ? detectMACrossover(closePrices, 20, 60)
-    : [];
-  const signalMap = new Map(crossoverSignals.map(s => [s.index, s.signal]));
-
-  const srLevels = useMemo(() => {
-    if (isIntraday || closePrices.length < 20) {
-      return {
-        supports: info?.["52WeekLow"] != null ? [info["52WeekLow"] as number] : [],
-        resistances: info?.["52WeekHigh"] != null ? [info["52WeekHigh"] as number] : [],
-      };
-    }
-    return calculateSupportResistance(closePrices, 3);
-  }, [closePrices, isIntraday, info]);
-
-  const chartData = useMemo(() => {
-    const m = priceMultiplier;
-    return rawHistoryData.map((d, i) => {
-      const dt = new Date(d.date);
-      const label = isIntraday
-        ? dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-        : dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" });
-      const prevClose = i > 0 ? rawHistoryData[i - 1].close : (d.open || d.close);
-      const changePct = prevClose > 0 ? ((d.close - prevClose) / prevClose) * 100 : 0;
-      return {
-        date: label,
-        rawDate: d.date,
-        price: d.close * m,
-        open: d.open * m,
-        high: (d.high || d.close) * m,
-        low: (d.low || d.close) * m,
-        close: d.close * m,
-        volume: d.volume ?? 0,
-        ma20: ma20Values[i] != null ? ma20Values[i]! * m : null,
-        ma60: ma60Values[i] != null ? ma60Values[i]! * m : null,
-        ma120: ma120Values[i] != null ? ma120Values[i]! * m : null,
-        rsi: rsiValues[i] ?? null,
-        bbUpper: bbValues[i]?.upper != null ? bbValues[i]!.upper * m : null,
-        bbMiddle: bbValues[i]?.middle != null ? bbValues[i]!.middle * m : null,
-        bbLower: bbValues[i]?.lower != null ? bbValues[i]!.lower * m : null,
-        signal: signalMap.get(i) ?? null,
-        isUp: d.close >= d.open,
-        changePct,
-      };
-    });
-  }, [rawHistoryData, ma20Values, ma60Values, ma120Values, rsiValues, bbValues, signalMap, isIntraday, lang, priceMultiplier]);
-
-  const lwChartData = useMemo((): LWCandlePoint[] => {
-    const m = priceMultiplier;
-    return rawHistoryData.map((d, i) => ({
-      date: d.date,
-      open: d.open * m,
-      high: (d.high || d.close) * m,
-      low: (d.low || d.close) * m,
-      close: d.close * m,
-      volume: d.volume ?? 0,
-      changePct: i > 0 && rawHistoryData[i - 1].close > 0
-        ? ((d.close - rawHistoryData[i - 1].close) / rawHistoryData[i - 1].close) * 100
-        : 0,
-    }));
-  }, [rawHistoryData, priceMultiplier]);
-
-  const lwSRLevels = useMemo((): LWSRLevels => ({
-    supports:     srLevels.supports.map(v => v * priceMultiplier),
-    resistances:  srLevels.resistances.map(v => v * priceMultiplier),
-  }), [srLevels, priceMultiplier]);
-
-  const periodReturnPct = selectedPeriod === "1d"
-    ? (quote?.changePercent ?? 0)
-    : chartData.length > 1
-      ? ((chartData[chartData.length - 1].price - chartData[0].price) / chartData[0].price) * 100
-      : (quote?.changePercent ?? 0);
-
-  const periodReturnAbs = selectedPeriod === "1d"
-    ? (quote?.change ?? 0)
-    : chartData.length > 1
-      ? chartData[chartData.length - 1].price - chartData[0].price
-      : (quote?.change ?? 0);
-
-  const isPeriodPositive = periodReturnPct >= 0;
-  const periodLabelStr = periodOptions.find(p => p.key === selectedPeriod)?.returnLabel[lang === "ko" ? "ko" : "en"] ?? "";
+  const isPeriodPositive = (quote?.changePercent ?? 0) >= 0;
   const dinoInsight = getDinoInsight(info || null, lang);
 
-
-  const toggleBtn = (active: boolean, onClick: () => void, children: React.ReactNode, activeClass: string, testId?: string) => (
-    <button
-      onClick={onClick}
-      className={cn(
-        "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all",
-        active ? activeClass : "bg-muted/50 text-muted-foreground border-border hover:border-muted-foreground/40"
-      )}
-      data-testid={testId}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5 w-full">
@@ -492,8 +343,8 @@ export default function StockDetail() {
       {/* ── Chart Card ── */}
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
-          {/* Top row: period tabs + chart type toggle + zoom + Pro button */}
           <div className="flex items-center justify-between flex-wrap gap-2">
+            {/* Period selector */}
             <div className="flex gap-1 flex-wrap">
               {periodOptions.map((opt) => (
                 <Button
@@ -501,7 +352,7 @@ export default function StockDetail() {
                   variant={selectedPeriod === opt.key ? "default" : "ghost"}
                   size="sm"
                   className="px-2.5 h-7 text-xs"
-                  onClick={() => { setSelectedPeriod(opt.key); }}
+                  onClick={() => setSelectedPeriod(opt.key)}
                   data-testid={`button-period-${opt.key}`}
                 >
                   {opt.label}
@@ -526,14 +377,7 @@ export default function StockDetail() {
                   <LineChart className="w-3 h-3" />{lang === "ko" ? "라인" : "Line"}
                 </button>
               </div>
-              {/* Log scale toggle */}
-              <button
-                onClick={() => setLogScale(v => !v)}
-                className={cn("flex items-center justify-center h-6 px-1.5 rounded border text-[9px] font-bold transition-all touch-manipulation", logScale ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground")}
-                title={lang === "ko" ? "로그 스케일" : "Log Scale"}
-                data-testid="button-log-scale"
-              >LOG</button>
-              {/* Pro Dashboard overlay button */}
+              {/* Pro Dashboard button */}
               <button
                 onClick={() => setShowProModal(true)}
                 className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation whitespace-nowrap"
@@ -544,130 +388,17 @@ export default function StockDetail() {
               </button>
             </div>
           </div>
-
-          {/* Indicator toggles row */}
-          <div className="flex gap-1.5 flex-wrap mt-2 items-center">
-            {toggleBtn(showSR, () => setShowSR(v => !v), lang === "ko" ? "지지/저항선" : "S/R Lines", "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40", "button-toggle-sr")}
-            {toggleBtn(showVolume, () => setShowVolume(v => !v), lang === "ko" ? "거래량" : "Volume", "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-400/40", "button-toggle-volume")}
-            {!isIntraday && toggleBtn(showMA, () => setShowMA(v => !v), lang === "ko" ? "이동평균" : "MA Lines", "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-400/40", "button-toggle-ma")}
-            {!isIntraday && toggleBtn(showBB, () => setShowBB(v => !v), lang === "ko" ? "볼린저밴드" : "Bollinger", "bg-gray-500/15 text-gray-600 dark:text-gray-300 border-gray-400/40", "button-toggle-bb")}
-            {!isIntraday && toggleBtn(showRSI, () => setShowRSI(v => !v), "RSI", "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-400/40", "button-toggle-rsi")}
-            {!isIntraday && toggleBtn(showMACD, () => setShowMACD(v => !v), "MACD", "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-400/40", "button-toggle-macd")}
-            {!isIntraday && toggleBtn(showSignals, () => setShowSignals(v => !v), lang === "ko" ? "매매 시그널" : "Signals", "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-400/40", "button-toggle-signals")}
-          </div>
-
-          {/* MA legend */}
-          {showMA && !isIntraday && (
-            <div className="flex items-center gap-4 ml-1 mt-1.5 flex-wrap">
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500"><span className="w-5 h-0.5 bg-amber-500 inline-block" />MA 20</span>
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-blue-500"><span className="w-5 h-0.5 bg-blue-500 inline-block" />MA 60</span>
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-purple-500"><span className="w-5 h-0.5 bg-purple-500 inline-block" />MA 120</span>
-            </div>
-          )}
-          {showSignals && !isIntraday && (
-            <div className="flex items-center gap-4 ml-1 mt-1 flex-wrap">
-              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-500">▲ {lang === "ko" ? "골든크로스 (매수)" : "Golden Cross (Buy)"}</span>
-              <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500">▼ {lang === "ko" ? "데드크로스 (매도)" : "Dead Cross (Sell)"}</span>
-            </div>
-          )}
         </CardHeader>
 
-        <CardContent className="px-1 pb-3 sm:px-4">
-          {!isChartReady ? (
-            <div className="h-72 flex items-center justify-center">
-              <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : chartData.length > 0 ? (
-            <>
-              {/* ── OHLC info strip ── */}
-              <div className="flex items-center gap-3 px-2 py-0.5 text-[10px] font-mono min-h-[18px]">
-                {hoveredCandle ? (
-                  <>
-                    <span className="text-muted-foreground">{new Date(hoveredCandle.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}</span>
-                    <span>O <span className="text-foreground font-semibold">{formatPrice(hoveredCandle.open, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    <span>H <span className="text-emerald-500 font-semibold">{formatPrice(hoveredCandle.high, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    <span>L <span className="text-rose-500 font-semibold">{formatPrice(hoveredCandle.low, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    <span>C <span className="font-semibold">{formatPrice(hoveredCandle.close, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    {hoveredCandle.volume > 0 && <span className="text-muted-foreground hidden sm:inline">V <span className="text-foreground">{(hoveredCandle.volume / 1e6).toFixed(2)}M</span></span>}
-                  </>
-                ) : (
-                  <span className="text-muted-foreground/50 text-[9px]">{lang === "ko" ? "차트에 마우스를 올리세요" : "Hover over chart"}</span>
-                )}
-              </div>
-
-              {/* ── LWChart (main + sub-charts) ── */}
-              <LWChart
-                data={lwChartData}
-                height={300}
-                isDark={isDark}
-                formatPrice={(v, opts) => formatPrice(v, { nativeCurrency: displayNative, ...(opts || {}) })}
-                nativeCurrency={displayNative}
-                isIntraday={isIntraday}
-                chartType={chartType === "area" ? "area" : "candle"}
-                showVolume={showVolume}
-                showMA={showMA && !isIntraday}
-                maPeriods={[20, 60, 120]}
-                showBB={showBB && !isIntraday}
-                showRSI={showRSI && !isIntraday}
-                showMACD={showMACD && !isIntraday}
-                showSR={showSR}
-                srLevels={lwSRLevels}
-                logScale={logScale}
-                lang={lang}
-                onCrosshairMove={setHoveredCandle}
-                className="mx-0"
-              />
-
-              {/* ── Signal panel ── */}
-              {showSignals && !isIntraday && crossoverSignals.length > 0 && (() => {
-                const lastSig = crossoverSignals[crossoverSignals.length - 1];
-                const pt = chartData[lastSig.index];
-                const isBuy = lastSig.signal === "buy";
-                return (
-                  <div className={cn("mt-3 mx-1 p-3.5 rounded-xl border text-sm", isBuy ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-700 dark:text-emerald-400" : "bg-rose-500/10 border-rose-400/30 text-rose-700 dark:text-rose-400")}>
-                    <p className="font-bold mb-1">
-                      {isBuy ? "📈 " : "📉 "}
-                      {lang === "ko"
-                        ? isBuy ? "골든크로스 발생 — MA20이 MA60을 상향 돌파. 매수 고려" : "데드크로스 발생 — MA20이 MA60을 하향 돌파. 매도 고려"
-                        : isBuy ? "Golden Cross — MA20 crossed above MA60. Consider buying" : "Dead Cross — MA20 crossed below MA60. Consider selling"}
-                    </p>
-                    <p className="text-xs opacity-75">
-                      {lang === "ko"
-                        ? `시그널 발생일: ${pt?.date ?? ""} · 이동평균선 교차 기반 추세 전환 시그널`
-                        : `Signal date: ${pt?.date ?? ""} · MA crossover trend-reversal signal`}
-                    </p>
-                  </div>
-                );
-              })()}
-
-              {/* ── Period return pill ── */}
-              {chartData.length > 1 && selectedPeriod !== "1d" && (
-                <div className="mt-3 flex flex-wrap gap-2.5 px-1">
-                  <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
-                    <span className="text-muted-foreground">{lang === "ko" ? `${periodLabelStr} 수익률` : `${periodLabelStr} Return`}</span>
-                    <span className={cn("font-bold", isPeriodPositive ? "text-emerald-500" : "text-rose-500")}>
-                      {isPeriodPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
-                    <span className="text-muted-foreground">{lang === "ko" ? "시작가" : "Start"}</span>
-                    <span className="font-mono font-semibold">{formatPrice(chartData[0].price, { nativeCurrency: displayNative })}</span>
-                  </div>
-                  {chartData[0].ma20 != null && showMA && (
-                    <div className="flex items-center gap-2 text-xs bg-amber-500/10 rounded-lg px-3 py-1.5">
-                      <span className="text-amber-600 dark:text-amber-400">MA20</span>
-                      <span className="font-mono font-semibold">{formatPrice(chartData[chartData.length - 1].ma20, { nativeCurrency: displayNative, compact: true })}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="h-72 flex items-center justify-center text-muted-foreground">
-              <AlertCircle className="w-5 h-5 mr-2" />
-              {lang === "en" ? "No chart data available" : "차트 데이터가 없습니다"}
-            </div>
-          )}
+        <CardContent className="p-0">
+          <TradingViewChart
+            symbol={symbol}
+            periodKey={selectedPeriod}
+            chartType={chartType === "area" ? "area" : "candle"}
+            isDark={isDark}
+            lang={lang === "ko" ? "ko" : "en"}
+            height={420}
+          />
         </CardContent>
       </Card>
 

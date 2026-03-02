@@ -1,0 +1,60 @@
+🦖 DinoInvest: 트레이딩뷰 엔진과 독자적 RRG 분석의 결합
+사용자님, 아주 탁월한 결정입니다! 차트 엔진은 전 세계 표준인 **트레이딩뷰(TradingView)**를 가져와서 '압도적인 사용성'을 확보하고, 그 옆에 **DinoInvest만의 독자적인 RRG(Relative Rotation Graph)**와 전문가 팁을 배치하면 시장에서 독보적인 분석 툴이 됩니다.
+
+이제 Replit 에이전트가 차트 엔진을 교체하고, 기존의 강력한 분석 기능들을 대시보드에 조화롭게 재배치하도록 지시서를 작성했습니다.
+
+💳 DinoInvest 카드 뉴스: 하이브리드 프로 대시보드
+1. "글로벌 표준의 손맛" - 트레이딩뷰 엔진 도입
+
+업데이트: 모든 차트(상세/프로)를 트레이딩뷰 공식 라이브러리로 교체합니다.
+
+효과: 무한 줌, 60가지 이상의 지표, 자유로운 드로잉을 DinoInvest에서 그대로 사용합니다.
+
+2. "Dino만의 무기" - 독자적 RRG & 섹터 분석
+
+유지: 우리가 개발한 RRG 알고리즘과 시장 강도 분석 기능을 차트 옆에 배치합니다.
+
+시너지: 트레이딩뷰 차트로 시점을 잡고, RRG로 섹터의 주도권을 확인하는 이중 분석 체계를 구축합니다.
+
+3. "모바일 최적화 완결" - 삐져나감 제로(0)
+
+설계: 모바일에서는 트레이딩뷰 차트가 상단에, RRG와 팁이 하단 탭이나 스크롤 영역에 위치하여 화면 잘림 없이 모든 기능을 제공합니다.
+
+📝 [Replit 에이전트용] 트레이딩뷰 위젯 통합 및 독자적 분석 기능 유지 지시서
+"CRITICAL: Hybrid Pro Dashboard - TradingView Chart Engine + Dino's Proprietary RRG/Tips:
+
+1. Chart Engine Replacement:
+
+Action: Replace all custom chart components in 'Stock Details' and 'Pro Dashboard' with the Official TradingView Advanced Real-Time Chart Widget.
+
+Configuration: >   - Sync symbol dynamically (e.g., NASDAQ:TSLA).
+
+Enable all drawing tools and technical indicators by default.
+
+Ensure Mousewheel Zoom (PC) and Pinch-to-Zoom (Mobile) are natively handled by the widget.
+
+2. Preserve Proprietary Features (The 'Dino' Edge):
+
+RRG (Relative Rotation Graph): Maintain and integrate our custom RRG visualization tool right next to (or below) the TradingView chart.
+
+Market Insights & Tips: Keep the 'Super Investor' tips and 'Institutional Data' widgets within the Pro Dashboard.
+
+UI Integration: The TradingView chart must act as the 'Main Viewer', while Dino's RRG and Tips act as the 'Decision Support' tools.
+
+3. Data Labeling & Currency Sync:
+
+Price + %: Ensure the TradingView status line reflects 'Price (Change %)'.
+
+FX Engine: Connect our globalCurrencyConverter so the widget reflects prices in KRW (or user's base currency) for 1D/1M/1Y views.
+
+4. Mobile Responsive Layout (Zero Overflow):
+
+Constraint: The dashboard must be 100% responsive. Use flex-direction: column on mobile.
+
+View: On mobile, use a Sticky Tab Bar to switch between [TV Chart] [Dino RRG] [Pro Tips]. No element should exceed 100vw.
+
+5. Search & Sort:
+
+Link the Pro Dashboard's Search Bar to the TradingView widget's setSymbol for instant updates.
+
+Add 'Change %' (등락률) and 'Volume' sorting to the stock list."
