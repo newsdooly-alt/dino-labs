@@ -213,12 +213,34 @@ export default function SuperInvestors() {
       });
   }, [investors, activeCategory, searchQuery]);
 
-  // Merge real SEC EDGAR data with static editorial commentary (whyTheyBought)
+  // Determine if the selected investor has a CIK mapping (i.e., should have SEC 13F data).
+  // When notSynced=true for a CIK-mapped investor, we must NOT fall back to static data.
+  // We infer this from the API response: 404 = no CIK, 202 = notSynced, 200 = data.
+  const investorHasCIK = !isError13F; // 404 means no CIK; anything else means CIK exists
+
+  // Determine if data is significantly outdated (more than 15 months old)
+  const isDataOutdated = real13F && !real13F.notSynced && !!real13F.periodOfReport && (() => {
+    const period = new Date(real13F.periodOfReport);
+    const fifteenMonthsAgo = new Date();
+    fifteenMonthsAgo.setMonth(fifteenMonthsAgo.getMonth() - 15);
+    return period < fifteenMonthsAgo;
+  })();
+
+  // Merge real SEC EDGAR data with static editorial commentary (whyTheyBought).
+  // PRINCIPLE: "Wrong Data = Zero Data"
+  // • If a CIK-mapped investor hasn't been synced yet → return [] (show "Verifying" state)
+  // • If no CIK (isError13F / sovereign funds etc.) → return static curated holdings
+  // • If synced with real data → return real data merged with editorial commentary
   const effectiveHoldings = useMemo(() => {
     if (!selectedInvestor) return [];
+
+    // CIK-mapped investor but not yet synced → "Verifying Data..." state (no static fallback)
+    if (investorHasCIK && (!real13F || real13F.notSynced)) return [];
+
+    // No CIK / non-SEC investor (sovereign funds, index funds) → show curated static data
     if (!real13F || real13F.notSynced || !real13F.holdings?.length) return selectedInvestor.holdings;
 
-    // Build a ticker→static-holding map for commentary lookup
+    // Real DB-sourced 13F data — merge with editorial commentary for "why they bought"
     const staticByTicker = new Map(
       selectedInvestor.holdings.map((h) => [h.ticker.toUpperCase(), h])
     );
@@ -227,6 +249,7 @@ export default function SuperInvestors() {
       const staticMatch = staticByTicker.get(rh.ticker.toUpperCase());
       const koName = getLocalizedCompanyName(rh.company, "ko");
       const displayName = rh.ticker || rh.cusip;
+      const valueM = (rh.value / 1000).toFixed(1);
       return {
         ticker: displayName,
         company: rh.company,
@@ -236,21 +259,22 @@ export default function SuperInvestors() {
         change: (staticMatch?.change || "Held") as "Bought" | "Sold" | "Held" | "New",
         changePct: staticMatch?.changePct ?? null,
         whyTheyBoughtEn: staticMatch?.whyTheyBoughtEn ||
-          `${rh.company} represents ${rh.weight}% of the portfolio with $${(rh.value / 1000).toFixed(1)}M position size (${rh.shares.toLocaleString()} shares). Source: SEC EDGAR 13F-HR (verified), CUSIP ${rh.cusip}.`,
+          `${rh.company} represents ${rh.weight}% of the portfolio with a $${valueM}M position (${rh.shares.toLocaleString()} shares). Source: SEC EDGAR 13F-HR (verified), CUSIP ${rh.cusip}.`,
         whyTheyBoughtKo: staticMatch?.whyTheyBoughtKo ||
-          `${koName}(${displayName})는 포트폴리오의 ${rh.weight}%를 차지하며 $${(rh.value / 1000).toFixed(1)}M 포지션 (${rh.shares.toLocaleString()}주)입니다. 출처: SEC EDGAR 13F-HR 검증 데이터, CUSIP ${rh.cusip}.`,
+          `${koName}(${displayName})는 포트폴리오의 ${rh.weight}%를 차지하며 $${valueM}M 포지션 (${rh.shares.toLocaleString()}주)입니다. 출처: SEC EDGAR 13F-HR 검증 데이터, CUSIP ${rh.cusip}.`,
         _isRealData: true,
         _cusip: rh.cusip,
         _valueUSD: rh.value,
         _putCall: rh.putCall,
       };
     });
-  }, [selectedInvestor, real13F]);
+  }, [selectedInvestor, real13F, investorHasCIK]);
 
   const displayedHoldings = useMemo(() => {
-    const src = effectiveHoldings.length > 0 ? effectiveHoldings : (selectedInvestor?.holdings ?? []);
+    // "Wrong Data = Zero Data": for CIK-mapped investors, only show real data (never static fallback)
+    const src = effectiveHoldings;
     return showAllHoldings ? src : src.slice(0, 10);
-  }, [effectiveHoldings, selectedInvestor, showAllHoldings]);
+  }, [effectiveHoldings, showAllHoldings]);
 
   const categoryKeys: (InvestorCategory | "all")[] = [
     "all", "value", "growth", "macro", "hedge", "activist", "sovereign", "index"
@@ -568,17 +592,17 @@ export default function SuperInvestors() {
                   {!isLoading13F && real13F?.notSynced && (
                     <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 overflow-hidden">
                       <div className="flex items-center justify-between gap-2 px-4 py-3">
-                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
-                          <AlertCircle className="w-4 h-4 shrink-0" />
+                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-bold">
+                          <RefreshCw className="w-4 h-4 shrink-0 animate-spin" />
                           {lang === "ko"
-                            ? "DB에 데이터 없음 — SEC EDGAR에서 동기화가 필요합니다"
-                            : "No DB data yet — please sync from SEC EDGAR"}
+                            ? "데이터 검증 중… (SEC EDGAR 13F 동기화 필요)"
+                            : "Verifying Data… (SEC EDGAR 13F sync required)"}
                         </div>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs px-3 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-bold"
+                          className="h-7 text-xs px-3 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-bold shrink-0"
                           onClick={() => syncMutation.mutate()}
                           disabled={syncMutation.isPending}
                           data-testid="button-sync-13f-investor"
@@ -589,6 +613,21 @@ export default function SuperInvestors() {
                             : (lang === "ko" ? "지금 동기화" : "Sync Now")}
                         </Button>
                       </div>
+                      <div className="px-4 py-2 bg-amber-500/5 border-t border-amber-500/15 text-[11px] text-amber-700 dark:text-amber-400">
+                        {lang === "ko"
+                          ? "정확한 데이터가 DB에 저장될 때까지 포트폴리오를 표시하지 않습니다. 잘못된 데이터는 표시하지 않습니다."
+                          : "Portfolio will not be shown until verified data is stored in the DB. Wrong data = zero data."}
+                      </div>
+                    </div>
+                  )}
+                  {!isLoading13F && real13F && !real13F.notSynced && isDataOutdated && (
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-400 text-xs font-medium">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>
+                        {lang === "ko"
+                          ? `⚠️ 최신 공시: ${real13F.periodOfReport} (공시 일자: ${real13F.filingDate}) — SEC EDGAR에 최신 13F 제출이 없을 수 있습니다`
+                          : `⚠️ Latest available filing: ${real13F.periodOfReport} (filed ${real13F.filingDate}) — this fund may not have filed a more recent 13F-HR with the SEC`}
+                      </span>
                     </div>
                   )}
                   {!isLoading13F && real13F && !real13F.notSynced && (
@@ -722,22 +761,69 @@ export default function SuperInvestors() {
                     </TabsList>
 
                     <TabsContent value="holdings" className="mt-6">
+                      {/* ── Verifying Data state — shown for CIK-mapped investors not yet synced ── */}
+                      {investorHasCIK && !isLoading13F && effectiveHoldings.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+                          <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center">
+                            <RefreshCw className="w-8 h-8 text-amber-500 animate-spin" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-lg text-foreground">
+                              {lang === "ko" ? "데이터 검증 중…" : "Verifying Data…"}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                              {lang === "ko"
+                                ? "SEC EDGAR 13F 데이터가 아직 DB에 저장되지 않았습니다. 검증 완료 전까지 포트폴리오를 표시하지 않습니다."
+                                : "SEC EDGAR 13F data has not been verified and stored in the DB yet. Portfolio will not display until verified."}
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => syncMutation.mutate()}
+                            disabled={syncMutation.isPending}
+                            className="font-bold"
+                            data-testid="button-sync-verifying"
+                          >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                            {syncMutation.isPending
+                              ? (lang === "ko" ? "동기화 중..." : "Syncing...")
+                              : (lang === "ko" ? "지금 동기화" : "Sync Now")}
+                          </Button>
+                        </div>
+                      )}
+
                       {/* ── Mobile card layout (< sm) ── */}
+                      {displayedHoldings.length > 0 && (
                       <div className="block sm:hidden space-y-2 overflow-x-hidden">
-                        {displayedHoldings.map((holding, idx) => (
+                        {displayedHoldings.map((holding, idx) => {
+                          const koName = getLocalizedCompanyName(holding.company, "ko");
+                          const enName = holding.company;
+                          const showKo = lang === "ko" && koName !== enName;
+                          return (
                           <Card key={holding.ticker} className="border overflow-hidden" data-testid={`card-holding-mobile-${holding.ticker}`}>
                             <CardContent className="p-3">
-                              {/* Row 1: index + name + weight */}
+                              {/* Row 1: rank + names + weight */}
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-start gap-2 min-w-0 flex-1">
-                                  <span className="text-muted-foreground font-mono text-xs mt-0.5 shrink-0 w-5 text-right">{idx + 1}</span>
-                                  <span className="font-bold text-sm leading-tight">{getCompanyName(holding.company, lang)}</span>
+                                  <span className="text-muted-foreground font-mono text-xs mt-1 shrink-0 w-5 text-right">{idx + 1}</span>
+                                  <div className="min-w-0">
+                                    {showKo ? (
+                                      <>
+                                        <p className="font-bold text-base leading-tight text-foreground">{koName}</p>
+                                        <p className="text-xs text-muted-foreground leading-tight mt-0.5">{enName}</p>
+                                      </>
+                                    ) : (
+                                      <p className="font-bold text-sm leading-tight">{enName}</p>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="text-lg font-display font-bold text-primary shrink-0">{holding.weight}%</span>
+                                <div className="text-right shrink-0">
+                                  <span className="text-xl font-display font-bold text-primary block">{holding.weight}%</span>
+                                  <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "비중" : "weight"}</span>
+                                </div>
                               </div>
                               {/* Row 2: ticker · sector · change badges */}
-                              <div className="flex items-center gap-1.5 mt-1 ml-7 flex-wrap">
-                                <span className="text-xs font-mono text-muted-foreground">{holding.ticker}</span>
+                              <div className="flex items-center gap-1.5 mt-1.5 ml-7 flex-wrap">
+                                <span className="text-xs font-mono font-bold text-muted-foreground">{holding.ticker}</span>
                                 {holding.putCall && holding.putCall !== "None" && holding.putCall !== "" && (
                                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">{holding.putCall}</span>
                                 )}
@@ -792,9 +878,10 @@ export default function SuperInvestors() {
                               </Button>
                             </CardContent>
                           </Card>
-                        ))}
+                          );
+                        })}
                         {/* View All / Show Less (mobile) */}
-                        {(real13F ? real13F.holdingCount : selectedInvestor.holdings.length) > 10 && (
+                        {effectiveHoldings.length > 10 && (
                           <div className="text-center pt-1">
                             <Button
                               variant="ghost"
@@ -805,15 +892,16 @@ export default function SuperInvestors() {
                               {showAllHoldings ? (
                                 <><ChevronUp className="w-4 h-4 mr-2" />{lang === "ko" ? "접기" : "Show Less"}</>
                               ) : (
-                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개)` : `View All ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} Holdings`}</>
+                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${effectiveHoldings.length}개)` : `View All ${effectiveHoldings.length} Holdings`}</>
                               )}
                             </Button>
                           </div>
                         )}
                       </div>
+                      )}
 
                       {/* ── Desktop table layout (≥ sm) ── */}
-                      <Card className="hidden sm:block border-2 overflow-hidden">
+                      {displayedHoldings.length > 0 && (<Card className="hidden sm:block border-2 overflow-hidden">
                         <div className="overflow-x-auto">
                           <div className="min-w-[580px]">
                             <table className="w-full text-sm">
@@ -827,14 +915,23 @@ export default function SuperInvestors() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border">
-                                {displayedHoldings.map((holding, idx) => (
+                                {displayedHoldings.map((holding, idx) => {
+                                  const koName = getLocalizedCompanyName(holding.company, "ko");
+                                  const enName = holding.company;
+                                  const showKo = lang === "ko" && koName !== enName;
+                                  return (
                                   <tr key={holding.ticker} className="hover:bg-muted/30 transition-colors">
                                     <td className="px-4 py-4 text-muted-foreground font-mono text-xs">{idx + 1}</td>
                                     <td className="px-4 py-4">
                                       <div>
-                                        <div className="font-bold text-foreground text-sm leading-tight">
-                                          {getCompanyName(holding.company, lang)}
-                                        </div>
+                                        {showKo ? (
+                                          <>
+                                            <div className="font-bold text-foreground text-sm leading-tight">{koName}</div>
+                                            <div className="text-xs text-muted-foreground leading-tight mt-0.5">{enName}</div>
+                                          </>
+                                        ) : (
+                                          <div className="font-bold text-foreground text-sm leading-tight">{enName}</div>
+                                        )}
                                         <div className="text-xs font-mono text-muted-foreground mt-0.5">
                                           {holding.ticker}
                                           {holding.putCall && holding.putCall !== "None" && holding.putCall !== "" && (
@@ -899,14 +996,15 @@ export default function SuperInvestors() {
                                       </Button>
                                     </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
                         </div>
 
                         {/* View All / Show Less (desktop) */}
-                        {(real13F ? real13F.holdingCount : selectedInvestor.holdings.length) > 10 && (
+                        {effectiveHoldings.length > 10 && (
                           <div className="border-t border-border p-4 text-center">
                             <Button
                               variant="ghost"
@@ -917,21 +1015,21 @@ export default function SuperInvestors() {
                               {showAllHoldings ? (
                                 <><ChevronUp className="w-4 h-4 mr-2" />{lang === "ko" ? "접기" : "Show Less"}</>
                               ) : (
-                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개)` : `View All ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} Holdings`}</>
+                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${effectiveHoldings.length}개)` : `View All ${effectiveHoldings.length} Holdings`}</>
                               )}
                             </Button>
                           </div>
                         )}
-                        {selectedInvestor.holdings.length <= 10 && (
+                        {effectiveHoldings.length <= 10 && effectiveHoldings.length > 0 && (
                           <div className="border-t border-border px-4 py-3">
                             <p className="text-[10px] text-muted-foreground text-center font-medium">
                               {lang === "ko"
-                                ? `총 ${real13F ? real13F.holdingCount : selectedInvestor.holdings.length}개 보유 종목 · 상위 포지션 기준`
-                                : `${real13F ? real13F.holdingCount : selectedInvestor.holdings.length} holdings shown · Top positions by weight`}
+                                ? `총 ${effectiveHoldings.length}개 보유 종목 · 상위 포지션 기준`
+                                : `${effectiveHoldings.length} holdings shown · Top positions by weight`}
                             </p>
                           </div>
                         )}
-                      </Card>
+                      </Card>)}
                     </TabsContent>
 
                     <TabsContent value="allocation" className="mt-6">

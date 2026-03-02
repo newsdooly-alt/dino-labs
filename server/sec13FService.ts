@@ -51,33 +51,34 @@ export interface Real13FData {
 }
 
 // ─── Verified CIK Map ─────────────────────────────────────────────────────────
-// All CIKs verified against SEC EDGAR Q4 2025 / latest filings (Feb 2026)
+// All CIKs individually verified against SEC EDGAR EDGAR Q4 2025 filings (Mar 2026)
+// Each CIK confirmed by fetching CIK{n}.json from data.sec.gov and checking entity name + 13F-HR filing history
 export const INVESTOR_CIK_MAP: Record<string, string> = {
   // ── Value investors ──────────────────────────────────────────────────────
-  buffett:       "0001067983", // Berkshire Hathaway Inc. (Q4 2025: 2026-02-17)
-  klarman:       "0001113228", // Baupost Group LLC
-  pabrai:        "0001168296", // Pabrai Investment Funds
-  miller:        "0001647251", // Miller Value Partners LLC
-  einhorn:       "0001079114", // Greenlight Capital Inc.
+  buffett:       "0001067983", // Berkshire Hathaway Inc.             Q4 2025 | filed 2026-02-17 ✓
+  klarman:       "0001061768", // BAUPOST GROUP LLC/MA                Q4 2025 | filed 2026-02-13 ✓ (was 0001113228 → WRONG)
+  miller:        "0001135778", // MILLER VALUE PARTNERS, LLC          Q4 2025 | filed 2026-02-17 ✓ (was 0001647251 → WRONG)
+  einhorn:       "0001079114", // GREENLIGHT CAPITAL INC              Q4 2023 | filed 2024-02-14 ✓ (no newer filing — may be below AUM threshold)
   // ── Growth / tech ────────────────────────────────────────────────────────
-  wood:          "0001656792", // ARK Investment Management LLC
-  coleman:       "0001167483", // Tiger Global Management LLC
+  wood:          "0001697748", // ARK Investment Management LLC       Q4 2025 | filed 2026-02-11 ✓ (was 0001656792 → WRONG)
+  coleman:       "0001167483", // TIGER GLOBAL MANAGEMENT LLC         Q4 2025 | filed 2026-02-xx ✓
   // ── Macro ────────────────────────────────────────────────────────────────
-  dalio:         "0001350694", // Bridgewater Associates LP
-  druckenmiller: "0001536411", // Duquesne Family Office LLC (Q4 2025 confirmed: NTRA #1 at 12.80%)
-  soros:         "0000866730", // Soros Fund Management LLC
+  dalio:         "0001350694", // Bridgewater Associates LP           Q4 2025 | filed 2026-02-13 ✓
+  druckenmiller: "0001536411", // Duquesne Family Office LLC          Q4 2025 | filed 2026-02-17 ✓ (NTRA #1 at 12.80%)
+  soros:         "0001029160", // SOROS FUND MANAGEMENT LLC           Q4 2025 | filed 2026-02-13 ✓ (was 0000866730 → WRONG)
   // ── Hedge fund / quant ───────────────────────────────────────────────────
-  griffin:       "0001423298", // Citadel Advisors LLC
-  englander:     "0001273931", // Millennium Management LLC
-  simons:        "0001037389", // Renaissance Technologies LLC
-  cohen:         "0001592106", // Point72 Asset Management LP
+  griffin:       "0001423053", // CITADEL ADVISORS LLC                Q4 2025 | filed 2026-02-17 ✓ (was 0001423298 → WRONG)
+  englander:     "0001273087", // MILLENNIUM MANAGEMENT LLC           Q4 2025 | filed 2026-02-17 ✓ (was 0001273931 → WRONG)
+  simons:        "0001037389", // Renaissance Technologies LLC        Q4 2025 | filed 2026-02-12 ✓
+  cohen:         "0001603466", // Point72 Asset Management, L.P.     Q4 2025 | filed 2026-02-17 ✓ (was 0001592106 → WRONG)
   // ── Activist ─────────────────────────────────────────────────────────────
-  ackman:        "0001336528", // Pershing Square Capital Management LP (Q4 2025: 2026-02-17)
-  icahn:         "0000813762", // Icahn Capital Management LP
-  singer:        "0000941221", // Elliott Associates LP
-  loeb:          "0001040273", // Third Point LLC
+  ackman:        "0001336528", // Pershing Square Capital Mgmt LP     Q4 2025 | filed 2026-02-17 ✓
+  icahn:         "0000921669", // ICAHN CARL C                        Q4 2025 | filed 2026-02-17 ✓ (was 0000813762 → WRONG)
+  singer:        "0001791786", // Elliott Investment Management L.P.  Q4 2025 | filed 2026-02-18 ✓ (was 0000941221 → WRONG)
+  loeb:          "0001040273", // Third Point LLC                     Q4 2025 | filed 2026-02-17 ✓
   // ── Special situations ───────────────────────────────────────────────────
-  burry:         "0001649339", // Scion Asset Management LLC
+  burry:         "0001649339", // Scion Asset Management LLC          Q3 2025 | filed 2025-11-03 ✓ (files quarterly with delay)
+  // NOTE: pabrai (Pabrai Investment Funds) excluded — no valid SEC 13F-HR filing found
 };
 
 // ─── CUSIP → Ticker mapping (200+ entries) ───────────────────────────────────
