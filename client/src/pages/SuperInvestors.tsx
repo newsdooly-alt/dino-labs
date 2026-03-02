@@ -36,12 +36,12 @@ interface Real13FData {
   entityName: string;
   periodOfReport: string;
   filingDate: string;
-  accessionNumber: string;
+  lastSynced: string;
   totalValueUSD: number;
   holdingCount: number;
   holdings: Real13FHolding[];
-  fetchedAt: string;
   source: string;
+  fromDB: boolean;
 }
 
 const CATEGORY_LABELS: Record<InvestorCategory | "all", { en: string; ko: string; emoji: string }> = {
@@ -321,12 +321,14 @@ export default function SuperInvestors() {
     retry: 1,
   });
 
-  const clearCacheMutation = useMutation({
+  const syncMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/13f-cache/clear");
+      if (!selectedId) return;
+      await apiRequest("POST", `/api/13f-sync/${selectedId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/13f"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/13f", selectedId] });
+      refetch13F();
     },
   });
 
@@ -698,9 +700,9 @@ export default function SuperInvestors() {
                         <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
                           <CheckCircle2 className="w-4 h-4 shrink-0" />
                           {lang === "ko" ? (
-                            <>SEC EDGAR 실제 데이터 · {real13F.holdingCount}개 종목 전체</>
+                            <>{real13F.fromDB ? "DB 캐시" : "SEC EDGAR 신규"} · {real13F.holdingCount}개 종목 전체</>
                           ) : (
-                            <>Live SEC EDGAR · {real13F.holdingCount} total holdings (top 50 shown)</>
+                            <>{real13F.fromDB ? "DB Cache" : "Freshly Fetched"} · {real13F.holdingCount} total holdings</>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -715,42 +717,43 @@ export default function SuperInvestors() {
                             SEC.gov
                           </a>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             className="h-6 text-[11px] px-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
-                            onClick={() => {
-                              clearCacheMutation.mutate(undefined, {
-                                onSuccess: () => refetch13F(),
-                              });
-                            }}
-                            disabled={clearCacheMutation.isPending}
+                            onClick={() => syncMutation.mutate()}
+                            disabled={syncMutation.isPending}
                             data-testid="button-refresh-13f"
                           >
-                            <RefreshCw className={`w-3 h-3 mr-1 ${clearCacheMutation.isPending ? "animate-spin" : ""}`} />
-                            {lang === "ko" ? "새로고침" : "Refresh"}
+                            <RefreshCw className={`w-3 h-3 mr-1 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                            {lang === "ko" ? "재동기화" : "Re-sync"}
                           </Button>
                         </div>
                       </div>
-                      {/* Filing label row */}
+                      {/* Filing metadata row */}
                       <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-emerald-500/5 border-t border-emerald-500/15 text-[11px] text-emerald-700 dark:text-emerald-400">
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "보고 기간:" : "Period:"}</span>
+                          <span className="font-bold">{lang === "ko" ? "보고서 기준일:" : "Report Date:"}</span>
                           <span className="font-mono">{real13F.periodOfReport}</span>
                         </span>
                         <span className="opacity-40">·</span>
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "제출일:" : "Filed:"}</span>
+                          <span className="font-bold">{lang === "ko" ? "공시 일자:" : "Filing Date:"}</span>
                           <span className="font-mono">{real13F.filingDate}</span>
                         </span>
                         <span className="opacity-40">·</span>
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "출처:" : "Source:"}</span>
-                          <span>SEC 13F-HR (EDGAR)</span>
+                          <span className="font-bold">{lang === "ko" ? "DB 동기화:" : "Last Synced:"}</span>
+                          <span className="font-mono">
+                            {real13F.lastSynced
+                              ? new Date(real13F.lastSynced).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" })
+                              : "—"}
+                          </span>
                         </span>
                         <span className="opacity-40">·</span>
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "비중 산출:" : "Weights:"}</span>
-                          <span>{lang === "ko" ? "직접 계산 (합계=100%)" : "Manually calculated (sum=100%)"}</span>
+                          <span className="font-bold">{lang === "ko" ? "비중:" : "Weights:"}</span>
+                          <span>{lang === "ko" ? "직접 계산 (합계=100%)" : "Calculated (sum=100%)"}</span>
                         </span>
                       </div>
                     </div>
@@ -885,14 +888,19 @@ export default function SuperInvestors() {
                                     </td>
                                     <td className="px-4 py-4 text-center">
                                       <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setWhyDialogHolding({
-                                          ticker: holding.ticker,
-                                          company: holding.company,
-                                          en: holding.whyTheyBoughtEn,
-                                          ko: holding.whyTheyBoughtKo,
-                                        })}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setWhyDialogHolding({
+                                            ticker: holding.ticker,
+                                            company: holding.company,
+                                            en: holding.whyTheyBoughtEn,
+                                            ko: holding.whyTheyBoughtKo,
+                                          });
+                                        }}
                                         className="rounded-full h-8 text-xs font-bold border-2 hover:bg-primary hover:text-white hover:border-primary transition-all"
                                         data-testid={`button-why-${holding.ticker}`}
                                       >

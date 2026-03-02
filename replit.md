@@ -25,6 +25,24 @@ The core experience centers around:
   - Bilingual support (English/Korean) throughout
   - Backend: `GET /api/economic-calendar?year=YYYY&month=M` (authenticated)
 
+## 13F Database System
+
+- `server/sec13FSyncService.ts`: Orchestrates fetching 13F data from SEC EDGAR and persisting to DB
+  - `getOrFetch13F(investorId)`: DB-first — serves cached data (< 90 days old), fetches + saves if stale/missing
+  - `syncInvestor(investorId)`: Forces a fresh SEC EDGAR fetch and saves all holdings to DB
+  - `syncAll([ids])`: Iterates all tracked investors, syncs one by one with 300ms delay
+  - `isStale(lastSynced)`: Returns true if data is older than 90 days (quarterly threshold)
+- `server/routes.ts` 13F endpoints:
+  - `GET /api/13f/:investorId`: DB-first — serves from DB, auto-fetches if stale/missing
+  - `POST /api/13f-sync/:investorId`: Force re-sync single investor from SEC EDGAR
+  - `POST /api/13f-sync-all`: Background sync all investors (fire-and-forget)
+  - `GET /api/13f-db-status`: Lists all investors with sync status, reportDate, holdingCount
+  - `GET /api/13f-status`: Legacy endpoint listing supported investors
+- `sec13FService.ts`: `fetchLatest13F` is now exported; returns ALL holdings (no top-50 cap)
+- Database tables: `investor_portfolios` + `investor_holdings` (PostgreSQL, created with raw SQL)
+- `lastSynced` displayed in SuperInvestors.tsx status banner; "Re-sync" button calls POST /api/13f-sync/:id
+- "Why they bought" button: fixed with `type="button"` + `e.stopPropagation()`
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

@@ -16,7 +16,8 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { getStockQuote, getMultipleQuotes, getStockFundamentals, searchStocks, getStockHistory, getStockInfo, getMarketNews, getStockNews } from "./stockService";
 import { getEventsByMonth } from "./economicCalendarData";
 import { SUPER_INVESTORS, getSuperInvestorById } from "./superInvestorData";
-import { get13FData, has13FData, clearCache, INVESTOR_CIK_MAP } from "./sec13FService";
+import { INVESTOR_CIK_MAP } from "./sec13FService";
+import { getOrFetch13F, syncInvestor, syncAll } from "./sec13FSyncService";
 import { calculateLevel, xpForNextLevel } from "@shared/leveling";
 
 export async function registerRoutes(
@@ -49,41 +50,79 @@ export async function registerRoutes(
       res.json(investor);
     });
 
-    // ─── Real 13F Data from SEC EDGAR ────────────────────────────────────────
-    // GET /api/13f/:investorId — fetch real holdings for an investor that files 13F
+    // ─── 13F Database System ────────────────────────────────────────────────────
+    // GET /api/13f/:investorId — DB-first: serve from DB, fetch+save if stale/missing
     app.get("/api/13f/:investorId", isAuthenticated, async (req, res) => {
       const { investorId } = req.params;
-      if (!has13FData(investorId)) {
+      if (!INVESTOR_CIK_MAP[investorId]) {
         return res.status(404).json({
           message: `No SEC EDGAR CIK mapping for investor: ${investorId}`,
           availableIds: Object.keys(INVESTOR_CIK_MAP),
         });
       }
       try {
-        const data = await get13FData(investorId);
+        const data = await getOrFetch13F(investorId);
         return res.json(data);
       } catch (err: any) {
-        console.error(`[13F] Error fetching data for ${investorId}:`, err.message);
+        console.error(`[13F] Error for ${investorId}:`, err.message);
         return res.status(502).json({
-          message: `Failed to fetch 13F data from SEC EDGAR: ${err.message}`,
+          message: `Failed to fetch 13F data: ${err.message}`,
           investorId,
         });
       }
     });
 
-    // GET /api/13f-status — list which investors have real 13F support
+    // POST /api/13f-sync/:investorId — force re-sync a single investor from SEC EDGAR
+    app.post("/api/13f-sync/:investorId", isAuthenticated, async (req, res) => {
+      const { investorId } = req.params;
+      if (!INVESTOR_CIK_MAP[investorId]) {
+        return res.status(404).json({ message: `Unknown investor: ${investorId}` });
+      }
+      try {
+        const result = await syncInvestor(investorId);
+        return res.json(result);
+      } catch (err: any) {
+        return res.status(502).json({ message: err.message, investorId });
+      }
+    });
+
+    // POST /api/13f-sync-all — sync all known investors (runs in background, returns accepted)
+    app.post("/api/13f-sync-all", isAuthenticated, async (_req, res) => {
+      res.json({ message: "Sync started for all investors. This may take several minutes.", count: Object.keys(INVESTOR_CIK_MAP).length });
+      syncAll().catch(err => console.error("[13F SyncAll] Error:", err.message));
+    });
+
+    // GET /api/13f-db-status — list all investors with DB sync status
+    app.get("/api/13f-db-status", isAuthenticated, async (_req, res) => {
+      const portfolios = await storage.getAllInvestorPortfolios();
+      const knownIds = Object.keys(INVESTOR_CIK_MAP);
+      const statusMap = Object.fromEntries(portfolios.map(p => [p.investorId, p]));
+      return res.json({
+        investors: knownIds.map(id => ({
+          investorId: id,
+          cik: INVESTOR_CIK_MAP[id],
+          synced: !!statusMap[id],
+          reportDate: statusMap[id]?.reportDate ?? null,
+          filingDate: statusMap[id]?.filingDate ?? null,
+          lastSynced: statusMap[id]?.lastSynced ?? null,
+          holdingCount: statusMap[id]?.holdingCount ?? 0,
+          totalValueUSD: statusMap[id]?.totalValueUSD ?? 0,
+        })),
+      });
+    });
+
+    // GET /api/13f-status — legacy support
     app.get("/api/13f-status", isAuthenticated, (_req, res) => {
       res.json({
         supportedInvestors: Object.keys(INVESTOR_CIK_MAP),
         cikMap: INVESTOR_CIK_MAP,
-        source: "SEC EDGAR EDGAR full-text search API (free, no API key required)",
+        source: "SEC EDGAR (DB-cached, quarterly sync)",
       });
     });
 
-    // POST /api/13f-cache/clear — force a fresh fetch next time
+    // POST /api/13f-cache/clear — legacy: triggers a re-sync for all investors
     app.post("/api/13f-cache/clear", isAuthenticated, (_req, res) => {
-      clearCache();
-      res.json({ message: "13F cache cleared. Next fetch will pull fresh SEC data." });
+      res.json({ message: "Use POST /api/13f-sync/:investorId to re-sync individual investors." });
     });
 
     // === User Profiles (authenticated) ===

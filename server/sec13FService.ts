@@ -363,7 +363,7 @@ async function fetchInfoTableXML(
   throw new Error(`Could not find infotable XML for CIK ${cikNumeric}, accession ${accessionRaw}`);
 }
 
-async function fetchLatest13F(investorId: string, cik: string): Promise<Real13FData> {
+export async function fetchLatest13F(investorId: string, cik: string): Promise<Real13FData> {
   const paddedCik = cik.replace(/^0+/, "").padStart(10, "0");
   const cikNumeric = cik.replace(/^0+/, "");
 
@@ -454,9 +454,8 @@ async function fetchLatest13F(investorId: string, cik: string): Promise<Real13FD
     totalValue = Math.round(totalValue / 1000);
   }
 
-  // Step 7 — Build top-50 holdings array with manually calculated weights
-  const top50 = aggregated.slice(0, 50);
-  const holdings: Real13FHolding[] = top50.map((h, idx) => ({
+  // Step 7 — Build full holdings array with manually calculated weights (ALL positions, not just top 50)
+  const holdings: Real13FHolding[] = aggregated.map((h, idx) => ({
     rank:    idx + 1,
     ticker:  cusipToTicker(h.cusip),
     company: toTitleCase(h.nameOfIssuer),

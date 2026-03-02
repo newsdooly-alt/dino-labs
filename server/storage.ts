@@ -1,10 +1,12 @@
 import { db } from "./db";
-import { eq, sql, and, desc } from "drizzle-orm";
+import { eq, sql, and, desc, asc } from "drizzle-orm";
 import { 
   userProfiles, stocks, quests, userStocks, clubs, clubMembers, dinoEggs,
+  investorPortfolios, investorHoldings,
   type UserProfile, type InsertUserProfile, type Stock, type InsertStock, 
   type Quest, type InsertQuest, type UserStock, type InsertUserStock,
-  type Club, type InsertClub, type DinoEgg, type InsertDinoEgg
+  type Club, type InsertClub, type DinoEgg, type InsertDinoEgg,
+  type InvestorPortfolio, type InvestorHolding,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 
@@ -57,6 +59,13 @@ export interface IStorage {
   getUserEggs(userId: string): Promise<DinoEgg[]>;
   createEgg(egg: InsertDinoEgg): Promise<DinoEgg>;
   hatchEgg(id: number, userId: string): Promise<DinoEgg>;
+
+  // 13F Database
+  getInvestorPortfolio(investorId: string): Promise<InvestorPortfolio | undefined>;
+  getAllInvestorPortfolios(): Promise<InvestorPortfolio[]>;
+  upsertInvestorPortfolio(data: Omit<InvestorPortfolio, "id">): Promise<InvestorPortfolio>;
+  getInvestorHoldings(investorId: string): Promise<InvestorHolding[]>;
+  replaceInvestorHoldings(investorId: string, holdings: Omit<InvestorHolding, "id">[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -310,6 +319,51 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(dinoEggs.id, id), eq(dinoEggs.userId, userId)))
       .returning();
     return egg;
+  }
+
+  // 13F Database
+  async getInvestorPortfolio(investorId: string): Promise<InvestorPortfolio | undefined> {
+    const [portfolio] = await db.select().from(investorPortfolios)
+      .where(eq(investorPortfolios.investorId, investorId));
+    return portfolio;
+  }
+
+  async getAllInvestorPortfolios(): Promise<InvestorPortfolio[]> {
+    return db.select().from(investorPortfolios).orderBy(asc(investorPortfolios.investorId));
+  }
+
+  async upsertInvestorPortfolio(data: Omit<InvestorPortfolio, "id">): Promise<InvestorPortfolio> {
+    const [portfolio] = await db.insert(investorPortfolios)
+      .values(data)
+      .onConflictDoUpdate({
+        target: investorPortfolios.investorId,
+        set: {
+          cik: data.cik,
+          entityName: data.entityName,
+          reportDate: data.reportDate,
+          filingDate: data.filingDate,
+          lastSynced: data.lastSynced,
+          totalValueUSD: data.totalValueUSD,
+          holdingCount: data.holdingCount,
+        },
+      })
+      .returning();
+    return portfolio;
+  }
+
+  async getInvestorHoldings(investorId: string): Promise<InvestorHolding[]> {
+    return db.select().from(investorHoldings)
+      .where(eq(investorHoldings.investorId, investorId))
+      .orderBy(asc(investorHoldings.rank));
+  }
+
+  async replaceInvestorHoldings(investorId: string, holdings: Omit<InvestorHolding, "id">[]): Promise<void> {
+    await db.delete(investorHoldings).where(eq(investorHoldings.investorId, investorId));
+    if (holdings.length === 0) return;
+    const BATCH = 500;
+    for (let i = 0; i < holdings.length; i += BATCH) {
+      await db.insert(investorHoldings).values(holdings.slice(i, i + BATCH) as any);
+    }
   }
 }
 

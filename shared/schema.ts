@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -93,6 +93,32 @@ export const dinoEggs = pgTable("dino_eggs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// 13F Database tables — quarterly holdings snapshots
+export const investorPortfolios = pgTable("investor_portfolios", {
+  id: serial("id").primaryKey(),
+  investorId: text("investor_id").notNull().unique(),
+  cik: text("cik").notNull().default(""),
+  entityName: text("entity_name").notNull().default(""),
+  reportDate: text("report_date").notNull().default(""),
+  filingDate: text("filing_date").notNull().default(""),
+  lastSynced: timestamp("last_synced").defaultNow().notNull(),
+  totalValueUSD: doublePrecision("total_value_usd").notNull().default(0),
+  holdingCount: integer("holding_count").notNull().default(0),
+});
+
+export const investorHoldings = pgTable("investor_holdings", {
+  id: serial("id").primaryKey(),
+  investorId: text("investor_id").notNull(),
+  rank: integer("rank").notNull(),
+  ticker: text("ticker").notNull().default(""),
+  cusip: text("cusip").notNull().default(""),
+  companyName: text("company_name").notNull(),
+  shares: doublePrecision("shares").notNull().default(0),
+  valueUSD: doublePrecision("value_usd").notNull().default(0),
+  weight: doublePrecision("weight").notNull().default(0),
+  putCall: text("put_call").notNull().default(""),
+});
+
 // === SCHEMAS ===
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ streak: true, xp: true, totalXp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
@@ -125,6 +151,9 @@ export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
 
 export type DinoEgg = typeof dinoEggs.$inferSelect;
 export type InsertDinoEgg = z.infer<typeof insertDinoEggSchema>;
+
+export type InvestorPortfolio = typeof investorPortfolios.$inferSelect;
+export type InvestorHolding = typeof investorHoldings.$inferSelect;
 
 // === API TYPES ===
 
