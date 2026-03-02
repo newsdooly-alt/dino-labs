@@ -21,6 +21,10 @@ import {
   Activity,
   Layers,
   GitCompare,
+  Search,
+  Settings2,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -135,7 +139,7 @@ function formatNumber(v: number): string {
 export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Props) {
   const [, navigate] = useLocation();
   const { theme } = useTheme();
-  const { formatPrice, isKoreanStock, isJapaneseStock } = useCurrency();
+  const { formatPrice, isKoreanStock, isJapaneseStock, currency, exchangeRate, exchangeRateJPY } = useCurrency();
   const isDark = theme === "dark";
   const isKo = lang === "ko";
 
@@ -146,6 +150,8 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   const isKr = isKoreanStock(symbol);
   const isJp = isJapaneseStock(symbol);
   const nativeCurrency = isKr ? "KRW" : isJp ? "JPY" : "USD";
+  const priceMultiplier = (!isKr && !isJp) ? (currency === 'krw' ? exchangeRate : currency === 'jpy' ? exchangeRateJPY : 1) : 1;
+  const displayNative = isKr ? 'KRW' : isJp ? 'JPY' : currency === 'krw' ? 'KRW' : currency === 'jpy' ? 'JPY' : 'USD';
 
   const [activeTab, setActiveTab] = useState<TabKey>("chart");
   const [period, setPeriod] = useState("1m");
@@ -153,19 +159,25 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   const [showMA, setShowMA] = useState(true);
   const [showBB, setShowBB] = useState(false);
   const [showSR, setShowSR] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [sortMode, setSortMode] = useState<"change_desc" | "change_asc" | "volume" | "alpha">("change_desc");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchActive, setSearchActive] = useState(false);
+  const [activeSymbol, setActiveSymbol] = useState(symbol);
   const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
   const brushDomainRef = useRef(brushDomain);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => { brushDomainRef.current = brushDomain; }, [brushDomain]);
+  useEffect(() => { setActiveSymbol(symbol); setSearchInput(""); setSearchActive(false); }, [symbol]);
 
   const periodOpt = PERIOD_OPTIONS.find(p => p.key === period) || PERIOD_OPTIONS[2];
   const isIntraday = period === "1d" || period === "1w";
 
   const { data: historyRaw, isLoading: histLoading } = useQuery<{ history: HistoryData[] }>({
-    queryKey: ["/api/stocks/history", symbol, periodOpt.period, periodOpt.interval],
+    queryKey: ["/api/stocks/history", activeSymbol, periodOpt.period, periodOpt.interval],
     enabled: isOpen,
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/history/${symbol}?period=${periodOpt.period}&interval=${periodOpt.interval}`);
+      const res = await fetch(`/api/stocks/history/${activeSymbol}?period=${periodOpt.period}&interval=${periodOpt.interval}`);
       if (!res.ok) return { history: [] };
       const raw = await res.json();
       const data: HistoryData[] = (raw.data || []).map((d: any) => ({
@@ -195,22 +207,27 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   }, [history]);
 
   const chartData = useMemo(() => {
+    const m = priceMultiplier;
     return history.map((d, i) => {
       const prevClose = i > 0 ? history[i - 1].c : (d.o || d.c);
       const changePct = prevClose > 0 ? ((d.c - prevClose) / prevClose) * 100 : 0;
       return {
         date: d.t,
-        open: d.o, high: d.h, low: d.l, close: d.c, volume: d.v,
-        sma20: sma20[i], sma60: sma60[i], sma120: sma120[i],
-        upperBB: upperBB[i], lowerBB: lowerBB[i], middleBB: middleBB[i],
+        open: d.o * m, high: d.h * m, low: d.l * m, close: d.c * m, volume: d.v,
+        sma20: sma20[i] != null ? sma20[i]! * m : undefined,
+        sma60: sma60[i] != null ? sma60[i]! * m : undefined,
+        sma120: sma120[i] != null ? sma120[i]! * m : undefined,
+        upperBB: upperBB[i] != null ? upperBB[i]! * m : undefined,
+        lowerBB: lowerBB[i] != null ? lowerBB[i]! * m : undefined,
+        middleBB: middleBB[i] != null ? middleBB[i]! * m : undefined,
         rsi: rsiValues[i],
-        macd: macdResult?.macd?.[i],
-        signal: macdResult?.signal?.[i],
-        histogram: macdResult?.histogram?.[i],
+        macd: macdResult?.macd?.[i] != null ? macdResult.macd[i]! * m : undefined,
+        signal: macdResult?.signal?.[i] != null ? macdResult.signal[i]! * m : undefined,
+        histogram: macdResult?.histogram?.[i] != null ? macdResult.histogram[i]! * m : undefined,
         changePct,
       };
     });
-  }, [history, sma20, sma60, sma120, upperBB, lowerBB, middleBB, rsiValues, macdResult]);
+  }, [history, sma20, sma60, sma120, upperBB, lowerBB, middleBB, rsiValues, macdResult, priceMultiplier]);
 
   const visibleData = useMemo(() => {
     const n = chartData.length;
@@ -253,13 +270,38 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
       raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
     };
     const onTouchEnd = () => { isPinching = false; };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const n = chartData.length;
+      const bd = brushDomainRef.current;
+      const s = bd.startIndex ?? 0;
+      const end = bd.endIndex ?? n - 1;
+      const range = end - s;
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const step = Math.max(Math.round(range * 0.1), 1);
+      const center = Math.round((s + end) / 2);
+      if (dir < 0) {
+        const newRange = Math.max(3, range - step * 2);
+        const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
+        const newE = Math.min(n - 1, newS + newRange);
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+      } else {
+        const newS = Math.max(0, s - step);
+        const newE = Math.min(n - 1, end + step);
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+      }
+    };
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("wheel", onWheel);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [chartData.length]);
@@ -269,20 +311,20 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
 
   const volumeProfile = useMemo(() => buildVolumeProfile(history, 24), [history]);
 
-  const peers = getPeers(symbol);
-  const { data: peerData } = useQuery<{ quotes: Array<{ symbol: string; price: number; changePercent: number; name: string }> }>({
-    queryKey: ["/api/stocks/live", [...peers, symbol].join(",")],
+  const peers = getPeers(activeSymbol);
+  const { data: peerData } = useQuery<{ quotes: Array<{ symbol: string; price: number; changePercent: number; volume?: number; name: string }> }>({
+    queryKey: ["/api/stocks/live", [...peers, activeSymbol].join(",")],
     enabled: isOpen && activeTab === "compare",
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/live?symbols=${[...peers, symbol].join(",")}`);
+      const res = await fetch(`/api/stocks/live?symbols=${[...peers, activeSymbol].join(",")}`);
       return res.json();
     },
   });
 
-  const allSymbols = [symbol, ...peers];
+  const allSymbols = [activeSymbol, ...peers];
   const peerRows = useMemo(() => {
     const quotes = peerData?.quotes || [];
-    return allSymbols.map(s => {
+    const rows = allSymbols.map(s => {
       const q = quotes.find(q => q.symbol === s);
       const localName = q ? getLocalizedCompanyName(cleanCompanyName(q.name || s), lang) : s;
       return {
@@ -290,10 +332,16 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
         name: localName,
         price: q?.price ?? null,
         changePercent: q?.changePercent ?? null,
-        isSelf: s === symbol,
+        volume: (q as any)?.volume ?? null,
+        isSelf: s === activeSymbol,
       };
     });
-  }, [peerData, allSymbols, symbol, lang]);
+    if (sortMode === "change_desc") return [...rows].sort((a, b) => (b.changePercent ?? -Infinity) - (a.changePercent ?? -Infinity));
+    if (sortMode === "change_asc")  return [...rows].sort((a, b) => (a.changePercent ?? Infinity) - (b.changePercent ?? Infinity));
+    if (sortMode === "volume")      return [...rows].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
+    if (sortMode === "alpha")       return [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol));
+    return rows;
+  }, [peerData, allSymbols, activeSymbol, lang, sortMode]);
 
   const lastPrice = history.length ? history[history.length - 1].c : null;
   const displayName = getLocalizedCompanyName(cleanCompanyName(name), lang);
@@ -308,12 +356,12 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
         <p className="font-bold mb-1 text-foreground truncate">{d.date}</p>
         {d.close != null && (
           <p style={{ color: isUp ? "#22c55e" : "#ef4444" }} className="font-bold">
-            {isKo ? "종가" : "Close"}: {formatPrice(d.close, { nativeCurrency })}<span className="opacity-75 text-[10px]">{changePctStr}</span>
+            {isKo ? "종가" : "Close"}: {formatPrice(d.close, { nativeCurrency: displayNative })}<span className="opacity-75 text-[10px]">{changePctStr}</span>
           </p>
         )}
-        {d.open  != null && <p className="text-muted-foreground">{isKo ? "시가" : "Open"}: {formatPrice(d.open, { nativeCurrency })}</p>}
-        {d.high  != null && <p className="text-emerald-500">{isKo ? "고가" : "High"}: {formatPrice(d.high, { nativeCurrency })}</p>}
-        {d.low   != null && <p className="text-rose-500">{isKo ? "저가" : "Low"}: {formatPrice(d.low, { nativeCurrency })}</p>}
+        {d.open  != null && <p className="text-muted-foreground">{isKo ? "시가" : "Open"}: {formatPrice(d.open, { nativeCurrency: displayNative })}</p>}
+        {d.high  != null && <p className="text-emerald-500">{isKo ? "고가" : "High"}: {formatPrice(d.high, { nativeCurrency: displayNative })}</p>}
+        {d.low   != null && <p className="text-rose-500">{isKo ? "저가" : "Low"}: {formatPrice(d.low, { nativeCurrency: displayNative })}</p>}
         {d.volume != null && d.volume > 0 && <p className="text-muted-foreground">{isKo ? "거래량" : "Vol"}: {formatNumber(d.volume)}</p>}
       </div>
     );
@@ -330,28 +378,67 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
         style={{ touchAction: "manipulation" }}
       >
         {/* Header */}
-        <DialogHeader className="flex flex-row items-center justify-between px-4 pt-4 pb-2 border-b shrink-0">
+        <DialogHeader className="flex flex-col px-4 pt-4 pb-2 border-b shrink-0 gap-2">
           <DialogDescription className="sr-only">{isKo ? `${displayName} 프로 분석` : `${displayName} Pro Analysis`}</DialogDescription>
-          <div className="flex items-center gap-2 min-w-0">
-            <Zap className="w-4 h-4 text-violet-500 shrink-0" />
-            <div className="min-w-0">
-              <DialogTitle className="text-sm font-bold truncate">{displayName}</DialogTitle>
-              <p className="text-xs text-muted-foreground font-mono">{symbol}</p>
-            </div>
-            {lastPrice !== null && (
-              <div className="ml-2 flex flex-col items-start shrink-0">
-                <span className="text-base font-mono font-bold">{formatPrice(lastPrice, { nativeCurrency })}</span>
-                {ret !== null && (
-                  <span className={cn("text-xs font-bold", retPositive ? "text-green-500" : "text-red-500")}>
-                    {retPositive ? "+" : ""}{ret.toFixed(2)}% ({periodOpt.label})
-                  </span>
-                )}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Zap className="w-4 h-4 text-violet-500 shrink-0" />
+              <div className="min-w-0">
+                <DialogTitle className="text-sm font-bold truncate">{searchActive && activeSymbol !== symbol ? activeSymbol : displayName}</DialogTitle>
+                <p className="text-xs text-muted-foreground font-mono">{activeSymbol}</p>
               </div>
-            )}
+              {lastPrice !== null && (
+                <div className="ml-2 flex flex-col items-start shrink-0">
+                  <span className="text-base font-mono font-bold">{formatPrice(lastPrice, { nativeCurrency })}</span>
+                  {ret !== null && (
+                    <span className={cn("text-xs font-bold", retPositive ? "text-green-500" : "text-red-500")}>
+                      {retPositive ? "+" : ""}{ret.toFixed(2)}% ({periodOpt.label})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <button onClick={onClose} className="rounded-full p-1 hover:bg-muted transition-colors shrink-0" data-testid="button-close-modal">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-muted transition-colors shrink-0" data-testid="button-close-modal">
-            <X className="w-4 h-4" />
-          </button>
+          {/* Search bar */}
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              const val = searchInput.trim().toUpperCase();
+              if (val) { setActiveSymbol(val); setSearchActive(true); setBrushDomain({}); }
+            }}
+            className="flex items-center gap-1.5"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                placeholder={isKo ? "종목 검색 (예: TSLA)" : "Search symbol (e.g. TSLA)"}
+                className="w-full pl-7 pr-3 py-1.5 text-xs rounded-lg border border-border bg-muted/40 focus:outline-none focus:border-violet-400 focus:bg-background transition-colors"
+                data-testid="input-modal-search"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-3 py-1.5 text-xs font-bold bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors shrink-0"
+              data-testid="button-modal-search-submit"
+            >
+              {isKo ? "검색" : "Go"}
+            </button>
+            {searchActive && (
+              <button
+                type="button"
+                onClick={() => { setActiveSymbol(symbol); setSearchInput(""); setSearchActive(false); setBrushDomain({}); }}
+                className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                data-testid="button-modal-search-reset"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </form>
         </DialogHeader>
 
         {/* Tabs */}
@@ -469,10 +556,43 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                 <button onClick={() => setShowSR(v => !v)} className={toggleCls(showSR, "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-400/40")} data-testid="toggle-sr">
                   {isKo ? "지지/저항선" : "S/R Lines"}
                 </button>
+                {/* Settings toggle for advanced features */}
+                <button
+                  onClick={() => setShowSettings(v => !v)}
+                  className={cn("ml-auto p-1.5 rounded-lg border transition-all", showSettings ? "bg-violet-500/15 border-violet-400/50 text-violet-600 dark:text-violet-400" : "border-border bg-muted/40 text-muted-foreground hover:text-foreground")}
+                  data-testid="toggle-settings"
+                  title={isKo ? "고급 설정" : "Advanced Settings"}
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                </button>
               </div>
+              {/* Settings Panel */}
+              {showSettings && (
+                <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-muted/30 border border-border text-[11px]">
+                  <span className="text-muted-foreground font-medium self-center">{isKo ? "차트 오버레이:" : "Overlays:"}</span>
+                  <button onClick={() => setShowBB(v => !v)} className={cn("px-2 py-0.5 rounded-full border font-semibold transition-all", showBB ? "bg-indigo-500/20 border-indigo-400/60 text-indigo-600 dark:text-indigo-400" : "border-border text-muted-foreground")} data-testid="settings-toggle-bb">
+                    {isKo ? "볼린저밴드" : "Bollinger Bands"}
+                  </button>
+                  <button onClick={() => setActiveTab("indicators")} className="px-2 py-0.5 rounded-full border font-semibold border-violet-400/40 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-all" data-testid="settings-goto-macd">
+                    {isKo ? "MACD 보기 →" : "View MACD →"}
+                  </button>
+                  <button onClick={() => setActiveTab("volume")} className="px-2 py-0.5 rounded-full border font-semibold border-amber-400/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all" data-testid="settings-goto-volume">
+                    {isKo ? "매물대 보기 →" : "Volume Profile →"}
+                  </button>
+                </div>
+              )}
 
               {histLoading ? (
-                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 로딩 중..." : "Loading..."}</div>
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-[260px] rounded-xl bg-muted/60 relative overflow-hidden">
+                    <div className="absolute bottom-0 inset-x-0 flex items-end gap-0.5 px-4 pb-4">
+                      {[35,50,30,70,45,60,40,80,55,65,48,72,38,90,62,75,44,58,68,85].map((h, i) => (
+                        <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: i % 3 === 0 ? "#8b5cf640" : "#6b728030" }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-16 rounded-xl bg-muted/40" />
+                </div>
               ) : chartData.length === 0 ? (
                 <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 없음" : "No data"}</div>
               ) : (
@@ -480,13 +600,13 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                   <ResponsiveContainer width="100%" height={260}>
                     <ComposedChart data={visibleData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                       <XAxis dataKey="date" tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                      <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency, compact: true })} width={52} />
+                      <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency: displayNative, compact: true })} width={displayNative !== 'USD' ? 64 : 52} />
                       <Tooltip content={renderTooltip} />
                       {showSR && srLevels.support.map((s, i) => (
-                        <ReferenceLine key={`s-${i}`} y={s} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" />
+                        <ReferenceLine key={`s-${i}`} y={s * priceMultiplier} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" />
                       ))}
                       {showSR && srLevels.resistance.map((r, i) => (
-                        <ReferenceLine key={`r-${i}`} y={r} stroke="#ef4444" strokeWidth={1} strokeDasharray="4 3" />
+                        <ReferenceLine key={`r-${i}`} y={r * priceMultiplier} stroke="#ef4444" strokeWidth={1} strokeDasharray="4 3" />
                       ))}
                       {showBB && !isIntraday && (
                         <>
@@ -619,7 +739,7 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                       <ResponsiveContainer width="100%" height={110}>
                         <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                           <XAxis dataKey="date" tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency, compact: true })} width={52} />
+                          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency: displayNative, compact: true })} width={displayNative !== 'USD' ? 64 : 52} />
                           <Tooltip content={renderTooltip} />
                           <Area type="monotone" dataKey="upperBB" stroke="#6b7280" fill="none" strokeWidth={1} strokeDasharray="3 3" dot={false} />
                           <Area type="monotone" dataKey="lowerBB" stroke="#6b7280" fill="#6b728015" strokeWidth={1} strokeDasharray="3 3" dot={false} />
@@ -645,7 +765,14 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
               </div>
 
               {histLoading ? (
-                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 로딩 중..." : "Loading..."}</div>
+                <div className="space-y-1.5 animate-pulse">
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="h-3 bg-muted/60 rounded w-16 shrink-0" />
+                      <div className="flex-1 h-4 bg-muted/40 rounded-sm" style={{ width: `${30 + (i % 7) * 10}%` }} />
+                    </div>
+                  ))}
+                </div>
               ) : volumeProfile.length === 0 ? (
                 <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 없음" : "No data"}</div>
               ) : (
@@ -657,7 +784,7 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                     return (
                       <div key={i} className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-muted-foreground w-20 shrink-0 text-right">
-                          {formatPrice(p.price, { nativeCurrency, compact: true })}
+                          {formatPrice(p.price * priceMultiplier, { nativeCurrency: displayNative, compact: true })}
                         </span>
                         <div className="flex-1 h-4 bg-muted/30 rounded-r-sm overflow-hidden">
                           <div
@@ -680,13 +807,13 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
               {history.length > 0 && (
                 <div className="grid grid-cols-3 gap-3 pt-2 border-t">
                   {[
-                    { label: isKo ? "52주 최고" : "52W High", value: Math.max(...history.map(d => d.h)) },
-                    { label: isKo ? "현재 가격" : "Current",  value: history[history.length - 1].c },
-                    { label: isKo ? "52주 최저" : "52W Low",  value: Math.min(...history.map(d => d.l)) },
+                    { label: isKo ? "52주 최고" : "52W High", value: Math.max(...history.map(d => d.h)) * priceMultiplier },
+                    { label: isKo ? "현재 가격" : "Current",  value: history[history.length - 1].c * priceMultiplier },
+                    { label: isKo ? "52주 최저" : "52W Low",  value: Math.min(...history.map(d => d.l)) * priceMultiplier },
                   ].map(item => (
                     <div key={item.label} className="text-center">
                       <p className="text-[10px] text-muted-foreground">{item.label}</p>
-                      <p className="text-xs font-mono font-bold">{formatPrice(item.value, { nativeCurrency, compact: true })}</p>
+                      <p className="text-xs font-mono font-bold">{formatPrice(item.value, { nativeCurrency: displayNative, compact: true })}</p>
                     </div>
                   ))}
                 </div>
@@ -697,11 +824,41 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
           {/* ═══════════════ TAB: 비교 (Peer Comparison) ═══════════════ */}
           {activeTab === "compare" && (
             <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-bold mb-0.5">{isKo ? "섹터 동종 기업 비교" : "Sector Peer Comparison"}</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  {isKo ? "같은 섹터 내 상위 3개 기업과의 당일 수익률 비교" : "Today's performance vs top 3 sector peers"}
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold mb-0.5">{isKo ? "섹터 동종 기업 비교" : "Sector Peer Comparison"}</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isKo ? "같은 섹터 내 상위 3개 기업과의 당일 수익률 비교" : "Today's performance vs top 3 sector peers"}
+                  </p>
+                </div>
+                {/* Sort controls */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setSortMode(m => m === "change_desc" ? "change_asc" : "change_desc")}
+                    className={cn("flex items-center gap-0.5 px-2 py-1 text-[10px] font-bold rounded-lg border transition-all", (sortMode === "change_desc" || sortMode === "change_asc") ? "bg-violet-500/15 border-violet-400/50 text-violet-600 dark:text-violet-400" : "border-border text-muted-foreground")}
+                    data-testid="sort-change"
+                    title={isKo ? "등락률 정렬" : "Sort by Change %"}
+                  >
+                    {sortMode === "change_asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />}
+                    %
+                  </button>
+                  <button
+                    onClick={() => setSortMode("volume")}
+                    className={cn("px-2 py-1 text-[10px] font-bold rounded-lg border transition-all", sortMode === "volume" ? "bg-blue-500/15 border-blue-400/50 text-blue-600 dark:text-blue-400" : "border-border text-muted-foreground")}
+                    data-testid="sort-volume"
+                    title={isKo ? "거래량 정렬" : "Sort by Volume"}
+                  >
+                    {isKo ? "거래량" : "Vol"}
+                  </button>
+                  <button
+                    onClick={() => setSortMode("alpha")}
+                    className={cn("px-2 py-1 text-[10px] font-bold rounded-lg border transition-all", sortMode === "alpha" ? "bg-green-500/15 border-green-400/50 text-green-600 dark:text-green-400" : "border-border text-muted-foreground")}
+                    data-testid="sort-alpha"
+                    title="A-Z"
+                  >
+                    A-Z
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">

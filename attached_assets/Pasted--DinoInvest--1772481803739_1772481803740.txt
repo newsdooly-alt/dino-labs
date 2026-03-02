@@ -1,0 +1,66 @@
+🦖 DinoInvest 프로 대시보드: 완벽한 차트 인터랙션 및 검색 시스템 통합
+사용자님, '프로'라는 이름에 걸맞게 차트의 손맛(휠/핀치 줌)과 데이터의 정확도(퍼센트/통화), 그리고 탐색의 편의성(검색/정렬)을 모두 잡았습니다. 이제 PC와 모바일 어디서든 월스트리트 터미널 부럽지 않은 환경을 구축하실 수 있습니다.
+
+💳 DinoInvest 카드 뉴스: 이번 업데이트 핵심 요약
+1. "이게 진짜 차트지!" - 휠 & 핀치 줌 완벽 구현
+
+PC: 마우스 휠로 시원하게 차트 확대/축소! 드래그로 과거 데이터 탐색 가능.
+
+Mobile: 손가락 핀치 줌으로 부드럽게 조절. 삐져나감 없는 100% 핏 UI.
+
+2. "내 지갑 기준으로 확인" - 실시간 통화 & 퍼센트 연동
+
+통화 변환: 1D 차트에서도 달러 고정 해제! 설정한 통화(KRW 등)로 즉시 환산.
+
+데이터 라벨: 모든 캔들과 툴팁에 가격 (변동률%) 표기 (예: 150.50 (+2.3%)).
+
+3. "숨은 보석 찾기" - 정렬 방식 및 검색 기능 추가
+
+정렬 고도화: A-Z, RS 순서 외에 '등락률순(상승/하락)' 정렬 추가로 급등주 포착.
+
+프로 검색창: 대시보드 내에서 바로 종목 검색 가능. 다른 화면 이동 없이 즉시 분석.
+
+4. "전문가의 도구" - 고급 지표 및 인터페이스
+
+고급 기능: 볼린저 밴드, 매물대, RSI 등 프로용 지표를 차트 내 설정 메뉴로 통합.
+
+📝 [Replit 에이전트용] 프로 대시보드 및 차트 엔진 최종 정밀 지시서
+"CRITICAL: Final Polish for Pro Dashboard - Navigation, Interaction, and Data Accuracy:
+
+1. Chart Interaction Engine (PC & Mobile):
+
+PC Wheel Zoom: Enable mousewheel events to scale the X-axis (timeScale) of the chart.
+
+Mobile Pinch Zoom: Implement Pinch-to-zoom using touch event listeners. Ensure no horizontal page scroll occurs during zooming.
+
+Sync: Both 'Stock Detail' and 'Pro Dashboard' charts must share this logic.
+
+2. Labeling & Currency Logic:
+
+Format: All price labels must display as 'Price (Change %)'. Example: 1,200.50 (+1.2%).
+
+1D Currency Fix: Force the 1D data to pass through the globalCurrencyConverter. If user setting is KRW, convert USD price to KRW using the latest FX rate before rendering.
+
+3. Pro Dashboard Search & Sorting:
+
+Search Bar: Add a 'Search Stock' input field inside the Pro Dashboard header. Searching must update the current analysis view without page refresh.
+
+Sorting Logic: Expand the stock list sorting options to include:
+
+Price Change % (Descending/Ascending)
+
+Volume (Highest to Lowest)
+
+Keep existing: RS Score, A-Z.
+
+4. Advanced Pro Features:
+
+Feature Toggle: Inside the chart, add a settings icon to toggle Bollinger Bands, MACD, and Volume Profile (매물대).
+
+Data Loading: Ensure the 'Lightning Icon (See Details)' correctly triggers the fetchProData sequence and shows a loading skeleton while fetching.
+
+5. Mobile UI Hardening:
+
+Ensure all containers have max-width: 100vw and overflow-x: hidden.
+
+Use Sticky Headers for the stock list so the search bar and sort options are always visible."

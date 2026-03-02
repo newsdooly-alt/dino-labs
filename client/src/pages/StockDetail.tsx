@@ -236,10 +236,12 @@ export default function StockDetail() {
   useEffect(() => { brushDomainRef.current = brushDomain; }, [brushDomain]);
   const { toast } = useToast();
   const { theme } = useTheme();
-  const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock } = useCurrency();
+  const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock, currency, exchangeRate, exchangeRateJPY } = useCurrency();
   const isKr = isKoreanStock(symbol);
   const isJp = isJapaneseStock(symbol);
   const nativeCurrency = isKr ? 'KRW' : isJp ? 'JPY' : 'USD';
+  const priceMultiplier = (!isKr && !isJp) ? (currency === 'krw' ? exchangeRate : currency === 'jpy' ? exchangeRateJPY : 1) : 1;
+  const displayNative = isKr ? 'KRW' : isJp ? 'JPY' : currency === 'krw' ? 'KRW' : currency === 'jpy' ? 'JPY' : 'USD';
 
   const isDark = theme === "dark";
   const tickColor = isDark ? "#9ca3af" : "#6b7280";
@@ -349,6 +351,7 @@ export default function StockDetail() {
   }, [closePrices, isIntraday, info]);
 
   const chartData = useMemo(() => {
+    const m = priceMultiplier;
     return rawHistoryData.map((d, i) => {
       const dt = new Date(d.date);
       const label = isIntraday
@@ -359,25 +362,25 @@ export default function StockDetail() {
       return {
         date: label,
         rawDate: d.date,
-        price: d.close,
-        open: d.open,
-        high: d.high || d.close,
-        low: d.low || d.close,
-        close: d.close,
+        price: d.close * m,
+        open: d.open * m,
+        high: (d.high || d.close) * m,
+        low: (d.low || d.close) * m,
+        close: d.close * m,
         volume: d.volume ?? 0,
-        ma20: ma20Values[i] ?? null,
-        ma60: ma60Values[i] ?? null,
-        ma120: ma120Values[i] ?? null,
+        ma20: ma20Values[i] != null ? ma20Values[i]! * m : null,
+        ma60: ma60Values[i] != null ? ma60Values[i]! * m : null,
+        ma120: ma120Values[i] != null ? ma120Values[i]! * m : null,
         rsi: rsiValues[i] ?? null,
-        bbUpper: bbValues[i]?.upper ?? null,
-        bbMiddle: bbValues[i]?.middle ?? null,
-        bbLower: bbValues[i]?.lower ?? null,
+        bbUpper: bbValues[i]?.upper != null ? bbValues[i]!.upper * m : null,
+        bbMiddle: bbValues[i]?.middle != null ? bbValues[i]!.middle * m : null,
+        bbLower: bbValues[i]?.lower != null ? bbValues[i]!.lower * m : null,
         signal: signalMap.get(i) ?? null,
         isUp: d.close >= d.open,
         changePct,
       };
     });
-  }, [rawHistoryData, ma20Values, ma60Values, ma120Values, rsiValues, bbValues, signalMap, isIntraday, lang]);
+  }, [rawHistoryData, ma20Values, ma60Values, ma120Values, rsiValues, bbValues, signalMap, isIntraday, lang, priceMultiplier]);
 
   const visibleData = useMemo(() => {
     const n = chartData.length;
@@ -420,13 +423,38 @@ export default function StockDetail() {
       raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
     };
     const onTouchEnd = () => { isPinching = false; };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const n = chartData.length;
+      const bd = brushDomainRef.current;
+      const s = bd.startIndex ?? 0;
+      const end = bd.endIndex ?? n - 1;
+      const range = end - s;
+      const dir = e.deltaY > 0 ? 1 : -1; // 1=zoom-out, -1=zoom-in
+      const step = Math.max(Math.round(range * 0.1), 1);
+      const center = Math.round((s + end) / 2);
+      if (dir < 0) {
+        const newRange = Math.max(3, range - step * 2);
+        const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
+        const newE = Math.min(n - 1, newS + newRange);
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+      } else {
+        const newS = Math.max(0, s - step);
+        const newE = Math.min(n - 1, end + step);
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+      }
+    };
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("wheel", onWheel);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [chartData.length]);
@@ -513,14 +541,14 @@ export default function StockDetail() {
           {chartType === "candle" && (
             <>
               <span style={{ color: tickColor }}>{lang === "ko" ? "시가" : "Open"}</span>
-              <span style={{ fontWeight: 700, color: isDark ? "#e5e7eb" : "#111827", textAlign: "right" }}>{formatPrice(d.open, { nativeCurrency })}</span>
+              <span style={{ fontWeight: 700, color: isDark ? "#e5e7eb" : "#111827", textAlign: "right" }}>{formatPrice(d.open, { nativeCurrency: displayNative })}</span>
               <span style={{ color: tickColor }}>{lang === "ko" ? "고가" : "High"}</span>
-              <span style={{ fontWeight: 700, color: "#22c55e", textAlign: "right" }}>{formatPrice(d.high, { nativeCurrency })}</span>
+              <span style={{ fontWeight: 700, color: "#22c55e", textAlign: "right" }}>{formatPrice(d.high, { nativeCurrency: displayNative })}</span>
               <span style={{ color: tickColor }}>{lang === "ko" ? "저가" : "Low"}</span>
-              <span style={{ fontWeight: 700, color: "#ef4444", textAlign: "right" }}>{formatPrice(d.low, { nativeCurrency })}</span>
+              <span style={{ fontWeight: 700, color: "#ef4444", textAlign: "right" }}>{formatPrice(d.low, { nativeCurrency: displayNative })}</span>
               <span style={{ color: tickColor }}>{lang === "ko" ? "종가" : "Close"}</span>
               <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>
-                {formatPrice(d.close, { nativeCurrency })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
+                {formatPrice(d.close, { nativeCurrency: displayNative })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
               </span>
             </>
           )}
@@ -528,32 +556,32 @@ export default function StockDetail() {
             <>
               <span style={{ color: tickColor }}>{lang === "ko" ? "가격" : "Price"}</span>
               <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>
-                {formatPrice(d.price, { nativeCurrency })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
+                {formatPrice(d.price, { nativeCurrency: displayNative })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
               </span>
             </>
           )}
           {showMA && d.ma20 && (
             <>
               <span style={{ color: "#f59e0b" }}>MA 20</span>
-              <span style={{ fontWeight: 600, color: "#f59e0b", textAlign: "right" }}>{formatPrice(d.ma20, { nativeCurrency, compact: true })}</span>
+              <span style={{ fontWeight: 600, color: "#f59e0b", textAlign: "right" }}>{formatPrice(d.ma20, { nativeCurrency: displayNative, compact: true })}</span>
             </>
           )}
           {showMA && d.ma60 && (
             <>
               <span style={{ color: "#3b82f6" }}>MA 60</span>
-              <span style={{ fontWeight: 600, color: "#3b82f6", textAlign: "right" }}>{formatPrice(d.ma60, { nativeCurrency, compact: true })}</span>
+              <span style={{ fontWeight: 600, color: "#3b82f6", textAlign: "right" }}>{formatPrice(d.ma60, { nativeCurrency: displayNative, compact: true })}</span>
             </>
           )}
           {showMA && d.ma120 && (
             <>
               <span style={{ color: "#a855f7" }}>MA 120</span>
-              <span style={{ fontWeight: 600, color: "#a855f7", textAlign: "right" }}>{formatPrice(d.ma120, { nativeCurrency, compact: true })}</span>
+              <span style={{ fontWeight: 600, color: "#a855f7", textAlign: "right" }}>{formatPrice(d.ma120, { nativeCurrency: displayNative, compact: true })}</span>
             </>
           )}
           {showBB && d.bbUpper && (
             <>
               <span style={{ color: "#6b7280" }}>BB Upper</span>
-              <span style={{ fontWeight: 600, color: "#6b7280", textAlign: "right" }}>{formatPrice(d.bbUpper, { nativeCurrency, compact: true })}</span>
+              <span style={{ fontWeight: 600, color: "#6b7280", textAlign: "right" }}>{formatPrice(d.bbUpper, { nativeCurrency: displayNative, compact: true })}</span>
             </>
           )}
           {d.volume > 0 && (
@@ -637,7 +665,7 @@ export default function StockDetail() {
                 {selectedPeriod === "1d" ? (
                   <>{(quote?.change ?? 0) >= 0 ? "+" : ""}{formatPrice(quote?.change, { nativeCurrency })} ({(quote?.changePercent ?? 0) >= 0 ? "+" : ""}{quote?.changePercent?.toFixed(2) || "0.00"}%)</>
                 ) : (
-                  <>{isPeriodPositive ? "+" : ""}{formatPrice(periodReturnAbs, { nativeCurrency })} ({isPeriodPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%)</>
+                  <>{isPeriodPositive ? "+" : ""}{formatPrice(periodReturnAbs, { nativeCurrency: displayNative })} ({isPeriodPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%)</>
                 )}
                 {selectedPeriod !== "1d" && chartData.length > 1 && (
                   <span className="text-xs text-muted-foreground font-normal ml-0.5">({periodLabelStr})</span>
@@ -812,21 +840,21 @@ export default function StockDetail() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 10, fill: tickColor }}
-                    tickFormatter={(v) => formatPrice(v, { nativeCurrency, compact: true })}
-                    width={isKr || isJp ? 76 : 58}
+                    tickFormatter={(v) => formatPrice(v, { nativeCurrency: displayNative, compact: true })}
+                    width={isKr || isJp ? 76 : displayNative !== 'USD' ? 76 : 58}
                   />
 
                   <Tooltip content={candleTooltip} />
 
                   {/* S/R reference lines */}
                   {showSR && srLevels.resistances.map((level, i) => (
-                    <ReferenceLine key={`res-${i}`} y={level} stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5} strokeOpacity={0.7}
-                      label={{ value: lang === "ko" ? `저항 ${formatPrice(level, { nativeCurrency, compact: true })}` : `R ${formatPrice(level, { nativeCurrency, compact: true })}`, position: i === 0 ? "insideTopRight" : "insideBottomRight", fontSize: 9, fill: "#ef4444", dx: -4 }}
+                    <ReferenceLine key={`res-${i}`} y={level * priceMultiplier} stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5} strokeOpacity={0.7}
+                      label={{ value: lang === "ko" ? `저항 ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}` : `R ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}`, position: i === 0 ? "insideTopRight" : "insideBottomRight", fontSize: 9, fill: "#ef4444", dx: -4 }}
                     />
                   ))}
                   {showSR && srLevels.supports.map((level, i) => (
-                    <ReferenceLine key={`sup-${i}`} y={level} stroke="#22c55e" strokeDasharray="5 3" strokeWidth={1.5} strokeOpacity={0.7}
-                      label={{ value: lang === "ko" ? `지지 ${formatPrice(level, { nativeCurrency, compact: true })}` : `S ${formatPrice(level, { nativeCurrency, compact: true })}`, position: i === 0 ? "insideBottomRight" : "insideTopRight", fontSize: 9, fill: "#22c55e", dx: -4 }}
+                    <ReferenceLine key={`sup-${i}`} y={level * priceMultiplier} stroke="#22c55e" strokeDasharray="5 3" strokeWidth={1.5} strokeOpacity={0.7}
+                      label={{ value: lang === "ko" ? `지지 ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}` : `S ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}`, position: i === 0 ? "insideBottomRight" : "insideTopRight", fontSize: 9, fill: "#22c55e", dx: -4 }}
                     />
                   ))}
 
@@ -980,12 +1008,12 @@ export default function StockDetail() {
                   </div>
                   <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
                     <span className="text-muted-foreground">{lang === "ko" ? "시작가" : "Start"}</span>
-                    <span className="font-mono font-semibold">{formatPrice(chartData[0].price, { nativeCurrency })}</span>
+                    <span className="font-mono font-semibold">{formatPrice(chartData[0].price, { nativeCurrency: displayNative })}</span>
                   </div>
                   {chartData[0].ma20 != null && showMA && (
                     <div className="flex items-center gap-2 text-xs bg-amber-500/10 rounded-lg px-3 py-1.5">
                       <span className="text-amber-600 dark:text-amber-400">MA20</span>
-                      <span className="font-mono font-semibold">{formatPrice(chartData[chartData.length - 1].ma20, { nativeCurrency, compact: true })}</span>
+                      <span className="font-mono font-semibold">{formatPrice(chartData[chartData.length - 1].ma20, { nativeCurrency: displayNative, compact: true })}</span>
                     </div>
                   )}
                 </div>
