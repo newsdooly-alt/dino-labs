@@ -164,6 +164,8 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   const [searchInput, setSearchInput] = useState("");
   const [searchActive, setSearchActive] = useState(false);
   const [activeSymbol, setActiveSymbol] = useState(symbol);
+  const [logScale, setLogScale] = useState(false);
+  const [hoveredCandle, setHoveredCandle] = useState<any>(null);
   const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
   const brushDomainRef = useRef(brushDomain);
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -240,52 +242,93 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   useEffect(() => {
     const el = chartContainerRef.current;
     if (!el) return;
-    let pinchStartDist = 0;
-    let pinchStartS = 0;
-    let pinchStartE = 0;
-    let isPinching = false;
     let raf: number | null = null;
+
+    // ── Pinch-to-zoom state ──
+    let pinchStartDist = 0; let pinchStartS = 0; let pinchStartE = 0; let isPinching = false;
+    // ── Touch-pan state ──
+    let panStartX = 0; let panStartY = 0; let panStartS = 0; let panStartE = 0;
+    let isPanning = false; let dirLocked = false;
+    // ── Mouse drag-to-pan state ──
+    let isDragging = false; let dragStartX = 0; let dragStartS = 0; let dragStartE = 0;
+
     const dist = (t1: Touch, t2: Touch) => Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) { isPinching = false; return; }
-      isPinching = true;
-      pinchStartDist = dist(e.touches[0], e.touches[1]);
-      const bd = brushDomainRef.current;
-      const n = chartData.length;
-      pinchStartS = bd.startIndex ?? 0;
-      pinchStartE = bd.endIndex ?? n - 1;
+      if (e.touches.length === 2) {
+        isPinching = true; isPanning = false; dirLocked = false;
+        pinchStartDist = dist(e.touches[0], e.touches[1]);
+        const bd = brushDomainRef.current; const n = chartData.length;
+        pinchStartS = bd.startIndex ?? 0; pinchStartE = bd.endIndex ?? n - 1;
+      } else if (e.touches.length === 1) {
+        isPinching = false; isPanning = false; dirLocked = false;
+        panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY;
+        const bd = brushDomainRef.current; const n = chartData.length;
+        panStartS = bd.startIndex ?? 0; panStartE = bd.endIndex ?? n - 1;
+      }
     };
     const onTouchMove = (e: TouchEvent) => {
-      if (!isPinching || e.touches.length !== 2) return;
-      e.preventDefault();
-      const currentDist = dist(e.touches[0], e.touches[1]);
-      const scale = pinchStartDist / Math.max(currentDist, 1);
-      const n = chartData.length;
-      const origRange = pinchStartE - pinchStartS;
-      const newRange = Math.min(n - 1, Math.max(3, Math.round(origRange * scale)));
-      const center = Math.round((pinchStartS + pinchStartE) / 2);
-      const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
-      const newE = Math.min(n - 1, newS + newRange);
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+      if (isPinching && e.touches.length === 2) {
+        e.preventDefault();
+        const currentDist = dist(e.touches[0], e.touches[1]);
+        const scale = pinchStartDist / Math.max(currentDist, 1);
+        const n = chartData.length; const origRange = pinchStartE - pinchStartS;
+        const newRange = Math.min(n - 1, Math.max(3, Math.round(origRange * scale)));
+        const center = Math.round((pinchStartS + pinchStartE) / 2);
+        const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
+        const newE = Math.min(n - 1, newS + newRange);
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+      } else if (e.touches.length === 1) {
+        const dx = e.touches[0].clientX - panStartX;
+        const dy = e.touches[0].clientY - panStartY;
+        if (!dirLocked && Math.max(Math.abs(dx), Math.abs(dy)) > 6) {
+          dirLocked = true;
+          isPanning = Math.abs(dx) >= Math.abs(dy) * 0.9;
+        }
+        if (isPanning) {
+          e.preventDefault();
+          const w = el.getBoundingClientRect().width || 1;
+          const range = panStartE - panStartS; const n = chartData.length;
+          const delta = -Math.round((dx / w) * range);
+          const newS = Math.max(0, Math.min(panStartS + delta, n - 1 - range));
+          if (raf) cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newS + range }));
+        }
+      }
     };
-    const onTouchEnd = () => { isPinching = false; };
+    const onTouchEnd = () => { isPinching = false; isPanning = false; dirLocked = false; };
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      isDragging = true; dragStartX = e.clientX;
+      const bd = brushDomainRef.current; const n = chartData.length;
+      dragStartS = bd.startIndex ?? 0; dragStartE = bd.endIndex ?? n - 1;
+      el.style.cursor = "grabbing";
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const w = el.getBoundingClientRect().width || 1;
+      const range = dragStartE - dragStartS; const n = chartData.length;
+      const delta = -Math.round(((e.clientX - dragStartX) / w) * range);
+      const newS = Math.max(0, Math.min(dragStartS + delta, n - 1 - range));
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newS + range }));
+    };
+    const onMouseUp = () => { isDragging = false; el.style.cursor = "crosshair"; };
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const n = chartData.length;
-      const bd = brushDomainRef.current;
-      const s = bd.startIndex ?? 0;
-      const end = bd.endIndex ?? n - 1;
-      const range = end - s;
+      const n = chartData.length; const bd = brushDomainRef.current;
+      const s = bd.startIndex ?? 0; const end = bd.endIndex ?? n - 1; const range = end - s;
       const dir = e.deltaY > 0 ? 1 : -1;
       const step = Math.max(Math.round(range * 0.1), 1);
       const center = Math.round((s + end) / 2);
       if (dir < 0) {
         const newRange = Math.max(3, range - step * 2);
         const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
-        const newE = Math.min(n - 1, newS + newRange);
         if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
+        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newS + newRange }));
       } else {
         const newS = Math.max(0, s - step);
         const newE = Math.min(n - 1, end + step);
@@ -293,18 +336,42 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
         raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
       }
     };
+
+    el.style.cursor = "crosshair";
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
       el.removeEventListener("wheel", onWheel);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [chartData.length]);
+
+  // Auto-upgrade period when panning/zooming to the left edge
+  useEffect(() => {
+    if ((brushDomain.startIndex ?? 0) > 0) return;
+    const periodOrder = ["1d", "1w", "1m", "1y", "5y", "all"];
+    const curIdx = periodOrder.indexOf(period);
+    if (curIdx < 0 || curIdx >= periodOrder.length - 1) return;
+    const timer = setTimeout(() => {
+      const bd = brushDomainRef.current;
+      if ((bd.startIndex ?? 0) === 0) {
+        setPeriod(periodOrder[curIdx + 1]);
+        setBrushDomain({});
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [brushDomain.startIndex, period]);
 
   const ret = periodReturn(history);
   const retPositive = ret !== null && ret >= 0;
@@ -573,6 +640,9 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                   <button onClick={() => setShowBB(v => !v)} className={cn("px-2 py-0.5 rounded-full border font-semibold transition-all", showBB ? "bg-indigo-500/20 border-indigo-400/60 text-indigo-600 dark:text-indigo-400" : "border-border text-muted-foreground")} data-testid="settings-toggle-bb">
                     {isKo ? "볼린저밴드" : "Bollinger Bands"}
                   </button>
+                  <button onClick={() => setLogScale(v => !v)} className={cn("px-2 py-0.5 rounded-full border font-semibold transition-all", logScale ? "bg-cyan-500/20 border-cyan-400/60 text-cyan-600 dark:text-cyan-400" : "border-border text-muted-foreground")} data-testid="settings-toggle-logscale">
+                    {isKo ? "로그 스케일" : "Log Scale"}
+                  </button>
                   <button onClick={() => setActiveTab("indicators")} className="px-2 py-0.5 rounded-full border font-semibold border-violet-400/40 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-all" data-testid="settings-goto-macd">
                     {isKo ? "MACD 보기 →" : "View MACD →"}
                   </button>
@@ -596,11 +666,31 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
               ) : chartData.length === 0 ? (
                 <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 없음" : "No data"}</div>
               ) : (
+                <>
+                {/* OHLC info strip */}
+                <div className="flex items-center gap-2 px-1 py-0.5 text-[10px] font-mono min-h-[18px]">
+                  {hoveredCandle ? (
+                    <>
+                      <span className="text-muted-foreground text-[9px]">{hoveredCandle.date}</span>
+                      <span>O <span className="text-foreground font-semibold">{formatPrice(hoveredCandle.open ?? hoveredCandle.close, { nativeCurrency: displayNative, compact: false })}</span></span>
+                      <span>H <span className="text-emerald-500 font-semibold">{formatPrice(hoveredCandle.high ?? hoveredCandle.close, { nativeCurrency: displayNative, compact: false })}</span></span>
+                      <span>L <span className="text-rose-500 font-semibold">{formatPrice(hoveredCandle.low ?? hoveredCandle.close, { nativeCurrency: displayNative, compact: false })}</span></span>
+                      <span>C <span className="font-semibold">{formatPrice(hoveredCandle.close, { nativeCurrency: displayNative, compact: false })}</span></span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground/40 text-[9px]">{isKo ? "차트에 마우스를 올리세요" : "Hover for OHLC"}</span>
+                  )}
+                </div>
                 <div ref={chartContainerRef} style={{ touchAction: "pan-y", maxWidth: "100vw" }}>
                   <ResponsiveContainer width="100%" height={260}>
-                    <ComposedChart data={visibleData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                    <ComposedChart
+                      data={visibleData}
+                      margin={{ top: 4, right: 4, left: -10, bottom: 0 }}
+                      onMouseMove={(d: any) => { if (d?.activePayload?.[0]) setHoveredCandle(d.activePayload[0].payload); }}
+                      onMouseLeave={() => setHoveredCandle(null)}
+                    >
                       <XAxis dataKey="date" tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                      <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency: displayNative, compact: true })} width={displayNative !== 'USD' ? 64 : 52} />
+                      <YAxis domain={logScale ? [Math.max(0.01, visibleData.reduce((m, d) => Math.min(m, d.low || d.close), Infinity) * 0.99), visibleData.reduce((m, d) => Math.max(m, d.high || d.close), 0) * 1.01] : ["auto", "auto"]} scale={logScale ? "log" : "linear"} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency: displayNative, compact: true })} width={displayNative !== 'USD' ? 64 : 52} allowDataOverflow />
                       <Tooltip content={renderTooltip} />
                       {showSR && srLevels.support.map((s, i) => (
                         <ReferenceLine key={`s-${i}`} y={s * priceMultiplier} stroke="#22c55e" strokeWidth={1} strokeDasharray="4 3" />
@@ -630,6 +720,7 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
+                </>
               )}
 
               {/* Volume sub-chart */}

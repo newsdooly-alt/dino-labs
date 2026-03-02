@@ -10,6 +10,7 @@ The core experience centers around:
 - Daily News section with market headlines from yfinance (Korean AI summaries available)
 - Real-time stock quotes and watchlist management via yfinance Python library (no API key required)
 - Stock Detail Page with advanced technical charts (S/R lines, volume bars, MA crossover signals), extended timeframes (1D/1W/1M/1Y/5Y/ALL), period-specific cumulative returns, key stats, and Dino's educational insights
+- **Chart Engine**: Full gesture support — mouse drag-to-pan, single-finger swipe panning (with horizontal/vertical direction detection), pinch-to-zoom, mousewheel zoom; LOG scale toggle for YAxis; OHLC info strip above chart that updates live on hover; auto-period-upgrade (smoothly advances to longer period when user pans/zooms to the left edge)
 - Gamification elements (XP, levels, streaks, hearts/lives)
 - Dynamic theme color system (Green/Blue/Pink) with real-time CSS variable swapping via ThemeColorContext
 - Mathematical leveling formula: nextLevelXP = 100 * level^1.2 (shared utility in shared/leveling.ts)
