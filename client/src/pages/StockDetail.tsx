@@ -24,20 +24,24 @@ import { translations } from "@/lib/translations";
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer,
+import {
+  ComposedChart,
+  Line,
+  Bar,
+  BarChart,
   Area,
-  AreaChart
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  Cell,
 } from "recharts";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
+import { calculateEMA, detectMACrossover, calculateSupportResistance } from "@/lib/technicalAnalysis";
 
 interface StockQuote {
   symbol: string;
@@ -101,10 +105,12 @@ interface WatchlistItem {
 }
 
 const periodOptions = [
-  { key: "1d", label: "1D", period: "1d", interval: "5m" },
-  { key: "1w", label: "1W", period: "5d", interval: "15m" },
-  { key: "1m", label: "1M", period: "1mo", interval: "1d" },
-  { key: "1y", label: "1Y", period: "1y", interval: "1wk" },
+  { key: "1d",  label: "1D",  period: "1d",  interval: "5m",   returnLabel: { en: "Today",    ko: "오늘"   } },
+  { key: "1w",  label: "1W",  period: "5d",  interval: "15m",  returnLabel: { en: "1 Week",   ko: "1주"    } },
+  { key: "1m",  label: "1M",  period: "1mo", interval: "1d",   returnLabel: { en: "1 Month",  ko: "1개월"  } },
+  { key: "1y",  label: "1Y",  period: "1y",  interval: "1wk",  returnLabel: { en: "1 Year",   ko: "1년"    } },
+  { key: "5y",  label: "5Y",  period: "5y",  interval: "1wk",  returnLabel: { en: "5 Years",  ko: "5년"    } },
+  { key: "all", label: "ALL", period: "max", interval: "1mo",  returnLabel: { en: "All Time", ko: "전체"   } },
 ];
 
 function formatMarketCap(value: number | null): string {
@@ -213,6 +219,9 @@ export default function StockDetail() {
   const [, params] = useRoute("/stock/:symbol");
   const symbol = params?.symbol?.toUpperCase() || "";
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
+  const [showVolume, setShowVolume] = useState(false);
+  const [showSignals, setShowSignals] = useState(false);
+  const [showSR, setShowSR] = useState(true);
   const { toast } = useToast();
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap: formatMarketCapCurrency, currencySymbol, isKoreanStock, isJapaneseStock } = useCurrency();
@@ -299,18 +308,59 @@ export default function StockDetail() {
   });
 
   const isIntraday = selectedPeriod === "1d";
-  const chartData = history?.data?.map(d => {
+  const rawHistoryData = history?.data || [];
+  const closePrices = rawHistoryData.map(d => d.close);
+
+  const ema5Values = calculateEMA(closePrices, 5);
+  const ema20Values = calculateEMA(closePrices, 20);
+  const crossoverSignals = (!isIntraday && closePrices.length >= 22)
+    ? detectMACrossover(closePrices, 5, 20)
+    : [];
+  const signalMap = new Map(crossoverSignals.map(s => [s.index, s.signal]));
+
+  const srLevels = (() => {
+    if (isIntraday || closePrices.length < 20) {
+      return {
+        supports: info?.["52WeekLow"] != null ? [info["52WeekLow"] as number] : [],
+        resistances: info?.["52WeekHigh"] != null ? [info["52WeekHigh"] as number] : [],
+      };
+    }
+    return calculateSupportResistance(closePrices, 2);
+  })();
+
+  const chartData = rawHistoryData.map((d, i) => {
     const dt = new Date(d.date);
     const label = isIntraday
       ? dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
       : dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" });
-    return { date: label, rawDate: d.date, price: d.close };
-  }) || [];
+    return {
+      date: label,
+      rawDate: d.date,
+      price: d.close,
+      open: d.open,
+      volume: d.volume ?? 0,
+      ema5: ema5Values[i] ?? null,
+      ema20: ema20Values[i] ?? null,
+      signal: signalMap.get(i) ?? null,
+      isUp: d.close >= d.open,
+    };
+  });
 
-  const priceChange = chartData.length > 1 
-    ? chartData[chartData.length - 1].price - chartData[0].price 
-    : 0;
-  const isPositive = (quote?.changePercent ?? 0) >= 0;
+  const periodReturnPct = selectedPeriod === "1d"
+    ? (quote?.changePercent ?? 0)
+    : chartData.length > 1
+      ? ((chartData[chartData.length - 1].price - chartData[0].price) / chartData[0].price) * 100
+      : (quote?.changePercent ?? 0);
+
+  const periodReturnAbs = selectedPeriod === "1d"
+    ? (quote?.change ?? 0)
+    : chartData.length > 1
+      ? chartData[chartData.length - 1].price - chartData[0].price
+      : (quote?.change ?? 0);
+
+  const isPeriodPositive = periodReturnPct >= 0;
+  const isPositive = isPeriodPositive;
+  const periodLabelStr = periodOptions.find(p => p.key === selectedPeriod)?.returnLabel[lang === "ko" ? "ko" : "en"] ?? "";
 
   const dinoInsight = getDinoInsight(info || null, lang);
 
@@ -384,11 +434,30 @@ export default function StockDetail() {
                 {formatPrice(quote?.price, { nativeCurrency })}
               </div>
               <div className={cn(
-                "flex items-center gap-1 text-lg font-semibold",
-                isPositive ? "text-primary" : "text-destructive"
+                "flex items-center gap-1 text-base font-semibold flex-wrap justify-end",
+                isPeriodPositive ? "text-primary" : "text-destructive"
               )}>
-                {isPositive ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                {isPositive ? "+" : ""}{quote?.change?.toFixed(2) || "0.00"} ({isPositive ? "+" : ""}{quote?.changePercent?.toFixed(2) || "0.00"}%)
+                {isPeriodPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                {selectedPeriod === "1d" ? (
+                  <>
+                    {(quote?.change ?? 0) >= 0 ? "+" : ""}
+                    {quote?.change?.toFixed(2) || "0.00"}{" "}
+                    ({(quote?.changePercent ?? 0) >= 0 ? "+" : ""}
+                    {quote?.changePercent?.toFixed(2) || "0.00"}%)
+                  </>
+                ) : (
+                  <>
+                    {isPeriodPositive ? "+" : ""}
+                    {formatPrice(periodReturnAbs, { nativeCurrency })}{" "}
+                    ({isPeriodPositive ? "+" : ""}
+                    {periodReturnPct.toFixed(2)}%)
+                  </>
+                )}
+                {selectedPeriod !== "1d" && chartData.length > 1 && (
+                  <span className="text-xs text-muted-foreground font-normal ml-0.5">
+                    ({periodLabelStr})
+                  </span>
+                )}
               </div>
             </>
           )}
@@ -423,12 +492,13 @@ export default function StockDetail() {
             <CardTitle className="text-lg">
               {lang === "en" ? "Price Chart" : "가격 차트"}
             </CardTitle>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {periodOptions.map((opt) => (
                 <Button
                   key={opt.key}
                   variant={selectedPeriod === opt.key ? "default" : "ghost"}
                   size="sm"
+                  className="px-2.5 h-7 text-xs"
                   onClick={() => setSelectedPeriod(opt.key)}
                   data-testid={`button-period-${opt.key}`}
                 >
@@ -437,67 +507,309 @@ export default function StockDetail() {
               ))}
             </div>
           </div>
+
+          {/* Overlay toggles */}
+          <div className="flex gap-2 flex-wrap mt-2">
+            <button
+              onClick={() => setShowSR(v => !v)}
+              className={cn(
+                "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all",
+                showSR
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40"
+                  : "bg-muted/50 text-muted-foreground border-border"
+              )}
+              data-testid="button-toggle-sr"
+            >
+              {lang === "ko" ? "지지/저항선" : "S/R Lines"}
+            </button>
+            <button
+              onClick={() => setShowVolume(v => !v)}
+              className={cn(
+                "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all",
+                showVolume
+                  ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-400/40"
+                  : "bg-muted/50 text-muted-foreground border-border"
+              )}
+              data-testid="button-toggle-volume"
+            >
+              {lang === "ko" ? "거래량" : "Volume"}
+            </button>
+            {!isIntraday && (
+              <button
+                onClick={() => setShowSignals(v => !v)}
+                className={cn(
+                  "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all",
+                  showSignals
+                    ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-400/40"
+                    : "bg-muted/50 text-muted-foreground border-border"
+                )}
+                data-testid="button-toggle-signals"
+              >
+                {lang === "ko" ? "매매 시그널" : "MA Signals"}
+              </button>
+            )}
+            {/* Legend when signals are on */}
+            {showSignals && !isIntraday && (
+              <div className="flex items-center gap-3 ml-1">
+                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
+                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[7px] font-black">B</span>
+                  {lang === "ko" ? "매수" : "Buy"}
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-rose-500 font-bold">
+                  <span className="w-3.5 h-3.5 rounded-full bg-rose-500 flex items-center justify-center text-white text-[7px] font-black">S</span>
+                  {lang === "ko" ? "매도" : "Sell"}
+                </span>
+                <span className="text-[10px] text-amber-500 font-semibold">━ EMA5</span>
+                <span className="text-[10px] text-purple-500 font-semibold">━ EMA20</span>
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+
+        <CardContent className="px-2 pb-3 sm:px-6">
           {isHistoryLoading ? (
             <div className="h-64 flex items-center justify-center">
               <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis 
-                  domain={['auto', 'auto']} 
-                  axisLine={false} 
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
-                  tickFormatter={(v) => formatPrice(v, { nativeCurrency, compact: true })}
-                  width={isKr || isJp ? 80 : 60}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatPrice(value, { nativeCurrency }), lang === "ko" ? "가격" : "Price"]}
-                  labelFormatter={(label, payload) => {
-                    if (payload?.[0]?.payload?.rawDate) {
-                      const dt = new Date(payload[0].payload.rawDate);
-                      if (isIntraday) {
-                        return dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+            <>
+              {/* ── Main price chart ── */}
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={chartData} margin={{ top: 8, right: isKr || isJp ? 10 : 8, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="colorPriceFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    domain={["auto", "auto"]}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
+                    tickFormatter={(v) => formatPrice(v, { nativeCurrency, compact: true })}
+                    width={isKr || isJp ? 72 : 56}
+                  />
+
+                  <Tooltip
+                    formatter={(value: number, name: string) => {
+                      if (name === "price") return [formatPrice(value, { nativeCurrency }), lang === "ko" ? "가격" : "Price"];
+                      if (name === "ema5") return [formatPrice(value, { nativeCurrency, compact: true }), "EMA 5"];
+                      if (name === "ema20") return [formatPrice(value, { nativeCurrency, compact: true }), "EMA 20"];
+                      return [value, name];
+                    }}
+                    labelFormatter={(label, payload) => {
+                      if (payload?.[0]?.payload?.rawDate) {
+                        const dt = new Date(payload[0].payload.rawDate);
+                        if (isIntraday) {
+                          return dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+                        }
+                        return dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" });
                       }
-                      return dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" });
-                    }
-                    return label;
-                  }}
-                  contentStyle={{ 
-                    backgroundColor: theme === "dark" ? "hsl(140, 25%, 10%)" : "hsl(0, 0%, 100%)", 
-                    border: theme === "dark" ? "1px solid hsl(140, 20%, 18%)" : "1px solid hsl(140, 15%, 85%)",
-                    borderRadius: '8px',
-                    color: theme === "dark" ? "hsl(140, 15%, 95%)" : "hsl(140, 30%, 10%)"
-                  }}
-                  labelStyle={{
-                    color: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)"
-                  }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="price" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2}
-                  fill="url(#colorPrice)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                      return label;
+                    }}
+                    contentStyle={{
+                      backgroundColor: theme === "dark" ? "hsl(140, 25%, 10%)" : "hsl(0, 0%, 100%)",
+                      border: theme === "dark" ? "1px solid hsl(140, 20%, 18%)" : "1px solid hsl(140, 15%, 85%)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      color: theme === "dark" ? "hsl(140, 15%, 95%)" : "hsl(140, 30%, 10%)",
+                    }}
+                    labelStyle={{ color: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
+                  />
+
+                  {/* Support / Resistance reference lines */}
+                  {showSR && srLevels.resistances.map((level, i) => (
+                    <ReferenceLine
+                      key={`res-${i}`}
+                      y={level}
+                      stroke="#ef4444"
+                      strokeDasharray="5 3"
+                      strokeWidth={1.5}
+                      strokeOpacity={0.75}
+                      label={{
+                        value: lang === "ko" ? "주요 저항선" : "Resistance",
+                        position: i === 0 ? "insideTopRight" : "insideBottomRight",
+                        fontSize: 9,
+                        fill: "#ef4444",
+                        dx: -4,
+                      }}
+                    />
+                  ))}
+                  {showSR && srLevels.supports.map((level, i) => (
+                    <ReferenceLine
+                      key={`sup-${i}`}
+                      y={level}
+                      stroke="#22c55e"
+                      strokeDasharray="5 3"
+                      strokeWidth={1.5}
+                      strokeOpacity={0.75}
+                      label={{
+                        value: lang === "ko" ? "주요 지지선" : "Support",
+                        position: i === 0 ? "insideBottomRight" : "insideTopRight",
+                        fontSize: 9,
+                        fill: "#22c55e",
+                        dx: -4,
+                      }}
+                    />
+                  ))}
+
+                  {/* EMA lines (only when signals overlay is on) */}
+                  {showSignals && !isIntraday && (
+                    <>
+                      <Line
+                        type="monotone"
+                        dataKey="ema5"
+                        stroke="#f59e0b"
+                        strokeWidth={1.5}
+                        dot={false}
+                        isAnimationActive={false}
+                        connectNulls
+                        name="ema5"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="ema20"
+                        stroke="#a855f7"
+                        strokeWidth={1.5}
+                        dot={false}
+                        isAnimationActive={false}
+                        connectNulls
+                        name="ema20"
+                      />
+                    </>
+                  )}
+
+                  {/* Price area with signal dots */}
+                  <Area
+                    type="monotone"
+                    dataKey="price"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    fill="url(#colorPriceFill)"
+                    isAnimationActive={false}
+                    name="price"
+                    dot={(dotProps: any) => {
+                      const { cx, cy, payload } = dotProps;
+                      if (!showSignals || isIntraday || !payload?.signal) {
+                        return <circle key={`dot-${cx}`} cx={cx} cy={cy} r={0} fill="none" />;
+                      }
+                      const isBuy = payload.signal === "buy";
+                      const dotY = isBuy ? cy + 16 : cy - 16;
+                      return (
+                        <g key={`signal-${cx}-${cy}`}>
+                          <circle cx={cx} cy={dotY} r={9} fill={isBuy ? "#22c55e" : "#ef4444"} stroke="white" strokeWidth={1.5} />
+                          <text x={cx} y={dotY + 3.5} textAnchor="middle" fontSize={8} fill="white" fontWeight="bold">
+                            {isBuy ? "B" : "S"}
+                          </text>
+                          <text x={cx} y={isBuy ? cy + 32 : cy - 20} textAnchor="middle" fontSize={8} fill={isBuy ? "#22c55e" : "#ef4444"} fontWeight="bold">
+                            {isBuy ? (lang === "ko" ? "매수" : "Buy") : (lang === "ko" ? "매도" : "Sell")}
+                          </text>
+                        </g>
+                      );
+                    }}
+                    activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--primary))", fill: "white" }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+
+              {/* ── Volume chart ── */}
+              {showVolume && (
+                <div className="mt-1 border-t border-border/30 pt-1">
+                  <p className="text-[9px] text-muted-foreground text-center mb-0.5">
+                    {lang === "ko" ? "거래량" : "Volume"}
+                  </p>
+                  <ResponsiveContainer width="100%" height={64}>
+                    <BarChart data={chartData} margin={{ top: 0, right: isKr || isJp ? 10 : 8, bottom: 0, left: 0 }}>
+                      <XAxis dataKey="date" hide />
+                      <YAxis hide />
+                      <Tooltip
+                        formatter={(value: number) => [
+                          value >= 1e9 ? `${(value / 1e9).toFixed(1)}B` :
+                          value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` :
+                          value >= 1e3 ? `${(value / 1e3).toFixed(0)}K` :
+                          value.toLocaleString(),
+                          lang === "ko" ? "거래량" : "Volume"
+                        ]}
+                        contentStyle={{
+                          backgroundColor: theme === "dark" ? "hsl(140, 25%, 10%)" : "hsl(0, 0%, 100%)",
+                          border: theme === "dark" ? "1px solid hsl(140, 20%, 18%)" : "1px solid hsl(140, 15%, 85%)",
+                          borderRadius: "8px",
+                          fontSize: "11px",
+                        }}
+                      />
+                      <Bar dataKey="volume" radius={[1, 1, 0, 0]} maxBarSize={20} isAnimationActive={false}>
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`vol-${index}`}
+                            fill={entry.isUp ? "rgba(34,197,94,0.55)" : "rgba(239,68,68,0.55)"}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* ── Signal description panel ── */}
+              {showSignals && !isIntraday && crossoverSignals.length > 0 && (() => {
+                const lastSignal = crossoverSignals[crossoverSignals.length - 1];
+                const lastSignalPoint = chartData[lastSignal.index];
+                const isBuy = lastSignal.signal === "buy";
+                return (
+                  <div className={cn(
+                    "mt-3 mx-1 p-3 rounded-xl border text-sm",
+                    isBuy ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-700 dark:text-emerald-400"
+                          : "bg-rose-500/10 border-rose-400/30 text-rose-700 dark:text-rose-400"
+                  )}>
+                    <p className="font-bold mb-0.5">
+                      {lang === "ko"
+                        ? `최근 시그널: ${isBuy ? "📈 매수" : "📉 매도"}`
+                        : `Latest Signal: ${isBuy ? "📈 Buy" : "📉 Sell"}`}
+                    </p>
+                    <p className="text-xs opacity-80">
+                      {lang === "ko"
+                        ? isBuy
+                          ? `단기 이평선(EMA5)이 장기 이평선(EMA20)을 상향 돌파했습니다 — ${lastSignalPoint?.date ?? ""}`
+                          : `단기 이평선(EMA5)이 장기 이평선(EMA20)을 하향 돌파했습니다 — ${lastSignalPoint?.date ?? ""}`
+                        : isBuy
+                          ? `Short EMA(5) crossed above Long EMA(20) — ${lastSignalPoint?.date ?? ""}`
+                          : `Short EMA(5) crossed below Long EMA(20) — ${lastSignalPoint?.date ?? ""}`}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* ── Period return summary ── */}
+              {chartData.length > 1 && selectedPeriod !== "1d" && (
+                <div className="mt-3 flex flex-wrap gap-3 px-1">
+                  <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
+                    <span className="text-muted-foreground">
+                      {lang === "ko" ? `${periodLabelStr} 수익률` : `${periodLabelStr} Return`}
+                    </span>
+                    <span className={cn("font-bold", isPeriodPositive ? "text-emerald-500" : "text-rose-500")}>
+                      {isPeriodPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
+                    <span className="text-muted-foreground">
+                      {lang === "ko" ? "시작가" : "Start"}
+                    </span>
+                    <span className="font-mono font-semibold">
+                      {formatPrice(chartData[0].price, { nativeCurrency })}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="h-64 flex items-center justify-center text-muted-foreground">
               <AlertCircle className="w-5 h-5 mr-2" />
