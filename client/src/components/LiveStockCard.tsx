@@ -8,8 +8,6 @@ import { translations } from "@/lib/translations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName, JP_ADR_MAP, ADR_TO_LOCAL_MAP } from "@/lib/stockNames";
-import { StockAnalysisModal } from "@/components/StockAnalysisModal";
-import { useState } from "react";
 
 function getStockNativeCurrency(symbol: string): "KRW" | "JPY" | "USD" {
   const s = symbol.toUpperCase();
@@ -72,9 +70,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
-  const isKo = lang === "ko";
   const { formatPrice } = useCurrency();
-  const [analysisModal, setAnalysisModal] = useState<{ symbol: string; name: string } | null>(null);
   
   const { data, isLoading, error, refetch, isRefetching } = useQuery<LiveStockResponse>({
     queryKey: ["/api/stocks/live", symbols.join(",")],
@@ -145,7 +141,6 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
   const showFallbackBanner = error || !hasValidData;
 
   return (
-    <>
     <div className="space-y-2">
       {showFallbackBanner && (
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 pb-2 border-b border-border">
@@ -173,56 +168,47 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         const { isJPLocal, adrTicker } = getADRInfo(quote.symbol);
 
         return (
-          <div key={quote.symbol} className="py-1.5" data-testid={`stock-${quote.symbol}`}>
-            <div
-              className={cn(
-                "flex items-center justify-between p-2 rounded-lg transition-colors",
-                clickable && "cursor-pointer hover-elevate"
-              )}
-              onClick={clickable ? () => navigate(`/stock/${quote.symbol}`) : undefined}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="min-w-0">
-                  <h4 className="font-bold text-sm leading-tight truncate">{localName}</h4>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-xs text-muted-foreground font-mono">{quote.symbol}</p>
-                    {isJPLocal && adrTicker && (
-                      <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded font-semibold">
-                        US: {adrTicker}
-                      </span>
-                    )}
-                    {quote.isStale && (
-                      <span className="text-[10px] text-muted-foreground/50">*</span>
-                    )}
-                  </div>
+          <div
+            key={quote.symbol}
+            className={cn(
+              "flex items-center justify-between p-2 rounded-lg transition-colors",
+              clickable && "cursor-pointer hover-elevate"
+            )}
+            onClick={clickable ? () => navigate(`/stock/${quote.symbol}`) : undefined}
+            data-testid={`stock-${quote.symbol}`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <h4 className="font-bold text-sm leading-tight truncate">{localName}</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-xs text-muted-foreground font-mono">{quote.symbol}</p>
+                  {isJPLocal && adrTicker && (
+                    <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded font-semibold">
+                      US: {adrTicker}
+                    </span>
+                  )}
+                  {quote.isStale && (
+                    <span className="text-[10px] text-muted-foreground/50">*</span>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="text-right">
-                  <div className="font-mono font-medium text-sm">
-                    {quote.price > 0
-                      ? formatPrice(quote.price, { nativeCurrency: nativeCurr })
-                      : "--"}
-                  </div>
-                  <div className={cn(
-                    "text-xs font-bold",
-                    quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                  )}>
-                    {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
-                  </div>
-                </div>
-                {clickable && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
               </div>
             </div>
-            {clickable && (
-              <button
-                onClick={() => setAnalysisModal({ symbol: quote.symbol, name: quote.name || quote.symbol })}
-                className="ml-2 mt-0.5 text-[11px] font-semibold text-primary/70 hover:text-primary transition-colors border border-primary/20 hover:border-primary/50 rounded-full px-3 py-0.5"
-                data-testid={`button-details-${quote.symbol}`}
-              >
-                {isKo ? "자세히 보기" : "See Details"}
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-right">
+                <div className="font-mono font-medium text-sm">
+                  {quote.price > 0
+                    ? formatPrice(quote.price, { nativeCurrency: nativeCurr })
+                    : "--"}
+                </div>
+                <div className={cn(
+                  "text-xs font-bold",
+                  quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                )}>
+                  {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
+                </div>
+              </div>
+              {clickable && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+            </div>
           </div>
         );
       })}
@@ -258,16 +244,5 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         </div>
       )}
     </div>
-
-    {analysisModal && (
-      <StockAnalysisModal
-        symbol={analysisModal.symbol}
-        name={analysisModal.name}
-        isOpen={true}
-        onClose={() => setAnalysisModal(null)}
-        lang={isKo ? "ko" : "en"}
-      />
-    )}
-  </>
   );
 }

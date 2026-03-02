@@ -17,7 +17,8 @@ import {
   Newspaper,
   ExternalLink,
   CandlestickChart,
-  LineChart
+  LineChart,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -50,6 +51,7 @@ import {
   detectMACrossover,
   calculateSupportResistance,
 } from "@/lib/technicalAnalysis";
+import { StockAnalysisModal } from "@/components/StockAnalysisModal";
 
 interface StockQuote {
   symbol: string;
@@ -225,6 +227,7 @@ export default function StockDetail() {
   const [showRSI, setShowRSI] = useState(false);
   const [showBB, setShowBB] = useState(false);
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
+  const [showProModal, setShowProModal] = useState(false);
   const { toast } = useToast();
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock } = useCurrency();
@@ -594,7 +597,7 @@ export default function StockDetail() {
       {/* ── Chart Card ── */}
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
-          {/* Top row: period tabs + chart type toggle */}
+          {/* Top row: period tabs + chart type toggle + Pro button */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex gap-1">
               {periodOptions.map((opt) => (
@@ -603,21 +606,32 @@ export default function StockDetail() {
                 </Button>
               ))}
             </div>
-            {/* Chart type toggle */}
-            <div className="flex gap-1.5 items-center">
+            <div className="flex items-center gap-2">
+              {/* Chart type toggle */}
+              <div className="flex gap-0 items-center">
+                <button
+                  onClick={() => setChartType("candle")}
+                  className={cn("flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-l-full border transition-all", chartType === "candle" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border")}
+                  data-testid="button-chart-candle"
+                >
+                  <CandlestickChart className="w-3 h-3" />{lang === "ko" ? "캔들" : "Candle"}
+                </button>
+                <button
+                  onClick={() => setChartType("area")}
+                  className={cn("flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-r-full border-y border-r transition-all", chartType === "area" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border")}
+                  data-testid="button-chart-area"
+                >
+                  <LineChart className="w-3 h-3" />{lang === "ko" ? "라인" : "Line"}
+                </button>
+              </div>
+              {/* Pro Dashboard overlay button */}
               <button
-                onClick={() => setChartType("candle")}
-                className={cn("flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-l-full border transition-all", chartType === "candle" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border")}
-                data-testid="button-chart-candle"
+                onClick={() => setShowProModal(true)}
+                className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation"
+                data-testid="button-pro-analysis"
               >
-                <CandlestickChart className="w-3 h-3" />{lang === "ko" ? "캔들" : "Candle"}
-              </button>
-              <button
-                onClick={() => setChartType("area")}
-                className={cn("flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-r-full border-y border-r transition-all", chartType === "area" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border")}
-                data-testid="button-chart-area"
-              >
-                <LineChart className="w-3 h-3" />{lang === "ko" ? "라인" : "Line"}
+                <Zap className="w-3 h-3" />
+                {lang === "ko" ? "자세히 보기" : "Pro View"}
               </button>
             </div>
           </div>
@@ -992,6 +1006,16 @@ export default function StockDetail() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {showProModal && (
+        <StockAnalysisModal
+          symbol={symbol}
+          name={quote?.name || symbol}
+          isOpen={showProModal}
+          onClose={() => setShowProModal(false)}
+          lang={lang === "ko" ? "ko" : "en"}
+        />
       )}
     </div>
   );

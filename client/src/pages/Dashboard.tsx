@@ -1,7 +1,6 @@
 import { useUser } from "@/hooks/use-user";
 import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
-import { StockAnalysisModal } from "@/components/StockAnalysisModal";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
 import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search } from "lucide-react";
@@ -14,7 +13,6 @@ import { useTimezone } from "@/contexts/TimezoneContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { calculateLevel, xpProgressInLevel } from "@shared/leveling";
-import { useState } from "react";
 
 interface MarketMoodData {
   index: number;
@@ -62,7 +60,6 @@ export default function Dashboard() {
   const isKo = lang === "ko";
   const { formatPrice, isKoreanStock } = useCurrency();
   const { formatTime, timezoneLabel } = useTimezone();
-  const [analysisModal, setAnalysisModal] = useState<{ symbol: string; name: string } | null>(null);
 
   const displayName = getNickname(user?.nickname || "Guest");
 
@@ -129,7 +126,6 @@ export default function Dashboard() {
   const quotes = stockData?.quotes?.filter(q => q.price > 0) || [];
 
   return (
-    <>
     <div className="w-full max-w-lg mx-auto px-5 py-8 space-y-10">
 
       {/* ── Header + Search ── */}
@@ -240,37 +236,30 @@ export default function Dashboard() {
             {quotes.map((quote) => {
               const displayStockName = getLocalizedCompanyName(cleanCompanyName(quote.name || quote.symbol), lang);
               return (
-              <div key={quote.symbol} className="py-3" data-testid={`stock-row-${quote.symbol}`}>
-                <div
-                  className="flex items-center justify-between cursor-pointer hover-elevate rounded-lg px-2 -mx-2 py-1"
-                  onClick={() => navigate(`/stock/${quote.symbol}`)}
-                >
-                  <div className="min-w-0">
-                    <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{displayStockName}</p>
-                    <p className="text-xs text-muted-foreground" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-base font-mono font-bold tabular-nums" data-testid={`text-price-${quote.symbol}`}>
-                        {formatPrice(quote.price, { nativeCurrency: isKoreanStock(quote.symbol) ? 'KRW' : 'USD' })}
-                      </p>
-                      <p className={cn(
-                        "text-xs font-bold tabular-nums",
-                        quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                      )} data-testid={`text-change-${quote.symbol}`}>
-                        {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </div>
+              <div
+                key={quote.symbol}
+                className="flex items-center justify-between py-4 cursor-pointer hover-elevate rounded-lg px-2 -mx-2"
+                onClick={() => navigate(`/stock/${quote.symbol}`)}
+                data-testid={`stock-row-${quote.symbol}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{displayStockName}</p>
+                  <p className="text-xs text-muted-foreground" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
                 </div>
-                <button
-                  onClick={() => setAnalysisModal({ symbol: quote.symbol, name: quote.name || quote.symbol })}
-                  className="mt-1 ml-2 text-[11px] font-semibold text-primary/70 hover:text-primary transition-colors border border-primary/20 hover:border-primary/50 rounded-full px-3 py-0.5"
-                  data-testid={`button-details-${quote.symbol}`}
-                >
-                  {isKo ? "자세히 보기" : "See Details"}
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-base font-mono font-bold tabular-nums" data-testid={`text-price-${quote.symbol}`}>
+                      {formatPrice(quote.price, { nativeCurrency: isKoreanStock(quote.symbol) ? 'KRW' : 'USD' })}
+                    </p>
+                    <p className={cn(
+                      "text-xs font-bold tabular-nums",
+                      quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                    )} data-testid={`text-change-${quote.symbol}`}>
+                      {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </div>
               </div>
               );
             })}
@@ -375,16 +364,5 @@ export default function Dashboard() {
       </motion.section>
 
     </div>
-
-    {analysisModal && (
-      <StockAnalysisModal
-        symbol={analysisModal.symbol}
-        name={analysisModal.name}
-        isOpen={true}
-        onClose={() => setAnalysisModal(null)}
-        lang={isKo ? "ko" : "en"}
-      />
-    )}
-    </>
   );
 }
