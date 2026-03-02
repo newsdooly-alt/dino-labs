@@ -158,11 +158,20 @@ Preferred communication style: Simple, everyday language.
 - **4 Category Types**: valuation (overvalued/undervalued), impact (good/bad news), technical (overbought/oversold), movement (upward/downward)
 - **Frontend**: Keyword highlighting renders `**bold**` markdown as colored spans; vertically stacked answer buttons; source badge shows quiz origin
 
-### Quest System
-- **Quest Types**: term, pattern, news, search, compare, valuation, practice
-- **Daily Quests**: 6 varied quests generated per day via AI (15-25 XP each)
+### Quest System (Expanded March 2026)
+- **Quest Types (11 total)**: term, pattern, news, search, compare, valuation, sector, dividend, earnings, hedge, insider + practice
+- **Dino Tier Labels**: Baby Dino (beginner), Raptor Hunter (intermediate), T-Rex Investor (advanced) — shown as badges on each quest card
+- **Daily Quests**: 6 varied quests generated per day via AI (15-25 XP each) from 11 quest types
+- **Dino Journey Progress Bar**: 5-stage animated progress bar (🥚 Egg → 🦕 Baby Dino → 🦖 Raptor Hunter → 🦴 T-Rex Investor → 👑 Dino King)
+- **Quest Chain UI**: Quests lock/unlock sequentially — each quest unlocks after the previous one completes
+- **Special Daily Quests** (frontend-only, localStorage tracked):
+  - Morning Briefing: Complete by reading news, awards 20 XP
+  - Daily Prediction: Predict S&P 500 direction (up/down), awards 15 XP for participating
+- **Hidden Quest**: Appears when user visits Economic Calendar (localStorage flag), awards 25 XP
+- **Weekly Challenge**: "Weekly Top Picker" — pick a stock for the week, awards 30 XP first time per week
+- **Special XP Endpoint**: POST /api/quests/special/complete — awards XP for special quests
 - **Practice Mode**: Endless learning mode with AI-generated questions (5 XP each, no hearts lost)
-- **Generator**: `server/lib/quiz-generator.ts`
+- **Generator**: `server/lib/quiz-generator.ts` (11 types, bilingual EN+KO, with new fallback pools)
 
 ### Daily News
 - **News Source**: yfinance news API from major market tickers

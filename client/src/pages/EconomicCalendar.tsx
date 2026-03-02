@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -354,6 +354,10 @@ type CountryFilter = "ALL" | typeof ALL_COUNTRIES[number];
 export default function EconomicCalendar() {
   const { data: user } = useUser();
   const lang = user?.language || "en";
+
+  useEffect(() => {
+    localStorage.setItem("dinolingo_calendar_visited", "true");
+  }, []);
 
   const [viewMonth, setViewMonth] = useState<Date>(startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());

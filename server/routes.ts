@@ -458,6 +458,21 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/quests/special/complete", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const { xpAmount } = req.body;
+    const xp = Math.min(Math.max(Number(xpAmount) || 15, 5), 50);
+    const profile = await storage.getUserProfile(userId);
+    if (profile) {
+      const newXp = profile.xp + xp;
+      const newLevel = Math.floor(newXp / 100) + 1;
+      await storage.updateUserStats(userId, profile.streak, newXp, newLevel, profile.hearts);
+      return res.json({ success: true, xpGained: xp, newXp, newLevel });
+    }
+    res.status(404).json({ message: "Profile not found" });
+  });
+
   app.post("/api/quests/practice/complete", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });

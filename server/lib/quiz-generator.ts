@@ -49,43 +49,53 @@ export async function generateDailyQuests(userId: string, language: string = 'en
     
     중요: 사용자 레벨 - ${skillDescription}
     
-    퀘스트 유형 (각각 1개씩 포함):
-    1. "term": 금융 용어(예: "P/E Ratio", "Dividend", "Market Cap")에 대한 퀴즈.
-    2. "pattern": 차트 패턴(예: "Bull Flag", "Head and Shoulders")에 대한 설명과 이를 식별하도록 요청.
-    3. "news": 일반적인 시장 뉴스 시나리오 퀴즈(예: "연준이 금리를 올리면 일반적으로 채권 가격은 어떻게 됩니까?").
-    4. "search": "${randomStock1}" 종목에 대한 질문 (예: "${randomStock1}의 섹터는 무엇입니까?" 또는 "${randomStock1}은 어떤 산업에 속합니까?").
-    5. "compare": "${randomStock1}"와 "${randomStock2}" 두 종목을 비교하는 질문 (예: "다음 중 시가총액이 더 큰 회사는?").
-    6. "valuation": PER이 20 미만인 주식을 찾는 것과 관련된 밸류에이션 퀴즈 (예: "PER이 낮다는 것은 무엇을 의미합니까?").
+    다음 11가지 유형 중 6가지를 다양하게 선택하세요 (중복 없이):
+    1. "term": 금융 용어(예: P/E, 배당금, 시가총액, ETF, RSI)에 대한 퀴즈.
+    2. "pattern": 차트 패턴(예: Bull Flag, 헤드앤숄더, 골든크로스)에 대한 퀴즈.
+    3. "news": 시장 뉴스 시나리오(예: "연준이 금리를 올리면 채권 가격은?").
+    4. "search": "${randomStock1}" 종목에 대한 질문.
+    5. "compare": "${randomStock1}"와 "${randomStock2}" 비교 질문.
+    6. "valuation": 밸류에이션 퀴즈 (PER, PBR, DCF, EV/EBITDA 등).
+    7. "sector": 섹터 로테이션 질문 (예: "금리 상승기에 어떤 섹터가 유리한가?", "경기 침체기에 강한 방어적 섹터는?").
+    8. "dividend": 배당 관련 퀴즈 (예: "배당 수익률 3% 이상 종목 특징", "배당성장주란?", "배당 재투자 전략").
+    9. "earnings": 실적 발표 시나리오 (예: "어닝 서프라이즈란?", "실적 발표 전후 주가 패턴").
+    10. "hedge": 헤지 전략 질문 (예: "시장 10% 하락 시 안전자산은?", "인플레이션 헤지 수단은?").
+    11. "insider": 슈퍼인베스터 추적 (예: "워렌 버핏이 장기 보유하는 이유는?", "기관 매수 신호의 의미는?").
 
     각 퀘스트 객체는 다음을 포함해야 합니다:
-    - type: "term" | "pattern" | "news" | "search" | "compare" | "valuation"
-    - question: string (한국어)
+    - type: 위 11가지 유형 중 하나
+    - question: string (한국어, 구체적이고 교육적인 질문)
     - options: string[] (4개의 옵션, 한국어)
     - correctAnswer: number (0-3 인덱스)
-    - explanation: string (정답에 대한 짧은 설명, 한국어)
-    - xpReward: number (15-25)
+    - explanation: string (정답에 대한 짧은 설명, 한국어, 2-3문장)
+    - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend=20, earnings/hedge/insider=25)
     - targetSymbol: string (search, compare 타입일 경우 해당 종목 심볼, 그 외는 null)
   ` : `
-    Generate 6 varied daily stock market quests for a user learning about US stocks.
+    Generate 6 varied daily stock market quests for a user learning about US/global stocks.
     Return a JSON object with a key "quests" which is an array of 6 objects.
     
     IMPORTANT: User skill level - ${skillDescription}
     
-    Quest types (include one of each):
-    1. "term": A quiz about a financial term (e.g., "P/E Ratio", "Dividend", "Market Cap").
-    2. "pattern": A description of a chart pattern (e.g., "Bull Flag", "Head and Shoulders") and ask to identify it.
-    3. "news": A generic market news scenario quiz (e.g., "If the Fed raises rates, what typically happens to bond prices?").
-    4. "search": A question about the stock "${randomStock1}" (e.g., "What sector does ${randomStock1} belong to?" or "What industry is ${randomStock1} in?").
-    5. "compare": A question comparing "${randomStock1}" and "${randomStock2}" stocks (e.g., "Which company has a larger market cap?").
-    6. "valuation": A valuation quiz related to finding stocks with P/E below 20 (e.g., "What does a low P/E ratio indicate?").
+    Pick 6 diverse types from the following 11 (no duplicates):
+    1. "term": A quiz about a financial term (P/E, Dividend, Market Cap, ETF, RSI, etc.).
+    2. "pattern": A chart pattern quiz (Bull Flag, Head and Shoulders, Golden Cross, etc.).
+    3. "news": A market news scenario (e.g., "If the Fed raises rates, what happens to bond prices?").
+    4. "search": A question about the stock "${randomStock1}".
+    5. "compare": A comparison question between "${randomStock1}" and "${randomStock2}".
+    6. "valuation": A valuation quiz (P/E, P/B, DCF, EV/EBITDA, etc.).
+    7. "sector": Sector rotation question (e.g., "Which sector benefits from rising interest rates?", "What is a defensive sector during recessions?").
+    8. "dividend": Dividend quiz (e.g., "What is a dividend yield above 3%?", "What is a dividend growth stock?").
+    9. "earnings": Earnings scenario (e.g., "What is an earnings surprise?", "Stock price patterns around earnings announcements").
+    10. "hedge": Hedging strategy quiz (e.g., "What are safe haven assets in a 10% market drop?", "How to hedge against inflation?").
+    11. "insider": Super investor tracking (e.g., "Why does Warren Buffett hold long-term?", "What does institutional buying signal?").
 
     Each quest object must have:
-    - type: "term" | "pattern" | "news" | "search" | "compare" | "valuation"
-    - question: string
+    - type: one of the 11 types above
+    - question: string (specific, educational question)
     - options: string[] (4 options)
     - correctAnswer: number (0-3 index)
-    - explanation: string (short explanation of the answer)
-    - xpReward: number (15-25)
+    - explanation: string (2-3 sentence explanation of the answer)
+    - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend=20, earnings/hedge/insider=25)
     - targetSymbol: string (the stock symbol for search/compare quests, null for others)
   `;
 
@@ -242,6 +252,16 @@ const dailyQuestsPoolEn: FallbackQuestData[] = [
   { level: "advanced", type: "compare", question: "When comparing two companies, what does Enterprise Value (EV) capture that market cap does not?", options: ["Stock price history", "Debt and cash positions", "Number of products", "Employee satisfaction"], correctAnswer: 1, explanation: "Enterprise Value includes market cap plus debt minus cash, giving a more complete picture of a company's total value.", xpReward: 25 },
   { level: "advanced", type: "valuation", question: "What does a high short interest ratio indicate about market sentiment?", options: ["Strong bullish consensus", "Many investors are betting the stock will decline", "The company is about to split", "Dividend increase is expected"], correctAnswer: 1, explanation: "A high short interest ratio means many investors have sold shares short, indicating bearish sentiment and expectations of a price decline.", xpReward: 25 },
   { level: "advanced", type: "news", question: "How does margin trading amplify both gains and losses?", options: ["It doesn't affect returns", "Borrowed funds increase position size beyond your capital", "It only amplifies gains", "It reduces transaction fees"], correctAnswer: 1, explanation: "Margin trading uses borrowed funds to increase position size, which magnifies both potential gains and losses proportionally.", xpReward: 25 },
+
+  { level: "beginner", type: "sector", question: "Which sector includes companies like Apple and Microsoft?", options: ["Healthcare", "Technology", "Energy", "Financials"], correctAnswer: 1, explanation: "Apple and Microsoft belong to the Technology sector, which includes companies that produce software, hardware, and technology services.", xpReward: 20 },
+  { level: "beginner", type: "dividend", question: "What is a dividend yield?", options: ["The company's total revenue", "Annual dividend per share divided by the stock price", "The company's profit margin", "The stock's annual return"], correctAnswer: 1, explanation: "Dividend yield is calculated by dividing the annual dividend payment per share by the current stock price, expressed as a percentage.", xpReward: 20 },
+  { level: "beginner", type: "earnings", question: "What does 'EPS' stand for in stock analysis?", options: ["Equity Per Share", "Earnings Per Share", "Exchange Price System", "Expected Profit Score"], correctAnswer: 1, explanation: "EPS (Earnings Per Share) is a company's profit divided by the number of outstanding shares. It's a key metric for evaluating profitability.", xpReward: 20 },
+  { level: "intermediate", type: "sector", question: "Which sector typically outperforms during periods of rising interest rates?", options: ["Technology", "Financials", "Consumer Discretionary", "Real Estate"], correctAnswer: 1, explanation: "The Financials sector, especially banks, tends to benefit from rising rates as they can charge more for loans while paying less on deposits.", xpReward: 20 },
+  { level: "intermediate", type: "dividend", question: "What is a 'dividend aristocrat'?", options: ["A stock paying dividends once a year", "A company that has raised dividends for 25+ consecutive years", "The highest-yielding dividend stock", "A government bond with fixed dividends"], correctAnswer: 1, explanation: "Dividend Aristocrats are S&P 500 companies that have increased their dividends for at least 25 consecutive years, signaling financial stability.", xpReward: 20 },
+  { level: "intermediate", type: "earnings", question: "What is an 'earnings surprise'?", options: ["An unexpected CEO resignation", "When actual earnings differ significantly from analyst estimates", "A sudden stock split announcement", "A dividend cut"], correctAnswer: 1, explanation: "An earnings surprise occurs when a company's reported earnings are significantly higher or lower than analyst consensus estimates, often causing sharp price moves.", xpReward: 20 },
+  { level: "advanced", type: "hedge", question: "Which assets are commonly considered 'safe havens' during market downturns?", options: ["High-growth tech stocks", "Gold, US Treasuries, and Japanese Yen", "Real estate investment trusts", "Emerging market equities"], correctAnswer: 1, explanation: "Gold, US Treasuries, and the Japanese Yen are traditional safe haven assets that investors flock to during market stress due to their stability.", xpReward: 25 },
+  { level: "advanced", type: "insider", question: "Why do institutional investors' 13F filings matter to retail investors?", options: ["They show exact trading algorithms", "They reveal large investors' quarterly holdings and possible conviction buys", "They predict next quarter's earnings", "They guarantee stock price increases"], correctAnswer: 1, explanation: "13F filings reveal what major institutions like hedge funds hold each quarter, giving retail investors insight into where smart money is positioned.", xpReward: 25 },
+  { level: "advanced", type: "earnings", question: "What is 'earnings guidance' and why does it matter?", options: ["A government regulation on earnings reports", "Management's forward-looking outlook on future financial performance", "A historical earnings analysis", "An accounting adjustment method"], correctAnswer: 1, explanation: "Earnings guidance is management's forecast of future financial performance. It often moves stock prices more than current earnings because markets are forward-looking.", xpReward: 25 },
 ];
 
 const dailyQuestsPoolKo: FallbackQuestData[] = [
@@ -271,6 +291,16 @@ const dailyQuestsPoolKo: FallbackQuestData[] = [
   { level: "advanced", type: "compare", question: "기업가치(EV)는 시가총액이 포착하지 못하는 무엇을 포함하나요?", options: ["주가 이력", "부채와 현금 포지션", "제품 수", "직원 만족도"], correctAnswer: 1, explanation: "기업가치는 시가총액에 부채를 더하고 현금을 빼서 회사의 총 가치를 더 완전하게 보여줍니다.", xpReward: 25 },
   { level: "advanced", type: "valuation", question: "높은 공매도 비율은 시장 심리에 대해 무엇을 나타내나요?", options: ["강한 강세 합의", "많은 투자자가 주가 하락에 베팅", "회사가 분할될 예정", "배당금 인상 예상"], correctAnswer: 1, explanation: "높은 공매도 비율은 많은 투자자가 공매도를 했음을 의미하며, 약세 심리와 가격 하락 기대를 나타냅니다.", xpReward: 25 },
   { level: "advanced", type: "news", question: "마진 거래는 어떻게 이익과 손실을 모두 증폭시키나요?", options: ["수익에 영향 없음", "차입 자금이 자본 이상으로 포지션 크기를 증가", "이익만 증폭", "거래 수수료 절감"], correctAnswer: 1, explanation: "마진 거래는 차입 자금을 사용하여 포지션 크기를 늘려 잠재적 이익과 손실 모두를 비례적으로 확대합니다.", xpReward: 25 },
+
+  { level: "beginner", type: "sector", question: "Apple(AAPL)과 Microsoft(MSFT)는 어떤 섹터에 속하나요?", options: ["헬스케어", "기술(Technology)", "에너지", "금융"], correctAnswer: 1, explanation: "Apple과 Microsoft는 소프트웨어, 하드웨어, 기술 서비스를 제공하는 기술 섹터에 속합니다.", xpReward: 20 },
+  { level: "beginner", type: "dividend", question: "배당 수익률(Dividend Yield)이란 무엇인가요?", options: ["회사의 총 매출", "주당 연간 배당금을 주가로 나눈 비율", "회사의 이익률", "주식의 연간 수익률"], correctAnswer: 1, explanation: "배당 수익률은 주당 연간 배당금을 현재 주가로 나눈 값으로, 배당투자의 수익성을 나타냅니다.", xpReward: 20 },
+  { level: "beginner", type: "earnings", question: "EPS(주당순이익)이란 무엇인가요?", options: ["주당 자기자본", "주당 순이익", "주당 배당금", "주당 매출"], correctAnswer: 1, explanation: "EPS(주당순이익)는 회사의 순이익을 발행 주식 수로 나눈 값으로, 수익성 평가의 핵심 지표입니다.", xpReward: 20 },
+  { level: "intermediate", type: "sector", question: "금리 상승기에 어떤 섹터가 일반적으로 유리한가요?", options: ["기술주", "금융주", "소비재", "부동산"], correctAnswer: 1, explanation: "금리 상승기에는 금융주(특히 은행)가 유리합니다. 대출금리는 오르고 예금금리 인상은 더디어 예대마진이 확대됩니다.", xpReward: 20 },
+  { level: "intermediate", type: "dividend", question: "'배당 귀족(Dividend Aristocrat)'이란 무엇인가요?", options: ["연 1회 배당을 지급하는 주식", "25년 이상 연속 배당을 인상한 S&P 500 기업", "배당수익률이 가장 높은 주식", "고정 배당을 지급하는 국채"], correctAnswer: 1, explanation: "배당 귀족은 25년 이상 연속으로 배당금을 인상한 S&P 500 기업으로, 재정적 안정성과 주주 친화 정책의 상징입니다.", xpReward: 20 },
+  { level: "intermediate", type: "earnings", question: "'어닝 서프라이즈(Earnings Surprise)'란 무엇인가요?", options: ["갑작스러운 CEO 사임", "실제 실적이 애널리스트 예상치와 크게 차이 나는 것", "갑작스러운 주식 분할 발표", "배당 삭감"], correctAnswer: 1, explanation: "어닝 서프라이즈는 실제 실적이 애널리스트 컨센서스 예상치보다 크게 높거나 낮을 때 발생하며, 주가에 급격한 변동을 초래합니다.", xpReward: 20 },
+  { level: "advanced", type: "hedge", question: "시장이 10% 하락할 때 '안전자산'으로 주로 꼽히는 것은?", options: ["성장주", "금, 미국 국채, 일본 엔화", "리츠(REITs)", "신흥국 주식"], correctAnswer: 1, explanation: "금, 미국 국채, 일본 엔화는 시장 불안 시 투자자들이 몰리는 전통적인 안전자산으로, 변동성이 낮고 안정적입니다.", xpReward: 25 },
+  { level: "advanced", type: "insider", question: "기관투자자의 13F 공시가 개인 투자자에게 중요한 이유는?", options: ["정확한 거래 알고리즘을 공개하기 때문", "분기별 대형 투자자의 보유 종목과 컨빅션 매수를 파악할 수 있기 때문", "다음 분기 실적을 예측할 수 있기 때문", "주가 상승을 보장하기 때문"], correctAnswer: 1, explanation: "13F 공시는 헤지펀드 등 대형 기관이 분기별로 보유한 종목을 공개합니다. 스마트머니의 포지션을 파악하는 핵심 자료입니다.", xpReward: 25 },
+  { level: "advanced", type: "earnings", question: "'실적 가이던스(Earnings Guidance)'란 무엇이며 왜 중요한가요?", options: ["정부의 실적 공시 규정", "경영진이 제시하는 미래 재무 성과 전망", "과거 실적 분석 보고서", "회계 조정 방법"], correctAnswer: 1, explanation: "실적 가이던스는 경영진이 제시하는 미래 실적 전망입니다. 시장은 미래를 반영하기 때문에 현재 실적보다 가이던스가 주가에 더 큰 영향을 미칩니다.", xpReward: 25 },
 ];
 
 const practiceQuestsPoolEn: FallbackPracticeData[] = [
