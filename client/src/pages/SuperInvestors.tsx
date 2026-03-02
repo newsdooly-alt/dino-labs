@@ -689,11 +689,14 @@ export default function SuperInvestors() {
                                     </td>
                                     <td className="px-4 py-4">
                                       <div>
-                                        <div className="font-bold text-foreground">
+                                        <div className="font-bold text-foreground text-sm leading-tight">
                                           {getCompanyName(holding.company, lang)}
                                         </div>
-                                        <div className="text-xs font-mono text-muted-foreground tracking-widest">
+                                        <div className="text-xs font-mono text-muted-foreground mt-0.5">
                                           {holding.ticker}
+                                          {holding.putCall && holding.putCall !== "None" && holding.putCall !== "" && (
+                                            <span className="ml-1.5 text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">{holding.putCall}</span>
+                                          )}
                                         </div>
                                       </div>
                                     </td>

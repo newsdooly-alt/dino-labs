@@ -311,29 +311,27 @@ export default function GlobalSearch() {
                   className="w-full flex items-center gap-4 p-4 bg-card border border-border rounded-2xl hover:bg-muted/50 hover:border-foreground/20 transition-all text-left group"
                   data-testid={`search-result-${result.symbol}`}
                 >
-                  {/* Flag + symbol */}
-                  <div className="w-12 h-12 rounded-xl bg-muted flex flex-col items-center justify-center shrink-0">
-                    <span className="text-lg leading-none">{flag}</span>
+                  {/* Flag icon */}
+                  <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <span className="text-xl leading-none">{flag}</span>
                   </div>
 
-                  {/* Name info */}
+                  {/* Name-first info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm font-mono">{result.symbol}</span>
+                    <p className="font-bold text-base leading-tight truncate max-w-[200px] sm:max-w-none">
+                      {displayName}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs font-mono text-muted-foreground font-semibold">{result.symbol}</span>
                       {result.sector && (
                         <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full hidden sm:inline">
                           {result.sector}
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
-                      {displayName}
-                    </p>
-                    {/* Show English name as secondary when Korean */}
+                    {/* Show English name as subtitle when in Korean mode */}
                     {isKo && koName !== result.name && (
-                      <p className="text-xs text-muted-foreground/50 truncate">
-                        {result.name}
-                      </p>
+                      <p className="text-[11px] text-muted-foreground/50 truncate mt-0.5">{result.name}</p>
                     )}
                   </div>
 

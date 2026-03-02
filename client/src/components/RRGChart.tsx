@@ -10,6 +10,45 @@ import { useUser } from "@/hooks/use-user";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { TrendingUp, RefreshCw, Info, X, ZoomIn, ZoomOut, Minimize2, TrendingDown } from "lucide-react";
 
+// ─── Exchange-aware currency helpers ─────────────────────────────────────────
+function getTickerCurrencySymbol(symbol: string): string {
+  const s = symbol.toUpperCase();
+  if (s.endsWith(".KS") || s.endsWith(".KQ")) return "₩";
+  if (s.endsWith(".T"))                        return "¥";
+  if (s.endsWith(".DE") || s.endsWith(".PA") || s.endsWith(".MI") ||
+      s.endsWith(".AS") || s.endsWith(".SW") || s.endsWith(".L")  ||
+      s.endsWith(".MC") || s.endsWith(".ST") || s.endsWith(".OL") ||
+      s.endsWith(".CO") || s.endsWith(".VI"))   return "€";
+  return "$";
+}
+
+function formatTickerPrice(price: number, symbol: string): string {
+  const sym = getTickerCurrencySymbol(symbol);
+  if (sym === "₩") return `₩${Math.round(price).toLocaleString()}`;
+  if (sym === "¥") return `¥${Math.round(price).toLocaleString()}`;
+  if (sym === "€") return `€${price.toFixed(2)}`;
+  return `$${price.toFixed(2)}`;
+}
+
+function toKST(isoStr: string): string {
+  try {
+    return new Date(isoStr).toLocaleTimeString("ko-KR", {
+      timeZone: "Asia/Seoul",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return isoStr.slice(11, 16);
+  }
+}
+
+function cleanStockName(rawName: string): string {
+  return rawName
+    .replace(/ (Inc\.|Corp\.|plc|Ltd\.?|Co\.|Holdings|Group|AG|SA|SE|NV|N\.V\.|PLC|CORP|LTD|LIMITED|CORPORATION)\.?$/i, "")
+    .trim();
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Country = "us" | "kr" | "jp" | "eu";
 
@@ -34,6 +73,7 @@ interface StockQuote {
   price: number;
   change: number;
   changePercent: number;
+  lastUpdated?: string;
 }
 
 // ─── Country Configurations ───────────────────────────────────────────────────
@@ -351,6 +391,11 @@ function SectorTop10({ tickers, lang, sectorName }: { tickers: string[]; lang: s
       </p>
       {tickers.map((ticker, i) => {
         const q = quotes.find(x => x.symbol === ticker);
+        const rawName   = q?.name ? cleanStockName(q.name) : ticker;
+        const localName = getLocalizedCompanyName(rawName, lang);
+        const priceStr  = q && q.price > 0 ? formatTickerPrice(q.price, ticker) : "—";
+        const lastKST   = q?.lastUpdated ? toKST(q.lastUpdated) : null;
+
         return (
           <div key={ticker}
             className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-background/60 hover:bg-background/90 transition-colors"
@@ -358,29 +403,25 @@ function SectorTop10({ tickers, lang, sectorName }: { tickers: string[]; lang: s
           >
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0">{i + 1}</span>
-              <span className="font-mono text-xs font-bold truncate">{ticker}</span>
-              {q?.name && (
-                <span className="text-[10px] text-muted-foreground truncate hidden sm:block max-w-[120px]">
-                  {getLocalizedCompanyName(
-                    q.name.replace(/ (Inc\.|Corp\.|plc|Ltd\.?|Co\.|Holdings|Group|AG|SA|SE).*$/i, ""),
-                    lang
-                  )}
-                </span>
-              )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-xs font-bold truncate">{localName}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono shrink-0 hidden sm:inline">({ticker})</span>
+                </div>
+                {lastKST && (
+                  <span className="text-[9px] text-muted-foreground/50 hidden sm:block">{lastKST} KST</span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {q && q.price > 0 ? (
-                <>
-                  <span className="font-mono text-xs font-semibold">${q.price.toFixed(2)}</span>
-                  <span className={cn("text-[10px] font-bold flex items-center gap-0.5",
-                    q.changePercent >= 0 ? "text-emerald-500" : "text-rose-500"
-                  )}>
-                    {q.changePercent >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                    {Math.abs(q.changePercent).toFixed(2)}%
-                  </span>
-                </>
-              ) : (
-                <span className="text-[10px] text-muted-foreground">—</span>
+              <span className="font-mono text-xs font-semibold">{priceStr}</span>
+              {q && q.price > 0 && (
+                <span className={cn("text-[10px] font-bold flex items-center gap-0.5",
+                  (q.changePercent ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
+                )}>
+                  {(q.changePercent ?? 0) >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                  {Math.abs(q.changePercent ?? 0).toFixed(2)}%
+                </span>
               )}
             </div>
           </div>
@@ -548,7 +589,9 @@ export function RRGChart() {
           </div>
         ))}
         <div className="ml-auto text-[10px] text-muted-foreground self-center hidden sm:block">
-          {lang === "ko" ? `업데이트: ${data.fetchedAt.slice(11, 16)}` : `Updated: ${data.fetchedAt.slice(11, 16)}`}
+          {lang === "ko"
+            ? `업데이트 (KST): ${toKST(data.fetchedAt)}`
+            : `Last Updated (KST): ${toKST(data.fetchedAt)}`}
         </div>
       </div>
 
