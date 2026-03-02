@@ -299,11 +299,40 @@ export const KO_COMPANY_NAMES: Record<string, string> = {
   "Stellantis": "스텔란티스",
   "Stellantis N.V.": "스텔란티스",
 
-  // ── ETFs ──
+  // ── US ETFs / Indices (exact API-returned names) ──
   "SPDR S&P 500 ETF": "S&P 500 ETF (SPY)",
+  "State Street SPDR S&P 500 ETF T": "S&P 500 ETF",
+  "Invesco QQQ Trust, Series 1": "나스닥 100 ETF",
+  "Invesco QQQ Trust": "나스닥 100 ETF",
+  "State Street SPDR Dow Jones Ind": "다우존스 ETF",
+  "State Street SPDR Dow Jones Industrial Average ETF Trust": "다우존스 ETF",
+  "iShares Russell 2000 ETF": "러셀 2000 ETF",
   "iShares Emerging Markets ETF": "이머징마켓 ETF (EEM)",
   "SPDR Gold Shares ETF": "금 ETF (GLD)",
   "iShares Core S&P 500 ETF": "iShares S&P 500 ETF",
+
+  // ── Japanese stocks (uppercase API names) ──
+  "TOYOTA MOTOR CORP": "도요타 자동차",
+  "TOYOTA MOTOR CORPORATION": "도요타 자동차",
+  "SONY GROUP CORPORATION": "소니 그룹",
+  "SONY GROUP CORP": "소니 그룹",
+  "SOFTBANK GROUP CORP": "소프트뱅크 그룹",
+  "MITSUBISHI UFJ FINANCIAL GROUP": "미쓰비시 UFJ 금융그룹",
+  "MITSUBISHI UFJ FINANCIAL GROUP ": "미쓰비시 UFJ 금융그룹",
+  "TAKEDA PHARMACEUTICAL CO LTD": "다케다 제약",
+  "KEYENCE CORP": "키엔스",
+  "FANUC CORP": "파낙",
+  "HITACHI LTD": "히타치",
+  "CANON INC": "캐논",
+  "SHIN-ETSU CHEMICAL CO LTD": "신에쓰 화학",
+  "FAST RETAILING CO LTD": "패스트리테일링 (유니클로)",
+  "DAIICHI SANKYO CO LTD": "다이이치 산쿄",
+  "TOYOTA INDUSTRIES CORP": "도요타 산업",
+  "HONDA MOTOR CO LTD": "혼다 자동차",
+  "NINTENDO CO LTD": "닌텐도",
+  "RECRUIT HOLDINGS CO LTD": "리쿠르트 홀딩스",
+  "NIPPON TELEGRAPH AND TELEPHONE": "NTT 일본전신전화",
+  "MURATA MANUFACTURING CO LTD": "무라타 제작소",
 
   // ── Other ──
   "Barrick Gold": "배릭 골드",
@@ -319,6 +348,29 @@ export const KO_COMPANY_NAMES: Record<string, string> = {
   "Cellebrite DI": "셀레브라이트",
   "PTC Inc.": "PTC",
 };
+
+// ─── JP local ticker → US ADR mapping ───────────────────────────────────────
+export const JP_ADR_MAP: Record<string, string> = {
+  "7203.T":  "TM",    // Toyota
+  "6758.T":  "SONY",  // Sony
+  "7267.T":  "HMC",   // Honda
+  "7974.T":  "NTDOY", // Nintendo
+  "9984.T":  "SFTBY", // SoftBank Group
+  "9432.T":  "NTTYY", // NTT
+  "8306.T":  "MUFG",  // Mitsubishi UFJ
+  "8316.T":  "SMFG",  // Sumitomo Mitsui
+  "4502.T":  "TAK",   // Takeda Pharmaceutical
+  "6861.T":  "KYCCF", // Keyence
+  "9433.T":  "KDDIF", // KDDI
+  "6501.T":  "HTHIY", // Hitachi
+  "7751.T":  "CAJ",   // Canon
+  "4063.T":  "SHECY", // Shin-Etsu Chemical
+};
+
+// Reverse: US ADR ticker → local JP ticker
+export const ADR_TO_LOCAL_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(JP_ADR_MAP).map(([local, adr]) => [adr, local])
+);
 
 // ─── Investor name localization ───────────────────────────────────────────────
 export const KO_INVESTOR_NAMES: Record<string, string> = {
@@ -486,31 +538,35 @@ export const KOREAN_STOCK_ALIASES: KoreanStockAlias[] = [
   { ticker: "105560.KS", en: "KB Financial",         ko: "KB금융",         aliases: ["KB금융", "국민은행"] },
   { ticker: "086790.KS", en: "Hana Financial",       ko: "하나금융",       aliases: ["하나금융", "하나은행"] },
 
-  // ── Japanese Stocks ──
-  { ticker: "7203.T",  en: "Toyota Motor",   ko: "도요타",    aliases: ["도요타", "토요타", "도요타자동차"] },
-  { ticker: "TM",      en: "Toyota ADR",     ko: "도요타",    aliases: ["도요타", "토요타"] },
-  { ticker: "6758.T",  en: "Sony Group",     ko: "소니",      aliases: ["소니", "소니그룹"] },
-  { ticker: "SONY",    en: "Sony ADR",       ko: "소니",      aliases: ["소니"] },
-  { ticker: "7267.T",  en: "Honda Motor",    ko: "혼다",      aliases: ["혼다", "혼다자동차"] },
-  { ticker: "HMC",     en: "Honda ADR",      ko: "혼다",      aliases: ["혼다"] },
-  { ticker: "7974.T",  en: "Nintendo",       ko: "닌텐도",    aliases: ["닌텐도"] },
-  { ticker: "NTDOY",   en: "Nintendo ADR",   ko: "닌텐도",    aliases: ["닌텐도"] },
-  { ticker: "9984.T",  en: "SoftBank Group", ko: "소프트뱅크", aliases: ["소프트뱅크", "소프트방크"] },
-  { ticker: "SFTBY",   en: "SoftBank ADR",   ko: "소프트뱅크", aliases: ["소프트뱅크"] },
-  { ticker: "6954.T",  en: "FANUC",          ko: "파낙",       aliases: ["파낙", "FANUC"] },
-  { ticker: "6861.T",  en: "Keyence",        ko: "키엔스",     aliases: ["키엔스"] },
-  { ticker: "6501.T",  en: "Hitachi",        ko: "히타치",     aliases: ["히타치"] },
-  { ticker: "7751.T",  en: "Canon",          ko: "캐논",       aliases: ["캐논"] },
-  { ticker: "9983.T",  en: "Fast Retailing (Uniqlo)", ko: "유니클로", aliases: ["유니클로", "패스트리테일링"] },
-  { ticker: "FRCOY",   en: "Fast Retailing ADR", ko: "유니클로", aliases: ["유니클로"] },
-  { ticker: "8306.T",  en: "Mitsubishi UFJ", ko: "미쓰비시UFJ", aliases: ["미쓰비시UFJ", "MUFG"] },
-  { ticker: "MUFG",    en: "MUFG ADR",       ko: "미쓰비시UFJ", aliases: ["미쓰비시UFJ", "MUFG"] },
-  { ticker: "8316.T",  en: "Sumitomo Mitsui", ko: "스미토모 미쓰이", aliases: ["스미토모미쓰이", "SMFG"] },
-  { ticker: "SMFG",    en: "SMFG ADR",        ko: "스미토모 미쓰이", aliases: ["스미토모미쓰이"] },
-  { ticker: "4568.T",  en: "Daiichi Sankyo", ko: "다이이치산쿄", aliases: ["다이이치산쿄", "다이이치"] },
-  { ticker: "6752.T",  en: "Panasonic",      ko: "파나소닉",   aliases: ["파나소닉"] },
-  { ticker: "8766.T",  en: "Tokio Marine",   ko: "도쿄해상",   aliases: ["도쿄해상"] },
-  { ticker: "6098.T",  en: "Recruit Holdings", ko: "리쿠르트", aliases: ["리쿠르트"] },
+  // ── Japanese Stocks (US ADR listed first for each company) ──
+  { ticker: "TM",      en: "Toyota (US ADR)",     ko: "도요타 자동차", aliases: ["도요타", "토요타", "도요타자동차", "도요타 자동차"] },
+  { ticker: "7203.T",  en: "Toyota Motor (JP)",   ko: "도요타 자동차", aliases: ["도요타", "토요타", "도요타자동차"] },
+  { ticker: "SONY",    en: "Sony (US ADR)",       ko: "소니 그룹",  aliases: ["소니", "소니그룹"] },
+  { ticker: "6758.T",  en: "Sony Group (JP)",     ko: "소니 그룹",  aliases: ["소니", "소니그룹"] },
+  { ticker: "HMC",     en: "Honda (US ADR)",      ko: "혼다",       aliases: ["혼다", "혼다자동차"] },
+  { ticker: "7267.T",  en: "Honda Motor (JP)",    ko: "혼다",       aliases: ["혼다", "혼다자동차"] },
+  { ticker: "NTDOY",   en: "Nintendo (US ADR)",   ko: "닌텐도",     aliases: ["닌텐도"] },
+  { ticker: "7974.T",  en: "Nintendo (JP)",       ko: "닌텐도",     aliases: ["닌텐도"] },
+  { ticker: "SFTBY",   en: "SoftBank (US ADR)",   ko: "소프트뱅크 그룹", aliases: ["소프트뱅크", "소프트방크"] },
+  { ticker: "9984.T",  en: "SoftBank Group (JP)", ko: "소프트뱅크 그룹", aliases: ["소프트뱅크", "소프트방크"] },
+  { ticker: "MUFG",    en: "Mitsubishi UFJ (US ADR)", ko: "미쓰비시UFJ", aliases: ["미쓰비시UFJ", "MUFG"] },
+  { ticker: "8306.T",  en: "Mitsubishi UFJ (JP)", ko: "미쓰비시UFJ", aliases: ["미쓰비시UFJ"] },
+  { ticker: "SMFG",    en: "Sumitomo Mitsui (US ADR)", ko: "스미토모 미쓰이", aliases: ["스미토모미쓰이"] },
+  { ticker: "8316.T",  en: "Sumitomo Mitsui (JP)", ko: "스미토모 미쓰이", aliases: ["스미토모미쓰이", "SMFG"] },
+  { ticker: "TAK",     en: "Takeda Pharma (US ADR)", ko: "다케다 제약", aliases: ["다케다", "다케다제약"] },
+  { ticker: "4502.T",  en: "Takeda Pharma (JP)", ko: "다케다 제약", aliases: ["다케다", "다케다제약"] },
+  { ticker: "FRCOY",   en: "Fast Retailing ADR (US)", ko: "유니클로", aliases: ["유니클로"] },
+  { ticker: "9983.T",  en: "Fast Retailing (JP)", ko: "유니클로",  aliases: ["유니클로", "패스트리테일링"] },
+  { ticker: "6954.T",  en: "FANUC",              ko: "파낙",       aliases: ["파낙", "FANUC"] },
+  { ticker: "6861.T",  en: "Keyence",            ko: "키엔스",     aliases: ["키엔스"] },
+  { ticker: "HTHIY",   en: "Hitachi (US ADR)",   ko: "히타치",     aliases: ["히타치"] },
+  { ticker: "6501.T",  en: "Hitachi (JP)",       ko: "히타치",     aliases: ["히타치"] },
+  { ticker: "CAJ",     en: "Canon (US ADR)",     ko: "캐논",       aliases: ["캐논"] },
+  { ticker: "7751.T",  en: "Canon (JP)",         ko: "캐논",       aliases: ["캐논"] },
+  { ticker: "4568.T",  en: "Daiichi Sankyo",     ko: "다이이치산쿄", aliases: ["다이이치산쿄", "다이이치"] },
+  { ticker: "6752.T",  en: "Panasonic",          ko: "파나소닉",   aliases: ["파나소닉"] },
+  { ticker: "8766.T",  en: "Tokio Marine",       ko: "도쿄해상",   aliases: ["도쿄해상"] },
+  { ticker: "6098.T",  en: "Recruit Holdings",   ko: "리쿠르트",   aliases: ["리쿠르트"] },
 
   // ── EU Stocks ──
   { ticker: "NVO",     en: "Novo Nordisk",   ko: "노보 노디스크", aliases: ["노보노디스크", "노보 노디스크", "노보"] },

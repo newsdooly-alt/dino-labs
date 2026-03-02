@@ -1,12 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { AlertCircle, ChevronRight, RefreshCw, TrendingUp } from "lucide-react";
+import { ChevronRight, RefreshCw, TrendingUp } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
+import { getLocalizedCompanyName, JP_ADR_MAP, ADR_TO_LOCAL_MAP } from "@/lib/stockNames";
+
+function getStockNativeCurrency(symbol: string): "KRW" | "JPY" | "USD" {
+  const s = symbol.toUpperCase();
+  if (s.endsWith(".KS") || s.endsWith(".KQ")) return "KRW";
+  if (s.endsWith(".T")) return "JPY";
+  return "USD";
+}
+
+function getADRInfo(symbol: string): { isJPLocal: boolean; adrTicker: string | null } {
+  const s = symbol.toUpperCase();
+  if (s.endsWith(".T") && JP_ADR_MAP[s]) return { isJPLocal: true, adrTicker: JP_ADR_MAP[s] };
+  if (ADR_TO_LOCAL_MAP[s]) return { isJPLocal: false, adrTicker: s };
+  return { isJPLocal: false, adrTicker: null };
+}
 
 interface LiveStockQuote {
   symbol: string;
@@ -55,7 +70,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
   const { data: user } = useUser();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
-  const { formatPrice, isKoreanStock } = useCurrency();
+  const { formatPrice } = useCurrency();
   
   const { data, isLoading, error, refetch, isRefetching } = useQuery<LiveStockResponse>({
     queryKey: ["/api/stocks/live", symbols.join(",")],
@@ -146,41 +161,57 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
         </div>
       )}
       
-      {quotes.map((quote) => (
-        <div 
-          key={quote.symbol} 
-          className={cn(
-            "flex items-center justify-between p-2 rounded-lg transition-colors",
-            clickable && "cursor-pointer hover-elevate"
-          )}
-          onClick={clickable ? () => navigate(`/stock/${quote.symbol}`) : undefined}
-          data-testid={`stock-${quote.symbol}`}
-        >
-          <div className="flex items-center gap-3">
-            <div>
-              <h4 className="font-bold">{cleanCompanyName(quote.name || quote.symbol)}</h4>
-              <p className="text-xs text-muted-foreground">{quote.symbol}</p>
+      {quotes.map((quote) => {
+        const rawName      = cleanCompanyName(quote.name || quote.symbol);
+        const localName    = getLocalizedCompanyName(rawName, lang);
+        const nativeCurr   = getStockNativeCurrency(quote.symbol);
+        const { isJPLocal, adrTicker } = getADRInfo(quote.symbol);
+
+        return (
+          <div
+            key={quote.symbol}
+            className={cn(
+              "flex items-center justify-between p-2 rounded-lg transition-colors",
+              clickable && "cursor-pointer hover-elevate"
+            )}
+            onClick={clickable ? () => navigate(`/stock/${quote.symbol}`) : undefined}
+            data-testid={`stock-${quote.symbol}`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <h4 className="font-bold text-sm leading-tight truncate">{localName}</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-xs text-muted-foreground font-mono">{quote.symbol}</p>
+                  {isJPLocal && adrTicker && (
+                    <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded font-semibold">
+                      US: {adrTicker}
+                    </span>
+                  )}
+                  {quote.isStale && (
+                    <span className="text-[10px] text-muted-foreground/50">*</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-right">
+                <div className="font-mono font-medium text-sm">
+                  {quote.price > 0
+                    ? formatPrice(quote.price, { nativeCurrency: nativeCurr })
+                    : "--"}
+                </div>
+                <div className={cn(
+                  "text-xs font-bold",
+                  quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                )}>
+                  {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
+                </div>
+              </div>
+              {clickable && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="text-right">
-              <div className="font-mono font-medium">
-                {quote.price > 0 
-                  ? formatPrice(quote.price, { nativeCurrency: (quote.isKorean || isKoreanStock(quote.symbol)) ? 'KRW' : 'USD' })
-                  : "--"}
-                {quote.isStale && <span className="text-xs text-muted-foreground ml-1">*</span>}
-              </div>
-              <div className={cn(
-                "text-xs font-bold",
-                quote.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-              )}>
-                {quote.changePercent >= 0 ? "+" : ""}{quote.changePercent.toFixed(2)}%
-              </div>
-            </div>
-            {clickable && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-          </div>
-        </div>
-      ))}
+        );
+      })}
       
       {/* Market status and last updated info */}
       <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground" data-testid="stock-status-bar">

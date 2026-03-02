@@ -150,7 +150,7 @@ export const translations = {
     mobile_menu_watchlist: "Watchlist",
     mobile_menu_profile: "My Profile",
     mobile_menu_settings: "Settings",
-    mobile_menu_calendar: "Calendar",
+    mobile_menu_calendar: "Economic Calendar",
     close_menu: "Close menu",
     // Settings page translations
     settings_title: "Settings",
@@ -207,7 +207,7 @@ export const translations = {
     dino_collection: "Dino Collection",
     mobile_menu_eggs: "My Eggs",
     mobile_menu_collection: "My Collection",
-    mobile_menu_recommended: "Discover",
+    mobile_menu_recommended: "Recommendations",
     eggs_title: "Dino Egg Nest",
     eggs_subtitle: "Hatch eggs by earning XP from quests!",
     collection_title: "Dino Collection",
@@ -277,10 +277,10 @@ export const translations = {
     // Currency
     currency_jpy: "JPY (¥)",
     // Global Search
-    search_tab: "Global Search",
+    search_tab: "Stock Search",
     search_global_title: "Global Stock Search",
     search_global_desc: "Search stocks from US, Korea, Japan & Europe",
-    mobile_menu_search: "Search",
+    mobile_menu_search: "Stock Search",
     search_all: "All",
     search_filter_us: "US",
     search_filter_kr: "Korea",
@@ -586,10 +586,10 @@ export const translations = {
     // Currency
     currency_jpy: "JPY (¥)",
     // Global Search
-    search_tab: "글로벌 검색",
+    search_tab: "종목 검색",
     search_global_title: "글로벌 주식 검색",
     search_global_desc: "미국, 한국, 일본, 유럽 주식을 검색하세요",
-    mobile_menu_search: "검색",
+    mobile_menu_search: "종목 검색",
     search_all: "전체",
     search_filter_us: "미국",
     search_filter_kr: "한국",

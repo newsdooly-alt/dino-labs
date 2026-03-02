@@ -12,8 +12,25 @@ import {
   containsKorean,
   searchByKoreanAlias,
   getLocalizedCompanyName,
+  JP_ADR_MAP,
   type KoreanStockAlias,
 } from "@/lib/stockNames";
+
+function getUSPriority(symbol: string): number {
+  const filter = getExchangeFilter(symbol);
+  if (filter === "us") return 0;
+  if (filter === "kr") return 1;
+  if (filter === "eu") return 2;
+  if (filter === "jp") {
+    const isADR = Object.values(JP_ADR_MAP).includes(symbol.toUpperCase());
+    return isADR ? 0 : 3;
+  }
+  return 4;
+}
+
+function sortResultsUSFirst(results: SearchResult[]): SearchResult[] {
+  return [...results].sort((a, b) => getUSPriority(a.symbol) - getUSPriority(b.symbol));
+}
 
 interface SearchResult {
   symbol: string;
@@ -144,9 +161,11 @@ export default function GlobalSearch() {
   const allResults = isKoreanQuery ? koreanResults : apiResults;
   const isLoading  = isKoreanQuery ? isKoreanLoading : isApiLoading;
 
-  const filteredResults = filter === "all"
-    ? allResults
-    : allResults.filter(r => getExchangeFilter(r.symbol) === filter);
+  const filteredResults = sortResultsUSFirst(
+    filter === "all"
+      ? allResults
+      : allResults.filter(r => getExchangeFilter(r.symbol) === filter)
+  );
 
   const filterTabs: { key: ExchangeFilter; label: string; flag: string }[] = [
     { key: "all", label: t.search_all,       flag: "🌍" },
@@ -168,12 +187,12 @@ export default function GlobalSearch() {
           <Globe className="w-8 h-8 text-primary" />
         </div>
         <h1 className="text-3xl font-display font-bold" data-testid="text-search-title">
-          {t.search_global_title}
+          {isKo ? "종목 검색" : t.search_global_title}
         </h1>
         <p className="text-muted-foreground mt-2" data-testid="text-search-desc">
           {isKo
-            ? "미국·한국·일본·유럽 주식을 한국어로도 검색하세요"
-            : "Search US, Korea, Japan & Europe stocks — try Korean names too"}
+            ? "미국·한국·일본·유럽 주식을 한국어로도 검색 — US ADR 우선 표시"
+            : "Search US, Korea, Japan & Europe stocks — US ADR listed first"}
         </p>
       </motion.div>
 
@@ -321,8 +340,20 @@ export default function GlobalSearch() {
                     <p className="font-bold text-base leading-tight truncate max-w-[200px] sm:max-w-none">
                       {displayName}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-xs font-mono text-muted-foreground font-semibold">{result.symbol}</span>
+                      {/* ADR badge for local JP tickers */}
+                      {result.symbol.toUpperCase().endsWith(".T") && JP_ADR_MAP[result.symbol.toUpperCase()] && (
+                        <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-semibold hidden sm:inline">
+                          US: {JP_ADR_MAP[result.symbol.toUpperCase()]}
+                        </span>
+                      )}
+                      {/* US ADR badge for ADR tickers */}
+                      {Object.values(JP_ADR_MAP).includes(result.symbol.toUpperCase()) && (
+                        <span className="text-[10px] bg-green-500/10 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded font-semibold hidden sm:inline">
+                          🇺🇸 US ADR
+                        </span>
+                      )}
                       {result.sector && (
                         <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full hidden sm:inline">
                           {result.sector}
