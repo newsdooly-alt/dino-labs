@@ -18,7 +18,9 @@ import {
   ExternalLink,
   CandlestickChart,
   LineChart,
-  Zap
+  Zap,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -38,6 +40,7 @@ import {
   ReferenceLine,
   Cell,
   ReferenceArea,
+  Brush,
 } from "recharts";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -228,6 +231,7 @@ export default function StockDetail() {
   const [showBB, setShowBB] = useState(false);
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
   const [showProModal, setShowProModal] = useState(false);
+  const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
   const { toast } = useToast();
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock } = useCurrency();
@@ -348,6 +352,8 @@ export default function StockDetail() {
       const label = isIntraday
         ? dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
         : dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" });
+      const prevClose = i > 0 ? rawHistoryData[i - 1].close : (d.open || d.close);
+      const changePct = prevClose > 0 ? ((d.close - prevClose) / prevClose) * 100 : 0;
       return {
         date: label,
         rawDate: d.date,
@@ -366,6 +372,7 @@ export default function StockDetail() {
         bbLower: bbValues[i]?.lower ?? null,
         signal: signalMap.get(i) ?? null,
         isUp: d.close >= d.open,
+        changePct,
       };
     });
   }, [rawHistoryData, ma20Values, ma60Values, ma120Values, rsiValues, bbValues, signalMap, isIntraday, lang]);
@@ -457,13 +464,17 @@ export default function StockDetail() {
               <span style={{ color: tickColor }}>{lang === "ko" ? "저가" : "Low"}</span>
               <span style={{ fontWeight: 700, color: "#ef4444", textAlign: "right" }}>{formatPrice(d.low, { nativeCurrency })}</span>
               <span style={{ color: tickColor }}>{lang === "ko" ? "종가" : "Close"}</span>
-              <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>{formatPrice(d.close, { nativeCurrency })}</span>
+              <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>
+                {formatPrice(d.close, { nativeCurrency })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
+              </span>
             </>
           )}
           {chartType === "area" && (
             <>
               <span style={{ color: tickColor }}>{lang === "ko" ? "가격" : "Price"}</span>
-              <span style={{ fontWeight: 700, color: isDark ? "#e5e7eb" : "#111827", textAlign: "right" }}>{formatPrice(d.price, { nativeCurrency })}</span>
+              <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>
+                {formatPrice(d.price, { nativeCurrency })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
+              </span>
             </>
           )}
           {showMA && d.ma20 && (
@@ -569,7 +580,7 @@ export default function StockDetail() {
               <div className={cn("flex items-center gap-1 text-base font-semibold flex-wrap justify-end", isPeriodPositive ? "text-emerald-500" : "text-rose-500")}>
                 {isPeriodPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                 {selectedPeriod === "1d" ? (
-                  <>{(quote?.change ?? 0) >= 0 ? "+" : ""}{quote?.change?.toFixed(2) || "0.00"} ({(quote?.changePercent ?? 0) >= 0 ? "+" : ""}{quote?.changePercent?.toFixed(2) || "0.00"}%)</>
+                  <>{(quote?.change ?? 0) >= 0 ? "+" : ""}{formatPrice(quote?.change, { nativeCurrency })} ({(quote?.changePercent ?? 0) >= 0 ? "+" : ""}{quote?.changePercent?.toFixed(2) || "0.00"}%)</>
                 ) : (
                   <>{isPeriodPositive ? "+" : ""}{formatPrice(periodReturnAbs, { nativeCurrency })} ({isPeriodPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%)</>
                 )}
@@ -597,16 +608,66 @@ export default function StockDetail() {
       {/* ── Chart Card ── */}
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
-          {/* Top row: period tabs + chart type toggle + Pro button */}
+          {/* Top row: period tabs + chart type toggle + zoom + Pro button */}
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {periodOptions.map((opt) => (
-                <Button key={opt.key} variant={selectedPeriod === opt.key ? "default" : "ghost"} size="sm" className="px-2.5 h-7 text-xs" onClick={() => setSelectedPeriod(opt.key)} data-testid={`button-period-${opt.key}`}>
+                <Button
+                  key={opt.key}
+                  variant={selectedPeriod === opt.key ? "default" : "ghost"}
+                  size="sm"
+                  className="px-2.5 h-7 text-xs"
+                  onClick={() => { setSelectedPeriod(opt.key); setBrushDomain({}); }}
+                  data-testid={`button-period-${opt.key}`}
+                >
                   {opt.label}
                 </Button>
               ))}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              {/* Zoom controls */}
+              <div className="flex gap-0 items-center">
+                <button
+                  onClick={() => {
+                    const n = chartData.length;
+                    if (n < 4) return;
+                    const s = brushDomain.startIndex ?? 0;
+                    const e = brushDomain.endIndex ?? n - 1;
+                    const range = e - s;
+                    const quarter = Math.max(Math.round(range * 0.25), 1);
+                    setBrushDomain({ startIndex: Math.min(s + quarter, e - 2), endIndex: Math.max(e - quarter, s + 2) });
+                  }}
+                  className="flex items-center justify-center w-6 h-6 rounded-l border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all touch-manipulation"
+                  title="Zoom in"
+                  data-testid="button-zoom-in"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => {
+                    const n = chartData.length;
+                    if (n < 2) return;
+                    const s = brushDomain.startIndex ?? 0;
+                    const e = brushDomain.endIndex ?? n - 1;
+                    const range = e - s;
+                    const quarter = Math.max(Math.round(range * 0.33), 1);
+                    setBrushDomain({ startIndex: Math.max(s - quarter, 0), endIndex: Math.min(e + quarter, n - 1) });
+                  }}
+                  className="flex items-center justify-center w-6 h-6 border-y border-r border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all touch-manipulation"
+                  title="Zoom out"
+                  data-testid="button-zoom-out"
+                >
+                  <ZoomOut className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => setBrushDomain({})}
+                  className="flex items-center justify-center px-1.5 h-6 rounded-r border-y border-r border-border bg-muted/50 hover:bg-muted text-[9px] font-bold text-muted-foreground hover:text-foreground transition-all touch-manipulation"
+                  title="Reset zoom"
+                  data-testid="button-zoom-reset"
+                >
+                  1:1
+                </button>
+              </div>
               {/* Chart type toggle */}
               <div className="flex gap-0 items-center">
                 <button
@@ -631,7 +692,7 @@ export default function StockDetail() {
                 data-testid="button-pro-analysis"
               >
                 <Zap className="w-3 h-3" />
-                {lang === "ko" ? "자세히 보기" : "Pro View"}
+                <span className="hidden sm:inline">{lang === "ko" ? "자세히 보기" : "Pro View"}</span>
               </button>
             </div>
           </div>
@@ -670,7 +731,7 @@ export default function StockDetail() {
           ) : chartData.length > 0 ? (
             <>
               {/* ── Main chart ── */}
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={300} style={{ touchAction: "pan-y" }}>
                 <ComposedChart data={chartData} margin={{ top: 6, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
@@ -771,6 +832,20 @@ export default function StockDetail() {
                     const isBuy = d.signal === "buy";
                     return <ReferenceLine key={`sigline-${i}`} x={d.date} stroke={isBuy ? "#22c55e" : "#ef4444"} strokeDasharray="3 3" strokeWidth={1.5} strokeOpacity={0.6} />;
                   })}
+
+                  {/* Brush navigator for zoom/pan */}
+                  <Brush
+                    dataKey="date"
+                    height={18}
+                    travellerWidth={8}
+                    startIndex={brushDomain.startIndex}
+                    endIndex={brushDomain.endIndex}
+                    onChange={(e: any) => setBrushDomain({ startIndex: e.startIndex, endIndex: e.endIndex })}
+                    fill={isDark ? "#1f2937" : "#f3f4f6"}
+                    stroke={isDark ? "#374151" : "#e5e7eb"}
+                    traveller={{ fill: isDark ? "#6b7280" : "#9ca3af" }}
+                    gap={1}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
 

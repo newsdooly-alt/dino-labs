@@ -11,6 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Brush,
 } from "recharts";
 import {
   TrendingUp,
@@ -153,6 +154,7 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   const [showMA, setShowMA] = useState(true);
   const [showBB, setShowBB] = useState(false);
   const [showSR, setShowSR] = useState(true);
+  const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
 
   const periodOpt = PERIOD_OPTIONS.find(p => p.key === period) || PERIOD_OPTIONS[2];
   const isIntraday = period === "1d" || period === "1w";
@@ -181,16 +183,21 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   }, [history]);
 
   const chartData = useMemo(() => {
-    return history.map((d, i) => ({
-      date: d.t,
-      open: d.o, high: d.h, low: d.l, close: d.c, volume: d.v,
-      sma20: sma20[i], sma60: sma60[i], sma120: sma120[i],
-      upperBB: upperBB[i], lowerBB: lowerBB[i], middleBB: middleBB[i],
-      rsi: rsiValues[i],
-      macd: macdResult?.macd?.[i],
-      signal: macdResult?.signal?.[i],
-      histogram: macdResult?.histogram?.[i],
-    }));
+    return history.map((d, i) => {
+      const prevClose = i > 0 ? history[i - 1].c : (d.o || d.c);
+      const changePct = prevClose > 0 ? ((d.c - prevClose) / prevClose) * 100 : 0;
+      return {
+        date: d.t,
+        open: d.o, high: d.h, low: d.l, close: d.c, volume: d.v,
+        sma20: sma20[i], sma60: sma60[i], sma120: sma120[i],
+        upperBB: upperBB[i], lowerBB: lowerBB[i], middleBB: middleBB[i],
+        rsi: rsiValues[i],
+        macd: macdResult?.macd?.[i],
+        signal: macdResult?.signal?.[i],
+        histogram: macdResult?.histogram?.[i],
+        changePct,
+      };
+    });
   }, [history, sma20, sma60, sma120, upperBB, lowerBB, middleBB, rsiValues, macdResult]);
 
   const ret = periodReturn(history);
@@ -230,14 +237,20 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
   const renderTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const d = payload[0]?.payload;
+    const isUp = d.close >= d.open;
+    const changePctStr = d.changePct != null ? ` (${d.changePct >= 0 ? "+" : ""}${d.changePct.toFixed(2)}%)` : "";
     return (
-      <div className="rounded-lg border p-2.5 shadow-xl text-xs" style={{ background: tooltipBg, borderColor: tooltipBorder }}>
-        <p className="font-bold mb-1 text-foreground">{d.date}</p>
-        {d.close != null && <p className="text-foreground">종가: {formatPrice(d.close, { nativeCurrency })}</p>}
-        {d.open  != null && <p className="text-muted-foreground">시가: {formatPrice(d.open, { nativeCurrency })}</p>}
-        {d.high  != null && <p className="text-emerald-500">고가: {formatPrice(d.high, { nativeCurrency })}</p>}
-        {d.low   != null && <p className="text-rose-500">저가: {formatPrice(d.low, { nativeCurrency })}</p>}
-        {d.volume != null && <p className="text-muted-foreground">거래량: {formatNumber(d.volume)}</p>}
+      <div className="rounded-lg border p-2.5 shadow-xl text-xs max-w-[180px]" style={{ background: tooltipBg, borderColor: tooltipBorder }}>
+        <p className="font-bold mb-1 text-foreground truncate">{d.date}</p>
+        {d.close != null && (
+          <p style={{ color: isUp ? "#22c55e" : "#ef4444" }} className="font-bold">
+            {isKo ? "종가" : "Close"}: {formatPrice(d.close, { nativeCurrency })}<span className="opacity-75 text-[10px]">{changePctStr}</span>
+          </p>
+        )}
+        {d.open  != null && <p className="text-muted-foreground">{isKo ? "시가" : "Open"}: {formatPrice(d.open, { nativeCurrency })}</p>}
+        {d.high  != null && <p className="text-emerald-500">{isKo ? "고가" : "High"}: {formatPrice(d.high, { nativeCurrency })}</p>}
+        {d.low   != null && <p className="text-rose-500">{isKo ? "저가" : "Low"}: {formatPrice(d.low, { nativeCurrency })}</p>}
+        {d.volume != null && d.volume > 0 && <p className="text-muted-foreground">{isKo ? "거래량" : "Vol"}: {formatNumber(d.volume)}</p>}
       </div>
     );
   };
@@ -309,7 +322,7 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
               {PERIOD_OPTIONS.map(opt => (
                 <button
                   key={opt.key}
-                  onClick={() => setPeriod(opt.key)}
+                  onClick={() => { setPeriod(opt.key); setBrushDomain({}); }}
                   data-testid={`button-period-modal-${opt.key}`}
                   className={cn(
                     "px-3 py-1 text-xs font-bold rounded-full border transition-all touch-manipulation",
@@ -319,8 +332,48 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                   )}
                 >{opt.label}</button>
               ))}
+              {/* Zoom controls */}
+              <div className="flex gap-0 items-center ml-auto">
+                <button
+                  onClick={() => {
+                    const n = chartData.length;
+                    if (n < 4) return;
+                    const s = brushDomain.startIndex ?? 0;
+                    const e = brushDomain.endIndex ?? n - 1;
+                    const range = e - s;
+                    const q = Math.max(Math.round(range * 0.25), 1);
+                    setBrushDomain({ startIndex: Math.min(s + q, e - 2), endIndex: Math.max(e - q, s + 2) });
+                  }}
+                  className="flex items-center justify-center w-6 h-6 rounded-l border border-border bg-muted/50 hover:bg-muted text-muted-foreground transition-all touch-manipulation"
+                  data-testid="button-modal-zoom-in"
+                  title="Zoom in"
+                >
+                  <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+                </button>
+                <button
+                  onClick={() => {
+                    const n = chartData.length;
+                    if (n < 2) return;
+                    const s = brushDomain.startIndex ?? 0;
+                    const e = brushDomain.endIndex ?? n - 1;
+                    const range = e - s;
+                    const q = Math.max(Math.round(range * 0.33), 1);
+                    setBrushDomain({ startIndex: Math.max(s - q, 0), endIndex: Math.min(e + q, n - 1) });
+                  }}
+                  className="flex items-center justify-center w-6 h-6 border-y border-r border-border bg-muted/50 hover:bg-muted text-muted-foreground transition-all touch-manipulation"
+                  data-testid="button-modal-zoom-out"
+                  title="Zoom out"
+                >
+                  <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M8 11h6"/></svg>
+                </button>
+                <button
+                  onClick={() => setBrushDomain({})}
+                  className="flex items-center justify-center px-1.5 h-6 rounded-r border-y border-r border-border bg-muted/50 hover:bg-muted text-[9px] font-bold text-muted-foreground transition-all touch-manipulation"
+                  data-testid="button-modal-zoom-reset"
+                >1:1</button>
+              </div>
               {ret !== null && (
-                <span className={cn("ml-auto text-sm font-bold tabular-nums", retPositive ? "text-green-500" : "text-red-500")}>
+                <span className={cn("text-sm font-bold tabular-nums", retPositive ? "text-green-500" : "text-red-500")}>
                   {retPositive ? "▲ +" : "▼ "}{ret.toFixed(2)}%
                 </span>
               )}
@@ -357,9 +410,9 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
               {histLoading ? (
                 <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 로딩 중..." : "Loading..."}</div>
               ) : chartData.length === 0 ? (
-                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 없음" : "No data"}</div>
+                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isKo ? "데이터 없음" : "No data"}</div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={260} style={{ touchAction: "pan-y", maxWidth: "100vw" }}>
                   <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                     <XAxis dataKey="date" tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                     <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9, fill: tickColor }} tickLine={false} axisLine={false} tickFormatter={v => formatPrice(v, { nativeCurrency, compact: true })} width={52} />
@@ -389,6 +442,17 @@ export function StockAnalysisModal({ symbol, name, isOpen, onClose, lang }: Prop
                         <Line type="monotone" dataKey="sma120" stroke="#a855f7" strokeWidth={1.5} dot={false} />
                       </>
                     )}
+                    <Brush
+                      dataKey="date"
+                      height={16}
+                      travellerWidth={8}
+                      startIndex={brushDomain.startIndex}
+                      endIndex={brushDomain.endIndex}
+                      onChange={(e: any) => setBrushDomain({ startIndex: e.startIndex, endIndex: e.endIndex })}
+                      fill={isDark ? "#1f2937" : "#f3f4f6"}
+                      stroke={isDark ? "#374151" : "#e5e7eb"}
+                      gap={1}
+                    />
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
