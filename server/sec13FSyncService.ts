@@ -101,7 +101,7 @@ export async function syncAll(
   return results;
 }
 
-export async function getOrFetch13F(investorId: string): Promise<{
+export interface Get13FResult {
   investorId: string;
   cik: string;
   entityName: string;
@@ -116,54 +116,35 @@ export async function getOrFetch13F(investorId: string): Promise<{
   }[];
   source: string;
   fromDB: boolean;
-}> {
+  isStaleData: boolean;
+}
+
+/**
+ * DB-only retrieval — NEVER auto-fetches from SEC on user request.
+ * Returns null if no data is in the DB yet (caller shows "sync required" state).
+ * Sync is triggered exclusively via syncInvestor() / POST /api/13f-sync/:investorId.
+ */
+export async function getOrFetch13F(investorId: string): Promise<Get13FResult | null> {
   const portfolio = await storage.getInvestorPortfolio(investorId);
 
-  if (portfolio && !isStale(portfolio.lastSynced)) {
-    const dbHoldings = await storage.getInvestorHoldings(investorId);
-    console.log(`[13F] DB hit for ${investorId}: ${dbHoldings.length} holdings`);
-    return {
-      investorId,
-      cik: portfolio.cik,
-      entityName: portfolio.entityName,
-      periodOfReport: portfolio.reportDate,
-      filingDate: portfolio.filingDate,
-      lastSynced: portfolio.lastSynced.toISOString(),
-      totalValueUSD: portfolio.totalValueUSD,
-      holdingCount: portfolio.holdingCount,
-      holdings: dbHoldings.map(h => ({
-        rank: h.rank,
-        ticker: h.ticker,
-        cusip: h.cusip,
-        company: h.companyName,
-        value: h.valueUSD,
-        shares: h.shares,
-        weight: h.weight,
-        putCall: h.putCall,
-      })),
-      source: `DB · SEC EDGAR 13F-HR · ${portfolio.entityName} · Period: ${portfolio.reportDate} · Filed: ${portfolio.filingDate}`,
-      fromDB: true,
-    };
+  if (!portfolio) {
+    console.log(`[13F] No DB data for ${investorId} — sync required via POST /api/13f-sync/${investorId}`);
+    return null;
   }
 
-  console.log(`[13F] DB miss or stale for ${investorId}, fetching from SEC EDGAR...`);
-  const syncResult = await syncInvestor(investorId);
-  if (!syncResult.success) {
-    throw new Error(syncResult.error || "Failed to fetch from SEC EDGAR");
-  }
-
-  const portfolio2 = await storage.getInvestorPortfolio(investorId);
   const dbHoldings = await storage.getInvestorHoldings(investorId);
+  const stale = isStale(portfolio.lastSynced);
+  console.log(`[13F] DB hit for ${investorId}: ${dbHoldings.length} holdings (stale=${stale})`);
 
   return {
     investorId,
-    cik: portfolio2?.cik ?? "",
-    entityName: portfolio2?.entityName ?? investorId,
-    periodOfReport: portfolio2?.reportDate ?? "",
-    filingDate: portfolio2?.filingDate ?? "",
-    lastSynced: (portfolio2?.lastSynced ?? new Date()).toISOString(),
-    totalValueUSD: portfolio2?.totalValueUSD ?? 0,
-    holdingCount: portfolio2?.holdingCount ?? dbHoldings.length,
+    cik: portfolio.cik,
+    entityName: portfolio.entityName,
+    periodOfReport: portfolio.reportDate,
+    filingDate: portfolio.filingDate,
+    lastSynced: portfolio.lastSynced.toISOString(),
+    totalValueUSD: portfolio.totalValueUSD,
+    holdingCount: portfolio.holdingCount,
     holdings: dbHoldings.map(h => ({
       rank: h.rank,
       ticker: h.ticker,
@@ -174,7 +155,8 @@ export async function getOrFetch13F(investorId: string): Promise<{
       weight: h.weight,
       putCall: h.putCall,
     })),
-    source: `SEC EDGAR 13F-HR · ${portfolio2?.entityName ?? investorId} · Period: ${portfolio2?.reportDate} · Filed: ${portfolio2?.filingDate}`,
-    fromDB: false,
+    source: `DB · SEC EDGAR 13F-HR (검증됨) · ${portfolio.entityName} · 보고서 기준일: ${portfolio.reportDate} · 공시 일자: ${portfolio.filingDate}`,
+    fromDB: true,
+    isStaleData: stale,
   };
 }

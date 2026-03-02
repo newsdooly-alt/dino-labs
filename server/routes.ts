@@ -51,7 +51,7 @@ export async function registerRoutes(
     });
 
     // ─── 13F Database System ────────────────────────────────────────────────────
-    // GET /api/13f/:investorId — DB-first: serve from DB, fetch+save if stale/missing
+    // GET /api/13f/:investorId — DB-only: serve from DB instantly. Returns 202 if not yet synced.
     app.get("/api/13f/:investorId", isAuthenticated, async (req, res) => {
       const { investorId } = req.params;
       if (!INVESTOR_CIK_MAP[investorId]) {
@@ -62,11 +62,19 @@ export async function registerRoutes(
       }
       try {
         const data = await getOrFetch13F(investorId);
+        if (!data) {
+          // No DB data yet — return 202 Accepted so frontend shows sync-needed state
+          return res.status(202).json({
+            notSynced: true,
+            investorId,
+            message: "Data not yet synced. Use POST /api/13f-sync/:investorId to fetch the latest 13F filing.",
+          });
+        }
         return res.json(data);
       } catch (err: any) {
         console.error(`[13F] Error for ${investorId}:`, err.message);
         return res.status(502).json({
-          message: `Failed to fetch 13F data: ${err.message}`,
+          message: `Failed to retrieve 13F data: ${err.message}`,
           investorId,
         });
       }

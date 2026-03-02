@@ -50,20 +50,28 @@ The core experience centers around:
 
 ## 13F Database System
 
+- **Architecture: DB-only serving, never auto-fetch on user click**
 - `server/sec13FSyncService.ts`: Orchestrates fetching 13F data from SEC EDGAR and persisting to DB
-  - `getOrFetch13F(investorId)`: DB-first — serves cached data (< 90 days old), fetches + saves if stale/missing
+  - `getOrFetch13F(investorId)`: DB-only — returns `null` if not synced (no auto-fetch from SEC)
   - `syncInvestor(investorId)`: Forces a fresh SEC EDGAR fetch and saves all holdings to DB
   - `syncAll([ids])`: Iterates all tracked investors, syncs one by one with 300ms delay
   - `isStale(lastSynced)`: Returns true if data is older than 90 days (quarterly threshold)
+  - Returns `isStaleData: boolean` on every response so UI can show "refresh recommended"
 - `server/routes.ts` 13F endpoints:
-  - `GET /api/13f/:investorId`: DB-first — serves from DB, auto-fetches if stale/missing
-  - `POST /api/13f-sync/:investorId`: Force re-sync single investor from SEC EDGAR
-  - `POST /api/13f-sync-all`: Background sync all investors (fire-and-forget)
+  - `GET /api/13f/:investorId`: DB-only — returns `202 {notSynced: true}` if no DB data; never blocks user with SEC EDGAR fetch
+  - `POST /api/13f-sync/:investorId`: Admin: force re-sync single investor from SEC EDGAR
+  - `POST /api/13f-sync-all`: Admin: background sync all investors (fire-and-forget)
   - `GET /api/13f-db-status`: Lists all investors with sync status, reportDate, holdingCount
-  - `GET /api/13f-status`: Legacy endpoint listing supported investors
-- `sec13FService.ts`: `fetchLatest13F` is now exported; returns ALL holdings (no top-50 cap)
-- Database tables: `investor_portfolios` + `investor_holdings` (PostgreSQL, created with raw SQL)
-- `lastSynced` displayed in SuperInvestors.tsx status banner; "Re-sync" button calls POST /api/13f-sync/:id
+- `server/scripts/sync13f.ts`: CLI script for manual sync (`npx tsx server/scripts/sync13f.ts [investorId|all]`)
+- Currently synced investors: druckenmiller (NTRA #1 12.8% Q4 2025), buffett (AAPL #1 22.6%), ackman, burry, dalio, loeb, simons, einhorn
+- `sec13FService.ts`: CUSIP→Ticker map includes NTRA (632307104); all holdings returned (no top-50 cap)
+- Database tables: `investor_portfolios` + `investor_holdings` (PostgreSQL)
+- `SuperInvestors.tsx` UI features:
+  - "Sync All Data" button on list page → calls `POST /api/13f-sync-all`
+  - "Not synced" amber banner with per-investor "Sync Now" button for unsynced investors
+  - Verified green banner showing: 보고서 기준일 · 공시 일자 · DB 동기화 날짜 · 출처: SEC EDGAR 13F 검증 데이터
+  - `real13F.notSynced`: If true, shows curated static data + amber sync prompt instead of live data
+  - Korean company names in fallback `whyTheyBoughtKo` text via `getLocalizedCompanyName`
 - "Why they bought" button: fixed with `type="button"` + `e.stopPropagation()`
 
 ## User Preferences

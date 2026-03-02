@@ -48,6 +48,8 @@ interface Real13FData {
   holdings: Real13FHolding[];
   source: string;
   fromDB: boolean;
+  isStaleData?: boolean;
+  notSynced?: boolean;
 }
 
 const CATEGORY_LABELS: Record<InvestorCategory | "all", { en: string; ko: string; emoji: string }> = {
@@ -146,7 +148,7 @@ export default function SuperInvestors() {
 
   const selectedInvestor = investors?.find((inv) => inv.id === selectedId);
 
-  // Real SEC EDGAR 13F data — fetched on demand when investor detail is opened
+  // Real SEC EDGAR 13F data — served instantly from DB; never auto-fetches from SEC on user click
   const {
     data: real13F,
     isLoading: isLoading13F,
@@ -157,11 +159,12 @@ export default function SuperInvestors() {
     queryFn: async () => {
       if (!selectedId) throw new Error("No investor selected");
       const res = await fetch(`/api/13f/${selectedId}`, { credentials: "include" });
-      if (!res.ok) throw new Error(`13F fetch failed: ${res.status}`);
-      return res.json();
+      if (!res.ok && res.status !== 202) throw new Error(`13F fetch failed: ${res.status}`);
+      const json = await res.json();
+      return json as Real13FData;
     },
     enabled: !!selectedId,
-    staleTime: 24 * 60 * 60 * 1000, // 24h — same as server cache
+    staleTime: 24 * 60 * 60 * 1000,
     retry: 1,
   });
 
@@ -173,6 +176,15 @@ export default function SuperInvestors() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/13f", selectedId] });
       refetch13F();
+    },
+  });
+
+  const syncAllMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/13f-sync-all");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/13f"] });
     },
   });
 
@@ -204,7 +216,7 @@ export default function SuperInvestors() {
   // Merge real SEC EDGAR data with static editorial commentary (whyTheyBought)
   const effectiveHoldings = useMemo(() => {
     if (!selectedInvestor) return [];
-    if (!real13F || !real13F.holdings?.length) return selectedInvestor.holdings;
+    if (!real13F || real13F.notSynced || !real13F.holdings?.length) return selectedInvestor.holdings;
 
     // Build a ticker→static-holding map for commentary lookup
     const staticByTicker = new Map(
@@ -213,8 +225,10 @@ export default function SuperInvestors() {
 
     return real13F.holdings.map((rh) => {
       const staticMatch = staticByTicker.get(rh.ticker.toUpperCase());
+      const koName = getLocalizedCompanyName(rh.ticker, rh.company, "ko");
+      const displayName = rh.ticker || rh.cusip;
       return {
-        ticker: rh.ticker || rh.cusip,
+        ticker: displayName,
         company: rh.company,
         sector: staticMatch?.sector || (rh.putCall ? "Options" : "Equity"),
         shares: rh.shares,
@@ -222,9 +236,9 @@ export default function SuperInvestors() {
         change: (staticMatch?.change || "Held") as "Bought" | "Sold" | "Held" | "New",
         changePct: staticMatch?.changePct ?? null,
         whyTheyBoughtEn: staticMatch?.whyTheyBoughtEn ||
-          `${rh.company} represents ${rh.weight}% of the portfolio with $${(rh.value / 1000).toFixed(1)}M position size (${rh.shares.toLocaleString()} shares). Source: SEC EDGAR 13F filing, CUSIP ${rh.cusip}.`,
+          `${rh.company} represents ${rh.weight}% of the portfolio with $${(rh.value / 1000).toFixed(1)}M position size (${rh.shares.toLocaleString()} shares). Source: SEC EDGAR 13F-HR (verified), CUSIP ${rh.cusip}.`,
         whyTheyBoughtKo: staticMatch?.whyTheyBoughtKo ||
-          `${rh.company}는 포트폴리오의 ${rh.weight}%를 차지하며 $${(rh.value / 1000).toFixed(1)}M 포지션 (${rh.shares.toLocaleString()}주)입니다. 출처: SEC EDGAR 13F, CUSIP ${rh.cusip}.`,
+          `${koName}(${displayName})는 포트폴리오의 ${rh.weight}%를 차지하며 $${(rh.value / 1000).toFixed(1)}M 포지션 (${rh.shares.toLocaleString()}주)입니다. 출처: SEC EDGAR 13F-HR 검증 데이터, CUSIP ${rh.cusip}.`,
         _isRealData: true,
         _cusip: rh.cusip,
         _valueUSD: rh.value,
@@ -300,14 +314,30 @@ export default function SuperInvestors() {
             className="space-y-6"
           >
             {/* Header */}
-            <div>
-              <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
-                <Briefcase className="w-8 h-8 text-primary" />
-                {t.super_investors}
-              </h1>
-              <p className="text-muted-foreground mt-2 max-w-2xl">
-                {t.super_investors_desc}
-              </p>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
+                  <Briefcase className="w-8 h-8 text-primary" />
+                  {t.super_investors}
+                </h1>
+                <p className="text-muted-foreground mt-2 max-w-2xl">
+                  {t.super_investors_desc}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-2 border-2 font-bold"
+                onClick={() => syncAllMutation.mutate()}
+                disabled={syncAllMutation.isPending}
+                data-testid="button-sync-all-13f"
+                title={lang === "ko" ? "모든 투자자의 SEC EDGAR 13F 데이터를 DB에 동기화" : "Sync all investors' 13F data from SEC EDGAR to DB"}
+              >
+                <RefreshCw className={`w-4 h-4 ${syncAllMutation.isPending ? "animate-spin" : ""}`} />
+                {syncAllMutation.isPending
+                  ? (lang === "ko" ? "동기화 중..." : "Syncing...")
+                  : (lang === "ko" ? "전체 데이터 동기화" : "Sync All Data")}
+              </Button>
             </div>
 
             {/* Search Bar */}
@@ -528,25 +558,49 @@ export default function SuperInvestors() {
 
                 {/* Portfolio Content */}
                 <div className="lg:col-span-2 space-y-8">
-                  {/* SEC EDGAR Live Data Status Banner */}
+                  {/* SEC EDGAR Data Status Banner */}
                   {isLoading13F && (
                     <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 text-sm font-medium">
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      {lang === "ko"
-                        ? "SEC EDGAR에서 최신 13F 파일링 데이터 불러오는 중…"
-                        : "Fetching latest 13F filing from SEC EDGAR…"}
+                      {lang === "ko" ? "DB에서 13F 데이터 로드 중…" : "Loading 13F data from DB…"}
                     </div>
                   )}
-                  {!isLoading13F && real13F && (
+                  {!isLoading13F && real13F?.notSynced && (
+                    <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 overflow-hidden">
+                      <div className="flex items-center justify-between gap-2 px-4 py-3">
+                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          {lang === "ko"
+                            ? "DB에 데이터 없음 — SEC EDGAR에서 동기화가 필요합니다"
+                            : "No DB data yet — please sync from SEC EDGAR"}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs px-3 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-bold"
+                          onClick={() => syncMutation.mutate()}
+                          disabled={syncMutation.isPending}
+                          data-testid="button-sync-13f-investor"
+                        >
+                          <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                          {syncMutation.isPending
+                            ? (lang === "ko" ? "동기화 중..." : "Syncing...")
+                            : (lang === "ko" ? "지금 동기화" : "Sync Now")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {!isLoading13F && real13F && !real13F.notSynced && (
                     <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 overflow-hidden">
                       {/* Main info row */}
                       <div className="flex items-center justify-between gap-2 px-4 py-2.5">
                         <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
                           <CheckCircle2 className="w-4 h-4 shrink-0" />
                           {lang === "ko" ? (
-                            <>{real13F.fromDB ? "DB 캐시" : "SEC EDGAR 신규"} · {real13F.holdingCount}개 종목 전체</>
+                            <>DB 검증 데이터 · {real13F.holdingCount}개 종목{real13F.isStaleData ? " · 갱신 권장" : ""}</>
                           ) : (
-                            <>{real13F.fromDB ? "DB Cache" : "Freshly Fetched"} · {real13F.holdingCount} total holdings</>
+                            <>Verified DB Data · {real13F.holdingCount} holdings{real13F.isStaleData ? " · refresh recommended" : ""}</>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -574,20 +628,20 @@ export default function SuperInvestors() {
                           </Button>
                         </div>
                       </div>
-                      {/* Filing metadata row */}
+                      {/* Filing metadata row — the three verified data points */}
                       <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-emerald-500/5 border-t border-emerald-500/15 text-[11px] text-emerald-700 dark:text-emerald-400">
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "보고서 기준일:" : "Report Date:"}</span>
-                          <span className="font-mono">{real13F.periodOfReport}</span>
+                          <span className="font-bold">{lang === "ko" ? "보고서 기준일:" : "Report Period:"}</span>
+                          <span className="font-mono font-semibold">{real13F.periodOfReport}</span>
                         </span>
                         <span className="opacity-40">·</span>
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "공시 일자:" : "Filing Date:"}</span>
-                          <span className="font-mono">{real13F.filingDate}</span>
+                          <span className="font-bold">{lang === "ko" ? "공시 일자:" : "Filed:"}</span>
+                          <span className="font-mono font-semibold">{real13F.filingDate}</span>
                         </span>
                         <span className="opacity-40">·</span>
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "DB 동기화:" : "Last Synced:"}</span>
+                          <span className="font-bold">{lang === "ko" ? "DB 동기화:" : "DB Synced:"}</span>
                           <span className="font-mono">
                             {real13F.lastSynced
                               ? new Date(real13F.lastSynced).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" })
@@ -596,8 +650,8 @@ export default function SuperInvestors() {
                         </span>
                         <span className="opacity-40">·</span>
                         <span className="flex items-center gap-1">
-                          <span className="font-bold">{lang === "ko" ? "비중:" : "Weights:"}</span>
-                          <span>{lang === "ko" ? "직접 계산 (합계=100%)" : "Calculated (sum=100%)"}</span>
+                          <span className="font-bold">{lang === "ko" ? "출처:" : "Source:"}</span>
+                          <span>{lang === "ko" ? "SEC EDGAR 13F 검증 데이터" : "SEC EDGAR 13F-HR (verified)"}</span>
                         </span>
                       </div>
                     </div>
@@ -607,7 +661,7 @@ export default function SuperInvestors() {
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {lang === "ko"
                         ? "SEC EDGAR 데이터 로드 실패 — 저장된 데이터를 표시합니다. 이 투자자는 13F 공시 의무가 없거나 미국 주식 보유량이 기준 이하일 수 있습니다."
-                        : "Could not load live SEC data — showing curated static holdings. This investor may not be required to file 13F with the SEC (e.g. non-US managers or AUM below threshold)."}
+                        : "Could not load SEC data — showing curated static holdings. This investor may not be required to file 13F with the SEC (e.g. non-US managers or AUM below threshold)."}
                     </div>
                   )}
 
@@ -616,13 +670,13 @@ export default function SuperInvestors() {
                       <CardContent className="pt-6">
                         <p className="text-sm font-bold uppercase opacity-80">{t.portfolio_value}</p>
                         <p className="text-4xl font-display font-bold mt-1">
-                          {real13F
+                          {real13F && !real13F.notSynced
                             ? `$${(real13F.totalValueUSD / 1e9).toFixed(2)}B`
                             : formatAum(selectedInvestor.aum, selectedInvestor.aumUnit, lang, krwRate)}
                         </p>
-                        {real13F && (
+                        {real13F && !real13F.notSynced && (
                           <p className="text-xs opacity-70 mt-1">
-                            {lang === "ko" ? "SEC 13F 실제 신고 기준" : "Per SEC 13F filing"}
+                            {lang === "ko" ? "SEC 13F 검증 데이터 기준" : "Per verified SEC 13F filing"}
                           </p>
                         )}
                       </CardContent>
@@ -630,25 +684,25 @@ export default function SuperInvestors() {
                     <Card className="border-2">
                       <CardContent className="pt-6">
                         <p className="text-sm font-bold uppercase text-muted-foreground">
-                          {lang === "ko" ? "데이터 기준" : "Data as of"}
+                          {lang === "ko" ? "보고서 기준일" : "Report Period"}
                         </p>
                         <p className="text-2xl font-display font-bold text-foreground mt-1">
-                          {real13F ? real13F.periodOfReport : selectedInvestor.lastUpdated}
+                          {real13F && !real13F.notSynced ? real13F.periodOfReport : selectedInvestor.lastUpdated}
                         </p>
                         <p className="text-xs text-muted-foreground font-medium mt-1">
-                          {real13F
-                            ? (lang === "ko" ? `신고일: ${real13F.filingDate}` : `Filed: ${real13F.filingDate}`)
+                          {real13F && !real13F.notSynced
+                            ? (lang === "ko" ? `공시 일자: ${real13F.filingDate}` : `Filed: ${real13F.filingDate}`)
                             : selectedInvestor.filingType}
                         </p>
-                        {real13F ? (
-                          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-bold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            {lang === "ko" ? "SEC EDGAR 실제 데이터" : "Live SEC EDGAR"}
-                          </div>
-                        ) : (
+                        {real13F && !real13F.notSynced ? (
                           <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            {lang === "ko" ? "최신 데이터" : "Latest Data"}
+                            {lang === "ko" ? "SEC EDGAR 검증 데이터" : "Verified SEC EDGAR"}
+                          </div>
+                        ) : (
+                          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            {lang === "ko" ? "편집 데이터" : "Curated Data"}
                           </div>
                         )}
                       </CardContent>
