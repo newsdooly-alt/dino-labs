@@ -124,6 +124,49 @@ export interface SRLevels {
   resistances: number[];
 }
 
+export interface MACDResult {
+  macd: (number | null)[];
+  signal: (number | null)[];
+  histogram: (number | null)[];
+}
+
+export function calculateMACD(
+  prices: number[],
+  fastPeriod = 12,
+  slowPeriod = 26,
+  signalPeriod = 9
+): MACDResult {
+  const fastEMA = calculateEMA(prices, fastPeriod);
+  const slowEMA = calculateEMA(prices, slowPeriod);
+
+  const macdLine: (number | null)[] = prices.map((_, i) => {
+    const f = fastEMA[i];
+    const s = slowEMA[i];
+    return f !== null && s !== null ? f - s : null;
+  });
+
+  const macdValues = macdLine.filter((v): v is number => v !== null);
+  const signalRaw = calculateEMA(macdValues, signalPeriod);
+
+  const signal: (number | null)[] = [];
+  let sigIdx = 0;
+  for (let i = 0; i < macdLine.length; i++) {
+    if (macdLine[i] === null) {
+      signal.push(null);
+    } else {
+      signal.push(signalRaw[sigIdx] ?? null);
+      sigIdx++;
+    }
+  }
+
+  const histogram: (number | null)[] = macdLine.map((m, i) => {
+    const s = signal[i];
+    return m !== null && s !== null ? m - s : null;
+  });
+
+  return { macd: macdLine, signal, histogram };
+}
+
 export function calculateSupportResistance(
   prices: number[],
   topN = 3
