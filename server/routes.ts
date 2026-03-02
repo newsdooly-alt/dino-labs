@@ -699,6 +699,16 @@ export async function registerRoutes(
     "Extreme Greed": "극심한 탐욕"
   };
 
+  app.get("/api/market/breadth", async (req, res) => {
+    try {
+      const r = await fetch("http://127.0.0.1:5001/breadth", { signal: AbortSignal.timeout(60000) });
+      const d = await r.json();
+      res.json(d);
+    } catch {
+      res.json({ pctAboveSMA50: 0, pctAboveSMA200: 0, above50: 0, above200: 0, total: 0 });
+    }
+  });
+
   app.get("/api/market/mood", async (req, res) => {
     const lang = (req.query.lang as string) || "en";
     const isKorean = lang === "ko";

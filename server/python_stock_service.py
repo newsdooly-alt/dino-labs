@@ -1231,6 +1231,75 @@ def get_macro_sparklines():
     return jsonify(response)
 
 
+_breadth_cache = {"data": None, "timestamp": 0}
+BREADTH_CACHE_DURATION = 900  # 15 minutes
+
+@app.route('/breadth', methods=['GET'])
+def get_market_breadth():
+    """Compute % of stocks above SMA50 and SMA200 for major US stocks."""
+    import time
+    now = time.time()
+    if _breadth_cache["data"] and (now - _breadth_cache["timestamp"]) < BREADTH_CACHE_DURATION:
+        return jsonify(_breadth_cache["data"])
+
+    symbols = request.args.get(
+        'symbols',
+        'NVDA,TSLA,AAPL,MSFT,AMZN,META,GOOGL,AMD,NFLX,JPM,XOM,AVGO,CRM,COST,V'
+    ).split(',')
+    us_symbols = [s.strip() for s in symbols if s.strip() and '.' not in s]
+
+    above_50 = 0
+    above_200 = 0
+    total = 0
+    details = {}
+
+    try:
+        import pandas as pd
+        raw = yf.download(us_symbols, period='1y', interval='1d',
+                          auto_adjust=True, progress=False)
+        closes = raw['Close'] if isinstance(raw.columns, pd.MultiIndex) else raw
+        for sym in us_symbols:
+            try:
+                col = closes[sym] if sym in closes.columns else closes
+                arr = col.dropna().values
+                if len(arr) < 50:
+                    continue
+                current = float(arr[-1])
+                sma50 = float(arr[-50:].mean())
+                a50 = current > sma50
+                a200 = False
+                sma200 = None
+                if len(arr) >= 200:
+                    sma200 = float(arr[-200:].mean())
+                    a200 = current > sma200
+                    above_200 += (1 if a200 else 0)
+                above_50 += (1 if a50 else 0)
+                total += 1
+                details[sym] = {
+                    'aboveSMA50': a50,
+                    'aboveSMA200': a200,
+                    'price': round(current, 2),
+                    'sma50': round(sma50, 2),
+                    'sma200': round(sma200, 2) if sma200 else None,
+                }
+            except Exception:
+                pass
+    except Exception as e:
+        return jsonify({'error': str(e), 'pctAboveSMA50': 0, 'pctAboveSMA200': 0, 'total': 0}), 200
+
+    result = {
+        'pctAboveSMA50': round((above_50 / total * 100) if total > 0 else 0),
+        'pctAboveSMA200': round((above_200 / total * 100) if total > 0 else 0),
+        'above50': above_50,
+        'above200': above_200,
+        'total': total,
+        'details': details,
+    }
+    _breadth_cache["data"] = result
+    _breadth_cache["timestamp"] = now
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)

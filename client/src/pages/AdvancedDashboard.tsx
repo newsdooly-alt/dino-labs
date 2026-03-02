@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -292,9 +292,20 @@ export default function AdvancedDashboard() {
   const lastPrice  = lastIdx >= 0 ? chartData[lastIdx].price : (quote?.price ?? 0);
   const stageInfo = getStageAnalysis(lastPrice, lastSMA50, lastSMA200, lang);
 
-  // Breadth: computed from screener
+  // Breadth: computed from screener (RS-based)
   const positiveRS = screenerRows.filter(s => s.rs > 0).length;
   const breadthPct = screenerRows.length > 0 ? Math.round((positiveRS / screenerRows.length) * 100) : 0;
+
+  // SMA breadth from backend
+  const { data: breadthData } = useQuery<{ pctAboveSMA50: number; pctAboveSMA200: number; above50: number; above200: number; total: number }>({
+    queryKey: ["/api/market/breadth"],
+    queryFn: async () => {
+      const res = await fetch("/api/market/breadth");
+      if (!res.ok) return { pctAboveSMA50: 0, pctAboveSMA200: 0, above50: 0, above200: 0, total: 0 };
+      return res.json();
+    },
+    staleTime: 15 * 60 * 1000,
+  });
 
   // Candlestick tooltip
   const chartTooltip = ({ active, payload }: any) => {
@@ -308,10 +319,10 @@ export default function AdvancedDashboard() {
         {chartType === "candle" ? (
           <div style={{ display: "grid", gridTemplateColumns: "auto auto", gap: "2px 12px" }}>
             {[["시가/O", d.open], ["고가/H", d.high], ["저가/L", d.low], ["종가/C", d.close]].map(([lbl, val]) => (
-              <>
-                <span key={`l-${lbl}`} style={{ color: tickColor }}>{lbl as string}</span>
-                <span key={`v-${lbl}`} style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>{formatPrice(val as number, { nativeCurrency })}</span>
-              </>
+              <React.Fragment key={lbl as string}>
+                <span style={{ color: tickColor }}>{lbl as string}</span>
+                <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>{formatPrice(val as number, { nativeCurrency })}</span>
+              </React.Fragment>
             ))}
           </div>
         ) : (
@@ -594,32 +605,36 @@ export default function AdvancedDashboard() {
 
         {/* Market Breadth */}
         <div className="bg-muted/40 rounded-xl p-3">
-          <p className="text-[9px] text-muted-foreground mb-2">{lang === "ko" ? "📈 시장 폭 (스크리너 기준)" : "📈 Market Breadth"}</p>
+          <p className="text-[9px] text-muted-foreground mb-2">{lang === "ko" ? "📈 시장 폭 (SMA 기준)" : "📈 Market Breadth (SMA)"}</p>
+          {/* RS-based breadth */}
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "RS 양수 종목" : "Positive RS stocks"}</span>
+            <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "RS 양수 종목" : "Positive RS vs SPY"}</span>
             <span className="text-xs font-bold" style={{ color: breadthPct >= 50 ? "#22c55e" : "#ef4444" }}>{breadthPct}%</span>
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${breadthPct}%`, background: breadthPct >= 50 ? "#22c55e" : "#ef4444" }} />
           </div>
-          <p className="text-[9px] text-muted-foreground mt-1.5">{positiveRS}/{screenerRows.length} {lang === "ko" ? "종목 시장 대비 강세" : "stocks outperforming SPY"}</p>
-          <div className="mt-2 space-y-1">
-            {[
-              { lbl: lang === "ko" ? "기술섹터 (US)" : "US Tech", pct: 68 },
-              { lbl: lang === "ko" ? "금융섹터 (US)" : "US Finance", pct: 72 },
-              { lbl: lang === "ko" ? "에너지 (US)" : "US Energy", pct: 44 },
-            ].map(({ lbl, pct }) => (
-              <div key={lbl}>
-                <div className="flex justify-between text-[9px]">
-                  <span className="text-muted-foreground">{lbl}</span>
-                  <span className="font-semibold">{pct}%</span>
+          <p className="text-[9px] text-muted-foreground mt-1">{positiveRS}/{screenerRows.length} {lang === "ko" ? "종목 SPY 대비 강세" : "stocks outperforming SPY"}</p>
+          {/* SMA-based breadth */}
+          {breadthData && breadthData.total > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {[
+                { lbl: lang === "ko" ? "SMA50 위" : "Above SMA 50",  pct: breadthData.pctAboveSMA50,  count: breadthData.above50,  color: "#f59e0b" },
+                { lbl: lang === "ko" ? "SMA200 위" : "Above SMA 200", pct: breadthData.pctAboveSMA200, count: breadthData.above200, color: "#ef4444" },
+              ].map(({ lbl, pct, count, color }) => (
+                <div key={lbl}>
+                  <div className="flex justify-between text-[9px] mb-0.5">
+                    <span className="text-muted-foreground">{lbl}</span>
+                    <span className="font-semibold" style={{ color }}>{pct}% <span className="text-muted-foreground font-normal">({count}/{breadthData.total})</span></span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color, opacity: 0.75 }} />
+                  </div>
                 </div>
-                <div className="h-1 bg-muted rounded-full mt-0.5">
-                  <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+              <p className="text-[9px] text-muted-foreground">{lang === "ko" ? `${breadthData.total}개 주요 종목 기준` : `Based on ${breadthData.total} major stocks`}</p>
+            </div>
+          )}
         </div>
 
         {/* Mini RRG Sector Rotation */}

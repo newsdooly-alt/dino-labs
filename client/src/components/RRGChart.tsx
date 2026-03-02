@@ -748,6 +748,61 @@ export function RRGChart() {
         </div>
       </div>
 
+      {/* Quadrant Statistics Panel */}
+      <div className="px-5 py-3 border-b border-border/40 bg-muted/20">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
+          {lang === "ko" ? "섹터 분포 통계" : "Quadrant Distribution"} — {displaySectors.length} {lang === "ko" ? "개 섹터" : "sectors"}
+        </p>
+        <div className="grid grid-cols-4 gap-1.5 mb-2">
+          {(Object.entries(QUADRANT_CONFIG) as [string, typeof QUADRANT_CONFIG["leading"]][]).map(([key, q]) => {
+            const count = quadrantCounts[key as keyof typeof quadrantCounts];
+            const pct = displaySectors.length > 0 ? Math.round((count / displaySectors.length) * 100) : 0;
+            const sectorNames = displaySectors
+              .filter(s => s.quadrant === key)
+              .map(s => {
+                const lbl = cfg.sectorLabels?.[s.symbol];
+                return lbl ? (lang === "ko" ? lbl.ko : lbl.en) : s.symbol;
+              })
+              .join(", ");
+            return (
+              <div key={key} className="rounded-lg p-2 text-center" style={{ background: q.bg, border: `1px solid ${q.border}` }} title={sectorNames}>
+                <p className="text-[9px] font-semibold mb-0.5" style={{ color: q.color }}>{lang === "ko" ? q.labelKo : q.label}</p>
+                <p className="text-base font-bold leading-none" style={{ color: q.color }}>{pct}<span className="text-[9px] font-normal">%</span></p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">{count}/{displaySectors.length}</p>
+              </div>
+            );
+          })}
+        </div>
+        {/* Stacked bar breakdown */}
+        <div className="flex h-2 rounded-full overflow-hidden gap-px">
+          {(Object.entries(QUADRANT_CONFIG) as [string, typeof QUADRANT_CONFIG["leading"]][]).map(([key, q]) => {
+            const count = quadrantCounts[key as keyof typeof quadrantCounts];
+            const pct = displaySectors.length > 0 ? (count / displaySectors.length) * 100 : 0;
+            return pct > 0 ? (
+              <div key={key} style={{ width: `${pct}%`, background: q.color, opacity: 0.75 }} title={`${lang === "ko" ? q.labelKo : q.label}: ${Math.round(pct)}%`} />
+            ) : null;
+          })}
+        </div>
+        {/* Sector names per quadrant */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-2">
+          {(Object.entries(QUADRANT_CONFIG) as [string, typeof QUADRANT_CONFIG["leading"]][]).map(([key, q]) => {
+            const names = displaySectors
+              .filter(s => s.quadrant === key)
+              .map(s => {
+                const lbl = cfg.sectorLabels?.[s.symbol];
+                return lbl ? (lang === "ko" ? lbl.ko : lbl.en) : s.symbol;
+              });
+            if (!names.length) return null;
+            return (
+              <div key={key} className="text-[9px]">
+                <span className="font-semibold" style={{ color: q.color }}>{lang === "ko" ? q.labelKo : q.label}: </span>
+                <span className="text-muted-foreground">{names.join(", ")}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Chart with Zoom/Pan */}
       <div className="relative" style={{ height: 420 }}>
         <TransformWrapper
