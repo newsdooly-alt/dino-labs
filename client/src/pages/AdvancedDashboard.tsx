@@ -9,11 +9,11 @@ import { cleanCompanyName } from "@/lib/stockUtils";
 import { calculateSMA, calculateRSI, calculateBollingerBands, calculateSupportResistance } from "@/lib/technicalAnalysis";
 import { cn } from "@/lib/utils";
 import {
-  ComposedChart, Line, Bar, BarChart, Area,
-  XAxis, YAxis, Tooltip, ResponsiveContainer,
-  ReferenceLine, Cell, ScatterChart, Scatter,
+  ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ReferenceArea, CartesianGrid,
 } from "recharts";
+import { LWChart, type LWCandlePoint } from "@/components/LWChart";
+import { Input } from "@/components/ui/input";
 import {
   TrendingUp, TrendingDown, BarChart3, Activity,
   CandlestickChart, LineChart as LineChartIcon,
@@ -135,7 +135,9 @@ export default function AdvancedDashboard() {
   const [showVolume, setShowVolume] = useState(true);
   const [showMA, setShowMA] = useState(true);
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
-  const [screenerSort, setScreenerSort] = useState<"rs" | "name">("rs");
+  const [showMACD, setShowMACD] = useState(false);
+  const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
+  const [screenerSearch, setScreenerSearch] = useState("");
 
   const isKr = isKoreanStock(selectedSymbol);
   const isJp = isJapaneseStock(selectedSymbol);
@@ -157,7 +159,7 @@ export default function AdvancedDashboard() {
 
   const screenerRows = useMemo(() => {
     if (!screenerData?.quotes) return [];
-    return SCREENER_STOCKS.map(s => {
+    const rows = SCREENER_STOCKS.map(s => {
       const q = screenerData.quotes.find(q => q.symbol === s.symbol);
       const cp = q?.changePercent ?? 0;
       const rs = cp - spyChange;
@@ -165,12 +167,23 @@ export default function AdvancedDashboard() {
         ...s,
         price: q?.price ?? null,
         changePercent: cp,
+        volume: (q?.volume ?? 0) as number,
         rs,
         name: q?.name ?? s.symbol,
         pattern: getPatternTag(rs, lang),
       };
-    }).sort((a, b) => screenerSort === "rs" ? b.rs - a.rs : a.symbol.localeCompare(b.symbol));
-  }, [screenerData, spyChange, screenerSort, lang]);
+    });
+    const filtered = screenerSearch.trim()
+      ? rows.filter(r => r.symbol.toLowerCase().includes(screenerSearch.toLowerCase()) || r.name.toLowerCase().includes(screenerSearch.toLowerCase()))
+      : rows;
+    return filtered.sort((a, b) => {
+      if (screenerSort === "rs")     return b.rs - a.rs;
+      if (screenerSort === "name")   return a.symbol.localeCompare(b.symbol);
+      if (screenerSort === "change") return (b.changePercent ?? 0) - (a.changePercent ?? 0);
+      if (screenerSort === "vol")    return b.volume - a.volume;
+      return 0;
+    });
+  }, [screenerData, spyChange, screenerSort, screenerSearch, lang]);
 
   const selectedScreenerInfo = SCREENER_STOCKS.find(s => s.symbol === selectedSymbol);
 
@@ -242,41 +255,20 @@ export default function AdvancedDashboard() {
     });
   }, [rawHistory, sma50, sma200, isIntraday, lang]);
 
-  const { yDomainMin, yDomainMax } = useMemo(() => {
-    if (!chartData.length) return { yDomainMin: 0, yDomainMax: 100 };
-    const lows  = chartData.map((d: any) => d.low  > 0 ? d.low  : d.price);
-    const highs = chartData.map((d: any) => d.high > 0 ? d.high : d.price);
-    const maVals = chartData.flatMap((d: any) => [d.sma50, d.sma200]).filter((v: any): v is number => v != null && v > 0);
-    const allMin = Math.min(...lows, ...maVals);
-    const allMax = Math.max(...highs, ...maVals);
-    const pad = (allMax - allMin) * 0.06;
-    return { yDomainMin: allMin - pad, yDomainMax: allMax + pad };
-  }, [chartData]);
+  const lwChartData = useMemo((): LWCandlePoint[] => {
+    return rawHistory.map((d: any, i: number) => ({
+      date: d.date,
+      open: d.open || d.close,
+      high: d.high || d.close,
+      low: d.low || d.close,
+      close: d.close,
+      volume: d.volume ?? 0,
+      changePct: i > 0 && rawHistory[i - 1].close > 0
+        ? ((d.close - rawHistory[i - 1].close) / rawHistory[i - 1].close) * 100
+        : 0,
+    }));
+  }, [rawHistory]);
 
-  const candlestickShape = useMemo(() => {
-    const dMin = yDomainMin;
-    const dMax = yDomainMax;
-    return (props: any) => {
-      const { x, width, background, payload } = props;
-      if (!payload || !background?.height) return <g />;
-      const { open, high, low, close } = payload;
-      if (open == null || high == null || low == null || close == null) return <g />;
-      const toY = (val: number) => background.y + ((dMax - val) / (dMax - dMin)) * background.height;
-      const isUp = close >= open;
-      const color = isUp ? "#22c55e" : "#ef4444";
-      const highY = toY(high), lowY = toY(low), openY = toY(open), closeY = toY(close);
-      const bodyTop = Math.min(openY, closeY);
-      const bodyH = Math.max(Math.abs(closeY - openY), 1);
-      const bodyW = Math.max((width || 6) - 2, 2);
-      const wickX = x + (width || 6) / 2;
-      return (
-        <g>
-          <line x1={wickX} y1={highY} x2={wickX} y2={lowY} stroke={color} strokeWidth={1} opacity={0.85} />
-          <rect x={x + 1} y={bodyTop} width={bodyW} height={bodyH} fill={color} stroke={color} strokeWidth={0.5} opacity={0.85} />
-        </g>
-      );
-    };
-  }, [yDomainMin, yDomainMax]);
 
   const periodReturnPct = selectedPeriod === "1d"
     ? (quote?.changePercent ?? 0)
@@ -307,46 +299,30 @@ export default function AdvancedDashboard() {
     staleTime: 15 * 60 * 1000,
   });
 
-  // Candlestick tooltip
-  const chartTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0]?.payload;
-    if (!d) return null;
-    const isUp = d.close >= d.open;
-    return (
-      <div style={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, padding: "10px 14px", fontSize: 11 }}>
-        <p style={{ color: tickColor, marginBottom: 4, fontWeight: 600 }}>{d.date}</p>
-        {chartType === "candle" ? (
-          <div style={{ display: "grid", gridTemplateColumns: "auto auto", gap: "2px 12px" }}>
-            {[["시가/O", d.open], ["고가/H", d.high], ["저가/L", d.low], ["종가/C", d.close]].map(([lbl, val]) => (
-              <React.Fragment key={lbl as string}>
-                <span style={{ color: tickColor }}>{lbl as string}</span>
-                <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>{formatPrice(val as number, { nativeCurrency })}</span>
-              </React.Fragment>
-            ))}
-          </div>
-        ) : (
-          <span style={{ color: isDark ? "#e5e7eb" : "#111827", fontWeight: 700 }}>{formatPrice(d.price, { nativeCurrency })}</span>
-        )}
-        {d.sma50  && showMA && <p style={{ color: "#f59e0b", fontSize: 10, marginTop: 4 }}>SMA50: {formatPrice(d.sma50, { nativeCurrency, compact: true })}</p>}
-        {d.sma200 && showMA && <p style={{ color: "#ef4444", fontSize: 10 }}>SMA200: {formatPrice(d.sma200, { nativeCurrency, compact: true })}</p>}
-      </div>
-    );
-  };
 
   // ── Sub-panel renderers ──────────────────────────────────────────────
   const displayName = getLocalizedCompanyName(cleanCompanyName(quote?.name || selectedSymbol), lang);
 
   const ScreenerPanel = () => (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 flex-shrink-0">
-        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "종목 스크리너" : "Screener"}</span>
-        <div className="flex gap-1">
-          <button onClick={() => setScreenerSort("rs")} className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === "rs" ? "bg-primary/20 text-primary" : "text-muted-foreground")}> RS</button>
-          <button onClick={() => setScreenerSort("name")} className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === "name" ? "bg-primary/20 text-primary" : "text-muted-foreground")}>A-Z</button>
+      <div className="px-2 pt-2 pb-1 flex-shrink-0">
+        <Input
+          placeholder={lang === "ko" ? "종목 검색..." : "Search..."}
+          value={screenerSearch}
+          onChange={e => setScreenerSearch(e.target.value)}
+          className="h-7 text-xs"
+          data-testid="input-screener-search"
+        />
+      </div>
+      <div className="flex items-center justify-between px-2 pb-1 flex-shrink-0">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "정렬" : "Sort"}</span>
+        <div className="flex gap-0.5">
+          {([["rs", "RS"], ["change", "%"], ["vol", "Vol"], ["name", "A-Z"]] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setScreenerSort(key)} className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === key ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} data-testid={`sort-screener-${key}`}>{label}</button>
+          ))}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto border-t border-border/30">
         {isScreenerLoading ? (
           <div className="p-3 space-y-1.5">
             {Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}
@@ -376,9 +352,15 @@ export default function AdvancedDashboard() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-xs font-mono font-semibold">{priceFmt}</p>
-                <p className={cn("text-[10px] font-bold", row.rs >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                  RS {row.rs >= 0 ? "+" : ""}{row.rs.toFixed(1)}%
-                </p>
+                {screenerSort === "vol" && row.volume > 0 ? (
+                  <p className="text-[10px] text-muted-foreground">
+                    {row.volume >= 1e9 ? `${(row.volume / 1e9).toFixed(1)}B` : row.volume >= 1e6 ? `${(row.volume / 1e6).toFixed(1)}M` : `${(row.volume / 1e3).toFixed(0)}K`}
+                  </p>
+                ) : (
+                  <p className={cn("text-[10px] font-bold", row.rs >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                    {screenerSort === "change" ? `${row.changePercent >= 0 ? "+" : ""}${row.changePercent.toFixed(2)}%` : `RS ${row.rs >= 0 ? "+" : ""}${row.rs.toFixed(1)}%`}
+                  </p>
+                )}
               </div>
             </button>
           );
@@ -415,9 +397,10 @@ export default function AdvancedDashboard() {
       {/* Indicator toggles */}
       <div className="flex gap-1.5 px-3 py-1.5 border-b border-border/30 flex-wrap flex-shrink-0">
         {[
-          { key: "sr",     label: lang === "ko" ? "S/R선" : "S/R",    state: showSR,     set: () => setShowSR(v => !v),     cls: "text-amber-500 bg-amber-500/10 border-amber-500/30" },
-          { key: "vol",    label: lang === "ko" ? "거래량" : "Vol",    state: showVolume, set: () => setShowVolume(v => !v), cls: "text-blue-500 bg-blue-500/10 border-blue-500/30" },
-          { key: "ma",     label: "MA 50/200",                         state: showMA,     set: () => setShowMA(v => !v),     cls: "text-orange-500 bg-orange-500/10 border-orange-500/30" },
+          { key: "sr",   label: lang === "ko" ? "S/R선" : "S/R",   state: showSR,     set: () => setShowSR(v => !v),     cls: "text-amber-500 bg-amber-500/10 border-amber-500/30" },
+          { key: "vol",  label: lang === "ko" ? "거래량" : "Vol",   state: showVolume, set: () => setShowVolume(v => !v), cls: "text-blue-500 bg-blue-500/10 border-blue-500/30" },
+          { key: "ma",   label: "MA 50/200",                         state: showMA,     set: () => setShowMA(v => !v),     cls: "text-orange-500 bg-orange-500/10 border-orange-500/30" },
+          { key: "macd", label: "MACD",                              state: showMACD,   set: () => setShowMACD(v => !v),   cls: "text-indigo-500 bg-indigo-500/10 border-indigo-500/30" },
         ].map(btn => (
           <button key={btn.key} onClick={btn.set}
             className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all", btn.state ? btn.cls : "text-muted-foreground bg-muted/30 border-border")}
@@ -443,60 +426,31 @@ export default function AdvancedDashboard() {
       )}
 
       {/* Main chart */}
-      <div className="flex-1 overflow-hidden min-h-0 px-1">
+      <div className="flex-1 overflow-hidden min-h-0 px-1 flex flex-col">
         {isHistoryLoading ? (
           <div className="h-full flex items-center justify-center">
             <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
-        ) : chartData.length > 0 ? (
-          <>
-            <ResponsiveContainer width="100%" height="80%">
-              <ComposedChart data={chartData} margin={{ top: 4, right: isKr ? 10 : 6, bottom: 0, left: 0 }}>
-                <defs>
-                  <linearGradient id="advAreaFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: tickColor }} interval="preserveStartEnd" />
-                <YAxis domain={[yDomainMin, yDomainMax]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: tickColor }} tickFormatter={(v) => formatPrice(v, { nativeCurrency, compact: true })} width={isKr ? 68 : 52} />
-                <Tooltip content={chartTooltip} />
-                {showSR && srLevels.resistances.map((level, i) => (
-                  <ReferenceLine key={`r${i}`} y={level} stroke="#ef4444" strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.65}
-                    label={{ value: lang === "ko" ? "저항" : "R", position: "insideTopRight", fontSize: 8, fill: "#ef4444" }}
-                  />
-                ))}
-                {showSR && srLevels.supports.map((level, i) => (
-                  <ReferenceLine key={`s${i}`} y={level} stroke="#22c55e" strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.65}
-                    label={{ value: lang === "ko" ? "지지" : "S", position: "insideBottomRight", fontSize: 8, fill: "#22c55e" }}
-                  />
-                ))}
-                {showMA && !isIntraday && (
-                  <>
-                    <Line type="monotone" dataKey="sma50"  stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls name="sma50" />
-                    <Line type="monotone" dataKey="sma200" stroke="#ef4444" strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls name="sma200" />
-                  </>
-                )}
-                {chartType === "candle" && <Bar dataKey="close" shape={candlestickShape} isAnimationActive={false} />}
-                {chartType === "area" && (
-                  <Area type="monotone" dataKey="price" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#advAreaFill)" isAnimationActive={false} dot={false} activeDot={{ r: 4 }} />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
-            {showVolume && (
-              <ResponsiveContainer width="100%" height="20%">
-                <BarChart data={chartData} margin={{ top: 0, right: isKr ? 10 : 6, bottom: 0, left: 0 }}>
-                  <XAxis dataKey="date" hide />
-                  <YAxis hide />
-                  <Bar dataKey="volume" radius={[1, 1, 0, 0]} maxBarSize={12} isAnimationActive={false}>
-                    {chartData.map((entry: any, idx: number) => (
-                      <Cell key={`v${idx}`} fill={entry.isUp ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.45)"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </>
+        ) : lwChartData.length > 0 ? (
+          <LWChart
+            data={lwChartData}
+            height={showMACD || showRSI ? 220 : 280}
+            isDark={isDark}
+            formatPrice={(v, opts) => formatPrice(v, { nativeCurrency, ...(opts || {}) })}
+            nativeCurrency={nativeCurrency}
+            isIntraday={isIntraday}
+            chartType={chartType === "area" ? "area" : "candle"}
+            showVolume={showVolume}
+            showMA={showMA && !isIntraday}
+            maPeriods={[50, 200]}
+            maColors={["#f59e0b", "#ef4444"]}
+            showRSI={false}
+            showMACD={showMACD && !isIntraday}
+            showSR={showSR}
+            srLevels={srLevels}
+            lang={lang}
+            className="flex-1"
+          />
         ) : (
           <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
             <AlertCircle className="w-4 h-4 mr-2" />{lang === "ko" ? "데이터 없음" : "No data"}

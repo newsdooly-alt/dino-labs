@@ -185,12 +185,19 @@ def get_batch_quotes():
                 time_str = now_et.strftime('%I:%M %p ET')
                 updated_str = now_et.strftime('%Y-%m-%dT%H:%M:%S')
             
+            # Fetch volume safely from fast_info
+            try:
+                vol = int(getattr(ticker.fast_info, 'last_volume', None) or ticker.fast_info.get('lastVolume', 0) or 0)
+            except Exception:
+                vol = 0
+
             results.append({
                 "symbol": symbol,
                 "name": name,
                 "price": round(price, 2),
                 "change": round(change, 2),
                 "changePercent": round(change_percent, 2),
+                "volume": vol,
                 "isMarketOpen": sym_market_open,
                 "isStale": is_stale,
                 "isKorean": is_kr,

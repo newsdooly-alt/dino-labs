@@ -19,28 +19,13 @@ import {
   CandlestickChart,
   LineChart,
   Zap,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import {
-  ComposedChart,
-  Line,
-  Bar,
-  BarChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-  Cell,
-  ReferenceArea,
-} from "recharts";
+import { LWChart, type LWCandlePoint, type LWSRLevels } from "@/components/LWChart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
@@ -228,14 +213,11 @@ export default function StockDetail() {
   const [showMA, setShowMA] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
   const [showBB, setShowBB] = useState(false);
+  const [showMACD, setShowMACD] = useState(false);
   const [chartType, setChartType] = useState<"candle" | "area">("candle");
   const [showProModal, setShowProModal] = useState(false);
   const [logScale, setLogScale] = useState(false);
-  const [hoveredCandle, setHoveredCandle] = useState<any>(null);
-  const [brushDomain, setBrushDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
-  const brushDomainRef = useRef(brushDomain);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { brushDomainRef.current = brushDomain; }, [brushDomain]);
+  const [hoveredCandle, setHoveredCandle] = useState<LWCandlePoint | null>(null);
   const { toast } = useToast();
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock, currency, exchangeRate, exchangeRateJPY } = useCurrency();
@@ -246,10 +228,7 @@ export default function StockDetail() {
   const displayNative = isKr ? 'KRW' : isJp ? 'JPY' : currency === 'krw' ? 'KRW' : currency === 'jpy' ? 'JPY' : 'USD';
 
   const isDark = theme === "dark";
-  const tickColor = isDark ? "#9ca3af" : "#6b7280";
   const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
-  const tooltipBg = isDark ? "#111827" : "#ffffff";
-  const tooltipBorder = isDark ? "#374151" : "#e5e7eb";
 
   const { data: user } = useQuery<{ language: string }>({
     queryKey: ["/api/profiles/me"],
@@ -384,200 +363,25 @@ export default function StockDetail() {
     });
   }, [rawHistoryData, ma20Values, ma60Values, ma120Values, rsiValues, bbValues, signalMap, isIntraday, lang, priceMultiplier]);
 
-  const visibleData = useMemo(() => {
-    const n = chartData.length;
-    if (n === 0) return chartData;
-    const s = brushDomain.startIndex ?? 0;
-    const e = brushDomain.endIndex ?? n - 1;
-    return chartData.slice(Math.max(0, s), Math.min(n - 1, e) + 1);
-  }, [chartData, brushDomain]);
+  const lwChartData = useMemo((): LWCandlePoint[] => {
+    const m = priceMultiplier;
+    return rawHistoryData.map((d, i) => ({
+      date: d.date,
+      open: d.open * m,
+      high: (d.high || d.close) * m,
+      low: (d.low || d.close) * m,
+      close: d.close * m,
+      volume: d.volume ?? 0,
+      changePct: i > 0 && rawHistoryData[i - 1].close > 0
+        ? ((d.close - rawHistoryData[i - 1].close) / rawHistoryData[i - 1].close) * 100
+        : 0,
+    }));
+  }, [rawHistoryData, priceMultiplier]);
 
-  useEffect(() => {
-    const el = chartContainerRef.current;
-    if (!el) return;
-    let raf: number | null = null;
-
-    // ── Pinch-to-zoom state ──
-    let pinchStartDist = 0; let pinchStartS = 0; let pinchStartE = 0; let isPinching = false;
-    // ── Touch-pan state ──
-    let panStartX = 0; let panStartY = 0; let panStartS = 0; let panStartE = 0;
-    let isPanning = false; let dirLocked = false;
-    // ── Mouse-drag-pan state ──
-    let isDragging = false; let dragStartX = 0; let dragStartS = 0; let dragStartE = 0;
-
-    const dist = (t1: Touch, t2: Touch) => Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-
-    // ── Touch handlers ──
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        isPinching = true; isPanning = false; dirLocked = false;
-        pinchStartDist = dist(e.touches[0], e.touches[1]);
-        const bd = brushDomainRef.current; const n = chartData.length;
-        pinchStartS = bd.startIndex ?? 0; pinchStartE = bd.endIndex ?? n - 1;
-      } else if (e.touches.length === 1) {
-        isPinching = false; isPanning = false; dirLocked = false;
-        panStartX = e.touches[0].clientX; panStartY = e.touches[0].clientY;
-        const bd = brushDomainRef.current; const n = chartData.length;
-        panStartS = bd.startIndex ?? 0; panStartE = bd.endIndex ?? n - 1;
-      }
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      if (isPinching && e.touches.length === 2) {
-        e.preventDefault();
-        const currentDist = dist(e.touches[0], e.touches[1]);
-        const scale = pinchStartDist / Math.max(currentDist, 1);
-        const n = chartData.length; const origRange = pinchStartE - pinchStartS;
-        const newRange = Math.min(n - 1, Math.max(3, Math.round(origRange * scale)));
-        const center = Math.round((pinchStartS + pinchStartE) / 2);
-        const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
-        const newE = Math.min(n - 1, newS + newRange);
-        if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
-      } else if (e.touches.length === 1) {
-        const dx = e.touches[0].clientX - panStartX;
-        const dy = e.touches[0].clientY - panStartY;
-        if (!dirLocked && Math.max(Math.abs(dx), Math.abs(dy)) > 6) {
-          dirLocked = true;
-          isPanning = Math.abs(dx) >= Math.abs(dy) * 0.9;
-        }
-        if (isPanning) {
-          e.preventDefault();
-          const w = el.getBoundingClientRect().width || 1;
-          const range = panStartE - panStartS; const n = chartData.length;
-          const delta = -Math.round((dx / w) * range);
-          const newS = Math.max(0, Math.min(panStartS + delta, n - 1 - range));
-          if (raf) cancelAnimationFrame(raf);
-          raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newS + range }));
-        }
-      }
-    };
-    const onTouchEnd = () => { isPinching = false; isPanning = false; dirLocked = false; };
-
-    // ── Mouse drag-to-pan handlers ──
-    const onMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) return;
-      isDragging = true; dragStartX = e.clientX;
-      const bd = brushDomainRef.current; const n = chartData.length;
-      dragStartS = bd.startIndex ?? 0; dragStartE = bd.endIndex ?? n - 1;
-      el.style.cursor = "grabbing";
-    };
-    const onMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const w = el.getBoundingClientRect().width || 1;
-      const range = dragStartE - dragStartS; const n = chartData.length;
-      const delta = -Math.round(((e.clientX - dragStartX) / w) * range);
-      const newS = Math.max(0, Math.min(dragStartS + delta, n - 1 - range));
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newS + range }));
-    };
-    const onMouseUp = () => { isDragging = false; el.style.cursor = "crosshair"; };
-
-    // ── Wheel zoom ──
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const n = chartData.length; const bd = brushDomainRef.current;
-      const s = bd.startIndex ?? 0; const end = bd.endIndex ?? n - 1; const range = end - s;
-      const dir = e.deltaY > 0 ? 1 : -1;
-      const step = Math.max(Math.round(range * 0.1), 1);
-      const center = Math.round((s + end) / 2);
-      if (dir < 0) {
-        const newRange = Math.max(3, range - step * 2);
-        const newS = Math.max(0, Math.min(center - Math.floor(newRange / 2), n - 1 - newRange));
-        if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newS + newRange }));
-      } else {
-        const newS = Math.max(0, s - step);
-        const newE = Math.min(n - 1, end + step);
-        if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => setBrushDomain({ startIndex: newS, endIndex: newE }));
-      }
-    };
-
-    el.style.cursor = "crosshair";
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    el.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-      el.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      el.removeEventListener("wheel", onWheel);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [chartData.length]);
-
-  // Auto-upgrade period when user pans/zooms to the left edge
-  useEffect(() => {
-    if ((brushDomain.startIndex ?? 0) > 0) return;
-    const periodOrder = ["1d", "1w", "1m", "1y", "5y", "all"];
-    const curIdx = periodOrder.indexOf(selectedPeriod);
-    if (curIdx < 0 || curIdx >= periodOrder.length - 1) return;
-    const timer = setTimeout(() => {
-      const bd = brushDomainRef.current;
-      if ((bd.startIndex ?? 0) === 0) {
-        setSelectedPeriod(periodOrder[curIdx + 1]);
-        setBrushDomain({});
-      }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [brushDomain.startIndex, selectedPeriod]);
-
-  const { yDomainMin, yDomainMax } = useMemo(() => {
-    const d = visibleData.length > 0 ? visibleData : chartData;
-    if (!d.length) return { yDomainMin: 0, yDomainMax: 100 };
-    const allLows  = d.map(d => d.low  > 0 ? d.low  : d.price).filter(v => v > 0);
-    const allHighs = d.map(d => d.high > 0 ? d.high : d.price).filter(v => v > 0);
-    const maVals = d.flatMap(d => [d.ma20, d.ma60, d.ma120, d.bbUpper, d.bbLower]).filter((v): v is number => v !== null && v > 0);
-    const allMin = Math.min(...allLows, ...maVals);
-    const allMax = Math.max(...allHighs, ...maVals);
-    const pad = (allMax - allMin) * 0.06;
-    return { yDomainMin: allMin - pad, yDomainMax: allMax + pad };
-  }, [visibleData]);
-
-  const candlestickShape = useMemo(() => {
-    const dMin = yDomainMin;
-    const dMax = yDomainMax;
-    return (props: any) => {
-      const { x, width, background, payload } = props;
-      if (!payload || !background || !background.height || background.height <= 0) return <g />;
-
-      const { open, high, low, close } = payload;
-      if (open == null || high == null || low == null || close == null) return <g />;
-
-      const toY = (val: number) =>
-        background.y + ((dMax - val) / (dMax - dMin)) * background.height;
-
-      const isUp = close >= open;
-      const bullColor = "#22c55e";
-      const bearColor = "#ef4444";
-      const color = isUp ? bullColor : bearColor;
-
-      const highY  = toY(high);
-      const lowY   = toY(low);
-      const openY  = toY(open);
-      const closeY = toY(close);
-
-      const bodyTop = Math.min(openY, closeY);
-      const bodyBot = Math.max(openY, closeY);
-      const bodyH   = Math.max(bodyBot - bodyTop, 1);
-      const bodyW   = Math.max((width || 6) - 2, 2);
-      const wickX   = x + (width || 6) / 2;
-
-      return (
-        <g>
-          <line x1={wickX} y1={highY} x2={wickX} y2={lowY} stroke={color} strokeWidth={1} opacity={0.9} />
-          <rect x={x + 1} y={bodyTop} width={bodyW} height={bodyH} fill={isUp ? color : color} stroke={color} strokeWidth={0.5} opacity={isUp ? 0.85 : 0.9} />
-        </g>
-      );
-    };
-  }, [yDomainMin, yDomainMax]);
+  const lwSRLevels = useMemo((): LWSRLevels => ({
+    supports:     srLevels.supports.map(v => v * priceMultiplier),
+    resistances:  srLevels.resistances.map(v => v * priceMultiplier),
+  }), [srLevels, priceMultiplier]);
 
   const periodReturnPct = selectedPeriod === "1d"
     ? (quote?.changePercent ?? 0)
@@ -595,83 +399,6 @@ export default function StockDetail() {
   const periodLabelStr = periodOptions.find(p => p.key === selectedPeriod)?.returnLabel[lang === "ko" ? "ko" : "en"] ?? "";
   const dinoInsight = getDinoInsight(info || null, lang);
 
-  const candleTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0]?.payload;
-    if (!d) return null;
-    const dt = new Date(d.rawDate);
-    const dateStr = isIntraday
-      ? dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-      : dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" });
-    const isUp = d.close >= d.open;
-    return (
-      <div style={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
-        <p style={{ color: tickColor, marginBottom: 6, fontWeight: 600 }}>{dateStr}</p>
-        <div style={{ display: "grid", gridTemplateColumns: "auto auto", gap: "2px 14px" }}>
-          {chartType === "candle" && (
-            <>
-              <span style={{ color: tickColor }}>{lang === "ko" ? "시가" : "Open"}</span>
-              <span style={{ fontWeight: 700, color: isDark ? "#e5e7eb" : "#111827", textAlign: "right" }}>{formatPrice(d.open, { nativeCurrency: displayNative })}</span>
-              <span style={{ color: tickColor }}>{lang === "ko" ? "고가" : "High"}</span>
-              <span style={{ fontWeight: 700, color: "#22c55e", textAlign: "right" }}>{formatPrice(d.high, { nativeCurrency: displayNative })}</span>
-              <span style={{ color: tickColor }}>{lang === "ko" ? "저가" : "Low"}</span>
-              <span style={{ fontWeight: 700, color: "#ef4444", textAlign: "right" }}>{formatPrice(d.low, { nativeCurrency: displayNative })}</span>
-              <span style={{ color: tickColor }}>{lang === "ko" ? "종가" : "Close"}</span>
-              <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>
-                {formatPrice(d.close, { nativeCurrency: displayNative })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
-              </span>
-            </>
-          )}
-          {chartType === "area" && (
-            <>
-              <span style={{ color: tickColor }}>{lang === "ko" ? "가격" : "Price"}</span>
-              <span style={{ fontWeight: 700, color: isUp ? "#22c55e" : "#ef4444", textAlign: "right" }}>
-                {formatPrice(d.price, { nativeCurrency: displayNative })} <span style={{ fontSize: 10, opacity: 0.85 }}>({d.changePct >= 0 ? "+" : ""}{d.changePct?.toFixed(2)}%)</span>
-              </span>
-            </>
-          )}
-          {showMA && d.ma20 && (
-            <>
-              <span style={{ color: "#f59e0b" }}>MA 20</span>
-              <span style={{ fontWeight: 600, color: "#f59e0b", textAlign: "right" }}>{formatPrice(d.ma20, { nativeCurrency: displayNative, compact: true })}</span>
-            </>
-          )}
-          {showMA && d.ma60 && (
-            <>
-              <span style={{ color: "#3b82f6" }}>MA 60</span>
-              <span style={{ fontWeight: 600, color: "#3b82f6", textAlign: "right" }}>{formatPrice(d.ma60, { nativeCurrency: displayNative, compact: true })}</span>
-            </>
-          )}
-          {showMA && d.ma120 && (
-            <>
-              <span style={{ color: "#a855f7" }}>MA 120</span>
-              <span style={{ fontWeight: 600, color: "#a855f7", textAlign: "right" }}>{formatPrice(d.ma120, { nativeCurrency: displayNative, compact: true })}</span>
-            </>
-          )}
-          {showBB && d.bbUpper && (
-            <>
-              <span style={{ color: "#6b7280" }}>BB Upper</span>
-              <span style={{ fontWeight: 600, color: "#6b7280", textAlign: "right" }}>{formatPrice(d.bbUpper, { nativeCurrency: displayNative, compact: true })}</span>
-            </>
-          )}
-          {d.volume > 0 && (
-            <>
-              <span style={{ color: tickColor }}>{lang === "ko" ? "거래량" : "Vol"}</span>
-              <span style={{ fontWeight: 600, color: isDark ? "#e5e7eb" : "#111827", textAlign: "right" }}>
-                {d.volume >= 1e9 ? `${(d.volume / 1e9).toFixed(1)}B` : d.volume >= 1e6 ? `${(d.volume / 1e6).toFixed(1)}M` : `${(d.volume / 1e3).toFixed(0)}K`}
-              </span>
-            </>
-          )}
-          {showRSI && d.rsi != null && (
-            <>
-              <span style={{ color: d.rsi > 70 ? "#ef4444" : d.rsi < 30 ? "#22c55e" : tickColor }}>RSI 14</span>
-              <span style={{ fontWeight: 700, color: d.rsi > 70 ? "#ef4444" : d.rsi < 30 ? "#22c55e" : isDark ? "#e5e7eb" : "#111827", textAlign: "right" }}>{d.rsi.toFixed(1)}</span>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   const toggleBtn = (active: boolean, onClick: () => void, children: React.ReactNode, activeClass: string, testId?: string) => (
     <button
@@ -770,7 +497,7 @@ export default function StockDetail() {
                   variant={selectedPeriod === opt.key ? "default" : "ghost"}
                   size="sm"
                   className="px-2.5 h-7 text-xs"
-                  onClick={() => { setSelectedPeriod(opt.key); setBrushDomain({}); }}
+                  onClick={() => { setSelectedPeriod(opt.key); }}
                   data-testid={`button-period-${opt.key}`}
                 >
                   {opt.label}
@@ -778,49 +505,6 @@ export default function StockDetail() {
               ))}
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Zoom controls */}
-              <div className="flex gap-0 items-center">
-                <button
-                  onClick={() => {
-                    const n = chartData.length;
-                    if (n < 4) return;
-                    const s = brushDomain.startIndex ?? 0;
-                    const e = brushDomain.endIndex ?? n - 1;
-                    const range = e - s;
-                    const quarter = Math.max(Math.round(range * 0.25), 1);
-                    setBrushDomain({ startIndex: Math.min(s + quarter, e - 2), endIndex: Math.max(e - quarter, s + 2) });
-                  }}
-                  className="flex items-center justify-center w-6 h-6 rounded-l border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all touch-manipulation"
-                  title="Zoom in"
-                  data-testid="button-zoom-in"
-                >
-                  <ZoomIn className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={() => {
-                    const n = chartData.length;
-                    if (n < 2) return;
-                    const s = brushDomain.startIndex ?? 0;
-                    const e = brushDomain.endIndex ?? n - 1;
-                    const range = e - s;
-                    const quarter = Math.max(Math.round(range * 0.33), 1);
-                    setBrushDomain({ startIndex: Math.max(s - quarter, 0), endIndex: Math.min(e + quarter, n - 1) });
-                  }}
-                  className="flex items-center justify-center w-6 h-6 border-y border-r border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all touch-manipulation"
-                  title="Zoom out"
-                  data-testid="button-zoom-out"
-                >
-                  <ZoomOut className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={() => setBrushDomain({})}
-                  className="flex items-center justify-center px-1.5 h-6 rounded-r border-y border-r border-border bg-muted/50 hover:bg-muted text-[9px] font-bold text-muted-foreground hover:text-foreground transition-all touch-manipulation"
-                  title="Reset zoom"
-                  data-testid="button-zoom-reset"
-                >
-                  1:1
-                </button>
-              </div>
               {/* Chart type toggle */}
               <div className="flex gap-0 items-center">
                 <button
@@ -864,6 +548,7 @@ export default function StockDetail() {
             {!isIntraday && toggleBtn(showMA, () => setShowMA(v => !v), lang === "ko" ? "이동평균" : "MA Lines", "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-400/40", "button-toggle-ma")}
             {!isIntraday && toggleBtn(showBB, () => setShowBB(v => !v), lang === "ko" ? "볼린저밴드" : "Bollinger", "bg-gray-500/15 text-gray-600 dark:text-gray-300 border-gray-400/40", "button-toggle-bb")}
             {!isIntraday && toggleBtn(showRSI, () => setShowRSI(v => !v), "RSI", "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-400/40", "button-toggle-rsi")}
+            {!isIntraday && toggleBtn(showMACD, () => setShowMACD(v => !v), "MACD", "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-400/40", "button-toggle-macd")}
             {!isIntraday && toggleBtn(showSignals, () => setShowSignals(v => !v), lang === "ko" ? "매매 시그널" : "Signals", "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-400/40", "button-toggle-signals")}
           </div>
 
@@ -891,188 +576,43 @@ export default function StockDetail() {
           ) : chartData.length > 0 ? (
             <>
               {/* ── OHLC info strip ── */}
-              <div className="flex items-center gap-3 px-1 py-0.5 text-[10px] font-mono min-h-[18px]">
+              <div className="flex items-center gap-3 px-2 py-0.5 text-[10px] font-mono min-h-[18px]">
                 {hoveredCandle ? (
                   <>
-                    <span className="text-muted-foreground">{hoveredCandle.date}</span>
-                    <span>O <span className="text-foreground font-semibold">{formatPrice(hoveredCandle.open || hoveredCandle.price, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    <span>H <span className="text-emerald-500 font-semibold">{formatPrice(hoveredCandle.high || hoveredCandle.price, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    <span>L <span className="text-rose-500 font-semibold">{formatPrice(hoveredCandle.low || hoveredCandle.price, { nativeCurrency: displayNative, compact: false })}</span></span>
-                    <span>C <span className="font-semibold">{formatPrice(hoveredCandle.close || hoveredCandle.price, { nativeCurrency: displayNative, compact: false })}</span></span>
+                    <span className="text-muted-foreground">{new Date(hoveredCandle.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}</span>
+                    <span>O <span className="text-foreground font-semibold">{formatPrice(hoveredCandle.open, { nativeCurrency: displayNative, compact: false })}</span></span>
+                    <span>H <span className="text-emerald-500 font-semibold">{formatPrice(hoveredCandle.high, { nativeCurrency: displayNative, compact: false })}</span></span>
+                    <span>L <span className="text-rose-500 font-semibold">{formatPrice(hoveredCandle.low, { nativeCurrency: displayNative, compact: false })}</span></span>
+                    <span>C <span className="font-semibold">{formatPrice(hoveredCandle.close, { nativeCurrency: displayNative, compact: false })}</span></span>
                     {hoveredCandle.volume > 0 && <span className="text-muted-foreground hidden sm:inline">V <span className="text-foreground">{(hoveredCandle.volume / 1e6).toFixed(2)}M</span></span>}
                   </>
                 ) : (
                   <span className="text-muted-foreground/50 text-[9px]">{lang === "ko" ? "차트에 마우스를 올리세요" : "Hover over chart"}</span>
                 )}
               </div>
-              {/* ── Main chart ── */}
-              <div ref={chartContainerRef} style={{ touchAction: "pan-y" }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart
-                  data={visibleData}
-                  margin={{ top: 6, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}
-                  onMouseMove={(d: any) => { if (d?.activePayload?.[0]) setHoveredCandle(d.activePayload[0].payload); }}
-                  onMouseLeave={() => setHoveredCandle(null)}
-                >
-                  <defs>
-                    <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="bbFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"  stopColor="#6b7280" stopOpacity={0.08} />
-                      <stop offset="100%" stopColor="#6b7280" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
 
-                  <XAxis
-                    dataKey="date"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: tickColor }}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    domain={logScale ? [Math.max(yDomainMin, 0.01), yDomainMax] : [yDomainMin, yDomainMax]}
-                    scale={logScale ? "log" : "linear"}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: tickColor }}
-                    tickFormatter={(v) => formatPrice(v, { nativeCurrency: displayNative, compact: true })}
-                    width={isKr || isJp ? 76 : displayNative !== 'USD' ? 76 : 58}
-                    allowDataOverflow
-                  />
-
-                  <Tooltip content={candleTooltip} />
-
-                  {/* S/R reference lines */}
-                  {showSR && srLevels.resistances.map((level, i) => (
-                    <ReferenceLine key={`res-${i}`} y={level * priceMultiplier} stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5} strokeOpacity={0.7}
-                      label={{ value: lang === "ko" ? `저항 ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}` : `R ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}`, position: i === 0 ? "insideTopRight" : "insideBottomRight", fontSize: 9, fill: "#ef4444", dx: -4 }}
-                    />
-                  ))}
-                  {showSR && srLevels.supports.map((level, i) => (
-                    <ReferenceLine key={`sup-${i}`} y={level * priceMultiplier} stroke="#22c55e" strokeDasharray="5 3" strokeWidth={1.5} strokeOpacity={0.7}
-                      label={{ value: lang === "ko" ? `지지 ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}` : `S ${formatPrice(level * priceMultiplier, { nativeCurrency: displayNative, compact: true })}`, position: i === 0 ? "insideBottomRight" : "insideTopRight", fontSize: 9, fill: "#22c55e", dx: -4 }}
-                    />
-                  ))}
-
-                  {/* Bollinger Band fill area */}
-                  {showBB && !isIntraday && (
-                    <>
-                      <Area type="monotone" dataKey="bbUpper" stroke="none" fill="url(#bbFill)" isAnimationActive={false} connectNulls />
-                      <Line type="monotone" dataKey="bbUpper"  stroke="#6b7280" strokeWidth={1} strokeDasharray="4 2" dot={false} isAnimationActive={false} connectNulls name="bbUpper" />
-                      <Line type="monotone" dataKey="bbMiddle" stroke="#6b7280" strokeWidth={1} strokeDasharray="2 2" dot={false} isAnimationActive={false} connectNulls name="bbMiddle" opacity={0.5} />
-                      <Line type="monotone" dataKey="bbLower"  stroke="#6b7280" strokeWidth={1} strokeDasharray="4 2" dot={false} isAnimationActive={false} connectNulls name="bbLower" />
-                    </>
-                  )}
-
-                  {/* MA lines */}
-                  {showMA && !isIntraday && (
-                    <>
-                      <Line type="monotone" dataKey="ma20"  stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls name="ma20" />
-                      <Line type="monotone" dataKey="ma60"  stroke="#3b82f6" strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls name="ma60" />
-                      <Line type="monotone" dataKey="ma120" stroke="#a855f7" strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls name="ma120" />
-                    </>
-                  )}
-
-                  {/* Candlestick bars */}
-                  {chartType === "candle" && (
-                    <Bar dataKey="close" shape={candlestickShape} isAnimationActive={false} />
-                  )}
-
-                  {/* Area line (line mode) */}
-                  {chartType === "area" && (
-                    <Area
-                      type="monotone"
-                      dataKey="price"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      fill="url(#areaFill)"
-                      isAnimationActive={false}
-                      name="price"
-                      dot={(dotProps: any) => {
-                        const { cx, cy, payload } = dotProps;
-                        if (!showSignals || isIntraday || !payload?.signal) return <circle key={`d-${cx}`} cx={cx} cy={cy} r={0} fill="none" />;
-                        const isBuy = payload.signal === "buy";
-                        const dotY = isBuy ? cy + 18 : cy - 18;
-                        return (
-                          <g key={`sig-${cx}-${cy}`}>
-                            <polygon points={isBuy ? `${cx},${cy + 6} ${cx - 7},${dotY + 8} ${cx + 7},${dotY + 8}` : `${cx},${cy - 6} ${cx - 7},${dotY - 8} ${cx + 7},${dotY - 8}`} fill={isBuy ? "#22c55e" : "#ef4444"} />
-                            <text x={cx} y={isBuy ? dotY + 20 : dotY - 12} textAnchor="middle" fontSize={8} fill={isBuy ? "#22c55e" : "#ef4444"} fontWeight="bold">
-                              {isBuy ? (lang === "ko" ? "골든크로스" : "Buy") : (lang === "ko" ? "데드크로스" : "Sell")}
-                            </text>
-                          </g>
-                        );
-                      }}
-                      activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--primary))", fill: "white" }}
-                    />
-                  )}
-
-                  {/* Candlestick signal overlays */}
-                  {showSignals && chartType === "candle" && !isIntraday && visibleData.map((d, i) => {
-                    if (!d.signal) return null;
-                    const isBuy = d.signal === "buy";
-                    return <ReferenceLine key={`sigline-${i}`} x={d.date} stroke={isBuy ? "#22c55e" : "#ef4444"} strokeDasharray="3 3" strokeWidth={1.5} strokeOpacity={0.6} />;
-                  })}
-                </ComposedChart>
-              </ResponsiveContainer>
-              </div>
-
-              {/* ── Volume sub-chart ── */}
-              {showVolume && (
-                <div className="border-t border-border/30 pt-0.5">
-                  <p className="text-[9px] text-muted-foreground text-center mb-0.5">{lang === "ko" ? "거래량" : "Volume"}</p>
-                  <ResponsiveContainer width="100%" height={60}>
-                    <BarChart data={visibleData} margin={{ top: 0, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
-                      <XAxis dataKey="date" hide />
-                      <YAxis hide />
-                      <Bar dataKey="volume" radius={[1, 1, 0, 0]} maxBarSize={16} isAnimationActive={false}>
-                        {visibleData.map((entry, idx) => (
-                          <Cell key={`vol-${idx}`} fill={entry.isUp ? "rgba(34,197,94,0.5)" : "rgba(239,68,68,0.5)"} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-
-              {/* ── RSI sub-chart ── */}
-              {showRSI && !isIntraday && (
-                <div className="border-t border-border/30 pt-0.5">
-                  <p className="text-[9px] text-muted-foreground text-center mb-0.5">RSI (14)</p>
-                  <ResponsiveContainer width="100%" height={80}>
-                    <ComposedChart data={visibleData} margin={{ top: 2, right: isKr || isJp ? 12 : 8, bottom: 0, left: 0 }}>
-                      <XAxis dataKey="date" hide />
-                      <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: tickColor }} ticks={[30, 50, 70]} width={24} />
-                      {/* Overbought zone */}
-                      <ReferenceArea y1={70} y2={100} fill="rgba(239,68,68,0.08)" />
-                      {/* Oversold zone */}
-                      <ReferenceArea y1={0} y2={30} fill="rgba(34,197,94,0.08)" />
-                      <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" strokeWidth={1} strokeOpacity={0.6}
-                        label={{ value: "70", position: "insideTopRight", fontSize: 9, fill: "#ef4444" }}
-                      />
-                      <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="3 3" strokeWidth={1} strokeOpacity={0.6}
-                        label={{ value: "30", position: "insideBottomRight", fontSize: 9, fill: "#22c55e" }}
-                      />
-                      <ReferenceLine y={50} stroke={tickColor} strokeDasharray="2 4" strokeWidth={0.5} strokeOpacity={0.4} />
-                      <Line
-                        type="monotone"
-                        dataKey="rsi"
-                        stroke="#06b6d4"
-                        strokeWidth={1.5}
-                        dot={false}
-                        isAnimationActive={false}
-                        connectNulls
-                      />
-                      <Tooltip
-                        formatter={(v: number) => [v?.toFixed(1), "RSI"]}
-                        contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 6, fontSize: 11 }}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+              {/* ── LWChart (main + sub-charts) ── */}
+              <LWChart
+                data={lwChartData}
+                height={300}
+                isDark={isDark}
+                formatPrice={(v, opts) => formatPrice(v, { nativeCurrency: displayNative, ...(opts || {}) })}
+                nativeCurrency={displayNative}
+                isIntraday={isIntraday}
+                chartType={chartType === "area" ? "area" : "candle"}
+                showVolume={showVolume}
+                showMA={showMA && !isIntraday}
+                maPeriods={[20, 60, 120]}
+                showBB={showBB && !isIntraday}
+                showRSI={showRSI && !isIntraday}
+                showMACD={showMACD && !isIntraday}
+                showSR={showSR}
+                srLevels={lwSRLevels}
+                logScale={logScale}
+                lang={lang}
+                onCrosshairMove={setHoveredCandle}
+                className="mx-0"
+              />
 
               {/* ── Signal panel ── */}
               {showSignals && !isIntraday && crossoverSignals.length > 0 && (() => {
