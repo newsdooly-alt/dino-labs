@@ -3,7 +3,7 @@ import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useTimezone } from "@/contexts/TimezoneContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
+import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { calculateLevel, xpProgressInLevel } from "@shared/leveling";
 
 interface MarketMoodData {
@@ -127,6 +128,28 @@ export default function Dashboard() {
   return (
     <div className="w-full max-w-lg mx-auto px-5 py-8 space-y-10">
 
+      {/* ── Header + Search ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+      >
+        <h1 className="text-2xl font-display font-bold mb-4" data-testid="text-dashboard-title">
+          {isKo ? `안녕하세요, ${displayName} 👋` : `Hi, ${displayName} 👋`}
+        </h1>
+        <button
+          type="button"
+          onClick={() => navigate("/search")}
+          className="w-full flex items-center gap-3 h-12 px-4 rounded-2xl bg-muted/60 border border-border hover:border-foreground/20 hover:bg-muted transition-all text-left group"
+          data-testid="button-dashboard-search"
+        >
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="text-sm text-muted-foreground">
+            {isKo ? "주식 검색… 한국어 가능 (도요타, 엔비디아…)" : "Search stocks… US, KR, JP, EU"}
+          </span>
+        </button>
+      </motion.div>
+
       {/* ── Section 1: Market Temperature ── */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
@@ -218,7 +241,7 @@ export default function Dashboard() {
                 data-testid={`stock-row-${quote.symbol}`}
               >
                 <div className="min-w-0">
-                  <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{cleanCompanyName(quote.name || quote.symbol)}</p>
+                  <p className="text-base font-bold truncate max-w-[180px]" data-testid={`text-name-${quote.symbol}`}>{getLocalizedCompanyName(cleanCompanyName(quote.name || quote.symbol), lang)}</p>
                   <p className="text-xs text-muted-foreground" data-testid={`text-symbol-${quote.symbol}`}>{quote.symbol}</p>
                 </div>
                 <div className="flex items-center gap-3">

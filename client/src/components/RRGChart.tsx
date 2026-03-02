@@ -7,6 +7,7 @@ import { useState, useCallback } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
+import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { TrendingUp, RefreshCw, Info, X, ZoomIn, ZoomOut, Minimize2, TrendingDown } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -360,7 +361,10 @@ function SectorTop10({ tickers, lang, sectorName }: { tickers: string[]; lang: s
               <span className="font-mono text-xs font-bold truncate">{ticker}</span>
               {q?.name && (
                 <span className="text-[10px] text-muted-foreground truncate hidden sm:block max-w-[120px]">
-                  {q.name.replace(/ (Inc\.|Corp\.|plc|Ltd\.?|Co\.|Holdings|Group|AG|SA|SE).*$/i, "")}
+                  {getLocalizedCompanyName(
+                    q.name.replace(/ (Inc\.|Corp\.|plc|Ltd\.?|Co\.|Holdings|Group|AG|SA|SE).*$/i, ""),
+                    lang
+                  )}
                 </span>
               )}
             </div>

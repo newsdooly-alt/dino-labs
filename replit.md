@@ -25,6 +25,29 @@ The core experience centers around:
   - Bilingual support (English/Korean) throughout
   - Backend: `GET /api/economic-calendar?year=YYYY&month=M` (authenticated)
 
+## Global Search System & Name Localization
+
+- `client/src/lib/stockNames.ts` — Shared stock name library (single source of truth):
+  - `KO_COMPANY_NAMES`: 200+ English → Korean company name mappings (US, KR, JP, EU)
+  - `KO_INVESTOR_NAMES`: Super investor name localizations
+  - `KO_SECTOR_NAMES`: Sector name localizations
+  - `KOREAN_STOCK_ALIASES[]`: 100+ stocks with Korean names + search aliases for Korean-text search
+  - `containsKorean(text)`: Detects Korean (Hangul) characters
+  - `getLocalizedCompanyName(en, lang)`: Exact → stripped → partial match lookup
+  - `searchByKoreanAlias(koreanQuery)`: Returns matched stocks for Korean input
+- `client/src/pages/GlobalSearch.tsx`:
+  - Reads `?q=` URL param (pre-fills from Dashboard search)
+  - Detects Korean input → searches `KOREAN_STOCK_ALIASES` client-side instead of API
+  - Fetches live prices for Korean alias matches via `/api/stocks/live`
+  - Displays Korean company names in results (with English as subtitle)
+  - Shows "Searching by Korean name" sparkle hint when Korean input detected
+- `client/src/pages/Dashboard.tsx`:
+  - Added personalized greeting + search bar at the top of the page
+  - Search bar navigates to `/search` on click
+  - Watchlist stock names localized via `getLocalizedCompanyName`
+- `client/src/pages/SuperInvestors.tsx`: Now imports maps from `stockNames.ts` (DRY)
+- `client/src/components/RRGChart.tsx`: Top-10 stock names localized with `getLocalizedCompanyName`
+
 ## 13F Database System
 
 - `server/sec13FSyncService.ts`: Orchestrates fetching 13F data from SEC EDGAR and persisting to DB
