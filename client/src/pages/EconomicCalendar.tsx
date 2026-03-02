@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,13 +27,13 @@ import {
   startOfMonth,
   isSameDay,
   isSameMonth,
-  parseISO,
 } from "date-fns";
 
 interface EconomicEvent {
   id: string;
   time: string;
   indicator: string;
+  indicatorKo?: string;
   importance: "Low" | "Medium" | "High";
   previous: string | null;
   forecast: string | null;
@@ -51,20 +51,88 @@ interface EconomicEvent {
   counterIndicatorKo: string;
 }
 
-function toKSTTime(utcIsoString: string): string {
-  const date = new Date(utcIsoString);
-  return date.toLocaleTimeString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+type Timezone = "KST" | "ET";
+
+const INDICATOR_KO_MAP: Record<string, string> = {
+  "ISM Manufacturing PMI": "미국 ISM 제조업 구매관리자지수",
+  "ISM Services PMI": "미국 ISM 서비스업 구매관리자지수",
+  "Non-Farm Payrolls (NFP)": "미국 비농업 고용지수(NFP)",
+  "Unemployment Rate": "미국 실업률",
+  "Consumer Price Index (CPI) (MoM)": "소비자물가지수(CPI) (전월비)",
+  "Core CPI (YoY)": "근원 소비자물가지수(CPI) (전년비)",
+  "Producer Price Index (PPI) (MoM)": "생산자물가지수(PPI) (전월비)",
+  "Retail Sales (MoM)": "소매 판매 (전월비)",
+  "Core PCE Price Index (MoM)": "근원 개인소비지출(PCE) 물가지수 (전월비)",
+  "UMich Consumer Sentiment (Final)": "미시간대 소비자심리지수 (최종)",
+  "Conference Board Consumer Confidence": "컨퍼런스보드 소비자신뢰지수",
+  "FOMC Meeting (Day 1)": "연방공개시장위원회(FOMC) 회의 (1일차)",
+  "FOMC Rate Decision & Press Conference": "연준 금리 결정 및 기자회견",
+  "GDP Growth Rate (Q1 2026 Advance)": "미국 GDP 성장률 (2026년 1분기 속보치)",
+  "GDP Growth Rate (Q2 2026 Advance)": "미국 GDP 성장률 (2026년 2분기 속보치)",
+};
+
+const CATEGORY_KO_MAP: Record<string, string> = {
+  "Central Bank": "중앙은행",
+  "Inflation": "물가",
+  "Employment": "고용",
+  "Consumer": "소비",
+  "Growth": "경제성장",
+  "Manufacturing": "제조업",
+  "Services": "서비스업",
+  "Housing": "부동산",
+};
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  "USA": "🇺🇸",
+  "KOR": "🇰🇷",
+  "JPN": "🇯🇵",
+  "EU": "🇪🇺",
+};
+
+const COUNTRY_LABELS: Record<string, { en: string; ko: string }> = {
+  "USA": { en: "US", ko: "미국" },
+  "KOR": { en: "Korea", ko: "한국" },
+  "JPN": { en: "Japan", ko: "일본" },
+  "EU": { en: "EU", ko: "유럽" },
+};
+
+function getIndicatorKo(event: EconomicEvent): string {
+  if (event.indicatorKo) return event.indicatorKo;
+  return INDICATOR_KO_MAP[event.indicator] || event.indicator;
 }
 
-function toKSTDate(utcIsoString: string): Date {
-  const date = new Date(utcIsoString);
-  const kstStr = date.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-  return new Date(kstStr + "T00:00:00");
+function getETOffset(date: Date): number {
+  const year = date.getUTCFullYear();
+  const dstStart = new Date(Date.UTC(year, 2, 8, 7, 0, 0));
+  const dstEnd = new Date(Date.UTC(year, 10, 1, 6, 0, 0));
+  return date >= dstStart && date < dstEnd ? -4 : -5;
+}
+
+function getTimezoneOffset(tz: Timezone, date: Date): number {
+  if (tz === "KST") return 9;
+  return getETOffset(date);
+}
+
+function toTzTime(utcIso: string, tz: Timezone): string {
+  const date = new Date(utcIso);
+  const offset = getTimezoneOffset(tz, date);
+  const shifted = new Date(date.getTime() + offset * 3600000);
+  const h = shifted.getUTCHours().toString().padStart(2, "0");
+  const m = shifted.getUTCMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function toTzDate(utcIso: string, tz: Timezone): Date {
+  const date = new Date(utcIso);
+  const offset = getTimezoneOffset(tz, date);
+  const shifted = new Date(date.getTime() + offset * 3600000);
+  return new Date(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+}
+
+function getTzLabel(tz: Timezone, date: Date): string {
+  if (tz === "KST") return "KST";
+  const offset = getETOffset(date);
+  return offset === -4 ? "EDT" : "EST";
 }
 
 const IMPORTANCE_CONFIG = {
@@ -75,7 +143,6 @@ const IMPORTANCE_CONFIG = {
     dotClass: "bg-red-500",
     barClass: "bg-red-500",
     bars: 3,
-    icon: "🔴",
   },
   Medium: {
     label: "Medium",
@@ -84,7 +151,6 @@ const IMPORTANCE_CONFIG = {
     dotClass: "bg-orange-400",
     barClass: "bg-orange-400",
     bars: 2,
-    icon: "🟡",
   },
   Low: {
     label: "Low",
@@ -93,7 +159,6 @@ const IMPORTANCE_CONFIG = {
     dotClass: "bg-blue-400",
     barClass: "bg-blue-400",
     bars: 1,
-    icon: "🟢",
   },
 };
 
@@ -105,6 +170,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Growth": "text-emerald-500",
   "Manufacturing": "text-orange-500",
   "Services": "text-cyan-500",
+  "Housing": "text-yellow-500",
 };
 
 function ImportanceBars({ level }: { level: "Low" | "Medium" | "High" }) {
@@ -114,10 +180,7 @@ function ImportanceBars({ level }: { level: "Low" | "Medium" | "High" }) {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className={cn(
-            "rounded-sm w-1",
-            i <= cfg.bars ? cfg.barClass : "bg-muted"
-          )}
+          className={cn("rounded-sm w-1", i <= cfg.bars ? cfg.barClass : "bg-muted")}
           style={{ height: i === 1 ? 6 : i === 2 ? 9 : 12 }}
         />
       ))}
@@ -126,41 +189,45 @@ function ImportanceBars({ level }: { level: "Low" | "Medium" | "High" }) {
 }
 
 function ActualValueDisplay({ actual, forecast, unit }: { actual: string | null; forecast: string | null; unit: string | null }) {
-  if (!actual) {
-    return <span className="text-muted-foreground font-mono text-xs">—</span>;
-  }
+  if (!actual) return <span className="text-muted-foreground font-mono text-xs">—</span>;
   const actualNum = parseFloat(actual);
   const forecastNum = parseFloat(forecast || "");
   let color = "text-foreground";
   if (!isNaN(actualNum) && !isNaN(forecastNum)) {
     color = actualNum > forecastNum ? "text-red-500" : actualNum < forecastNum ? "text-green-500" : "text-foreground";
   }
-  return <span className={cn("font-mono font-bold text-xs", color)}>{actual}{unit === "%" ? "" : ""}</span>;
+  return <span className={cn("font-mono font-bold text-xs", color)}>{actual}</span>;
 }
 
-function EventItem({ event, lang, autoExpand }: { event: EconomicEvent; lang: string; autoExpand?: boolean }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (autoExpand) setIsExpanded(true);
-  }, [autoExpand]);
-
+function EventItem({
+  event,
+  lang,
+  tz,
+  autoExpand,
+}: {
+  event: EconomicEvent;
+  lang: string;
+  tz: Timezone;
+  autoExpand?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(autoExpand ?? false);
   const cfg = IMPORTANCE_CONFIG[event.importance];
-  const kstTime = toKSTTime(event.time);
+  const tzTime = toTzTime(event.time, tz);
+  const tzLabel = getTzLabel(tz, new Date(event.time));
   const catColor = CATEGORY_COLORS[event.category] || "text-muted-foreground";
+  const flag = COUNTRY_FLAGS[event.country] || "🌐";
 
   const definition = lang === "ko" ? event.definitionKo : event.definitionEn;
   const impact = lang === "ko" ? event.impactKo : event.impactEn;
   const correlation = lang === "ko" ? event.correlationKo : event.correlationEn;
   const counterIndicator = lang === "ko" ? event.counterIndicatorKo : event.counterIndicatorEn;
 
+  const primaryName = lang === "ko" ? getIndicatorKo(event) : event.indicator;
+  const secondaryName = lang === "ko" && getIndicatorKo(event) !== event.indicator ? event.indicator : null;
+  const categoryLabel = lang === "ko" ? (CATEGORY_KO_MAP[event.category] || event.category) : event.category;
+
   return (
-    <div
-      ref={ref}
-      className="border-b border-border/60 last:border-0"
-      data-testid={`event-item-${event.id}`}
-    >
+    <div className="border-b border-border/60 last:border-0" data-testid={`event-item-${event.id}`}>
       <button
         className="w-full text-left p-4 flex items-center gap-3 hover:bg-muted/30 active:bg-muted/50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -168,21 +235,25 @@ function EventItem({ event, lang, autoExpand }: { event: EconomicEvent; lang: st
         aria-expanded={isExpanded}
       >
         <div className="flex flex-col items-center min-w-[46px] shrink-0">
-          <span className="text-sm font-mono font-semibold tabular-nums">{kstTime}</span>
-          <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">KST</span>
+          <span className="text-sm font-mono font-semibold tabular-nums">{tzTime}</span>
+          <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">{tzLabel}</span>
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-base leading-none">{flag}</span>
             <ImportanceBars level={event.importance} />
             <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}>
               {lang === "ko" ? cfg.labelKo : cfg.label}
             </Badge>
             <span className={cn("text-[10px] font-medium uppercase tracking-wide", catColor)}>
-              {event.category}
+              {categoryLabel}
             </span>
           </div>
-          <h4 className="text-sm font-semibold leading-tight">{event.indicator}</h4>
+          <h4 className="text-sm font-semibold leading-tight">{primaryName}</h4>
+          {secondaryName && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{secondaryName}</p>
+          )}
 
           <div className="flex gap-4 mt-2">
             <div className="flex flex-col">
@@ -228,10 +299,7 @@ function EventItem({ event, lang, autoExpand }: { event: EconomicEvent; lang: st
                 <span className="text-orange-500">
                   {lang === "ko" ? "시장 영향" : "Market Impact"}
                 </span>
-                <Badge
-                  variant="outline"
-                  className={cn("ml-1 text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}
-                >
+                <Badge variant="outline" className={cn("ml-1 text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}>
                   {lang === "ko" ? cfg.labelKo : cfg.label}
                 </Badge>
               </div>
@@ -270,8 +338,8 @@ function EventItem({ event, lang, autoExpand }: { event: EconomicEvent; lang: st
 
 function CalendarDayDot({ events }: { events: EconomicEvent[] }) {
   if (events.length === 0) return null;
-  const hasHigh = events.some(e => e.importance === "High");
-  const hasMedium = events.some(e => e.importance === "Medium");
+  const hasHigh = events.some((e) => e.importance === "High");
+  const hasMedium = events.some((e) => e.importance === "Medium");
   const dotColor = hasHigh ? "bg-red-500" : hasMedium ? "bg-orange-400" : "bg-blue-400";
   return (
     <div className="flex justify-center mt-0.5">
@@ -280,12 +348,17 @@ function CalendarDayDot({ events }: { events: EconomicEvent[] }) {
   );
 }
 
+const ALL_COUNTRIES = ["USA", "KOR", "JPN", "EU"] as const;
+type CountryFilter = "ALL" | typeof ALL_COUNTRIES[number];
+
 export default function EconomicCalendar() {
   const { data: user } = useUser();
   const lang = user?.language || "en";
 
   const [viewMonth, setViewMonth] = useState<Date>(startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [timezone, setTimezone] = useState<Timezone>("KST");
+  const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
   const eventListRef = useRef<HTMLDivElement>(null);
 
   const year = viewMonth.getFullYear();
@@ -294,21 +367,25 @@ export default function EconomicCalendar() {
   const { data, isLoading } = useQuery<{ events: EconomicEvent[] }>({
     queryKey: ["/api/economic-calendar", year, month],
     queryFn: () =>
-      fetch(`/api/economic-calendar?year=${year}&month=${month}`).then(r => r.json()),
+      fetch(`/api/economic-calendar?year=${year}&month=${month}`).then((r) => r.json()),
   });
 
   const prevMonthDate = subMonths(viewMonth, 1);
   const { data: prevData } = useQuery<{ events: EconomicEvent[] }>({
     queryKey: ["/api/economic-calendar", prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1],
     queryFn: () =>
-      fetch(`/api/economic-calendar?year=${prevMonthDate.getFullYear()}&month=${prevMonthDate.getMonth() + 1}`).then(r => r.json()),
+      fetch(
+        `/api/economic-calendar?year=${prevMonthDate.getFullYear()}&month=${prevMonthDate.getMonth() + 1}`
+      ).then((r) => r.json()),
   });
 
   const nextMonthDate = addMonths(viewMonth, 1);
   const { data: nextData } = useQuery<{ events: EconomicEvent[] }>({
     queryKey: ["/api/economic-calendar", nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1],
     queryFn: () =>
-      fetch(`/api/economic-calendar?year=${nextMonthDate.getFullYear()}&month=${nextMonthDate.getMonth() + 1}`).then(r => r.json()),
+      fetch(
+        `/api/economic-calendar?year=${nextMonthDate.getFullYear()}&month=${nextMonthDate.getMonth() + 1}`
+      ).then((r) => r.json()),
   });
 
   const allVisibleEvents = useMemo(() => {
@@ -319,26 +396,28 @@ export default function EconomicCalendar() {
     ];
   }, [data, prevData, nextData]);
 
-  const eventsByKSTDate = useMemo(() => {
+  const eventsByTzDate = useMemo(() => {
     const map = new Map<string, EconomicEvent[]>();
-    allVisibleEvents.forEach(evt => {
-      const kstDate = toKSTDate(evt.time);
-      const key = format(kstDate, "yyyy-MM-dd");
+    allVisibleEvents.forEach((evt) => {
+      const tzDate = toTzDate(evt.time, timezone);
+      const key = format(tzDate, "yyyy-MM-dd");
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(evt);
     });
     return map;
-  }, [allVisibleEvents]);
+  }, [allVisibleEvents, timezone]);
 
   const selectedDateEvents = useMemo(() => {
     const key = format(selectedDate, "yyyy-MM-dd");
-    const events = eventsByKSTDate.get(key) || [];
-    return events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-  }, [selectedDate, eventsByKSTDate]);
+    const events = eventsByTzDate.get(key) || [];
+    const filtered =
+      countryFilter === "ALL" ? events : events.filter((e) => e.country === countryFilter);
+    return filtered.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  }, [selectedDate, eventsByTzDate, countryFilter]);
 
   const getEventsForDay = (day: Date): EconomicEvent[] => {
     const key = format(day, "yyyy-MM-dd");
-    return eventsByKSTDate.get(key) || [];
+    return eventsByTzDate.get(key) || [];
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -353,39 +432,63 @@ export default function EconomicCalendar() {
     setViewMonth(startOfMonth(date));
   };
 
-  const goToPrevMonth = () => {
-    const prev = subMonths(viewMonth, 1);
-    setViewMonth(prev);
-  };
+  const goToPrevMonth = () => setViewMonth(subMonths(viewMonth, 1));
+  const goToNextMonth = () => setViewMonth(addMonths(viewMonth, 1));
 
-  const goToNextMonth = () => {
-    const next = addMonths(viewMonth, 1);
-    setViewMonth(next);
-  };
+  const highCount = selectedDateEvents.filter((e) => e.importance === "High").length;
+  const mediumCount = selectedDateEvents.filter((e) => e.importance === "Medium").length;
 
-  const highCount = selectedDateEvents.filter(e => e.importance === "High").length;
-  const mediumCount = selectedDateEvents.filter(e => e.importance === "Medium").length;
+  const currentTzLabel = getTzLabel(timezone, new Date());
+  const tzToggleLabel =
+    timezone === "KST"
+      ? lang === "ko"
+        ? "ET로 보기"
+        : "Switch to ET"
+      : lang === "ko"
+      ? "KST로 보기"
+      : "Switch to KST";
+
+  const tzInfoText =
+    timezone === "KST"
+      ? lang === "ko"
+        ? "모든 시간은 한국 표준시(KST, UTC+9)로 표시됩니다. 한국은 서머타임을 적용하지 않습니다."
+        : "All times shown in Korean Standard Time (KST, UTC+9). Korea does not observe Daylight Saving Time."
+      : lang === "ko"
+      ? "모든 시간은 미국 동부 시간(ET)으로 표시됩니다. EDT(UTC-4)와 EST(UTC-5) 서머타임이 자동 반영됩니다."
+      : "All times shown in US Eastern Time (ET). Daylight Saving Time (EDT/EST) is applied automatically.";
 
   return (
     <div className="p-4 md:p-6 space-y-5 pb-28" data-testid="economic-calendar-page">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <span>
-            {lang === "ko" ? "경제 캘린더" : "Economic Calendar"}
-          </span>
-          <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-none font-medium">
-            KST
-          </Badge>
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {lang === "ko"
-            ? "주요 경제 지표와 시장 영향력을 한눈에 확인하세요"
-            : "Track major economic indicators and market impact in Korean Standard Time"}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <span>{lang === "ko" ? "경제 캘린더" : "Economic Calendar"}</span>
+            <Badge
+              variant="secondary"
+              className="text-xs bg-primary/10 text-primary border-none font-medium"
+              data-testid="badge-timezone-label"
+            >
+              {currentTzLabel}
+            </Badge>
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {lang === "ko"
+              ? "미국·한국·일본·유럽 주요 경제 지표와 시장 영향력을 확인하세요"
+              : "Track major US, Korean, Japanese & European economic indicators and their market impact"}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setTimezone((tz) => (tz === "KST" ? "ET" : "KST"))}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm font-medium shrink-0"
+          data-testid="button-timezone-toggle"
+        >
+          <Globe className="w-4 h-4 text-primary" />
+          <span>{tzToggleLabel}</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* ── Calendar Section ── */}
         <div className="lg:col-span-5">
           <Card className="border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
@@ -397,9 +500,7 @@ export default function EconomicCalendar() {
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <h2 className="text-sm font-semibold">
-                {format(viewMonth, "MMMM yyyy")}
-              </h2>
+              <h2 className="text-sm font-semibold">{format(viewMonth, "MMMM yyyy")}</h2>
               <button
                 onClick={goToNextMonth}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors"
@@ -428,7 +529,8 @@ export default function EconomicCalendar() {
                     "h-9 w-9 p-0 font-normal rounded-xl transition-colors",
                     "hover:bg-muted/60 aria-selected:opacity-100"
                   ),
-                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-xl font-bold",
+                  day_selected:
+                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-xl font-bold",
                   day_today: "font-bold text-primary",
                   day_outside: "text-muted-foreground/40 opacity-50",
                 }}
@@ -438,10 +540,12 @@ export default function EconomicCalendar() {
                     const isSelected = isSameDay(date, selectedDate);
                     return (
                       <div className="flex flex-col items-center justify-center w-full h-full">
-                        <span className={cn(
-                          "text-sm leading-none",
-                          !isSameMonth(date, viewMonth) && "opacity-40"
-                        )}>
+                        <span
+                          className={cn(
+                            "text-sm leading-none",
+                            !isSameMonth(date, viewMonth) && "opacity-40"
+                          )}
+                        >
                           {format(date, "d")}
                         </span>
                         {!isSelected && <CalendarDayDot events={dayEvents} />}
@@ -482,35 +586,43 @@ export default function EconomicCalendar() {
                 </p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {lang === "ko"
-                    ? "고용 지표가 예상보다 강하면 금리 인하 기대가 줄어들고 주식 시장이 단기적으로 조정될 수 있습니다. CPI와 PCE가 동시에 하락하면 연준의 금리 인하 신호입니다!"
-                    : "Strong employment beats rate cut expectations and can briefly pressure stocks. When both CPI and PCE cool simultaneously, that's the Fed's green light for cutting rates!"}
+                    ? "한국·일본·ECB 중앙은행 결정은 글로벌 시장에 큰 영향을 줍니다. 특히 BOJ 금리 인상은 엔 캐리트레이드 청산을 촉발해 코스피와 미국 기술주까지 흔들 수 있습니다!"
+                    : "Central bank decisions from Korea, Japan, and the ECB ripple across global markets. Watch for BOJ rate hikes — they can trigger yen carry trade unwinding, shaking KOSPI and US tech stocks!"}
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Event List Section ── */}
         <div className="lg:col-span-7 space-y-3" ref={eventListRef}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="font-bold text-base flex items-center gap-2">
+              <h3 className="font-bold text-base">
                 {format(selectedDate, lang === "ko" ? "yyyy년 M월 d일" : "PPP")}
               </h3>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {selectedDateEvents.length > 0 ? (
                   <>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-muted/60 text-muted-foreground border-none">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] px-1.5 py-0 h-4 bg-muted/60 text-muted-foreground border-none"
+                    >
                       {selectedDateEvents.length} {lang === "ko" ? "건" : "events"}
                     </Badge>
                     {highCount > 0 && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-red-500/10 text-red-500 border-red-500/20">
-                        {highCount} {lang === "ko" ? "High" : "High"}
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 h-4 bg-red-500/10 text-red-500 border-red-500/20"
+                      >
+                        {highCount} High
                       </Badge>
                     )}
                     {mediumCount > 0 && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-orange-500/10 text-orange-500 border-orange-500/20">
-                        {mediumCount} {lang === "ko" ? "Medium" : "Medium"}
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 h-4 bg-orange-500/10 text-orange-500 border-orange-500/20"
+                      >
+                        {mediumCount} Medium
                       </Badge>
                     )}
                   </>
@@ -521,16 +633,42 @@ export default function EconomicCalendar() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-full border border-border/40">
-              <Globe className="w-3 h-3" />
-              <span>{lang === "ko" ? "한국 시간(KST)" : "KST (UTC+9)"}</span>
-            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5" data-testid="country-filter-bar">
+            {(["ALL", ...ALL_COUNTRIES] as const).map((c) => {
+              const isActive = countryFilter === c;
+              return (
+                <button
+                  key={c}
+                  onClick={() => setCountryFilter(c)}
+                  data-testid={`button-filter-${c.toLowerCase()}`}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  {c === "ALL" ? (
+                    <span>{lang === "ko" ? "전체" : "All"}</span>
+                  ) : (
+                    <>
+                      <span>{COUNTRY_FLAGS[c]}</span>
+                      <span>
+                        {lang === "ko" ? COUNTRY_LABELS[c].ko : COUNTRY_LABELS[c].en}
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <Card className="border-border rounded-2xl shadow-sm overflow-hidden min-h-[420px]">
             {isLoading ? (
               <div className="divide-y divide-border">
-                {[1, 2, 3].map(i => (
+                {[1, 2, 3].map((i) => (
                   <div key={i} className="p-4 flex items-center gap-3">
                     <div className="flex flex-col items-center min-w-[46px] gap-1">
                       <Skeleton className="h-4 w-10" />
@@ -553,8 +691,8 @@ export default function EconomicCalendar() {
               </div>
             ) : selectedDateEvents.length > 0 ? (
               <div className="divide-y divide-border/60">
-                {selectedDateEvents.map(event => (
-                  <EventItem key={event.id} event={event} lang={lang} />
+                {selectedDateEvents.map((event) => (
+                  <EventItem key={event.id} event={event} lang={lang} tz={timezone} />
                 ))}
               </div>
             ) : (
@@ -574,28 +712,42 @@ export default function EconomicCalendar() {
             )}
           </Card>
 
-          {/* KST timezone explanation */}
           <div className="flex items-start gap-2.5 text-xs text-muted-foreground bg-muted/30 rounded-xl px-3.5 py-3 border border-border/30">
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary/60" />
-            <span>
-              {lang === "ko"
-                ? "모든 시간은 자동으로 한국 표준시(KST, UTC+9)로 변환됩니다. 한국은 서머타임을 적용하지 않습니다. 미국 여름시간(DST) 변경 사항은 자동으로 반영됩니다."
-                : "All times are automatically converted to Korean Standard Time (KST, UTC+9). Korea does not observe Daylight Saving Time. US DST changes are automatically accounted for."}
-            </span>
+            <span>{tzInfoText}</span>
           </div>
         </div>
       </div>
 
-      {/* ── Category Legend ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {Object.entries(COUNTRY_FLAGS).map(([country, flag]) => (
+          <div
+            key={country}
+            className="flex items-center gap-2 bg-muted/30 rounded-xl px-3 py-2.5 border border-border/30"
+            data-testid={`country-legend-${country.toLowerCase()}`}
+          >
+            <span className="text-base">{flag}</span>
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-foreground">
+                {lang === "ko" ? COUNTRY_LABELS[country].ko : COUNTRY_LABELS[country].en}
+              </span>
+              <span className="text-[10px] text-muted-foreground">{country}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
         {Object.entries(CATEGORY_COLORS).map(([cat, color]) => (
           <div
             key={cat}
             className="flex items-center gap-2 bg-muted/30 rounded-xl px-3 py-2 border border-border/30"
-            data-testid={`category-legend-${cat.toLowerCase().replace(/\s/g, '-')}`}
+            data-testid={`category-legend-${cat.toLowerCase().replace(/\s/g, "-")}`}
           >
             <TrendingUp className={cn("w-3.5 h-3.5 shrink-0", color)} />
-            <span className="text-xs text-muted-foreground truncate">{cat}</span>
+            <span className="text-xs text-muted-foreground truncate">
+              {lang === "ko" ? (CATEGORY_KO_MAP[cat] || cat) : cat}
+            </span>
           </div>
         ))}
       </div>
