@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { useLocation } from "wouter";
-import { TrendingUp, BarChart3, ChevronRight, RefreshCw, Sparkles } from "lucide-react";
+import { TrendingUp, BarChart3, ChevronRight, RefreshCw, Sparkles, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cleanCompanyName } from "@/lib/stockUtils";
+import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,8 @@ interface RecommendedStock {
   volumeRatio: number;
   marketCap: number | null;
   isKorean: boolean;
+  isJapanese?: boolean;
+  market?: string;
   currency: string;
 }
 
@@ -64,13 +67,28 @@ function formatVolume(vol: number): string {
   return vol.toString();
 }
 
+function getMarketBadge(stock: RecommendedStock): { label: string; className: string } | null {
+  const market = stock.market?.toUpperCase() || (stock.isKorean ? "KR" : stock.isJapanese ? "JP" : null);
+  if (market === "KR") {
+    const exchange = stock.symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI';
+    return { label: exchange, className: "border-blue-400/40 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30" };
+  }
+  if (market === "JP") {
+    return { label: "TSE", className: "border-red-400/40 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30" };
+  }
+  if (market === "EU") {
+    return { label: "EU", className: "border-yellow-400/40 text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30" };
+  }
+  return null;
+}
+
 export default function Recommended() {
   const { data: user } = useUser();
   const [, navigate] = useLocation();
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
   const isKo = lang === "ko";
-  const { formatPrice, isKoreanStock } = useCurrency();
+  const { formatPrice } = useCurrency();
 
   const { data, isLoading, refetch, isRefetching } = useQuery<RecommendedResponse>({
     queryKey: ["/api/stocks/recommended"],
@@ -94,17 +112,22 @@ export default function Recommended() {
         </h1>
         <p className="text-muted-foreground text-base max-w-lg mx-auto">
           {isKo
-            ? "거래량과 가격 모멘텀을 기반으로 선별된 주목할 종목입니다."
-            : "Curated picks based on trading volume and price momentum."}
+            ? "미국·한국·일본·유럽 시장에서 거래량과 가격 모멘텀 기반으로 선별한 글로벌 추천 종목입니다."
+            : "Global picks from US, KR, JP & EU markets — curated by volume and price momentum."}
         </p>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
+          <Globe className="w-4 h-4 text-primary" />
           <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-            {isKo ? "오늘의 추천" : "Today's Picks"}
+            {isKo ? "글로벌 추천" : "Global Picks"}
           </span>
+          {stocks.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              · {[...new Set(stocks.map(s => s.market || (s.isKorean ? "KR" : s.isJapanese ? "JP" : "US")))].join(", ")}
+            </span>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -135,66 +158,75 @@ export default function Recommended() {
         </Card>
       ) : (
         <div className="space-y-3" data-testid="list-recommended">
-          {stocks.map((stock, idx) => (
-            <motion.div
-              key={stock.symbol}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-            >
-              <Card
-                className="p-4 md:p-5 cursor-pointer hover-elevate"
-                onClick={() => navigate(`/stock/${stock.symbol}`)}
-                data-testid={`card-recommended-${stock.symbol}`}
+          {stocks.map((stock, idx) => {
+            const nativeCurrency = stock.currency?.toUpperCase() as "KRW" | "JPY" | "USD";
+            const localizedName = getLocalizedCompanyName(cleanCompanyName(stock.name), lang);
+            const marketBadge = getMarketBadge(stock);
+
+            return (
+              <motion.div
+                key={stock.symbol}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-base md:text-lg truncate" data-testid={`text-name-rec-${stock.symbol}`}>
-                        {cleanCompanyName(stock.name)}
-                      </h3>
-                      {stock.isKorean && (
-                        <Badge variant="outline" className="text-[10px] shrink-0">
-                          {stock.symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI'}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-symbol-rec-${stock.symbol}`}>
-                      {stock.symbol}
-                    </p>
+                <Card
+                  className="p-4 md:p-5 cursor-pointer hover-elevate"
+                  onClick={() => navigate(`/stock/${stock.symbol}`)}
+                  data-testid={`card-recommended-${stock.symbol}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-base md:text-lg truncate" data-testid={`text-name-rec-${stock.symbol}`}>
+                          {localizedName}
+                        </h3>
+                        {marketBadge && (
+                          <Badge variant="outline" className={cn("text-[10px] shrink-0 border", marketBadge.className)}>
+                            {marketBadge.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-mono" data-testid={`text-symbol-rec-${stock.symbol}`}>
+                        {stock.symbol}
+                        {nativeCurrency !== "USD" && (
+                          <span className="ml-1.5 text-[10px] font-bold opacity-60">{nativeCurrency}</span>
+                        )}
+                      </p>
 
-                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed" data-testid={`text-reason-${stock.symbol}`}>
-                      {getRecommendationReason(stock, lang)}
-                    </p>
-                  </div>
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed" data-testid={`text-reason-${stock.symbol}`}>
+                        {getRecommendationReason(stock, lang)}
+                      </p>
+                    </div>
 
-                  <div className="flex flex-col items-end shrink-0 gap-1">
-                    <p className="font-mono font-bold text-base tabular-nums" data-testid={`text-price-rec-${stock.symbol}`}>
-                      {formatPrice(stock.price, { nativeCurrency: stock.isKorean ? 'KRW' : 'USD' })}
-                    </p>
-                    <p className={cn(
-                      "text-xs font-bold tabular-nums",
-                      stock.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                    )}>
-                      {stock.changePercent >= 0 ? "+" : ""}{stock.changePercent.toFixed(2)}%
-                    </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <BarChart3 className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground font-medium">
-                        {formatVolume(stock.volume)}
-                      </span>
-                      {stock.volumeRatio >= 1.5 && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0">
-                          <TrendingUp className="w-2.5 h-2.5 mr-0.5" />
-                          {stock.volumeRatio.toFixed(1)}x
-                        </Badge>
-                      )}
+                    <div className="flex flex-col items-end shrink-0 gap-1">
+                      <p className="font-mono font-bold text-base tabular-nums" data-testid={`text-price-rec-${stock.symbol}`}>
+                        {formatPrice(stock.price, { nativeCurrency })}
+                      </p>
+                      <p className={cn(
+                        "text-xs font-bold tabular-nums",
+                        stock.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                      )}>
+                        {stock.changePercent >= 0 ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                      </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <BarChart3 className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {formatVolume(stock.volume)}
+                        </span>
+                        {stock.volumeRatio >= 1.5 && (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                            <TrendingUp className="w-2.5 h-2.5 mr-0.5" />
+                            {stock.volumeRatio.toFixed(1)}x
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
+                </Card>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </div>

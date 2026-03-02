@@ -225,7 +225,7 @@ export default function SuperInvestors() {
 
     return real13F.holdings.map((rh) => {
       const staticMatch = staticByTicker.get(rh.ticker.toUpperCase());
-      const koName = getLocalizedCompanyName(rh.ticker, rh.company, "ko");
+      const koName = getLocalizedCompanyName(rh.company, "ko");
       const displayName = rh.ticker || rh.cusip;
       return {
         ticker: displayName,

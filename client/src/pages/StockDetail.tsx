@@ -37,6 +37,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
+import { getLocalizedCompanyName } from "@/lib/stockNames";
 
 interface StockQuote {
   symbol: string;
@@ -214,9 +215,10 @@ export default function StockDetail() {
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
   const { toast } = useToast();
   const { theme } = useTheme();
-  const { formatPrice, formatMarketCap: formatMarketCapCurrency, currencySymbol, isKoreanStock } = useCurrency();
+  const { formatPrice, formatMarketCap: formatMarketCapCurrency, currencySymbol, isKoreanStock, isJapaneseStock } = useCurrency();
   const isKr = isKoreanStock(symbol);
-  const nativeCurrency = isKr ? 'KRW' : 'USD';
+  const isJp = isJapaneseStock(symbol);
+  const nativeCurrency = isKr ? 'KRW' : isJp ? 'JPY' : 'USD';
 
   const { data: user } = useQuery<{ language: string }>({
     queryKey: ["/api/profiles/me"],
@@ -333,13 +335,20 @@ export default function StockDetail() {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold">{cleanCompanyName(quote?.name || info?.name || symbol)}</h1>
+            <h1 className="text-3xl font-bold">
+              {getLocalizedCompanyName(cleanCompanyName(quote?.name || info?.name || symbol), lang)}
+            </h1>
             {info?.sector && (
               <Badge variant="secondary">{info.sector}</Badge>
             )}
             {isKr && (
               <Badge variant="outline" className="text-xs">
                 {symbol.endsWith('.KQ') ? 'KOSDAQ' : 'KOSPI'}
+              </Badge>
+            )}
+            {isJp && (
+              <Badge variant="outline" className="text-xs border-red-400/40 text-red-600 dark:text-red-400">
+                TSE
               </Badge>
             )}
           </div>
@@ -356,6 +365,9 @@ export default function StockDetail() {
             </span>
             {isKr && (
               <span className="text-xs font-medium text-blue-600 dark:text-blue-400">KRW</span>
+            )}
+            {isJp && (
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">JPY</span>
             )}
           </div>
         </div>
@@ -453,7 +465,7 @@ export default function StockDetail() {
                   tickLine={false}
                   tick={{ fontSize: 12, fill: theme === "dark" ? "hsl(140, 10%, 60%)" : "hsl(140, 10%, 45%)" }}
                   tickFormatter={(v) => formatPrice(v, { nativeCurrency, compact: true })}
-                  width={isKr ? 80 : 60}
+                  width={isKr || isJp ? 80 : 60}
                 />
                 <Tooltip 
                   formatter={(value: number) => [formatPrice(value, { nativeCurrency }), lang === "ko" ? "가격" : "Price"]}

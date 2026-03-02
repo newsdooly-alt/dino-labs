@@ -834,21 +834,41 @@ def get_stock_news(symbol):
 _recommended_cache = {"data": None, "timestamp": 0}
 RECOMMENDED_CACHE_DURATION = 1800
 
+def is_japanese_ticker(symbol):
+    return symbol.upper().endswith('.T')
+
+def is_eu_ticker(symbol):
+    # EU ADRs that trade on US exchanges in USD — identified by ticker list
+    EU_ADRS = {"ASML", "SAP", "NVO", "AZN", "SHEL", "BP", "UL", "GSK", "TM", "HMC", "SONY"}
+    return symbol.upper() in EU_ADRS
+
 @app.route('/recommended', methods=['GET'])
 def get_recommended_stocks():
-    """Get recommended stocks based on high volume and price momentum from US and KR markets."""
+    """Get recommended stocks from US, KR, JP, and EU markets — balanced global portfolio."""
     import time
     now = time.time()
     if _recommended_cache["data"] and (now - _recommended_cache["timestamp"]) < RECOMMENDED_CACHE_DURATION:
         return jsonify(_recommended_cache["data"])
 
     try:
+        # US large-caps & high-momentum
         us_symbols = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AMD", "NFLX", "AVGO",
-                       "JPM", "V", "MA", "WMT", "UNH", "LLY", "XOM", "PG", "JNJ", "COST"]
+                      "JPM", "V", "MA", "WMT", "LLY", "XOM", "COST", "PLTR", "CRM", "SNOW"]
+        # Korean KOSPI/KOSDAQ blue chips
         kr_symbols = ["005930.KS", "000660.KS", "373220.KS", "035420.KS", "035720.KS",
-                       "068270.KS", "051910.KS", "006400.KS", "003670.KS", "207940.KS"]
+                      "068270.KS", "051910.KS", "006400.KS", "003670.KS", "207940.KS"]
+        # Japanese TSE blue chips (priced in JPY)
+        jp_symbols = ["7203.T", "6758.T", "9984.T", "8306.T", "7974.T", "6861.T", "4502.T", "6098.T"]
+        # European ADRs trading on US exchanges (priced in USD)
+        eu_symbols = ["ASML", "SAP", "NVO", "AZN", "SHEL", "BP", "UL", "GSK"]
 
-        all_symbols = us_symbols + kr_symbols
+        market_map = {}
+        for s in us_symbols: market_map[s] = "US"
+        for s in kr_symbols: market_map[s] = "KR"
+        for s in jp_symbols: market_map[s] = "JP"
+        for s in eu_symbols: market_map[s] = "EU"
+
+        all_symbols = us_symbols + kr_symbols + jp_symbols + eu_symbols
         results = []
 
         for symbol in all_symbols:
@@ -862,14 +882,28 @@ def get_recommended_stocks():
                 volume = int(info.get('regularMarketVolume', 0) or info.get('volume', 0) or 0)
                 avg_volume = int(info.get('averageVolume', 0) or info.get('averageDailyVolume10Day', 0) or 1)
 
-                if price <= 0 or volume <= 0:
+                if price <= 0:
                     continue
 
                 change = price - prev_close if prev_close else 0
                 change_pct = (change / prev_close * 100) if prev_close and prev_close != 0 else 0
-                volume_ratio = volume / avg_volume if avg_volume > 0 else 1.0
+                volume_ratio = volume / avg_volume if avg_volume > 0 and volume > 0 else 1.0
 
                 is_kr = is_korean_ticker(symbol)
+                is_jp = is_japanese_ticker(symbol)
+                market = market_map.get(symbol.upper(), market_map.get(symbol, "US"))
+
+                # Determine native currency
+                if is_kr:
+                    currency = 'KRW'
+                elif is_jp:
+                    currency = 'JPY'
+                else:
+                    currency = 'USD'
+
+                # Balanced momentum score: volume ratio (50%) + price change strength (30%) + stability (20%)
+                cp_score = min(abs(change_pct) / 5.0, 1.0)  # normalize to 0–1, cap at 5%
+                score = volume_ratio * 0.5 + cp_score * 0.3 + 0.2  # baseline 0.2 for all
 
                 results.append({
                     "symbol": symbol.upper(),
@@ -882,14 +916,35 @@ def get_recommended_stocks():
                     "volumeRatio": round(volume_ratio, 2),
                     "marketCap": fast.get('marketCap'),
                     "isKorean": is_kr,
-                    "currency": 'KRW' if is_kr else 'USD',
+                    "isJapanese": is_jp,
+                    "market": market,
+                    "currency": currency,
+                    "_score": score,
                 })
             except Exception as e:
                 print(f"[yfinance] Recommended skip {symbol}: {e}")
                 continue
 
-        results.sort(key=lambda x: x['volumeRatio'], reverse=True)
-        top_picks = results[:10]
+        # Balanced selection: sort by score, then ensure global diversity (max 5 per market)
+        results.sort(key=lambda x: x['_score'], reverse=True)
+
+        market_counts = {"US": 0, "KR": 0, "JP": 0, "EU": 0}
+        market_limits = {"US": 5, "KR": 3, "JP": 3, "EU": 3}
+        top_picks = []
+
+        for r in results:
+            m = r.get("market", "US")
+            limit = market_limits.get(m, 3)
+            if market_counts.get(m, 0) < limit:
+                r_clean = {k: v for k, v in r.items() if k != '_score'}
+                top_picks.append(r_clean)
+                market_counts[m] = market_counts.get(m, 0) + 1
+            if len(top_picks) >= 12:
+                break
+
+        # Re-sort final picks by score descending for display
+        results_scored = {r["symbol"]: r["_score"] if "_score" in r else 0 for r in results}
+        top_picks.sort(key=lambda x: results_scored.get(x["symbol"], 0), reverse=True)
 
         response = {"recommended": top_picks, "count": len(top_picks)}
         _recommended_cache["data"] = response
