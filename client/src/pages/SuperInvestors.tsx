@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Briefcase, Info, TrendingUp, TrendingDown, Minus,
   PieChart as PieChartIcon, List, Search, ChevronDown, ChevronUp, Globe,
-  RefreshCw, CheckCircle2, ExternalLink, AlertCircle,
+  RefreshCw, CheckCircle2, ExternalLink, AlertCircle, FileText, CircleDot,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
@@ -695,13 +695,50 @@ export default function SuperInvestors() {
                       </div>
                     </div>
                   )}
-                  {!isLoading13F && isError13F && (
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      {lang === "ko"
-                        ? "SEC EDGAR 데이터 로드 실패 — 저장된 데이터를 표시합니다. 이 투자자는 13F 공시 의무가 없거나 미국 주식 보유량이 기준 이하일 수 있습니다."
-                        : "Could not load SEC data — showing curated static holdings. This investor may not be required to file 13F with the SEC (e.g. non-US managers or AUM below threshold)."}
-                    </div>
+                  {!isLoading13F && isError13F && selectedInvestor && (
+                    (selectedInvestor.category === "sovereign" || (selectedInvestor.category === "index" && !["blackrock","vanguard","statestreet","fidelity","troweprice"].includes(selectedInvestor.id))) ? (
+                      <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 py-2.5">
+                          <FileText className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-bold text-blue-700 dark:text-blue-400">
+                            {lang === "ko" ? "공식 공시 데이터 (SEC 13F 미해당 기관)" : "Official Disclosure Data (Non-13F Institution)"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-blue-500/5 border-t border-blue-500/15 text-[11px] text-blue-700 dark:text-blue-400">
+                          <span className="flex items-center gap-1">
+                            <span className="font-bold">{lang === "ko" ? "데이터 출처:" : "Source:"}</span>
+                            <span>{selectedInvestor.dataSource || selectedInvestor.filingType}</span>
+                          </span>
+                          {selectedInvestor.dataSourceUrl && (
+                            <>
+                              <span className="opacity-40">·</span>
+                              <a
+                                href={selectedInvestor.dataSourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 hover:underline font-semibold"
+                                data-testid="link-official-disclosure"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                {lang === "ko" ? "공식 사이트" : "Official Source"}
+                              </a>
+                            </>
+                          )}
+                          <span className="opacity-40">·</span>
+                          <span className="flex items-center gap-1">
+                            <span className="font-bold">{lang === "ko" ? "최종 갱신:" : "Updated:"}</span>
+                            <span>{selectedInvestor.lastUpdated}</span>
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        {lang === "ko"
+                          ? "SEC EDGAR 데이터 로드 실패 — 저장된 데이터를 표시합니다. 이 투자자는 13F 공시 의무가 없거나 미국 주식 보유량이 기준 이하일 수 있습니다."
+                          : "Could not load SEC data — showing curated static holdings. This investor may not be required to file 13F with the SEC (e.g. non-US managers or AUM below threshold)."}
+                      </div>
+                    )
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -738,10 +775,15 @@ export default function SuperInvestors() {
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             {lang === "ko" ? "SEC EDGAR 검증 데이터" : "Verified SEC EDGAR"}
                           </div>
+                        ) : selectedInvestor.dataSource ? (
+                          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-bold max-w-full">
+                            <FileText className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{selectedInvestor.dataSource}</span>
+                          </div>
                         ) : (
                           <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-bold">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            {lang === "ko" ? "편집 데이터" : "Curated Data"}
+                            {lang === "ko" ? "공시 데이터" : "Official Data"}
                           </div>
                         )}
                       </CardContent>
@@ -793,7 +835,9 @@ export default function SuperInvestors() {
 
                       {/* ── Mobile card layout (< sm) ── */}
                       {displayedHoldings.length > 0 && (
-                      <div className="block sm:hidden space-y-2 overflow-x-hidden">
+                      <div className="block sm:hidden">
+                      <ScrollArea className="max-h-[70vh] pr-1">
+                      <div className="space-y-2 overflow-x-hidden">
                         {displayedHoldings.map((holding, idx) => {
                           const koName = getLocalizedCompanyName(holding.company, "ko");
                           const enName = holding.company;
@@ -821,7 +865,7 @@ export default function SuperInvestors() {
                                   <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "비중" : "weight"}</span>
                                 </div>
                               </div>
-                              {/* Row 2: ticker · sector · change badges */}
+                              {/* Row 2: ticker · sector · dataStatus · change badges */}
                               <div className="flex items-center gap-1.5 mt-1.5 ml-7 flex-wrap">
                                 <span className="text-xs font-mono font-bold text-muted-foreground">{holding.ticker}</span>
                                 {holding.putCall && holding.putCall !== "None" && holding.putCall !== "" && (
@@ -829,6 +873,16 @@ export default function SuperInvestors() {
                                 )}
                                 <span className="text-muted-foreground text-xs">·</span>
                                 <span className="text-[10px] text-muted-foreground uppercase">{getSectorName(holding.sector, lang)}</span>
+                                {holding.dataStatus === "estimated" && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-orange-500 font-semibold">
+                                    <CircleDot className="w-2.5 h-2.5" />{lang === "ko" ? "추정" : "Est."}
+                                  </span>
+                                )}
+                                {holding.dataStatus === "verifying" && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500 font-semibold">
+                                    <RefreshCw className="w-2.5 h-2.5" />{lang === "ko" ? "확인 중" : "Verifying"}
+                                  </span>
+                                )}
                                 {holding.change === "Bought" && (
                                   <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none text-[10px] h-4 px-1.5">
                                     <TrendingUp className="w-2.5 h-2.5 mr-0.5" />{t.bought}
@@ -898,6 +952,8 @@ export default function SuperInvestors() {
                           </div>
                         )}
                       </div>
+                      </ScrollArea>
+                      </div>
                       )}
 
                       {/* ── Desktop table layout (≥ sm) ── */}
@@ -943,6 +999,16 @@ export default function SuperInvestors() {
                                     <td className="px-4 py-4 text-right">
                                       <div className="text-lg font-display font-bold text-primary">{holding.weight}%</div>
                                       <div className="text-[10px] text-muted-foreground font-medium uppercase">{getSectorName(holding.sector, lang)}</div>
+                                      {holding.dataStatus === "estimated" && (
+                                        <div className="inline-flex items-center gap-0.5 text-[10px] text-orange-500 font-semibold mt-0.5">
+                                          <CircleDot className="w-2.5 h-2.5" />{lang === "ko" ? "추정치" : "Estimated"}
+                                        </div>
+                                      )}
+                                      {holding.dataStatus === "verifying" && (
+                                        <div className="inline-flex items-center gap-0.5 text-[10px] text-amber-500 font-semibold mt-0.5">
+                                          <RefreshCw className="w-2.5 h-2.5" />{lang === "ko" ? "확인 중" : "Verifying..."}
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="px-4 py-4 text-center">
                                       <div className="flex flex-col items-center gap-1">

@@ -21,6 +21,8 @@ export const superInvestorSchema = z.object({
   styleTagsKo: z.array(z.string()),
   lastUpdated: z.string(),
   filingType: z.string(),
+  dataSource: z.string().optional(),
+  dataSourceUrl: z.string().optional(),
   sectorAllocation: z.array(z.object({
     sector: z.string(),
     weight: z.number(),
@@ -36,7 +38,8 @@ export const superInvestorSchema = z.object({
     changePct: z.number().nullable(),
     whyTheyBoughtEn: z.string(),
     whyTheyBoughtKo: z.string(),
-    priceApprox: z.number().optional()
+    priceApprox: z.number().optional(),
+    dataStatus: z.enum(["verified", "estimated", "verifying"]).optional(),
   }))
 });
 
