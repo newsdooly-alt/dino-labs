@@ -113,11 +113,24 @@ function daysUntil(dateStr: string | null): number | null {
 
 // ── Super Investor Tips ───────────────────────────────────────────────
 const SUPER_INVESTOR_TIPS = [
-  { name: "Warren Buffett", tip: "en: Buy wonderful companies at fair prices, not fair companies at wonderful prices.", tipKo: "훌륭한 회사를 공정한 가격에 사세요. 공정한 회사를 훌륭한 가격에 사지 마세요." },
-  { name: "Peter Lynch", tip: "Invest in what you know. The best investments are often hiding in plain sight.", tipKo: "아는 것에 투자하세요. 최고의 투자는 종종 눈앞에 있습니다." },
-  { name: "Charlie Munger", tip: "Invert, always invert. Avoiding stupidity is easier than seeking brilliance.", tipKo: "항상 뒤집어 생각하세요. 어리석음을 피하는 것이 탁월함을 추구하는 것보다 쉽습니다." },
-  { name: "Howard Marks", tip: "The most important thing is understanding market cycles and where we stand in them.", tipKo: "가장 중요한 것은 시장 사이클을 이해하고 우리가 어디에 있는지 파악하는 것입니다." },
-  { name: "Ray Dalio", tip: "Diversify well. No one asset is always better; balance is the key to all-weather investing.", tipKo: "잘 분산하세요. 어떤 자산도 항상 좋지 않습니다. 균형이 전천후 투자의 핵심입니다." },
+  { name: "Warren Buffett",      initials: "WB", color: "#1d4ed8", tip: "Buy wonderful companies at fair prices, not fair companies at wonderful prices.", tipKo: "훌륭한 회사를 공정한 가격에 사세요. 공정한 회사를 훌륭한 가격에 사지 마세요." },
+  { name: "Peter Lynch",         initials: "PL", color: "#16a34a", tip: "Invest in what you know. The best investments are often hiding in plain sight.", tipKo: "아는 것에 투자하세요. 최고의 투자는 종종 눈앞에 있습니다." },
+  { name: "Charlie Munger",      initials: "CM", color: "#7c3aed", tip: "Invert, always invert. Avoiding stupidity is easier than seeking brilliance.", tipKo: "항상 뒤집어 생각하세요. 어리석음을 피하는 것이 탁월함을 추구하는 것보다 쉽습니다." },
+  { name: "Howard Marks",        initials: "HM", color: "#b45309", tip: "The most important thing is understanding market cycles and where we stand in them.", tipKo: "가장 중요한 것은 시장 사이클을 이해하고 우리가 어디에 있는지 파악하는 것입니다." },
+  { name: "Ray Dalio",           initials: "RD", color: "#0891b2", tip: "Diversify well. No one asset is always better; balance is the key to all-weather investing.", tipKo: "잘 분산하세요. 어떤 자산도 항상 좋지 않습니다. 균형이 전천후 투자의 핵심입니다." },
+  { name: "Cathie Wood",         initials: "CW", color: "#db2777", tip: "Disruptive innovation is the key to outsized long-term returns. Focus on the five-year horizon.", tipKo: "파괴적 혁신이 장기 초과 수익의 열쇠입니다. 5년 지평을 바라보세요." },
+  { name: "Michael Burry",       initials: "MB", color: "#dc2626", tip: "Everyone is a genius in a bull market. Real investing is about finding value when no one else is looking.", tipKo: "강세장에서는 모두가 천재입니다. 진정한 투자는 아무도 보지 않을 때 가치를 찾는 것입니다." },
+  { name: "Bill Ackman",         initials: "BA", color: "#ea580c", tip: "Concentration is the key to great returns. Find a few extraordinary businesses and bet big.", tipKo: "집중이 높은 수익의 핵심입니다. 탁월한 기업 몇 곳을 찾아 크게 베팅하세요." },
+  { name: "George Soros",        initials: "GS", color: "#4338ca", tip: "It's not whether you're right or wrong, but how much you make when right and lose when wrong.", tipKo: "옳고 그름이 아니라, 옳을 때 얼마나 버느냐, 틀릴 때 얼마나 잃느냐가 중요합니다." },
+  { name: "Stan Druckenmiller",  initials: "SD", color: "#065f46", tip: "Earnings don't move the overall market; the Fed does. Follow the liquidity.", tipKo: "실적이 시장 전체를 움직이는 것이 아니라 연준이 움직입니다. 유동성을 따라가세요." },
+  { name: "Jim Simons",          initials: "JS", color: "#9333ea", tip: "We follow the data, not our emotions. Quantitative discipline beats gut feeling every time.", tipKo: "우리는 감정이 아닌 데이터를 따릅니다. 정량적 규율은 항상 직감을 이깁니다." },
+  { name: "Ken Griffin",         initials: "KG", color: "#0369a1", tip: "Liquidity management and risk control are as important as finding the right trade.", tipKo: "유동성 관리와 리스크 통제는 올바른 거래를 찾는 것만큼 중요합니다." },
+  { name: "Seth Klarman",        initials: "SK", color: "#92400e", tip: "Value investing is at its core the marriage of a contrarian streak and a calculator.", tipKo: "가치 투자의 핵심은 역발상과 계산기의 결합입니다." },
+  { name: "Carl Icahn",          initials: "CI", color: "#be123c", tip: "In life and business, there are two cardinal sins: the first is to act precipitously without thought, and the second is to not act at all.", tipKo: "삶과 비즈니스에서 두 가지 중대한 죄악이 있습니다: 생각 없이 섣불리 행동하는 것과 전혀 행동하지 않는 것입니다." },
+  { name: "David Tepper",        initials: "DT", color: "#0f766e", tip: "The most profitable time to invest is when people are most fearful. Fear creates opportunity.", tipKo: "투자의 가장 수익성 높은 시기는 사람들이 가장 두려워할 때입니다. 두려움이 기회를 만듭니다." },
+  { name: "Joel Greenblatt",     initials: "JG", color: "#1e40af", tip: "Figure out the value of something, and then pay a lot less for it. Simple, not easy.", tipKo: "무언가의 가치를 파악하고 훨씬 적게 지불하세요. 단순하지만 쉽지 않습니다." },
+  { name: "Mohnish Pabrai",      initials: "MP", color: "#374151", tip: "Heads I win, tails I don't lose much. Look for bets with asymmetric upside.", tipKo: "앞면이면 이기고, 뒷면이면 별로 잃지 않습니다. 비대칭적 상승이 있는 베팅을 찾으세요." },
+  { name: "Bill Miller",         initials: "BM", color: "#5b21b6", tip: "Valuation matters only in the long run. In the short run, sentiment and momentum rule.", tipKo: "밸류에이션은 장기에만 중요합니다. 단기에는 심리와 모멘텀이 지배합니다." },
 ];
 
 // ── Main Component ────────────────────────────────────────────────────
@@ -140,7 +153,7 @@ export default function AdvancedDashboard() {
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
   const [rrgFocused, setRrgFocused] = useState(false);
-  const [tipIndex] = useState(() => Math.floor(Math.random() * SUPER_INVESTOR_TIPS.length));
+  const [showAllInvestors, setShowAllInvestors] = useState(false);
 
   const isKr = isKoreanStock(selectedSymbol);
   const isJp = isJapaneseStock(selectedSymbol);
@@ -264,7 +277,7 @@ export default function AdvancedDashboard() {
   const isPositive = (quote?.changePercent ?? 0) >= 0;
   const displayName = getLocalizedCompanyName(cleanCompanyName(quote?.name || selectedSymbol), lang);
   const selectedScreenerInfo = SCREENER_STOCKS.find(s => s.symbol === selectedSymbol);
-  const tip = SUPER_INVESTOR_TIPS[tipIndex];
+  const visibleInvestors = showAllInvestors ? SUPER_INVESTOR_TIPS : SUPER_INVESTOR_TIPS.slice(0, 5);
 
   // ── Stock chip strip (reused on mobile + desktop left panel) ───────
   const StockChipStrip = () => (
@@ -669,16 +682,50 @@ export default function AdvancedDashboard() {
         )}
       </div>
 
-      {/* Super Investor Tip */}
-      <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-3 border border-primary/20">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Lightbulb className="w-3.5 h-3.5 text-primary" />
-          <p className="text-[10px] font-bold text-primary uppercase tracking-wide">{lang === "ko" ? "슈퍼 투자자의 조언" : "Super Investor Tip"}</p>
+      {/* Super Investor List */}
+      <div className="bg-muted/40 rounded-xl border border-border/30 overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+          <div className="flex items-center gap-1.5">
+            <Lightbulb className="w-3.5 h-3.5 text-primary" />
+            <p className="text-[10px] font-bold text-primary uppercase tracking-wide">
+              {lang === "ko" ? "슈퍼 투자자" : "Super Investors"}
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/investors")}
+            className="text-[9px] font-bold text-primary hover:underline flex items-center gap-0.5"
+            data-testid="button-view-all-investors"
+          >
+            {lang === "ko" ? "전체 보기 →" : "View All →"}
+          </button>
         </div>
-        <p className="text-[10px] font-semibold text-foreground/90 leading-relaxed italic">
-          "{lang === "ko" ? tip.tipKo : tip.tip}"
-        </p>
-        <p className="text-[9px] text-muted-foreground mt-1.5 font-semibold">— {tip.name}</p>
+        <div className="divide-y divide-border/30">
+          {visibleInvestors.map((inv) => (
+            <div key={inv.name} className="flex items-start gap-2.5 px-3 py-2.5">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-black text-white flex-shrink-0 mt-0.5"
+                style={{ backgroundColor: inv.color }}
+              >
+                {inv.initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-foreground leading-tight">{inv.name}</p>
+                <p className="text-[9px] text-muted-foreground leading-relaxed italic mt-0.5 line-clamp-2">
+                  "{lang === "ko" ? inv.tipKo : inv.tip}"
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowAllInvestors(v => !v)}
+          className="w-full py-2 text-[9px] font-bold text-muted-foreground hover:text-primary transition-colors border-t border-border/30 flex items-center justify-center gap-1"
+          data-testid="button-toggle-all-investors"
+        >
+          {showAllInvestors
+            ? (lang === "ko" ? "접기 ▲" : "Show Less ▲")
+            : (lang === "ko" ? `${SUPER_INVESTOR_TIPS.length - 5}명 더 보기 ▼` : `+${SUPER_INVESTOR_TIPS.length - 5} more ▼`)}
+        </button>
       </div>
 
       {/* Stock description if available */}

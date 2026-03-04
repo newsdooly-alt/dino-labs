@@ -44,58 +44,68 @@ export async function generateDailyQuests(userId: string, language: string = 'en
   const skillDescription = getSkillLevelDescription(skillLevel, isKorean);
   
   const prompt = isKorean ? `
-    사용자가 미국 주식에 대해 배울 수 있도록 매일 6개의 다양한 주식 시장 퀘스트를 생성하세요.
-    "quests"라는 키를 가진 JSON 객체를 반환하며, 이 키는 6개의 객체 배열입니다.
+    사용자가 미국 주식에 대해 배울 수 있도록 매일 5개의 다양한 주식 시장 퀘스트를 생성하세요.
+    "quests"라는 키를 가진 JSON 객체를 반환하며, 이 키는 5개의 객체 배열입니다.
     
     중요: 사용자 레벨 - ${skillDescription}
+    규칙: 반드시 5가지 모두 다른 유형이어야 합니다. 비슷한 느낌의 퀘스트를 반복하지 마세요.
     
-    다음 11가지 유형 중 6가지를 다양하게 선택하세요 (중복 없이):
-    1. "term": 금융 용어(예: P/E, 배당금, 시가총액, ETF, RSI)에 대한 퀴즈.
-    2. "pattern": 차트 패턴(예: Bull Flag, 헤드앤숄더, 골든크로스)에 대한 퀴즈.
-    3. "news": 시장 뉴스 시나리오(예: "연준이 금리를 올리면 채권 가격은?").
-    4. "search": "${randomStock1}" 종목에 대한 질문.
-    5. "compare": "${randomStock1}"와 "${randomStock2}" 비교 질문.
-    6. "valuation": 밸류에이션 퀴즈 (PER, PBR, DCF, EV/EBITDA 등).
-    7. "sector": 섹터 로테이션 질문 (예: "금리 상승기에 어떤 섹터가 유리한가?", "경기 침체기에 강한 방어적 섹터는?").
-    8. "dividend": 배당 관련 퀴즈 (예: "배당 수익률 3% 이상 종목 특징", "배당성장주란?", "배당 재투자 전략").
-    9. "earnings": 실적 발표 시나리오 (예: "어닝 서프라이즈란?", "실적 발표 전후 주가 패턴").
-    10. "hedge": 헤지 전략 질문 (예: "시장 10% 하락 시 안전자산은?", "인플레이션 헤지 수단은?").
-    11. "insider": 슈퍼인베스터 추적 (예: "워렌 버핏이 장기 보유하는 이유는?", "기관 매수 신호의 의미는?").
+    다음 15가지 유형 중 5가지를 다양하게 선택하세요 (중복 없이, 유사한 유형도 피하세요):
+    1. "term": 금융 용어(예: P/E, 배당금, 시가총액, ETF, RSI, MACD, 볼린저밴드)에 대한 퀴즈.
+    2. "pattern": 차트 패턴(예: Bull Flag, 헤드앤숄더, 골든크로스, 이중천장, 컵앤핸들)에 대한 퀴즈.
+    3. "news": 시장 뉴스 시나리오(예: "연준이 금리를 올리면 채권 가격은?", "달러 강세 시 수출주 영향은?").
+    4. "search": "${randomStock1}" 종목의 섹터, 비즈니스 모델, 핵심 지표에 대한 질문.
+    5. "compare": "${randomStock1}"와 "${randomStock2}"의 밸류에이션이나 사업 모델 비교 질문.
+    6. "valuation": 밸류에이션 퀴즈 (PER, PBR, DCF, EV/EBITDA, PSR 등).
+    7. "sector": 섹터 로테이션 질문 (예: "금리 상승기에 어떤 섹터가 유리한가?", "RRG 차트에서 '약화' 구간에 있는 섹터의 의미는?").
+    8. "dividend": 배당 관련 퀴즈 (예: "배당 수익률 계산법", "배당성향이란?", "배당 재투자 복리 효과").
+    9. "earnings": 실적 발표 시나리오 (예: "어닝 서프라이즈 +10%일 때 일반적인 주가 반응은?", "EPS 가이던스 하향의 의미").
+    10. "hedge": 헤지 전략 질문 (예: "시장 10% 하락 시 안전자산은?", "인플레이션 헤지로 효과적인 자산은?", "역상관 자산 구성법").
+    11. "insider": 슈퍼인베스터 추적 (예: "워렌 버핏이 장기 보유하는 이유는?", "빌 애크먼의 집중 투자 철학이란?", "기관 13F 공시를 추적하는 방법").
+    12. "rrg": RRG(상대적 회전 그래프) 분석 (예: "'선도(Leading)' 구간에 있는 섹터의 특징은?", "RRG에서 모멘텀 축의 의미는?", "약화→개선 이동 신호가 의미하는 것은?").
+    13. "chart": 기술적 지표 활용 (예: "이동평균(MA) 20일선이 50일선을 상향 돌파하면?", "RSI 30 이하의 의미는?", "볼린저밴드 수축이 신호하는 것은?").
+    14. "economic": 경제 지표 해석 (예: "CPI 예상치 상회 시 시장 반응은?", "고용지표 호조가 금리에 미치는 영향은?", "GDP 성장률과 주식시장의 관계").
+    15. "macro_action": 실전 관찰 과제 (예: "오늘 워치리스트에서 가장 상승폭 큰 종목을 찾으세요", "다음 실적 발표 종목의 EPS 예상치를 확인하세요", "Pro 대시보드에서 최강 섹터를 RRG로 확인하세요").
 
     각 퀘스트 객체는 다음을 포함해야 합니다:
-    - type: 위 11가지 유형 중 하나
-    - question: string (한국어, 구체적이고 교육적인 질문)
-    - options: string[] (4개의 옵션, 한국어)
+    - type: 위 15가지 유형 중 하나
+    - question: string (한국어, 구체적이고 교육적인 질문 — macro_action 유형은 앱 내 실전 행동 지시문)
+    - options: string[] (4개의 옵션, 한국어 — macro_action 유형도 4개 옵션 포함)
     - correctAnswer: number (0-3 인덱스)
     - explanation: string (정답에 대한 짧은 설명, 한국어, 2-3문장)
-    - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend=20, earnings/hedge/insider=25)
+    - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend/chart=20, earnings/hedge/insider/rrg/economic/macro_action=25)
     - targetSymbol: string (search, compare 타입일 경우 해당 종목 심볼, 그 외는 null)
   ` : `
-    Generate 6 varied daily stock market quests for a user learning about US/global stocks.
-    Return a JSON object with a key "quests" which is an array of 6 objects.
+    Generate 5 varied daily stock market quests for a user learning about US/global stocks.
+    Return a JSON object with a key "quests" which is an array of 5 objects.
     
     IMPORTANT: User skill level - ${skillDescription}
+    RULE: All 5 must be different types. Do not repeat similar-feeling quests.
     
-    Pick 6 diverse types from the following 11 (no duplicates):
-    1. "term": A quiz about a financial term (P/E, Dividend, Market Cap, ETF, RSI, etc.).
-    2. "pattern": A chart pattern quiz (Bull Flag, Head and Shoulders, Golden Cross, etc.).
-    3. "news": A market news scenario (e.g., "If the Fed raises rates, what happens to bond prices?").
-    4. "search": A question about the stock "${randomStock1}".
-    5. "compare": A comparison question between "${randomStock1}" and "${randomStock2}".
-    6. "valuation": A valuation quiz (P/E, P/B, DCF, EV/EBITDA, etc.).
-    7. "sector": Sector rotation question (e.g., "Which sector benefits from rising interest rates?", "What is a defensive sector during recessions?").
-    8. "dividend": Dividend quiz (e.g., "What is a dividend yield above 3%?", "What is a dividend growth stock?").
-    9. "earnings": Earnings scenario (e.g., "What is an earnings surprise?", "Stock price patterns around earnings announcements").
-    10. "hedge": Hedging strategy quiz (e.g., "What are safe haven assets in a 10% market drop?", "How to hedge against inflation?").
-    11. "insider": Super investor tracking (e.g., "Why does Warren Buffett hold long-term?", "What does institutional buying signal?").
+    Pick 5 diverse types from the following 15 (no duplicates, avoid similar-feeling types):
+    1. "term": A quiz about a financial term (P/E, Dividend, Market Cap, ETF, RSI, MACD, Bollinger Bands, etc.).
+    2. "pattern": A chart pattern quiz (Bull Flag, Head and Shoulders, Golden Cross, Double Top, Cup and Handle, etc.).
+    3. "news": A market news scenario (e.g., "If the Fed raises rates, what happens to bond prices?", "How does a strong dollar affect exporters?").
+    4. "search": A question about ${randomStock1}'s sector, business model, or key metrics.
+    5. "compare": A valuation or business model comparison between ${randomStock1} and ${randomStock2}.
+    6. "valuation": A valuation quiz (P/E, P/B, DCF, EV/EBITDA, P/S, etc.).
+    7. "sector": Sector rotation question (e.g., "Which sector benefits from rising rates?", "What does a sector in the 'Weakening' quadrant of an RRG chart suggest?").
+    8. "dividend": Dividend quiz (e.g., "How to calculate dividend yield?", "What is a payout ratio?", "Dividend reinvestment compounding effect").
+    9. "earnings": Earnings scenario (e.g., "If a company beats EPS by 10%, what typically happens to the stock?", "What does EPS guidance reduction signal?").
+    10. "hedge": Hedging strategy quiz (e.g., "What are safe haven assets in a 10% drop?", "Which assets hedge against inflation?", "How to construct negatively correlated portfolios?").
+    11. "insider": Super investor tracking (e.g., "Why does Warren Buffett hold long-term?", "What is Bill Ackman's concentrated investing philosophy?", "How to track institutional 13F filings?").
+    12. "rrg": RRG (Relative Rotation Graph) analysis (e.g., "What characterizes a sector in the 'Leading' quadrant?", "What does the Momentum axis mean in RRG?", "What does a Weakening→Improving move signal?").
+    13. "chart": Technical indicator usage (e.g., "What happens when the 20-day MA crosses above the 50-day MA?", "What does RSI below 30 mean?", "What does Bollinger Band contraction signal?").
+    14. "economic": Economic indicator interpretation (e.g., "If CPI beats expectations, how does the market typically react?", "How does strong jobs data affect interest rates?", "Relationship between GDP growth and equities").
+    15. "macro_action": Real-world observation task (e.g., "Find the biggest gainer in your Watchlist today", "Check the EPS estimate for the next earnings release on a stock you follow", "Use the RRG in the Pro Dashboard to find the Leading sector today").
 
     Each quest object must have:
-    - type: one of the 11 types above
-    - question: string (specific, educational question)
-    - options: string[] (4 options)
+    - type: one of the 15 types above
+    - question: string (specific, educational question — macro_action type should be an in-app action instruction)
+    - options: string[] (4 options, even macro_action types must have 4 options)
     - correctAnswer: number (0-3 index)
     - explanation: string (2-3 sentence explanation of the answer)
-    - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend=20, earnings/hedge/insider=25)
+    - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend/chart=20, earnings/hedge/insider/rrg/economic/macro_action=25)
     - targetSymbol: string (the stock symbol for search/compare quests, null for others)
   `;
 
@@ -262,6 +272,26 @@ const dailyQuestsPoolEn: FallbackQuestData[] = [
   { level: "advanced", type: "hedge", question: "Which assets are commonly considered 'safe havens' during market downturns?", options: ["High-growth tech stocks", "Gold, US Treasuries, and Japanese Yen", "Real estate investment trusts", "Emerging market equities"], correctAnswer: 1, explanation: "Gold, US Treasuries, and the Japanese Yen are traditional safe haven assets that investors flock to during market stress due to their stability.", xpReward: 25 },
   { level: "advanced", type: "insider", question: "Why do institutional investors' 13F filings matter to retail investors?", options: ["They show exact trading algorithms", "They reveal large investors' quarterly holdings and possible conviction buys", "They predict next quarter's earnings", "They guarantee stock price increases"], correctAnswer: 1, explanation: "13F filings reveal what major institutions like hedge funds hold each quarter, giving retail investors insight into where smart money is positioned.", xpReward: 25 },
   { level: "advanced", type: "earnings", question: "What is 'earnings guidance' and why does it matter?", options: ["A government regulation on earnings reports", "Management's forward-looking outlook on future financial performance", "A historical earnings analysis", "An accounting adjustment method"], correctAnswer: 1, explanation: "Earnings guidance is management's forecast of future financial performance. It often moves stock prices more than current earnings because markets are forward-looking.", xpReward: 25 },
+
+  // RRG quests
+  { level: "beginner", type: "rrg", question: "In an RRG (Relative Rotation Graph), what does the 'Leading' quadrant indicate?", options: ["The sector is losing momentum", "The sector has strong relative strength and rising momentum", "The sector is about to collapse", "The sector has no movement"], correctAnswer: 1, explanation: "The Leading quadrant in an RRG shows sectors with high relative strength AND improving momentum — the strongest positioning.", xpReward: 25 },
+  { level: "intermediate", type: "rrg", question: "What does a sector moving from 'Weakening' to 'Lagging' on an RRG suggest?", options: ["The sector is recovering", "Both relative strength and momentum are deteriorating", "The sector is outperforming", "Volume is increasing"], correctAnswer: 1, explanation: "A move from Weakening to Lagging on RRG signals continued deterioration — both relative strength and momentum are declining, suggesting sector rotation away from this area.", xpReward: 25 },
+  { level: "advanced", type: "rrg", question: "Which RRG quadrant transition is typically the earliest bullish signal for a sector?", options: ["Leading → Weakening", "Lagging → Improving", "Improving → Leading", "Weakening → Lagging"], correctAnswer: 1, explanation: "The Lagging → Improving transition is often the earliest bullish signal — it shows momentum is turning positive even while relative strength is still below average.", xpReward: 25 },
+
+  // Chart quests
+  { level: "beginner", type: "chart", question: "What does adding a Moving Average (MA) to a chart help investors identify?", options: ["Exact future prices", "The overall price trend direction", "Company earnings growth", "Dividend payment dates"], correctAnswer: 1, explanation: "A Moving Average smooths out daily price fluctuations to reveal the underlying trend direction — up, down, or sideways.", xpReward: 20 },
+  { level: "intermediate", type: "chart", question: "If RSI on a stock chart drops below 30, what does this typically indicate?", options: ["The stock is overbought", "The stock may be oversold and due for a bounce", "The company is about to report earnings", "Dividends will be cut"], correctAnswer: 1, explanation: "RSI below 30 indicates the stock may be oversold — meaning it has fallen sharply and could be due for a technical recovery or bounce.", xpReward: 20 },
+  { level: "advanced", type: "chart", question: "What does Bollinger Band contraction (squeeze) typically signal?", options: ["The trend is strengthening", "Low volatility that often precedes a sharp breakout move", "The stock is about to pay a dividend", "Volume is declining permanently"], correctAnswer: 1, explanation: "A Bollinger Band squeeze (bands narrowing) indicates very low volatility. Historically, this compression often precedes a significant price move — though direction is not guaranteed.", xpReward: 20 },
+
+  // Economic quests
+  { level: "beginner", type: "economic", question: "What happens to stocks generally when inflation (CPI) comes in higher than expected?", options: ["Stocks always rise sharply", "Stocks often fall as rate hike fears increase", "Stocks are not affected by inflation", "Only tech stocks fall"], correctAnswer: 1, explanation: "Higher-than-expected CPI signals that the Fed may raise rates further to fight inflation, which increases borrowing costs and makes future earnings less valuable — often pressuring stocks.", xpReward: 25 },
+  { level: "intermediate", type: "economic", question: "How does a strong jobs report (low unemployment) typically affect interest rates?", options: ["Interest rates are expected to fall immediately", "It may keep rates higher as the Fed tries to prevent overheating", "Jobs data never affects interest rates", "Rates only move on inflation data"], correctAnswer: 1, explanation: "A strong jobs report suggests the economy is running hot, which may prevent the Fed from cutting rates — potentially keeping borrowing costs higher for longer.", xpReward: 25 },
+  { level: "advanced", type: "economic", question: "What does an inverted yield curve (short-term rates > long-term rates) historically predict?", options: ["A strong bull market ahead", "An increased probability of recession within 12-18 months", "A tech sector boom", "Accelerating GDP growth"], correctAnswer: 1, explanation: "An inverted yield curve has preceded every US recession for the past 50 years. When short-term treasury yields exceed long-term yields, it signals credit market stress and recession risk.", xpReward: 25 },
+
+  // Macro Action quests
+  { level: "beginner", type: "macro_action", question: "In the Pro Dashboard, check the Market Breadth section. What % of tracked stocks are above their SMA50?", options: ["The exact number varies daily — check it now!", "Always 50%", "Always 100%", "Always 0%"], correctAnswer: 0, explanation: "Market Breadth shows what percentage of stocks are trending above key moving averages. When above 50%, it signals broad market health — below 50% indicates weakness.", xpReward: 25 },
+  { level: "intermediate", type: "macro_action", question: "Open the Pro Dashboard and check the RRG chart. Which sector is currently in the 'Leading' quadrant?", options: ["The answer changes daily — check the RRG now!", "Technology is always Leading", "Energy is always Leading", "Financials are always Leading"], correctAnswer: 0, explanation: "The RRG Leading quadrant changes based on real market data. Identifying which sectors are Leading helps you rotate into the strongest areas — check it regularly!", xpReward: 25 },
+  { level: "advanced", type: "macro_action", question: "Using the Earnings panel in the Pro Dashboard, find a stock whose next earnings date is within the next 30 days. What is its EPS estimate?", options: ["The answer depends on the stock — check the Pro Dashboard now!", "All EPS estimates are the same", "EPS estimates are not available in the app", "You need a paid subscription for this data"], correctAnswer: 0, explanation: "The Earnings panel shows upcoming earnings dates and analyst EPS estimates. Tracking upcoming earnings lets you prepare for potential volatility around announcement dates.", xpReward: 25 },
 ];
 
 const dailyQuestsPoolKo: FallbackQuestData[] = [
@@ -301,6 +331,26 @@ const dailyQuestsPoolKo: FallbackQuestData[] = [
   { level: "advanced", type: "hedge", question: "시장이 10% 하락할 때 '안전자산'으로 주로 꼽히는 것은?", options: ["성장주", "금, 미국 국채, 일본 엔화", "리츠(REITs)", "신흥국 주식"], correctAnswer: 1, explanation: "금, 미국 국채, 일본 엔화는 시장 불안 시 투자자들이 몰리는 전통적인 안전자산으로, 변동성이 낮고 안정적입니다.", xpReward: 25 },
   { level: "advanced", type: "insider", question: "기관투자자의 13F 공시가 개인 투자자에게 중요한 이유는?", options: ["정확한 거래 알고리즘을 공개하기 때문", "분기별 대형 투자자의 보유 종목과 컨빅션 매수를 파악할 수 있기 때문", "다음 분기 실적을 예측할 수 있기 때문", "주가 상승을 보장하기 때문"], correctAnswer: 1, explanation: "13F 공시는 헤지펀드 등 대형 기관이 분기별로 보유한 종목을 공개합니다. 스마트머니의 포지션을 파악하는 핵심 자료입니다.", xpReward: 25 },
   { level: "advanced", type: "earnings", question: "'실적 가이던스(Earnings Guidance)'란 무엇이며 왜 중요한가요?", options: ["정부의 실적 공시 규정", "경영진이 제시하는 미래 재무 성과 전망", "과거 실적 분석 보고서", "회계 조정 방법"], correctAnswer: 1, explanation: "실적 가이던스는 경영진이 제시하는 미래 실적 전망입니다. 시장은 미래를 반영하기 때문에 현재 실적보다 가이던스가 주가에 더 큰 영향을 미칩니다.", xpReward: 25 },
+
+  // RRG 퀘스트
+  { level: "beginner", type: "rrg", question: "RRG(상대적 회전 그래프)에서 '선도(Leading)' 구간이 의미하는 것은?", options: ["섹터가 모멘텀을 잃고 있음", "높은 상대강도와 상승하는 모멘텀을 가진 강세 섹터", "섹터가 곧 붕괴될 것", "섹터에 변화가 없음"], correctAnswer: 1, explanation: "RRG의 Leading 구간은 상대강도와 모멘텀이 모두 강한 섹터를 나타냅니다. 이 구간의 섹터는 시장 전체 대비 가장 강한 포지션에 있습니다.", xpReward: 25 },
+  { level: "intermediate", type: "rrg", question: "RRG에서 섹터가 '약화(Weakening)'에서 '지연(Lagging)'으로 이동할 때의 신호는?", options: ["섹터가 회복 중", "상대강도와 모멘텀이 모두 악화되고 있음", "섹터가 시장을 앞서고 있음", "거래량이 증가 중"], correctAnswer: 1, explanation: "Weakening → Lagging 이동은 섹터의 상대강도와 모멘텀이 모두 하락하는 것을 나타냅니다. 이는 해당 섹터에서 자금이 이탈하고 있음을 시사합니다.", xpReward: 25 },
+  { level: "advanced", type: "rrg", question: "RRG에서 가장 이른 강세 신호를 나타내는 구간 이동은?", options: ["선도 → 약화", "지연 → 개선", "개선 → 선도", "약화 → 지연"], correctAnswer: 1, explanation: "지연 → 개선 이동은 가장 이른 강세 신호입니다. 상대강도는 아직 낮지만 모멘텀이 긍정적으로 전환되어 조기 진입 기회를 제공할 수 있습니다.", xpReward: 25 },
+
+  // 차트 퀘스트
+  { level: "beginner", type: "chart", question: "차트에 이동평균(MA)을 추가하면 투자자에게 어떤 도움이 되나요?", options: ["미래 정확한 가격 예측", "전체적인 가격 추세 방향 파악", "회사 실적 성장 측정", "배당 지급일 확인"], correctAnswer: 1, explanation: "이동평균은 일별 가격 변동을 부드럽게 만들어 전반적인 추세 방향(상승, 하락, 횡보)을 파악하는 데 도움을 줍니다.", xpReward: 20 },
+  { level: "intermediate", type: "chart", question: "차트에서 RSI가 30 이하로 떨어지면 일반적으로 무엇을 의미하나요?", options: ["주식이 과매수 상태", "주식이 과매도 상태로 반등 가능성이 있음", "회사가 실적을 발표할 예정", "배당이 삭감될 것"], correctAnswer: 1, explanation: "RSI 30 이하는 주식이 과매도 상태임을 나타냅니다. 급격한 하락 이후 기술적 반등이나 회복이 가능함을 시사합니다.", xpReward: 20 },
+  { level: "advanced", type: "chart", question: "볼린저밴드 수축(스퀴즈)은 일반적으로 무엇을 신호하나요?", options: ["추세가 강화되고 있음", "변동성이 낮아 곧 강한 방향성 움직임이 나타날 가능성이 있음", "주식이 곧 배당을 지급할 것", "거래량이 영구적으로 감소함"], correctAnswer: 1, explanation: "볼린저밴드 수축은 변동성이 매우 낮음을 나타냅니다. 이 압축 상태 후에는 강한 가격 움직임이 자주 뒤따르지만, 방향은 별도로 판단해야 합니다.", xpReward: 20 },
+
+  // 경제 지표 퀘스트
+  { level: "beginner", type: "economic", question: "소비자물가지수(CPI)가 예상보다 높게 나오면 주식시장은 어떻게 반응하나요?", options: ["주식은 항상 급등함", "금리 인상 우려로 주식이 하락하는 경우가 많음", "주식은 물가에 영향받지 않음", "기술주만 하락함"], correctAnswer: 1, explanation: "CPI가 예상치를 상회하면 연준이 금리를 더 올릴 수 있다는 우려가 커집니다. 금리 상승은 차입 비용 증가와 미래 이익의 현재가치 하락을 초래해 주식에 부정적입니다.", xpReward: 25 },
+  { level: "intermediate", type: "economic", question: "고용보고서가 강세(실업률 하락)를 보일 때 금리에 미치는 영향은?", options: ["금리가 즉시 하락함", "경제 과열 방지를 위해 금리가 높게 유지될 수 있음", "고용지표는 금리에 영향 없음", "금리는 물가지수에만 반응함"], correctAnswer: 1, explanation: "강한 고용지표는 경제가 과열되고 있음을 시사하며, 연준이 금리 인하를 서두르지 않을 가능성이 높아집니다. 이는 금리를 더 오래 높게 유지시킬 수 있습니다.", xpReward: 25 },
+  { level: "advanced", type: "economic", question: "장단기 금리역전(단기>장기) 현상이 역사적으로 예고하는 것은?", options: ["강한 강세장의 시작", "12-18개월 내 경기침체 가능성 상승", "기술섹터 호황", "GDP 성장 가속화"], correctAnswer: 1, explanation: "장단기 금리역전은 지난 50년간 모든 미국 경기침체에 앞서 나타났습니다. 단기 국채 수익률이 장기를 초과하면 신용시장 스트레스와 경기침체 위험을 신호합니다.", xpReward: 25 },
+
+  // 실전 행동 퀘스트
+  { level: "beginner", type: "macro_action", question: "Pro 대시보드의 시장 폭(Market Breadth) 섹션에서 SMA50 위에 있는 종목의 비율은?", options: ["매일 변함 — 지금 확인하세요!", "항상 50%", "항상 100%", "항상 0%"], correctAnswer: 0, explanation: "시장 폭 지수는 주요 이동평균 위에서 거래되는 종목의 비율을 보여줍니다. 50% 이상이면 전반적인 시장 건전성, 이하면 약세를 나타냅니다.", xpReward: 25 },
+  { level: "intermediate", type: "macro_action", question: "Pro 대시보드의 RRG 차트를 확인하세요. 현재 '선도(Leading)' 구간에 있는 섹터는?", options: ["답은 매일 변함 — 지금 RRG를 확인하세요!", "기술 섹터가 항상 선도", "에너지 섹터가 항상 선도", "금융 섹터가 항상 선도"], correctAnswer: 0, explanation: "RRG 선도 구간은 실시간 시장 데이터에 따라 변합니다. 어떤 섹터가 선도하고 있는지 정기적으로 확인하면 섹터 로테이션 기회를 포착할 수 있습니다.", xpReward: 25 },
+  { level: "advanced", type: "macro_action", question: "Pro 대시보드의 실적 패널에서 향후 30일 내 실적 발표 예정인 종목의 EPS 예상치를 확인하세요.", options: ["답은 종목마다 다름 — 지금 Pro 대시보드를 확인하세요!", "모든 EPS 예상치는 동일", "앱에서 EPS 예상치를 볼 수 없음", "유료 구독이 필요한 데이터"], correctAnswer: 0, explanation: "실적 패널은 향후 실적 발표일과 애널리스트 EPS 예상치를 보여줍니다. 실적 발표일 전후의 잠재적 변동성에 대비하기 위해 이를 추적하는 것이 중요합니다.", xpReward: 25 },
 ];
 
 const practiceQuestsPoolEn: FallbackPracticeData[] = [
@@ -364,17 +414,26 @@ function fallbackQuests(userId: string, language: string = 'en', skillLevel: Ski
   const pool = isKorean ? dailyQuestsPoolKo : dailyQuestsPoolEn;
   const filtered = pool.filter(q => q.level === skillLevel);
 
-  const questTypes = ["term", "pattern", "news", "search", "compare", "valuation"];
-  const selected: FallbackQuestData[] = [];
+  // All 15 quest types — pick 5 diverse ones, no two from similar categories
+  const ALL_TYPES = ["term", "pattern", "news", "search", "compare", "valuation", "sector", "dividend", "earnings", "hedge", "insider", "rrg", "chart", "economic", "macro_action"];
 
-  for (const type of questTypes) {
+  // Shuffle types for daily variety
+  const shuffled = ALL_TYPES.sort(() => Math.random() - 0.5);
+  const selected: FallbackQuestData[] = [];
+  const usedTypes = new Set<string>();
+
+  for (const type of shuffled) {
+    if (selected.length >= 5) break;
+    if (usedTypes.has(type)) continue;
     const typeQuests = filtered.filter(q => q.type === type);
     if (typeQuests.length > 0) {
       selected.push(typeQuests[Math.floor(Math.random() * typeQuests.length)]);
+      usedTypes.add(type);
     }
   }
 
-  while (selected.length < 6 && filtered.length > 0) {
+  // Fill up to 5 from any remaining if needed
+  while (selected.length < 5 && filtered.length > 0) {
     const remaining = filtered.filter(q => !selected.includes(q));
     if (remaining.length === 0) break;
     selected.push(remaining[Math.floor(Math.random() * remaining.length)]);

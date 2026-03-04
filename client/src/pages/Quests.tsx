@@ -19,7 +19,7 @@ import confetti from "canvas-confetti";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-const DAILY_QUEST_COUNT = 6;
+const DAILY_QUEST_COUNT = 5;
 const EGG_REWARD_KEY = "dinolingo_egg_rewarded_date";
 const QUEST_COMPLETE_KEY = "dinolingo_quest_complete_shown";
 const PREDICTION_DATE_KEY = "dinolingo_prediction_date";
