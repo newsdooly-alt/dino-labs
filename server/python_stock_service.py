@@ -1431,6 +1431,151 @@ def get_market_breadth():
     return jsonify(result)
 
 
+
+# ===== ECONOMIC ACTUALS (FRED) =====
+_fred_raw_cache: dict = {}        # series_id -> [(date_str, float)]
+_fred_raw_cache_ts: dict = {}     # series_id -> float (time.time)
+FRED_CACHE_TTL = 15 * 60         # 15 minutes
+FRED_BASE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
+
+# Map: event_id -> (fred_series_id, obs_date "YYYY-MM-01", fmt)
+# fmt: "direct_pct" | "direct_idx" | "change_k" | "pct_mom" | "pct_yoy"
+EVENT_FRED_MAP = {
+    "2026-02-27-pce":       ("PCEPILFE",        "2026-01-01", "pct_mom"),
+    "2026-02-27-sentiment": ("UMCSENT",         "2026-02-01", "direct_idx"),
+    "2026-03-06-nfp":       ("PAYEMS",          "2026-02-01", "change_k"),
+    "2026-03-06-unemp":     ("UNRATE",          "2026-02-01", "direct_pct"),
+    "2026-03-11-cpi":       ("CPIAUCSL",        "2026-02-01", "pct_mom"),
+    "2026-03-11-core-cpi":  ("CPILFESL",        "2026-02-01", "pct_yoy"),
+    "2026-03-12-ppi":       ("PPIACO",          "2026-02-01", "pct_mom"),
+    "2026-03-17-retail":    ("RSXFS",           "2026-02-01", "pct_mom"),
+    "2026-03-27-pce":       ("PCEPILFE",        "2026-02-01", "pct_mom"),
+    "2026-03-31-conf-board":("CONCCONF",        "2026-03-01", "direct_idx"),
+    "2026-04-01-ism-mfg":   (None, None, None),
+    "2026-04-03-nfp":       ("PAYEMS",          "2026-03-01", "change_k"),
+    "2026-04-03-unemp":     ("UNRATE",          "2026-03-01", "direct_pct"),
+    "2026-04-10-cpi":       ("CPIAUCSL",        "2026-03-01", "pct_mom"),
+    "2026-04-11-ppi":       ("PPIACO",          "2026-03-01", "pct_mom"),
+    "2026-04-16-retail":    ("RSXFS",           "2026-03-01", "pct_mom"),
+    "2026-04-30-gdp":       ("A191RL1Q225SBEA", "2026-01-01", "direct_pct"),
+    "2026-04-30-pce":       ("PCEPILFE",        "2026-03-01", "pct_mom"),
+    "2026-05-01-nfp":       ("PAYEMS",          "2026-04-01", "change_k"),
+    "2026-05-13-cpi":       ("CPIAUCSL",        "2026-04-01", "pct_mom"),
+    "2026-05-15-retail":    ("RSXFS",           "2026-04-01", "pct_mom"),
+    "2026-05-30-pce":       ("PCEPILFE",        "2026-04-01", "pct_mom"),
+    "2026-06-05-nfp":       ("PAYEMS",          "2026-05-01", "change_k"),
+    "2026-06-11-cpi":       ("CPIAUCSL",        "2026-05-01", "pct_mom"),
+    "2026-06-19-retail":    ("RSXFS",           "2026-05-01", "pct_mom"),
+    "2026-06-27-pce":       ("PCEPILFE",        "2026-05-01", "pct_mom"),
+    "2026-07-03-nfp":       ("PAYEMS",          "2026-06-01", "change_k"),
+    "2026-07-15-cpi":       ("CPIAUCSL",        "2026-06-01", "pct_mom"),
+    "2026-07-17-retail":    ("RSXFS",           "2026-06-01", "pct_mom"),
+    "2026-07-31-gdp-q2":    ("A191RL1Q225SBEA", "2026-04-01", "direct_pct"),
+    "2026-08-07-nfp":       ("PAYEMS",          "2026-07-01", "change_k"),
+    "2026-08-12-cpi":       ("CPIAUCSL",        "2026-07-01", "pct_mom"),
+    "2026-08-14-retail":    ("RSXFS",           "2026-07-01", "pct_mom"),
+    "2026-08-28-pce":       ("PCEPILFE",        "2026-07-01", "pct_mom"),
+}
+
+def _fetch_fred_series(series_id: str) -> list:
+    """Fetch and cache FRED series observations from public CSV (no auth)."""
+    import time as _time
+    now = _time.time()
+    if series_id in _fred_raw_cache and (now - _fred_raw_cache_ts.get(series_id, 0)) < FRED_CACHE_TTL:
+        return _fred_raw_cache[series_id]
+    try:
+        resp = requests.get(f"{FRED_BASE_URL}?id={series_id}", timeout=12,
+                            headers={"User-Agent": "Mozilla/5.0"})
+        if not resp.ok:
+            return []
+        rows = []
+        for line in resp.text.strip().split("\n")[1:]:
+            parts = line.strip().split(",")
+            if len(parts) != 2 or not parts[1].strip() or parts[1].strip() == ".":
+                continue
+            try:
+                rows.append((parts[0].strip(), float(parts[1].strip())))
+            except ValueError:
+                pass
+        _fred_raw_cache[series_id] = rows
+        _fred_raw_cache_ts[series_id] = now
+        return rows
+    except Exception as e:
+        print(f"[FRED] fetch error {series_id}: {e}")
+        return []
+
+def _get_fred_obs(series_id: str, target_date: str) -> tuple | None:
+    """Get (value_at_target, value_at_prev_month) from FRED series."""
+    rows = _fetch_fred_series(series_id)
+    if not rows:
+        return None
+    obs_map = {r[0]: r[1] for r in rows}
+    val = obs_map.get(target_date)
+    if val is None:
+        return None
+    from datetime import datetime, timedelta
+    dt = datetime.strptime(target_date, "%Y-%m-%d")
+    prev_month_dt = (dt.replace(day=1) - timedelta(days=1)).replace(day=1)
+    prev_date = prev_month_dt.strftime("%Y-%m-%d")
+    prev_val = obs_map.get(prev_date)
+    year_ago_dt = dt.replace(year=dt.year - 1)
+    year_ago_date = year_ago_dt.strftime("%Y-%m-%d")
+    year_ago_val = obs_map.get(year_ago_date)
+    return (val, prev_val, year_ago_val)
+
+def _format_fred_value(series_id: str, obs_date: str, fmt: str) -> str | None:
+    """Compute the display string for a FRED observation."""
+    result = _get_fred_obs(series_id, obs_date)
+    if result is None:
+        return None
+    val, prev_val, year_ago_val = result
+    try:
+        if fmt == "direct_pct":
+            return f"{val:.1f}%"
+        elif fmt == "direct_idx":
+            return f"{val:.1f}"
+        elif fmt == "change_k":
+            if prev_val is None:
+                return None
+            change = val - prev_val
+            sign = "+" if change >= 0 else ""
+            return f"{sign}{change:.0f}K"
+        elif fmt == "pct_mom":
+            if prev_val is None or prev_val == 0:
+                return None
+            pct = (val - prev_val) / prev_val * 100
+            sign = "+" if pct >= 0 else ""
+            return f"{sign}{pct:.1f}%"
+        elif fmt == "pct_yoy":
+            if year_ago_val is None or year_ago_val == 0:
+                return None
+            pct = (val - year_ago_val) / year_ago_val * 100
+            sign = "+" if pct >= 0 else ""
+            return f"{sign}{pct:.1f}%"
+    except Exception:
+        return None
+    return None
+
+@app.route('/economic_actuals', methods=['GET'])
+def get_economic_actuals():
+    """Return actual values for economic events fetched from FRED (no API key needed)."""
+    result = {}
+    fetched_at = None
+    import time as _time
+    fetched_at = int(_time.time())
+    for event_id, mapping in EVENT_FRED_MAP.items():
+        series_id, obs_date, fmt = mapping
+        if series_id is None:
+            continue
+        try:
+            value = _format_fred_value(series_id, obs_date, fmt)
+            if value is not None:
+                result[event_id] = value
+        except Exception as e:
+            print(f"[FRED actuals] error for {event_id}: {e}")
+    return jsonify({"actuals": result, "fetchedAt": fetched_at})
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)

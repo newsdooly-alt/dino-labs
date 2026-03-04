@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
@@ -372,6 +373,7 @@ export default function EconomicCalendar() {
     queryKey: ["/api/economic-calendar", year, month],
     queryFn: () =>
       fetch(`/api/economic-calendar?year=${year}&month=${month}`).then((r) => r.json()),
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const prevMonthDate = subMonths(viewMonth, 1);
@@ -381,6 +383,7 @@ export default function EconomicCalendar() {
       fetch(
         `/api/economic-calendar?year=${prevMonthDate.getFullYear()}&month=${prevMonthDate.getMonth() + 1}`
       ).then((r) => r.json()),
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const nextMonthDate = addMonths(viewMonth, 1);
@@ -390,15 +393,46 @@ export default function EconomicCalendar() {
       fetch(
         `/api/economic-calendar?year=${nextMonthDate.getFullYear()}&month=${nextMonthDate.getMonth() + 1}`
       ).then((r) => r.json()),
+    refetchInterval: 5 * 60 * 1000,
   });
 
+  const { data: actualsData, dataUpdatedAt: actualsUpdatedAt } = useQuery<{
+    actuals: Record<string, string>;
+    fetchedAt: number;
+  }>({
+    queryKey: ["/api/economic-actuals"],
+    queryFn: () => fetch("/api/economic-actuals").then((r) => r.json()),
+    refetchInterval: 60 * 1000,
+    staleTime: 30 * 1000,
+  });
+
+  const lastUpdatedLabel = useMemo(() => {
+    if (!actualsUpdatedAt) return null;
+    const diff = Math.floor((Date.now() - actualsUpdatedAt) / 1000);
+    if (diff < 60) return lang === "ko" ? `${diff}초 전 업데이트` : `Updated ${diff}s ago`;
+    const mins = Math.floor(diff / 60);
+    return lang === "ko" ? `${mins}분 전 업데이트` : `Updated ${mins}m ago`;
+  }, [actualsUpdatedAt, lang]);
+
+  const mergeActuals = useMemo(() => {
+    const overrides = actualsData?.actuals || {};
+    return (event: EconomicEvent): EconomicEvent => {
+      const fetched = overrides[event.id];
+      if (fetched != null && event.actual == null) {
+        return { ...event, actual: fetched };
+      }
+      return event;
+    };
+  }, [actualsData]);
+
   const allVisibleEvents = useMemo(() => {
-    return [
+    const raw = [
       ...(prevData?.events || []),
       ...(data?.events || []),
       ...(nextData?.events || []),
     ];
-  }, [data, prevData, nextData]);
+    return raw.map(mergeActuals);
+  }, [data, prevData, nextData, mergeActuals]);
 
   const eventsByTzDate = useMemo(() => {
     const map = new Map<string, EconomicEvent[]>();
@@ -465,7 +499,7 @@ export default function EconomicCalendar() {
     <div className="p-4 md:p-6 space-y-5 pb-28" data-testid="economic-calendar-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 flex-wrap">
             <span>{lang === "ko" ? "경제 캘린더" : "Economic Calendar"}</span>
             <Badge
               variant="secondary"
@@ -474,12 +508,30 @@ export default function EconomicCalendar() {
             >
               {currentTzLabel}
             </Badge>
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+              data-testid="badge-live-indicator"
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              LIVE
+            </span>
           </h1>
-          <p className="text-muted-foreground text-sm">
-            {lang === "ko"
-              ? "미국·한국·일본·유럽 주요 경제 지표와 시장 영향력을 확인하세요"
-              : "Track major US, Korean, Japanese & European economic indicators and their market impact"}
-          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-muted-foreground text-sm">
+              {lang === "ko"
+                ? "미국·한국·일본·유럽 주요 경제 지표와 시장 영향력을 확인하세요"
+                : "Track major US, Korean, Japanese & European economic indicators and their market impact"}
+            </p>
+            {lastUpdatedLabel && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" data-testid="text-last-updated">
+                <RefreshCw className="w-2.5 h-2.5" />
+                {lastUpdatedLabel}
+              </span>
+            )}
+          </div>
         </div>
 
         <button

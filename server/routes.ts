@@ -2091,6 +2091,20 @@ Return EXACTLY this JSON:
     });
   });
 
+  // === Economic Actuals (FRED) ===
+  app.get("/api/economic-actuals", isAuthenticated, async (req, res) => {
+    try {
+      const pythonRes = await fetch("http://127.0.0.1:5001/economic_actuals", {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!pythonRes.ok) throw new Error("Python service error");
+      const data = await pythonRes.json();
+      res.json(data);
+    } catch (err) {
+      res.json({ actuals: {}, fetchedAt: Date.now() / 1000 });
+    }
+  });
+
   // === Economic Calendar ===
   app.get("/api/economic-calendar", isAuthenticated, (req, res) => {
     try {

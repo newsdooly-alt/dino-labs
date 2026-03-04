@@ -446,7 +446,12 @@ export default function AdvancedDashboard() {
               <div className="grid grid-cols-3 gap-2 mb-2">
                 <div>
                   <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "실제 EPS" : "Actual EPS"}</p>
-                  <p className={cn("text-sm font-bold font-mono", earnings?.lastEpsActual != null ? (earnings.lastEpsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "")}>
+                  <p className={cn("text-sm font-bold font-mono",
+                    earnings?.lastEpsActual != null && earnings?.lastEpsEstimate != null
+                      ? earnings.lastEpsActual > earnings.lastEpsEstimate ? "text-emerald-500"
+                        : earnings.lastEpsActual < earnings.lastEpsEstimate ? "text-rose-500"
+                        : "text-foreground"
+                      : "")}>
                     {earnings?.lastEpsActual != null ? `$${earnings.lastEpsActual.toFixed(2)}` : "--"}
                   </p>
                 </div>
@@ -488,33 +493,37 @@ export default function AdvancedDashboard() {
             {earnings?.history?.length > 1 && (
               <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-                  {lang === "ko" ? "📊 어닝스 히스토리 (예상 vs 실제)" : "📊 Earnings History (Est vs Act)"}
+                  {lang === "ko" ? "📊 과거 실적" : "📊 Past Earnings"}
                 </p>
                 {/* Header row */}
                 <div className="grid grid-cols-4 gap-1 mb-1.5 px-0.5">
-                  {[lang === "ko" ? "분기" : "Quarter", lang === "ko" ? "예상" : "Est", lang === "ko" ? "실제" : "Act", lang === "ko" ? "서프라이즈" : "Surp"].map(h => (
+                  {[lang === "ko" ? "분기" : "Quarter", lang === "ko" ? "시장 예상치" : "Est.", lang === "ko" ? "실제 발표치" : "Act.", lang === "ko" ? "서프라이즈" : "Surp"].map(h => (
                     <p key={h} className="text-[8px] font-bold text-muted-foreground uppercase tracking-wide">{h}</p>
                   ))}
                 </div>
                 <div className="space-y-1">
                   {(earnings.history as any[]).filter((h: any) => h.epsActual != null).slice(0, 6).map((h: any, i: number) => {
-                    const beat = h.epsActual != null && h.epsEstimate != null && h.epsActual >= h.epsEstimate;
                     const hasBeatMiss = h.epsEstimate != null && h.epsActual != null;
+                    const beat = hasBeatMiss && h.epsActual > h.epsEstimate;
+                    const miss = hasBeatMiss && h.epsActual < h.epsEstimate;
                     return (
                       <div key={i} className={cn("grid grid-cols-4 gap-1 items-center rounded-lg px-1.5 py-1",
-                        hasBeatMiss ? (beat ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-rose-500/8 border border-rose-500/20") : "bg-background/30")}>
+                        beat ? "bg-emerald-500/8 border border-emerald-500/20" :
+                        miss ? "bg-rose-500/8 border border-rose-500/20" : "bg-background/30")}>
                         <span className="text-[9px] text-muted-foreground font-mono">
                           {new Date(h.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
                         </span>
                         <span className="text-[9px] font-mono text-muted-foreground">
                           {h.epsEstimate != null ? `$${h.epsEstimate.toFixed(2)}` : "--"}
                         </span>
-                        <span className={cn("text-[9px] font-mono font-bold", h.epsActual >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                        <span className={cn("text-[9px] font-mono font-bold",
+                          beat ? "text-emerald-500" : miss ? "text-rose-500" : "text-foreground")}>
                           ${h.epsActual.toFixed(2)}
                         </span>
                         <span className={cn("text-[9px] font-bold",
-                          h.surprisePct != null ? (h.surprisePct >= 0 ? "text-emerald-500" : "text-rose-500") : "text-muted-foreground")}>
-                          {h.surprisePct != null ? `${h.surprisePct >= 0 ? "+" : ""}${h.surprisePct.toFixed(1)}%` : hasBeatMiss ? (beat ? "Beat" : "Miss") : "--"}
+                          h.surprisePct != null ? (h.surprisePct > 0 ? "text-emerald-500" : h.surprisePct < 0 ? "text-rose-500" : "text-muted-foreground") :
+                          beat ? "text-emerald-500" : miss ? "text-rose-500" : "text-muted-foreground")}>
+                          {h.surprisePct != null ? `${h.surprisePct > 0 ? "+" : ""}${h.surprisePct.toFixed(1)}%` : beat ? "Beat" : miss ? "Miss" : "--"}
                         </span>
                       </div>
                     );
