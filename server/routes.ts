@@ -428,16 +428,29 @@ export async function registerRoutes(
     }
     
     let quests = await storage.getQuests(userId);
-    
-    // If no active quests, generate new ones
-    const activeQuests = quests.filter(q => !q.isCompleted);
-    if (activeQuests.length === 0) {
-        const skillLevel = (profile.skillLevel as 'beginner' | 'intermediate' | 'advanced') || 'beginner';
-        const newQuests = await generateDailyQuests(userId, profile.language || 'en', skillLevel);
-        for (const q of newQuests) {
-            await storage.createQuest(q);
-        }
-        quests = await storage.getQuests(userId);
+
+    // Timezone-aware daily reset: determine "start of today" in the user's local timezone
+    const userTz = (req.query.tz as string) || 'UTC';
+    const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: userTz }));
+    nowInTz.setHours(0, 0, 0, 0);
+    const startOfTodayLocal = nowInTz.getTime();
+
+    const hasAnyTodayQuest = quests.some(q => {
+      if (!q.createdAt) return false;
+      const qDate = new Date(new Date(q.createdAt).toLocaleString('en-US', { timeZone: userTz }));
+      qDate.setHours(0, 0, 0, 0);
+      return qDate.getTime() >= startOfTodayLocal;
+    });
+
+    if (!hasAnyTodayQuest || quests.length === 0) {
+      // Quests are stale (from a previous day) — clear and regenerate fresh daily quests
+      await storage.clearQuests(userId);
+      const skillLevel = (profile.skillLevel as 'beginner' | 'intermediate' | 'advanced') || 'beginner';
+      const newQuests = await generateDailyQuests(userId, profile.language || 'en', skillLevel);
+      for (const q of newQuests) {
+        await storage.createQuest(q);
+      }
+      quests = await storage.getQuests(userId);
     }
     
     res.json(quests);
@@ -527,12 +540,30 @@ export async function registerRoutes(
         
         const profile = await storage.getUserProfile(userId);
         if (profile) {
-            const newXp = profile.xp + quest.xpReward;
             const newTotalXp = profile.totalXp + quest.xpReward;
             const newLevel = calculateLevel(newTotalXp);
-            const newStreak = profile.streak + (profile.lastDailyQuestAt ? 0 : 1);
+
+            // Timezone-aware streak calculation
+            const now = new Date();
+            const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+            const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            const lastQuestDate = profile.lastDailyQuestAt ? new Date(profile.lastDailyQuestAt) : null;
+
+            let newStreak: number;
+            if (!lastQuestDate) {
+              newStreak = 1;
+            } else {
+              const lastDay = new Date(lastQuestDate); lastDay.setHours(0, 0, 0, 0);
+              if (lastDay.getTime() === todayStart.getTime()) {
+                newStreak = profile.streak; // already counted today
+              } else if (lastDay.getTime() === yesterdayStart.getTime()) {
+                newStreak = profile.streak + 1; // consecutive day — extend streak
+              } else {
+                newStreak = 1; // streak broken — reset
+              }
+            }
             
-            await storage.updateUserStats(userId, newStreak, newXp, newLevel, profile.hearts, quest.xpReward);
+            await storage.updateUserStats(userId, newStreak, quest.xpReward, newLevel, profile.hearts, quest.xpReward);
             
             return res.json({
                 success: true,

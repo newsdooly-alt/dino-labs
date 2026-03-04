@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   Check, X, HelpCircle, ChevronRight, BookOpen, LineChart, Newspaper,
   Search, Scale, Dumbbell, CheckCircle2, PieChart, DollarSign,
-  BarChart2, Shield, UserCheck, TrendingUp
+  BarChart2, Shield, UserCheck, TrendingUp, Activity, Globe, Zap
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,21 +75,25 @@ function renderBoldText(text: string): (string | JSX.Element)[] {
   });
 }
 
-type QuestType = 'term' | 'pattern' | 'news' | 'search' | 'compare' | 'valuation' | 'practice' | 'sector' | 'dividend' | 'earnings' | 'hedge' | 'insider';
+type QuestType = 'term' | 'pattern' | 'news' | 'search' | 'compare' | 'valuation' | 'practice' | 'sector' | 'dividend' | 'earnings' | 'hedge' | 'insider' | 'rrg' | 'chart' | 'economic' | 'macro_action';
 
 const TYPE_CONFIG: Record<string, { icon: JSX.Element; bgClass: string; ko: string; en: string }> = {
-  term:     { icon: <BookOpen className="w-6 h-6 text-secondary" />,      bgClass: "bg-secondary/20",  ko: "용어 마스터",   en: "Term Master" },
-  pattern:  { icon: <LineChart className="w-6 h-6 text-primary" />,       bgClass: "bg-primary/20",    ko: "패턴 분석",     en: "Pattern Analysis" },
-  news:     { icon: <Newspaper className="w-6 h-6 text-accent" />,        bgClass: "bg-accent/20",     ko: "시장 동향",     en: "Market Pulse" },
-  search:   { icon: <Search className="w-6 h-6 text-blue-500" />,         bgClass: "bg-blue-500/15",   ko: "종목 탐색",     en: "Stock Search" },
-  compare:  { icon: <Scale className="w-6 h-6 text-orange-500" />,        bgClass: "bg-orange-500/15", ko: "종목 비교",     en: "Stock Compare" },
-  valuation:{ icon: <BarChart2 className="w-6 h-6 text-green-500" />,     bgClass: "bg-green-500/15",  ko: "가치평가",      en: "Valuation" },
-  practice: { icon: <Dumbbell className="w-6 h-6 text-purple-500" />,     bgClass: "bg-purple-500/15", ko: "연습",          en: "Practice" },
-  sector:   { icon: <PieChart className="w-6 h-6 text-teal-500" />,       bgClass: "bg-teal-500/15",   ko: "섹터 분석",     en: "Sector Rotation" },
-  dividend: { icon: <DollarSign className="w-6 h-6 text-emerald-500" />,  bgClass: "bg-emerald-500/15",ko: "배당 수집",     en: "Dividend Collector" },
-  earnings: { icon: <TrendingUp className="w-6 h-6 text-cyan-500" />,     bgClass: "bg-cyan-500/15",   ko: "실적 분석",     en: "Earnings Season" },
-  hedge:    { icon: <Shield className="w-6 h-6 text-red-500" />,          bgClass: "bg-red-500/15",    ko: "헤지 전략",     en: "Hedge Strategy" },
-  insider:  { icon: <UserCheck className="w-6 h-6 text-violet-500" />,    bgClass: "bg-violet-500/15", ko: "인사이더 추적", en: "Insider Follow" },
+  term:        { icon: <BookOpen className="w-6 h-6 text-secondary" />,      bgClass: "bg-secondary/20",   ko: "용어 마스터",    en: "Term Master" },
+  pattern:     { icon: <LineChart className="w-6 h-6 text-primary" />,       bgClass: "bg-primary/20",     ko: "패턴 분석",      en: "Pattern Analysis" },
+  news:        { icon: <Newspaper className="w-6 h-6 text-accent" />,        bgClass: "bg-accent/20",      ko: "시장 동향",      en: "Market Pulse" },
+  search:      { icon: <Search className="w-6 h-6 text-blue-500" />,         bgClass: "bg-blue-500/15",    ko: "종목 탐색",      en: "Stock Search" },
+  compare:     { icon: <Scale className="w-6 h-6 text-orange-500" />,        bgClass: "bg-orange-500/15",  ko: "종목 비교",      en: "Stock Compare" },
+  valuation:   { icon: <BarChart2 className="w-6 h-6 text-green-500" />,     bgClass: "bg-green-500/15",   ko: "가치평가",       en: "Valuation" },
+  practice:    { icon: <Dumbbell className="w-6 h-6 text-purple-500" />,     bgClass: "bg-purple-500/15",  ko: "연습",           en: "Practice" },
+  sector:      { icon: <PieChart className="w-6 h-6 text-teal-500" />,       bgClass: "bg-teal-500/15",    ko: "섹터 분석",      en: "Sector Rotation" },
+  dividend:    { icon: <DollarSign className="w-6 h-6 text-emerald-500" />,  bgClass: "bg-emerald-500/15", ko: "배당 수집",      en: "Dividend Collector" },
+  earnings:    { icon: <TrendingUp className="w-6 h-6 text-cyan-500" />,     bgClass: "bg-cyan-500/15",    ko: "실적 분석",      en: "Earnings Season" },
+  hedge:       { icon: <Shield className="w-6 h-6 text-red-500" />,          bgClass: "bg-red-500/15",     ko: "헤지 전략",      en: "Hedge Strategy" },
+  insider:     { icon: <UserCheck className="w-6 h-6 text-violet-500" />,    bgClass: "bg-violet-500/15",  ko: "인사이더 추적",  en: "Insider Follow" },
+  rrg:         { icon: <Activity className="w-6 h-6 text-indigo-500" />,     bgClass: "bg-indigo-500/15",  ko: "RRG 섹터 분석",  en: "RRG Sector" },
+  chart:       { icon: <LineChart className="w-6 h-6 text-pink-500" />,      bgClass: "bg-pink-500/15",    ko: "프로 차트 분석", en: "Chart Pro" },
+  economic:    { icon: <Globe className="w-6 h-6 text-amber-500" />,         bgClass: "bg-amber-500/15",   ko: "경제 지표 읽기", en: "Economic Data" },
+  macro_action:{ icon: <Zap className="w-6 h-6 text-yellow-500" />,          bgClass: "bg-yellow-500/15",  ko: "오늘의 실전 과제",en: "Daily Mission" },
 };
 
 const TIER_CONFIG = {

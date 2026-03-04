@@ -6,7 +6,8 @@ export function useQuests() {
   return useQuery<Quest[]>({
     queryKey: ["/api/quests"],
     queryFn: async () => {
-      const res = await fetch("/api/quests", { credentials: "include" });
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await fetch(`/api/quests?tz=${encodeURIComponent(tz)}`, { credentials: "include" });
       
       if (res.status === 401) {
         return [];

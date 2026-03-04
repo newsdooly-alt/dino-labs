@@ -106,9 +106,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserStats(id: string, streak: number, xp: number, level: number, hearts: number, xpGained?: number): Promise<UserProfile> {
-    const setData: any = { streak, xp, level, hearts };
+    const setData: any = { streak, level, hearts };
     if (xpGained && xpGained > 0) {
+      // Atomic increments prevent race conditions when multiple quests complete quickly
+      setData.xp = sql`${userProfiles.xp} + ${xpGained}`;
       setData.totalXp = sql`${userProfiles.totalXp} + ${xpGained}`;
+      setData.lastDailyQuestAt = new Date();
+    } else {
+      setData.xp = xp; // absolute set (e.g. heart loss — no XP change)
     }
     const [profile] = await db.update(userProfiles)
       .set(setData)
