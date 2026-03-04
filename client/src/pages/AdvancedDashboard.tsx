@@ -1247,15 +1247,14 @@ export default function AdvancedDashboard() {
           )}
         </div>
 
-        {/* TradingView Chart — fixed 50vh */}
-        <div className="w-full flex-shrink-0 overflow-hidden" style={{ height: "50vh", minHeight: 260, maxHeight: 480 }}>
+        {/* Chart — GlobalChart manages its own responsive height (400px mobile) */}
+        <div className="w-full flex-shrink-0 overflow-hidden">
           <GlobalChart
             symbol={selectedSymbol}
             periodKey="1m"
             chartType="candle"
             isDark={isDark}
             lang={lang === "ko" ? "ko" : "en"}
-            fillContainer
             onSymbolChange={setSelectedSymbol}
           />
         </div>
@@ -1315,14 +1314,13 @@ export default function AdvancedDashboard() {
         {/* Col 2: Chart (flex-1) */}
         <div className="flex-1 min-w-0 border-r border-border/50 overflow-hidden flex flex-col">
           {ChartHeader()}
-          <div className="flex-1 min-h-0">
+          <div className="shrink-0">
             <GlobalChart
               symbol={selectedSymbol}
               periodKey="1m"
               chartType="candle"
               isDark={isDark}
               lang={lang === "ko" ? "ko" : "en"}
-              fillContainer
               onSymbolChange={setSelectedSymbol}
             />
           </div>

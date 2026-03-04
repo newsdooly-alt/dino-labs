@@ -547,29 +547,27 @@ function InfiniteScrollChart({
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TradingView wrapper with auto-fallback
+// TradingView wrapper — no auto-timeout, explicit stable height
 // ══════════════════════════════════════════════════════════════════════════════
-function TVWithFallback(props: GlobalChartProps & { periodKey: string; onFallback: () => void }) {
-  const { symbol, periodKey, chartType, isDark, height, lang, className, fillContainer, onSymbolChange, onFallback } = props;
-  const tvRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (tvRef.current && !tvRef.current.querySelector("iframe")) onFallback();
-    }, 12000);
-    return () => clearTimeout(t);
-  }, [symbol, periodKey, onFallback]);
-
-  const h = typeof height === "number" ? height : 500;
-
+function TVWithFallback({
+  symbol, periodKey, chartType, isDark, chartH, lang, fillContainer, onSymbolChange, onFallback,
+}: {
+  symbol: string; periodKey: string; chartType: "candle" | "area" | "line";
+  isDark: boolean; chartH: number; lang: string; fillContainer?: boolean;
+  onSymbolChange?: (s: string) => void; onFallback: () => void;
+}) {
   return (
-    <div ref={tvRef} className="w-full" style={{ maxWidth: "100vw" }}>
-      <TradingViewChart
-        symbol={symbol} periodKey={periodKey} chartType={chartType}
-        isDark={isDark} height={h} lang={lang} className={className}
-        fillContainer={fillContainer} onSymbolChange={onSymbolChange}
-      />
-      <div className="flex justify-end px-3 py-1 border-t border-border/30">
+    <div className="w-full flex flex-col" style={{ maxWidth: "100vw" }}>
+      {/* Explicit stable container — autosize: true reads this size */}
+      <div style={{ width: "100%", height: chartH, minHeight: 350, flexShrink: 0 }}>
+        <TradingViewChart
+          symbol={symbol} periodKey={periodKey} chartType={chartType}
+          isDark={isDark} height={chartH} lang={lang}
+          fillContainer={true}
+          onSymbolChange={onSymbolChange}
+        />
+      </div>
+      <div className="flex justify-end px-3 py-1 border-t border-border/30 shrink-0">
         <button
           onClick={onFallback}
           className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
@@ -582,6 +580,26 @@ function TVWithFallback(props: GlobalChartProps & { periodKey: string; onFallbac
   );
 }
 
+// ── Responsive chart height hook ──────────────────────────────────────────────
+// 500px on desktop (≥ 640px), 400px on mobile — with 350px hard floor
+function useChartHeight(heightProp?: number | string): number {
+  const getH = () => {
+    if (typeof window === "undefined") return 500;
+    return window.innerWidth >= 640 ? 500 : 400;
+  };
+  const [h, setH] = useState<number>(
+    typeof heightProp === "number" ? heightProp : getH()
+  );
+  useEffect(() => {
+    if (typeof heightProp === "number") return; // parent override wins
+    const update = () => setH(getH());
+    window.addEventListener("resize", update, { passive: true });
+    update();
+    return () => window.removeEventListener("resize", update);
+  }, [heightProp]);
+  return Math.max(h, 350);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // GlobalChart — public API
 // ══════════════════════════════════════════════════════════════════════════════
@@ -590,7 +608,7 @@ export function GlobalChart({
   periodKey: initialPeriod = "1m",
   chartType  = "candle",
   isDark     = false,
-  height     = 400,
+  height,                    // optional override; defaults to responsive 400/500px
   lang       = "en",
   className,
   fillContainer = false,
@@ -606,13 +624,16 @@ export function GlobalChart({
   // Reset fallback when symbol changes
   useEffect(() => { setFallback(false); }, [symbol]);
 
+  // Smart routing: KS/KQ/T → always internal (TradingView restricts them)
+  // All others → TradingView first; manual "Switch" button available
   const useInternal = isGlobalExchange(symbol) || useFallback;
 
-  const chartH = typeof height === "number" ? height : 400;
+  // Responsive height: 500px desktop / 400px mobile, 350px minimum
+  const chartH = useChartHeight(height);
 
   return (
     <div className={cn("flex flex-col w-full overflow-hidden", className)} style={{ maxWidth: "100vw" }}>
-      {/* ── Time-range buttons + return rate ── */}
+      {/* ── Range buttons + return rate ── */}
       <div className="flex items-center justify-between gap-1 px-2 py-1.5 border-b border-border/40 bg-muted/20 flex-wrap shrink-0">
         <div className="flex items-center gap-0.5 flex-wrap">
           {RANGES.map(r => (
@@ -640,9 +661,13 @@ export function GlobalChart({
         </div>
       </div>
 
-      {/* ── Chart area ── */}
-      <div className="relative w-full" style={{ maxWidth: "100vw" }}>
-        {isLoading && !isGlobalExchange(symbol) && (
+      {/* ── Chart area — explicit stable dimensions, no flex shrink ── */}
+      <div
+        className="relative w-full shrink-0"
+        style={{ width: "100%", maxWidth: "100vw", minHeight: 350 }}
+      >
+        {/* Infinite scroll loading bar (internal chart only) */}
+        {isLoading && useInternal && (
           <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
             <div className="flex items-center gap-1.5 bg-background/90 border border-border rounded-full px-3 py-1 text-[11px] shadow">
               <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -670,7 +695,7 @@ export function GlobalChart({
             periodKey={rangeKey}
             chartType={chartType}
             isDark={isDark}
-            height={chartH}
+            chartH={chartH}
             lang={lang}
             fillContainer={fillContainer}
             onSymbolChange={onSymbolChange}

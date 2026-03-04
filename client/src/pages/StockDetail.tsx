@@ -345,7 +345,6 @@ export default function StockDetail() {
             chartType="candle"
             isDark={isDark}
             lang={lang === "ko" ? "ko" : "en"}
-            height={420}
           />
         </CardContent>
       </Card>
