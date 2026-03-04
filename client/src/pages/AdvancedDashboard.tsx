@@ -419,59 +419,93 @@ export default function AdvancedDashboard() {
               )}
             </div>
 
-            {/* Last Quarter + EPS */}
+            {/* Last Quarter summary row */}
             <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
               <div className="flex items-center gap-1.5 mb-2">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "최근 실적" : "Last Quarter"}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "최근 실적 요약" : "Last Quarter"}</p>
                 {earnings?.lastEarningsDate && (
                   <span className="text-[9px] text-muted-foreground ml-auto">
                     {new Date(earnings.lastEarningsDate).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 mb-2">
                 <div>
-                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "분기 EPS" : "Q EPS"}</p>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "실제 EPS" : "Actual EPS"}</p>
                   <p className={cn("text-sm font-bold font-mono", earnings?.lastEpsActual != null ? (earnings.lastEpsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "")}>
                     {earnings?.lastEpsActual != null ? `$${earnings.lastEpsActual.toFixed(2)}` : "--"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "연간 EPS" : "Annual"}</p>
-                  <p className="text-sm font-bold font-mono">{earnings?.trailingEps != null ? `$${earnings.trailingEps.toFixed(2)}` : "--"}</p>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상 EPS" : "Est. EPS"}</p>
+                  <p className="text-sm font-bold font-mono text-muted-foreground">
+                    {earnings?.lastEpsEstimate != null ? `$${earnings.lastEpsEstimate.toFixed(2)}` : "--"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상" : "Forward"}</p>
-                  <p className="text-sm font-bold font-mono text-primary">{earnings?.forwardEps != null ? `$${earnings.forwardEps.toFixed(2)}` : "--"}</p>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "서프라이즈" : "Surprise"}</p>
+                  {earnings?.lastSurprisePct != null ? (
+                    <p className={cn("text-sm font-bold font-mono", earnings.lastSurprisePct >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                      {earnings.lastSurprisePct >= 0 ? "+" : ""}{earnings.lastSurprisePct.toFixed(1)}%
+                    </p>
+                  ) : <p className="text-sm font-bold font-mono text-muted-foreground">--</p>}
+                </div>
+              </div>
+              {/* Beat/Miss badge */}
+              {earnings?.lastSurprisePct != null && (
+                <div className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                  earnings.lastSurprisePct >= 0 ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30" : "bg-rose-500/15 text-rose-500 border border-rose-500/30")}>
+                  {earnings.lastSurprisePct >= 0 ? "✓ Beat" : "✗ Miss"}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border/20">
+                <div>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "연간 EPS" : "Trailing EPS"}</p>
+                  <p className="text-xs font-bold font-mono">{earnings?.trailingEps != null ? `$${earnings.trailingEps.toFixed(2)}` : "--"}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상 연간 EPS" : "Forward EPS"}</p>
+                  <p className="text-xs font-bold font-mono text-primary">{earnings?.forwardEps != null ? `$${earnings.forwardEps.toFixed(2)}` : "--"}</p>
                 </div>
               </div>
             </div>
 
-            {/* EPS History bars */}
+            {/* Quarterly Beat/Miss history table */}
             {earnings?.history?.length > 1 && (
               <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-                  {lang === "ko" ? "분기별 EPS" : "Quarterly EPS"}
+                  {lang === "ko" ? "📊 어닝스 히스토리 (예상 vs 실제)" : "📊 Earnings History (Est vs Act)"}
                 </p>
-                <div className="space-y-2">
-                  {(earnings.history as any[]).slice(0, 5).map((h: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-[9px] text-muted-foreground w-14 shrink-0">
-                        {new Date(h.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
-                      </span>
-                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                        {h.epsActual != null && (
-                          <div className={cn("h-full rounded-full", h.epsActual >= 0 ? "bg-emerald-500" : "bg-rose-500")}
-                            style={{ width: `${Math.min(100, Math.max(8, Math.abs(h.epsActual) * 20))}%` }} />
-                        )}
-                      </div>
-                      <span className={cn("text-[9px] font-mono font-semibold w-10 text-right shrink-0",
-                        h.epsActual != null ? (h.epsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "text-muted-foreground")}>
-                        {h.epsActual != null ? `$${h.epsActual.toFixed(2)}` : "--"}
-                      </span>
-                    </div>
+                {/* Header row */}
+                <div className="grid grid-cols-4 gap-1 mb-1.5 px-0.5">
+                  {[lang === "ko" ? "분기" : "Quarter", lang === "ko" ? "예상" : "Est", lang === "ko" ? "실제" : "Act", lang === "ko" ? "서프라이즈" : "Surp"].map(h => (
+                    <p key={h} className="text-[8px] font-bold text-muted-foreground uppercase tracking-wide">{h}</p>
                   ))}
+                </div>
+                <div className="space-y-1">
+                  {(earnings.history as any[]).filter((h: any) => h.epsActual != null).slice(0, 6).map((h: any, i: number) => {
+                    const beat = h.epsActual != null && h.epsEstimate != null && h.epsActual >= h.epsEstimate;
+                    const hasBeatMiss = h.epsEstimate != null && h.epsActual != null;
+                    return (
+                      <div key={i} className={cn("grid grid-cols-4 gap-1 items-center rounded-lg px-1.5 py-1",
+                        hasBeatMiss ? (beat ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-rose-500/8 border border-rose-500/20") : "bg-background/30")}>
+                        <span className="text-[9px] text-muted-foreground font-mono">
+                          {new Date(h.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
+                        </span>
+                        <span className="text-[9px] font-mono text-muted-foreground">
+                          {h.epsEstimate != null ? `$${h.epsEstimate.toFixed(2)}` : "--"}
+                        </span>
+                        <span className={cn("text-[9px] font-mono font-bold", h.epsActual >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                          ${h.epsActual.toFixed(2)}
+                        </span>
+                        <span className={cn("text-[9px] font-bold",
+                          h.surprisePct != null ? (h.surprisePct >= 0 ? "text-emerald-500" : "text-rose-500") : "text-muted-foreground")}>
+                          {h.surprisePct != null ? `${h.surprisePct >= 0 ? "+" : ""}${h.surprisePct.toFixed(1)}%` : hasBeatMiss ? (beat ? "Beat" : "Miss") : "--"}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

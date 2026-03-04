@@ -695,30 +695,75 @@ def get_earnings(symbol):
         except Exception:
             pass
 
-        # Historical quarterly EPS from income statement
+        # PRIMARY: earnings_dates — Estimated vs Actual + Surprise%
+        # Note: earnings_dates requires lxml; falls back gracefully when unavailable
+        history_loaded = False
         try:
-            qs = ticker.quarterly_income_stmt
-            if qs is not None and not qs.empty and "Diluted EPS" in qs.index:
-                eps_row = qs.loc["Diluted EPS"]
+            ed = ticker.earnings_dates
+            if ed is not None and not ed.empty:
+                ed_reset = ed.reset_index()
                 history = []
-                for col in eps_row.index:
-                    val = eps_row[col]
-                    if val is not None and pd.notna(val):
-                        history.append({
-                            "date": str(col.date()) if hasattr(col, "date") else str(col),
-                            "epsActual": float(val),
-                            "epsEstimate": None,
-                        })
-                history.sort(key=lambda x: x["date"], reverse=True)
-                result["history"] = history[:6]
+                date_col = ed_reset.columns[0]
+                for _, row in ed_reset.iterrows():
+                    raw_date = row.get(date_col)
+                    date_str = str(raw_date)[:10] if raw_date is not None else None
+                    if not date_str or date_str in ("None", "nan", "NaT"):
+                        continue
+                    eps_est = row.get("EPS Estimate")
+                    eps_act = row.get("Reported EPS")
+                    surp    = row.get("Surprise(%)")
+                    entry = {
+                        "date":        date_str,
+                        "epsEstimate": float(eps_est) if eps_est is not None and pd.notna(eps_est) else None,
+                        "epsActual":   float(eps_act) if eps_act is not None and pd.notna(eps_act) else None,
+                        "surprisePct": float(surp)    if surp    is not None and pd.notna(surp)    else None,
+                    }
+                    # Compute surprise if missing but both values present
+                    if entry["surprisePct"] is None and entry["epsEstimate"] and entry["epsActual"]:
+                        est, act = entry["epsEstimate"], entry["epsActual"]
+                        if est != 0:
+                            entry["surprisePct"] = round((act - est) / abs(est) * 100, 2)
+                    history.append(entry)
 
-                # Most recent quarter as "last earnings"
-                if history:
-                    result["lastEarningsDate"] = history[0]["date"]
-                    result["lastEpsActual"]    = history[0]["epsActual"]
-                    result["lastEpsEstimate"]  = result["trailingEps"]
-        except Exception:
-            pass
+                history.sort(key=lambda x: x["date"], reverse=True)
+                # Only keep past quarters (epsActual populated) + 1 upcoming
+                past   = [h for h in history if h["epsActual"] is not None]
+                future = [h for h in history if h["epsActual"] is None][:1]
+                result["history"] = (past[:7] + future)
+                history_loaded = len(past) > 0
+
+                if past:
+                    result["lastEarningsDate"] = past[0]["date"]
+                    result["lastEpsActual"]    = past[0]["epsActual"]
+                    result["lastEpsEstimate"]  = past[0]["epsEstimate"]
+                    result["lastSurprisePct"]  = past[0]["surprisePct"]
+        except Exception as e:
+            if "lxml" not in str(e):
+                print(f"[earnings_dates] {e}")
+
+        # FALLBACK: quarterly_income_stmt when earnings_dates is empty
+        if not history_loaded:
+            try:
+                qs = ticker.quarterly_income_stmt
+                if qs is not None and not qs.empty and "Diluted EPS" in qs.index:
+                    eps_row = qs.loc["Diluted EPS"]
+                    history = []
+                    for col in eps_row.index:
+                        val = eps_row[col]
+                        if val is not None and pd.notna(val):
+                            history.append({
+                                "date":        str(col.date()) if hasattr(col, "date") else str(col),
+                                "epsActual":   float(val),
+                                "epsEstimate": None,
+                                "surprisePct": None,
+                            })
+                    history.sort(key=lambda x: x["date"], reverse=True)
+                    result["history"] = history[:6]
+                    if history:
+                        result["lastEarningsDate"] = history[0]["date"]
+                        result["lastEpsActual"]    = history[0]["epsActual"]
+            except Exception:
+                pass
 
         return jsonify(result)
     except Exception as e:

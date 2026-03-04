@@ -15,8 +15,6 @@ import {
   Lightbulb,
   Newspaper,
   ExternalLink,
-  CandlestickChart,
-  LineChart,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -84,14 +82,6 @@ interface WatchlistItem {
   addedAt: string;
 }
 
-const periodOptions = [
-  { key: "1d",  label: "1D",  period: "1d",  interval: "5m",   returnLabel: { en: "Today",    ko: "오늘"   } },
-  { key: "1w",  label: "1W",  period: "5d",  interval: "15m",  returnLabel: { en: "1 Week",   ko: "1주"    } },
-  { key: "1m",  label: "1M",  period: "1mo", interval: "1d",   returnLabel: { en: "1 Month",  ko: "1개월"  } },
-  { key: "1y",  label: "1Y",  period: "1y",  interval: "1wk",  returnLabel: { en: "1 Year",   ko: "1년"    } },
-  { key: "5y",  label: "5Y",  period: "5y",  interval: "1wk",  returnLabel: { en: "5 Years",  ko: "5년"    } },
-  { key: "all", label: "ALL", period: "max", interval: "1mo",  returnLabel: { en: "All Time", ko: "전체"   } },
-];
 
 function formatMarketCap(value: number | null): string {
   if (!value) return "--";
@@ -189,8 +179,6 @@ export default function StockDetail() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/stock/:symbol");
   const symbol = params?.symbol?.toUpperCase() || "";
-  const [selectedPeriod, setSelectedPeriod] = useState("1m");
-  const [chartType, setChartType] = useState<"candle" | "area">("candle");
   const [showProModal, setShowProModal] = useState(false);
   const { toast } = useToast();
   const { theme } = useTheme();
@@ -336,59 +324,25 @@ export default function StockDetail() {
 
       {/* ── Chart Card ── */}
       <Card className="overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            {/* Period selector */}
-            <div className="flex gap-1 flex-wrap">
-              {periodOptions.map((opt) => (
-                <Button
-                  key={opt.key}
-                  variant={selectedPeriod === opt.key ? "default" : "ghost"}
-                  size="sm"
-                  className="px-2.5 h-7 text-xs"
-                  onClick={() => setSelectedPeriod(opt.key)}
-                  data-testid={`button-period-${opt.key}`}
-                >
-                  {opt.label}
-                </Button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {/* Chart type toggle */}
-              <div className="flex gap-0 items-center">
-                <button
-                  onClick={() => setChartType("candle")}
-                  className={cn("flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-l-full border transition-all", chartType === "candle" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border")}
-                  data-testid="button-chart-candle"
-                >
-                  <CandlestickChart className="w-3 h-3" />{lang === "ko" ? "캔들" : "Candle"}
-                </button>
-                <button
-                  onClick={() => setChartType("area")}
-                  className={cn("flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-r-full border-y border-r transition-all", chartType === "area" ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border")}
-                  data-testid="button-chart-area"
-                >
-                  <LineChart className="w-3 h-3" />{lang === "ko" ? "라인" : "Line"}
-                </button>
-              </div>
-              {/* Pro Dashboard button */}
-              <button
-                onClick={() => setShowProModal(true)}
-                className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation whitespace-nowrap"
-                data-testid="button-pro-analysis"
-              >
-                <Zap className="w-3 h-3 shrink-0" />
-                {lang === "ko" ? "자세히 보기" : "Pro View"}
-              </button>
-            </div>
+        <CardHeader className="pb-2 pt-3 px-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{lang === "ko" ? "TradingView 내장 툴바에서 기간·차트 유형을 변경하세요" : "Use the TradingView toolbar to change period & chart type"}</p>
+            <button
+              onClick={() => setShowProModal(true)}
+              className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation whitespace-nowrap"
+              data-testid="button-pro-analysis"
+            >
+              <Zap className="w-3 h-3 shrink-0" />
+              {lang === "ko" ? "Pro 대시보드" : "Pro Dashboard"}
+            </button>
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
           <TradingViewChart
             symbol={symbol}
-            periodKey={selectedPeriod}
-            chartType={chartType === "area" ? "area" : "candle"}
+            periodKey="1m"
+            chartType="candle"
             isDark={isDark}
             lang={lang === "ko" ? "ko" : "en"}
             height={420}
