@@ -94,7 +94,7 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
     console.log(`[yfinance] Fetching batch quotes for: ${upperSymbols.join(', ')}`);
     const response = await fetch(
       `${PYTHON_SERVICE_URL}/quotes?symbols=${upperSymbols.join(',')}`,
-      { signal: AbortSignal.timeout(10000) } // 10 second timeout
+      { signal: AbortSignal.timeout(25000) } // 25 second timeout for global symbols
     );
     
     const elapsed = Date.now() - startTime;

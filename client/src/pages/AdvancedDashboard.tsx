@@ -185,6 +185,9 @@ const SCREENER_STOCKS = [
   { symbol: "000660.KS", flag: "🇰🇷", sectorEn: "Semiconductors",   sectorKo: "반도체" },
   { symbol: "005380.KS", flag: "🇰🇷", sectorEn: "Automotive",       sectorKo: "자동차" },
   { symbol: "035420.KS", flag: "🇰🇷", sectorEn: "Internet",         sectorKo: "인터넷" },
+  { symbol: "7203.T",    flag: "🇯🇵", sectorEn: "Automotive",       sectorKo: "자동차" },
+  { symbol: "6758.T",    flag: "🇯🇵", sectorEn: "Technology",       sectorKo: "기술" },
+  { symbol: "8306.T",    flag: "🇯🇵", sectorEn: "Finance",          sectorKo: "금융" },
 ];
 
 const SCREENER_SYMS = SCREENER_STOCKS.map(s => s.symbol);
@@ -210,6 +213,9 @@ const SYMBOL_SECTOR_ETF: Record<string, { etf: string; sectorEn: string; sectorK
   "000660.KS": { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
   "005380.KS": { etf: "XLY",  sectorEn: "Consumer Discretionary", sectorKo: "임의소비재" },
   "035420.KS": { etf: "XLC",  sectorEn: "Communication Services", sectorKo: "커뮤니케이션" },
+  "7203.T":    { etf: "XLY",  sectorEn: "Consumer Discretionary", sectorKo: "임의소비재" },
+  "6758.T":    { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  "8306.T":    { etf: "XLF",  sectorEn: "Financials",          sectorKo: "금융" },
   SPY:         { etf: "XLK",  sectorEn: "Broad Market",        sectorKo: "전체 시장" },
 };
 
@@ -509,9 +515,9 @@ export default function AdvancedDashboard() {
               data-testid={`stock-chip-${s.symbol}`}
             >
               <span>{s.flag} {(() => {
-                const isKrChip = s.symbol.endsWith(".KS") || s.symbol.endsWith(".KQ");
+                const isGlobalChip = s.symbol.endsWith(".KS") || s.symbol.endsWith(".KQ") || s.symbol.endsWith(".T");
                 const raw = s.symbol.replace(".KS","").replace(".KQ","").replace(".T","");
-                return isKrChip ? (getNameByTicker(s.symbol, lang) ?? raw) : raw;
+                return isGlobalChip ? (getNameByTicker(s.symbol, lang) ?? raw) : raw;
               })()}</span>
               <span className={cp >= 0 ? "text-emerald-500" : "text-rose-500"}>{cp >= 0 ? "+" : ""}{cp.toFixed(1)}%</span>
             </button>

@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -152,7 +151,7 @@ export default function SuperInvestors() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<InvestorCategory | "all">("all");
-  const [showAllHoldings, setShowAllHoldings] = useState(false);
+  const [showAllHoldings, setShowAllHoldings] = useState(true);
   const [whyDialogHolding, setWhyDialogHolding] = useState<{
     ticker: string; company: string; en: string; ko: string;
   } | null>(null);
@@ -998,7 +997,7 @@ export default function SuperInvestors() {
                       {/* ── Mobile card layout (< sm) ── */}
                       {displayedHoldings.length > 0 && (
                       <div className="block sm:hidden">
-                      <ScrollArea className="max-h-[70vh] pr-1">
+                      <div className="overflow-y-auto pr-1" style={{ maxHeight: "70vh", WebkitOverflowScrolling: "touch" }}>
                       <div className="space-y-2 overflow-x-hidden">
                         {displayedHoldings.map((holding, idx) => {
                           const koName = getLocalizedCompanyName(holding.company, "ko");
@@ -1147,7 +1146,7 @@ export default function SuperInvestors() {
                           </div>
                         )}
                       </div>
-                      </ScrollArea>
+                      </div>
                       </div>
                       )}
 

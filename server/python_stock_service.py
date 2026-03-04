@@ -9,6 +9,7 @@ from flask_cors import CORS
 import yfinance as yf
 from datetime import datetime, timedelta
 import pytz
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 # CORS only needed if accessed from browser directly - we're proxying through Node
@@ -18,16 +19,28 @@ CORS(app, origins=["http://localhost:5000", "http://127.0.0.1:5000"])
 # US market timezone
 US_EASTERN = pytz.timezone('America/New_York')
 KST = pytz.timezone('Asia/Seoul')
+JST = pytz.timezone('Asia/Tokyo')
 
 def is_korean_ticker(symbol):
     """Check if a ticker is a Korean stock (.KS or .KQ suffix)."""
     s = symbol.upper()
     return s.endswith('.KS') or s.endswith('.KQ')
 
+def is_japanese_ticker(symbol):
+    """Check if a ticker is a Japanese stock (.T suffix)."""
+    return symbol.upper().endswith('.T')
+
 def is_market_open(symbol=None):
     """Check if stock market is currently open."""
     if symbol and is_korean_ticker(symbol):
         now = datetime.now(KST)
+        if now.weekday() >= 5:
+            return False
+        market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+        return market_open <= now <= market_close
+    if symbol and is_japanese_ticker(symbol):
+        now = datetime.now(JST)
         if now.weekday() >= 5:
             return False
         market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
@@ -111,9 +124,102 @@ def get_quote(symbol):
 # Simple name cache to avoid repeated info calls
 _name_cache = {}
 
+def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
+    """Fetch a single stock quote; used by batch parallel fetch."""
+    is_kr = is_korean_ticker(symbol)
+    is_jp = is_japanese_ticker(symbol)
+    sym_market_open = is_market_open(symbol)
+    try:
+        ticker = yf.Ticker(symbol)
+        price = 0
+        prev_close = 0
+        name = _name_cache.get(symbol, symbol)
+        
+        if is_kr and symbol in korean_stocks:
+            name = f"{korean_stocks[symbol]['ko']} ({korean_stocks[symbol]['name']})"
+            _name_cache[symbol] = name
+        
+        try:
+            fast = ticker.fast_info
+            price = float(fast.get('lastPrice', 0) or 0)
+            if price == 0:
+                price = float(fast.get('regularMarketPrice', 0) or 0)
+            prev_close = float(fast.get('previousClose', 0) or 0)
+            print(f"[yfinance] {symbol} fast_info: price={price}, prev_close={prev_close}")
+        except Exception as e:
+            print(f"[yfinance] {symbol} fast_info failed: {e}")
+            price = 0
+            prev_close = 0
+        
+        if price > 0 and name == symbol:
+            try:
+                info = ticker.info
+                fetched_name = info.get('shortName') or info.get('longName') or symbol
+                _name_cache[symbol] = fetched_name
+                name = fetched_name
+            except Exception as e:
+                print(f"[yfinance] {symbol} info for name failed: {e}")
+        
+        change = price - prev_close if price > 0 and prev_close > 0 else 0
+        change_percent = (change / prev_close * 100) if prev_close > 0 else 0
+        is_stale = price <= 0
+        
+        if is_kr:
+            time_str = now_kst.strftime('%I:%M %p KST')
+            updated_str = now_kst.strftime('%Y-%m-%dT%H:%M:%S')
+            currency = "KRW"
+        elif is_jp:
+            time_str = now_jst.strftime('%I:%M %p JST')
+            updated_str = now_jst.strftime('%Y-%m-%dT%H:%M:%S')
+            currency = "JPY"
+        else:
+            time_str = now_et.strftime('%I:%M %p ET')
+            updated_str = now_et.strftime('%Y-%m-%dT%H:%M:%S')
+            currency = "USD"
+        
+        try:
+            vol = int(getattr(ticker.fast_info, 'last_volume', None) or ticker.fast_info.get('lastVolume', 0) or 0)
+        except Exception:
+            vol = 0
+
+        return {
+            "symbol": symbol,
+            "name": name,
+            "price": round(price, 2),
+            "change": round(change, 2),
+            "changePercent": round(change_percent, 2),
+            "volume": vol,
+            "isMarketOpen": sym_market_open,
+            "isStale": is_stale,
+            "isKorean": is_kr,
+            "currency": currency,
+            "lastUpdated": updated_str,
+            "lastUpdatedFormatted": time_str
+        }
+    except Exception as e:
+        print(f"[yfinance] Error fetching {symbol}: {e}")
+        err_currency = "KRW" if is_kr else "JPY" if is_jp else "USD"
+        err_tz = now_kst if is_kr else now_jst if is_jp else now_et
+        err_label = "KST" if is_kr else "JST" if is_jp else "ET"
+        return {
+            "symbol": symbol,
+            "name": _name_cache.get(symbol, symbol),
+            "price": 0,
+            "change": 0,
+            "changePercent": 0,
+            "isMarketOpen": sym_market_open,
+            "isStale": True,
+            "isKorean": is_kr,
+            "currency": err_currency,
+            "error": str(e),
+            "lastUpdated": err_tz.strftime('%Y-%m-%dT%H:%M:%S'),
+            "lastUpdatedFormatted": err_tz.strftime(f'%I:%M %p {err_label}')
+        }
+
+
 @app.route('/quotes', methods=['GET'])
 def get_batch_quotes():
-    """Get quotes for multiple symbols at once using fast_info for real-time prices."""
+    """Get quotes for multiple symbols at once using parallel fetch."""
     symbols_param = request.args.get('symbols', '')
     if not symbols_param:
         return jsonify({"error": "No symbols provided"}), 400
@@ -123,9 +229,9 @@ def get_batch_quotes():
     if not symbols:
         return jsonify({"error": "No valid symbols provided"}), 400
     
-    results = []
     now_et = datetime.now(US_EASTERN)
     now_kst = datetime.now(KST)
+    now_jst = datetime.now(JST)
     us_market_open = is_market_open()
     
     has_kr = any(is_korean_ticker(s) for s in symbols)
@@ -133,95 +239,18 @@ def get_batch_quotes():
     
     print(f"[yfinance] Batch quotes request for: {symbols}, us_market_open={us_market_open}")
     
-    for symbol in symbols:
-        try:
-            is_kr = is_korean_ticker(symbol)
-            sym_market_open = is_market_open(symbol)
-            ticker = yf.Ticker(symbol)
-            price = 0
-            prev_close = 0
-            name = _name_cache.get(symbol, symbol)
-            
-            if is_kr and symbol in korean_stocks:
-                name = f"{korean_stocks[symbol]['ko']} ({korean_stocks[symbol]['name']})"
-                _name_cache[symbol] = name
-            
-            try:
-                fast = ticker.fast_info
-                price = float(fast.get('lastPrice', 0) or 0)
-                if price == 0:
-                    price = float(fast.get('regularMarketPrice', 0) or 0)
-                prev_close = float(fast.get('previousClose', 0) or 0)
-                
-                if sym_market_open and price == prev_close and price > 0:
-                    print(f"[yfinance] {symbol} Warning: price equals prev_close during market hours")
-                
-                print(f"[yfinance] {symbol} fast_info: price={price}, prev_close={prev_close}")
-            except Exception as e:
-                print(f"[yfinance] {symbol} fast_info failed: {e}")
-                price = 0
-                prev_close = 0
-            
-            if price > 0 and name == symbol:
-                try:
-                    info = ticker.info
-                    fetched_name = info.get('shortName') or info.get('longName') or symbol
-                    _name_cache[symbol] = fetched_name
-                    name = fetched_name
-                except Exception as e:
-                    print(f"[yfinance] {symbol} info for name failed: {e}")
-            
-            change = price - prev_close if price > 0 and prev_close > 0 else 0
-            change_percent = (change / prev_close * 100) if prev_close > 0 else 0
-            
-            is_stale = price <= 0
-            if is_stale:
-                print(f"[yfinance] Warning: {symbol} has invalid price={price}")
-            
-            if is_kr:
-                time_str = now_kst.strftime('%I:%M %p KST')
-                updated_str = now_kst.strftime('%Y-%m-%dT%H:%M:%S')
-            else:
-                time_str = now_et.strftime('%I:%M %p ET')
-                updated_str = now_et.strftime('%Y-%m-%dT%H:%M:%S')
-            
-            # Fetch volume safely from fast_info
-            try:
-                vol = int(getattr(ticker.fast_info, 'last_volume', None) or ticker.fast_info.get('lastVolume', 0) or 0)
-            except Exception:
-                vol = 0
-
-            results.append({
-                "symbol": symbol,
-                "name": name,
-                "price": round(price, 2),
-                "change": round(change, 2),
-                "changePercent": round(change_percent, 2),
-                "volume": vol,
-                "isMarketOpen": sym_market_open,
-                "isStale": is_stale,
-                "isKorean": is_kr,
-                "currency": "KRW" if is_kr else "USD",
-                "lastUpdated": updated_str,
-                "lastUpdatedFormatted": time_str
-            })
-        except Exception as e:
-            print(f"[yfinance] Error fetching {symbol}: {e}")
-            is_kr = is_korean_ticker(symbol)
-            results.append({
-                "symbol": symbol,
-                "name": _name_cache.get(symbol, symbol),
-                "price": 0,
-                "change": 0,
-                "changePercent": 0,
-                "isMarketOpen": is_market_open(symbol),
-                "isStale": True,
-                "isKorean": is_kr,
-                "currency": "KRW" if is_kr else "USD",
-                "error": str(e),
-                "lastUpdated": now_et.strftime('%Y-%m-%dT%H:%M:%S'),
-                "lastUpdatedFormatted": now_et.strftime('%I:%M %p ET')
-            })
+    results_map = {}
+    max_workers = min(len(symbols), 8)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_fetch_single_quote, sym, now_et, now_kst, now_jst): sym
+            for sym in symbols
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            results_map[result["symbol"]] = result
+    
+    results = [results_map[sym] for sym in symbols if sym in results_map]
     
     print(f"[yfinance] Batch quotes complete: {len(results)} results")
     
