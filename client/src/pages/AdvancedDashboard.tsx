@@ -234,6 +234,39 @@ const SECTOR_QUADRANTS = [
   { label: "XLP", labelKo: "필수소비",q: "improving", color: "#06b6d4" },
 ];
 
+const SECTOR_COLORS_BY_QUADRANT: Record<string, string> = {
+  leading:   "#22c55e",
+  improving: "#6366f1",
+  weakening: "#eab308",
+  lagging:   "#ef4444",
+};
+
+const KR_SECTOR_SHORT: Record<string, { en: string; ko: string }> = {
+  "005930.KS": { en: "Samsung", ko: "삼성" },
+  "000660.KS": { en: "SK Hynix", ko: "SK하이닉스" },
+  "005380.KS": { en: "Hyundai", ko: "현대차" },
+  "068270.KS": { en: "Celltrion", ko: "셀트리온" },
+  "105560.KS": { en: "KB Fin", ko: "KB금융" },
+  "051910.KS": { en: "LG Chem", ko: "LG화학" },
+  "035420.KS": { en: "NAVER", ko: "네이버" },
+  "003670.KS": { en: "POSCO", ko: "포스코" },
+  "017670.KS": { en: "SKT", ko: "SKT" },
+  "373220.KS": { en: "LG Energy", ko: "LG엔솔" },
+};
+
+const JP_SECTOR_SHORT: Record<string, { en: string; ko: string }> = {
+  "7203.T": { en: "Toyota", ko: "도요타" },
+  "6758.T": { en: "Sony", ko: "소니" },
+  "8306.T": { en: "Mitsubishi UFJ", ko: "미쓰비시UFJ" },
+  "4502.T": { en: "Takeda", ko: "다케다" },
+  "9984.T": { en: "SoftBank", ko: "소프트뱅크" },
+  "6501.T": { en: "Hitachi", ko: "히타치" },
+  "3382.T": { en: "Seven&I", ko: "세븐&아이" },
+  "8802.T": { en: "Mitsui Fudo", ko: "미쓰이부동산" },
+  "9501.T": { en: "Tokyo Elec", ko: "도쿄전력" },
+  "4661.T": { en: "Oriental Land", ko: "오리엔탈랜드" },
+};
+
 const QUADRANT_POS: Record<string, { x: number; y: number }> = {
   XLK:  { x: 105, y: 103 }, XLC:  { x: 103, y: 101 },
   XLF:  { x: 97,  y: 102 }, XLI:  { x: 98,  y: 101 },
@@ -446,6 +479,68 @@ export default function AdvancedDashboard() {
   const lastSMA200 = lastIdx >= 0 ? (sma200[lastIdx] ?? null) : null;
   const lastPrice  = lastIdx >= 0 ? rawHistory[lastIdx].close : (quote?.price ?? 0);
   const stageInfo  = getStageAnalysis(lastPrice, lastSMA50, lastSMA200, lang);
+
+  // ── RRG country + live data ─────────────────────────────────────────
+  const rrgCountry = isKr ? "kr" : isJp ? "jp" : "us";
+  const rrgBenchmarkLabel = isKr ? "KOSPI" : isJp ? "Nikkei 225" : "S&P 500";
+  const rrgBenchmarkLabelKo = isKr ? "코스피" : isJp ? "닛케이 225" : "S&P 500";
+
+  const { data: liveRrgData } = useQuery<{ sectors: any[]; benchmark: string }>({
+    queryKey: ["/api/rrg/data", rrgCountry],
+    queryFn: async () => {
+      const res = await fetch(`/api/rrg/data?country=${rrgCountry}&tail=3`);
+      if (!res.ok) return { sectors: [], benchmark: "" };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const miniRRGData = React.useMemo(() => {
+    if (liveRrgData?.sectors?.length) {
+      const nameMap = isKr ? KR_SECTOR_SHORT : isJp ? JP_SECTOR_SHORT : null;
+      return liveRrgData.sectors.map((s: any) => {
+        const names = nameMap?.[s.symbol];
+        const shortLabel = names
+          ? (lang === "ko" ? names.ko : names.en)
+          : s.symbol.replace(".KS","").replace(".KQ","").replace(".T","").replace("XL","");
+        return {
+          label: shortLabel,
+          fullSymbol: s.symbol,
+          x: s.rsRatio,
+          y: s.rsMomentum,
+          q: s.quadrant,
+          color: SECTOR_COLORS_BY_QUADRANT[s.quadrant] ?? "#6b7280",
+        };
+      });
+    }
+    return SECTOR_QUADRANTS.map(s => ({
+      label: lang === "ko" ? s.labelKo : s.label.replace("XL",""),
+      fullSymbol: s.label,
+      x: QUADRANT_POS[s.label]?.x ?? 100,
+      y: QUADRANT_POS[s.label]?.y ?? 100,
+      q: s.q,
+      color: s.color,
+    }));
+  }, [liveRrgData, isKr, isJp, lang]);
+
+  // Dynamic axis domain from data
+  const rrgXValues = miniRRGData.map(d => d.x);
+  const rrgYValues = miniRRGData.map(d => d.y);
+  const rrgPad = 1.5;
+  const rrgXMin = Math.min(...rrgXValues) - rrgPad;
+  const rrgXMax = Math.max(...rrgXValues) + rrgPad;
+  const rrgYMin = Math.min(...rrgYValues) - rrgPad;
+  const rrgYMax = Math.max(...rrgYValues) + rrgPad;
+  const rrgXDomain: [number, number] = [Math.min(rrgXMin, 98), Math.max(rrgXMax, 102)];
+  const rrgYDomain: [number, number] = [Math.min(rrgYMin, 98), Math.max(rrgYMax, 102)];
+
+  // ── EPS formatter — uses native currency of selected symbol ─────────
+  const formatEps = React.useCallback((value: number | null | undefined): string => {
+    if (value == null) return "--";
+    if (nativeCurrency === "KRW") return `₩${Math.round(value).toLocaleString("ko-KR")}`;
+    if (nativeCurrency === "JPY") return `¥${Math.round(value).toLocaleString("ja-JP")}`;
+    return `$${value.toFixed(2)}`;
+  }, [nativeCurrency]);
 
   const positiveRS = screenerRows.filter(s => s.rs > 0).length;
   const breadthPct = screenerRows.length > 0 ? Math.round((positiveRS / screenerRows.length) * 100) : 0;
@@ -760,9 +855,9 @@ export default function AdvancedDashboard() {
                   {earnings?.nextEpsEstimate != null && (
                     <div className="mt-1.5 bg-background/50 rounded-lg p-2">
                       <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "EPS 컨센서스" : "EPS Consensus"}</p>
-                      <p className="text-sm font-mono font-bold">${earnings.nextEpsEstimate.toFixed(2)}</p>
+                      <p className="text-sm font-mono font-bold">{formatEps(earnings.nextEpsEstimate)}</p>
                       {earnings.nextEpsLow != null && earnings.nextEpsHigh != null && (
-                        <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "범위" : "Range"}: <span className="font-mono">${earnings.nextEpsLow.toFixed(2)} – ${earnings.nextEpsHigh.toFixed(2)}</span></p>
+                        <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "범위" : "Range"}: <span className="font-mono">{formatEps(earnings.nextEpsLow)} – {formatEps(earnings.nextEpsHigh)}</span></p>
                       )}
                     </div>
                   )}
@@ -792,13 +887,13 @@ export default function AdvancedDashboard() {
                         : earnings.lastEpsActual < earnings.lastEpsEstimate ? "text-rose-500"
                         : "text-foreground"
                       : "")}>
-                    {earnings?.lastEpsActual != null ? `$${earnings.lastEpsActual.toFixed(2)}` : "--"}
+                    {formatEps(earnings?.lastEpsActual)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상 EPS" : "Est. EPS"}</p>
                   <p className="text-sm font-bold font-mono text-muted-foreground">
-                    {earnings?.lastEpsEstimate != null ? `$${earnings.lastEpsEstimate.toFixed(2)}` : "--"}
+                    {formatEps(earnings?.lastEpsEstimate)}
                   </p>
                 </div>
                 <div>
@@ -820,11 +915,11 @@ export default function AdvancedDashboard() {
               <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border/20">
                 <div>
                   <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "연간 EPS" : "Trailing EPS"}</p>
-                  <p className="text-xs font-bold font-mono">{earnings?.trailingEps != null ? `$${earnings.trailingEps.toFixed(2)}` : "--"}</p>
+                  <p className="text-xs font-bold font-mono">{formatEps(earnings?.trailingEps)}</p>
                 </div>
                 <div>
                   <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상 연간 EPS" : "Forward EPS"}</p>
-                  <p className="text-xs font-bold font-mono text-primary">{earnings?.forwardEps != null ? `$${earnings.forwardEps.toFixed(2)}` : "--"}</p>
+                  <p className="text-xs font-bold font-mono text-primary">{formatEps(earnings?.forwardEps)}</p>
                 </div>
               </div>
             </div>
@@ -854,11 +949,11 @@ export default function AdvancedDashboard() {
                           {new Date(h.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
                         </span>
                         <span className="text-[9px] font-mono text-muted-foreground">
-                          {h.epsEstimate != null ? `$${h.epsEstimate.toFixed(2)}` : "--"}
+                          {formatEps(h.epsEstimate)}
                         </span>
                         <span className={cn("text-[9px] font-mono font-bold",
                           beat ? "text-emerald-500" : miss ? "text-rose-500" : "text-foreground")}>
-                          ${h.epsActual.toFixed(2)}
+                          {formatEps(h.epsActual)}
                         </span>
                       </div>
                     );
@@ -894,8 +989,7 @@ export default function AdvancedDashboard() {
 
   // ── RRG Chart Panel ────────────────────────────────────────────────
   const RRGChartPanel = ({ compact = false }: { compact?: boolean }) => {
-    const miniRRGData = SECTOR_QUADRANTS.map(s => ({ ...s, x: QUADRANT_POS[s.label]?.x ?? 100, y: QUADRANT_POS[s.label]?.y ?? 100 }));
-    const quadrantLabel = (q: string) => {
+    const qlLabel = (q: string) => {
       if (q === "leading")   return lang === "ko" ? "선도" : "Leading";
       if (q === "weakening") return lang === "ko" ? "약화" : "Weakening";
       if (q === "lagging")   return lang === "ko" ? "지연" : "Lagging";
@@ -906,7 +1000,7 @@ export default function AdvancedDashboard() {
     return (
       <div className="space-y-3 p-3">
         <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
               {lang === "ko" ? "🔄 섹터 순환 (RRG)" : "🔄 Sector Rotation (RRG)"}
             </p>
@@ -916,15 +1010,21 @@ export default function AdvancedDashboard() {
               {rrgFocused ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           </div>
+          {/* Benchmark badge — updates with selected symbol's market */}
+          <div className="mb-1.5">
+            <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border bg-background/50 text-muted-foreground border-border/40">
+              {lang === "ko" ? `기준: ${rrgBenchmarkLabelKo}` : `vs. ${rrgBenchmarkLabel}`}
+            </span>
+          </div>
           <div className="relative" style={{ height: chartH }}>
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 22, right: 20, bottom: 6, left: 6 }}>
-                <ReferenceArea x1={100} x2={112} y1={100} y2={110} fill="rgba(34,197,94,0.10)" />
-                <ReferenceArea x1={88}  x2={100} y1={100} y2={110} fill="rgba(99,102,241,0.10)" />
-                <ReferenceArea x1={100} x2={112} y1={90}  y2={100} fill="rgba(234,179,8,0.10)" />
-                <ReferenceArea x1={88}  x2={100} y1={90}  y2={100} fill="rgba(239,68,68,0.10)" />
-                <XAxis type="number" dataKey="x" domain={[88, 112]} tick={false} axisLine={false} tickLine={false} />
-                <YAxis type="number" dataKey="y" domain={[90, 110]} tick={false} axisLine={false} tickLine={false} />
+                <ReferenceArea x1={100} x2={rrgXDomain[1]} y1={100} y2={rrgYDomain[1]} fill="rgba(34,197,94,0.10)" />
+                <ReferenceArea x1={rrgXDomain[0]} x2={100} y1={100} y2={rrgYDomain[1]} fill="rgba(99,102,241,0.10)" />
+                <ReferenceArea x1={100} x2={rrgXDomain[1]} y1={rrgYDomain[0]} y2={100} fill="rgba(234,179,8,0.10)" />
+                <ReferenceArea x1={rrgXDomain[0]} x2={100} y1={rrgYDomain[0]} y2={100} fill="rgba(239,68,68,0.10)" />
+                <XAxis type="number" dataKey="x" domain={rrgXDomain} tick={false} axisLine={false} tickLine={false} />
+                <YAxis type="number" dataKey="y" domain={rrgYDomain} tick={false} axisLine={false} tickLine={false} />
                 <ReferenceLine x={100} stroke={tickColor} strokeDasharray="3 3" strokeWidth={0.75} strokeOpacity={0.6} />
                 <ReferenceLine y={100} stroke={tickColor} strokeDasharray="3 3" strokeWidth={0.75} strokeOpacity={0.6} />
                 <Tooltip content={({ active, payload }: any) => {
@@ -932,8 +1032,10 @@ export default function AdvancedDashboard() {
                   const d = payload[0]?.payload;
                   return (
                     <div style={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 6, padding: "5px 10px", fontSize: 11 }}>
-                      <p style={{ fontWeight: 700, color: d.color }}>{d.label} <span style={{ color: tickColor, fontSize: 10 }}>{lang === "ko" ? d.labelKo : d.label}</span></p>
-                      <p style={{ color: tickColor, fontSize: 10 }}>{quadrantLabel(d.q)}</p>
+                      <p style={{ fontWeight: 700, color: d.color }}>{d.label}</p>
+                      <p style={{ color: tickColor, fontSize: 10 }}>{qlLabel(d.q)}</p>
+                      <p style={{ color: tickColor, fontSize: 9 }}>RS-Ratio: {d.x?.toFixed(2)}</p>
+                      <p style={{ color: tickColor, fontSize: 9 }}>RS-Mom: {d.y?.toFixed(2)}</p>
                     </div>
                   );
                 }} />
@@ -944,24 +1046,24 @@ export default function AdvancedDashboard() {
                     <g>
                       <circle cx={cx} cy={cy} r={dotR} fill={payload.color} opacity={0.92} />
                       <text x={cx} y={cy + dotR * 0.42} textAnchor="middle" fontSize={rrgFocused ? 8.5 : 7} fill="white" fontWeight="bold">
-                        {payload.label.replace("XL", "")}
+                        {payload.label.slice(0, 5)}
                       </text>
                     </g>
                   );
                 }} />
               </ScatterChart>
             </ResponsiveContainer>
-            {/* High-contrast quadrant labels */}
+            {/* Quadrant labels */}
             <div className="absolute top-0 right-1 text-[10px] text-emerald-400 font-bold drop-shadow-sm">{lang === "ko" ? "선도 ↗" : "Leading ↗"}</div>
             <div className="absolute top-0 left-1 text-[10px] text-indigo-400 font-bold drop-shadow-sm">{lang === "ko" ? "회복 ↗" : "Improving ↗"}</div>
             <div className="absolute bottom-0 right-1 text-[10px] text-yellow-400 font-bold drop-shadow-sm">{lang === "ko" ? "약화 ↘" : "Weakening ↘"}</div>
             <div className="absolute bottom-0 left-1 text-[10px] text-rose-400 font-bold drop-shadow-sm">{lang === "ko" ? "지연 ↙" : "Lagging ↙"}</div>
           </div>
           <div className="flex flex-wrap gap-1 mt-2">
-            {SECTOR_QUADRANTS.map(s => (
-              <span key={s.label} className="flex items-center gap-0.5 text-[9px]">
+            {miniRRGData.map(s => (
+              <span key={s.fullSymbol} className="flex items-center gap-0.5 text-[9px]">
                 <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: s.color }} />
-                <span className="text-muted-foreground">{lang === "ko" ? s.labelKo : s.label}</span>
+                <span className="text-muted-foreground">{s.label}</span>
               </span>
             ))}
           </div>
@@ -1012,17 +1114,18 @@ export default function AdvancedDashboard() {
           const rsSign = stockRS >= 0 ? "+" : "";
           const peerSign = stockVsPeers >= 0 ? "+" : "";
 
+          const bmLabel = lang === "ko" ? rrgBenchmarkLabelKo : rrgBenchmarkLabel;
           const line1 = lang === "ko"
-            ? `${etfLabel} (${sectorName}) 섹터는 현재 S&P 500 대비 [${ql}] 사분면에 위치하여 상대적 강도를 ${quadrant === "leading" || quadrant === "improving" ? "강화" : "약화"}하고 있습니다.`
-            : `The ${etfLabel} (${sectorName}) sector is in the [${ql}] quadrant, showing ${quadrant === "leading" || quadrant === "improving" ? "strengthening" : "weakening"} relative strength vs. the S&P 500.`;
+            ? `${etfLabel} (${sectorName}) 섹터는 현재 ${bmLabel} 대비 [${ql}] 사분면에 위치하여 상대적 강도를 ${quadrant === "leading" || quadrant === "improving" ? "강화" : "약화"}하고 있습니다.`
+            : `The ${etfLabel} (${sectorName}) sector is in the [${ql}] quadrant, showing ${quadrant === "leading" || quadrant === "improving" ? "strengthening" : "weakening"} relative strength vs. the ${bmLabel}.`;
 
           const line2 = sectorInfo
             ? (lang === "ko"
-                ? `${selectedSymbol.replace(".KS","").replace(".KQ","")}는 섹터 동종 기업 대비 RS ${peerSign}${stockVsPeers.toFixed(1)}%로 ${outperforming ? "초과 성과" : "하회 성과"}를 보이며, 롤테이션 모멘텀 기준 [${signal.ko}] 신호입니다.`
-                : `${selectedSymbol.replace(".KS","").replace(".KQ","")} ${outperforming ? "outperforms" : "underperforms"} sector peers by ${peerSign}${stockVsPeers.toFixed(1)}% RS differential, suggesting a [${signal.en}] signal based on rotation momentum.`)
+                ? `${selectedSymbol.replace(".KS","").replace(".KQ","").replace(".T","")}는 동종 기업 대비 RS ${peerSign}${stockVsPeers.toFixed(1)}%로 ${outperforming ? "초과 성과" : "하회 성과"}를 보이며, 롤테이션 모멘텀 기준 [${signal.ko}] 신호입니다.`
+                : `${selectedSymbol.replace(".KS","").replace(".KQ","").replace(".T","")} ${outperforming ? "outperforms" : "underperforms"} sector peers by ${peerSign}${stockVsPeers.toFixed(1)}% RS differential, suggesting a [${signal.en}] signal based on rotation momentum.`)
             : (lang === "ko"
-                ? `${selectedSymbol}의 현재 RS는 S&P 500 대비 ${rsSign}${stockRS.toFixed(1)}%입니다. 전체 시장 추세를 참고하세요.`
-                : `${selectedSymbol} has a current RS of ${rsSign}${stockRS.toFixed(1)}% vs. S&P 500. Monitor broader market trend.`);
+                ? `${selectedSymbol}의 현재 RS는 ${bmLabel} 대비 ${rsSign}${stockRS.toFixed(1)}%입니다. 전체 시장 추세를 참고하세요.`
+                : `${selectedSymbol} has a current RS of ${rsSign}${stockRS.toFixed(1)}% vs. ${bmLabel}. Monitor broader market trend.`);
 
           return (
             <div className={cn("rounded-xl p-3 border overflow-hidden", quadrantLabel.bgColor, quadrantLabel.borderColor)} data-testid="rrg-analysis-box">
