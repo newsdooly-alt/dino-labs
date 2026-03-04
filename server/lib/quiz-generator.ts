@@ -37,20 +37,25 @@ function getSkillLevelDescription(skillLevel: SkillLevel, isKorean: boolean): st
   }
 }
 
-export async function generateDailyQuests(userId: string, language: string = 'en', skillLevel: SkillLevel = 'beginner'): Promise<InsertQuest[]> {
+export async function generateDailyQuests(userId: string, language: string = 'en', skillLevel: SkillLevel = 'beginner', recentTypes: string[] = []): Promise<InsertQuest[]> {
   const isKorean = language === 'ko';
   const randomStock1 = getRandomStock();
   const randomStock2 = stockSymbols.filter(s => s !== randomStock1)[Math.floor(Math.random() * (stockSymbols.length - 1))];
   const skillDescription = getSkillLevelDescription(skillLevel, isKorean);
-  
+  const recentNote = recentTypes.length > 0
+    ? (isKorean
+        ? `\n    최근 3일간 사용된 유형 (반드시 제외): ${recentTypes.join(', ')}`
+        : `\n    Types used in the past 3 days (MUST avoid repeating these): ${recentTypes.join(', ')}`)
+    : '';
+
   const prompt = isKorean ? `
-    사용자가 미국 주식에 대해 배울 수 있도록 매일 5개의 다양한 주식 시장 퀘스트를 생성하세요.
-    "quests"라는 키를 가진 JSON 객체를 반환하며, 이 키는 5개의 객체 배열입니다.
+    사용자가 미국 주식에 대해 배울 수 있도록 매일 6개의 다양한 주식 시장 퀘스트를 생성하세요.
+    "quests"라는 키를 가진 JSON 객체를 반환하며, 이 키는 6개의 객체 배열입니다.
     
     중요: 사용자 레벨 - ${skillDescription}
-    규칙: 반드시 5가지 모두 다른 유형이어야 합니다. 비슷한 느낌의 퀘스트를 반복하지 마세요.
+    규칙: 반드시 6가지 모두 다른 유형이어야 합니다. 비슷한 느낌의 퀘스트를 반복하지 마세요.${recentNote}
     
-    다음 15가지 유형 중 5가지를 다양하게 선택하세요 (중복 없이, 유사한 유형도 피하세요):
+    다음 15가지 유형 중 6가지를 다양하게 선택하세요 (중복 없이, 유사한 유형도 피하세요):
     1. "term": 금융 용어(예: P/E, 배당금, 시가총액, ETF, RSI, MACD, 볼린저밴드)에 대한 퀴즈.
     2. "pattern": 차트 패턴(예: Bull Flag, 헤드앤숄더, 골든크로스, 이중천장, 컵앤핸들)에 대한 퀴즈.
     3. "news": 시장 뉴스 시나리오(예: "연준이 금리를 올리면 채권 가격은?", "달러 강세 시 수출주 영향은?").
@@ -76,13 +81,13 @@ export async function generateDailyQuests(userId: string, language: string = 'en
     - xpReward: number (term/pattern/news=15, search/compare/valuation/sector/dividend/chart=20, earnings/hedge/insider/rrg/economic/macro_action=25)
     - targetSymbol: string (search, compare 타입일 경우 해당 종목 심볼, 그 외는 null)
   ` : `
-    Generate 5 varied daily stock market quests for a user learning about US/global stocks.
-    Return a JSON object with a key "quests" which is an array of 5 objects.
+    Generate 6 varied daily stock market quests for a user learning about US/global stocks.
+    Return a JSON object with a key "quests" which is an array of 6 objects.
     
     IMPORTANT: User skill level - ${skillDescription}
-    RULE: All 5 must be different types. Do not repeat similar-feeling quests.
+    RULE: All 6 must be different types. Do not repeat similar-feeling quests.${recentNote}
     
-    Pick 5 diverse types from the following 15 (no duplicates, avoid similar-feeling types):
+    Pick 6 diverse types from the following 15 (no duplicates, avoid similar-feeling types):
     1. "term": A quiz about a financial term (P/E, Dividend, Market Cap, ETF, RSI, MACD, Bollinger Bands, etc.).
     2. "pattern": A chart pattern quiz (Bull Flag, Head and Shoulders, Golden Cross, Double Top, Cup and Handle, etc.).
     3. "news": A market news scenario (e.g., "If the Fed raises rates, what happens to bond prices?", "How does a strong dollar affect exporters?").
@@ -120,7 +125,7 @@ export async function generateDailyQuests(userId: string, language: string = 'en
     });
 
     const content = response.choices[0]?.message?.content;
-    if (!content) return fallbackQuests(userId, language, skillLevel);
+    if (!content) return fallbackQuests(userId, language, skillLevel, recentTypes);
 
     const data = JSON.parse(content);
     const quests: any[] = data.quests;
@@ -138,7 +143,7 @@ export async function generateDailyQuests(userId: string, language: string = 'en
 
   } catch (err) {
     console.error("Error generating quests:", err);
-    return fallbackQuests(userId, language, skillLevel);
+    return fallbackQuests(userId, language, skillLevel, recentTypes);
   }
 }
 
@@ -409,21 +414,25 @@ function fallbackPracticeQuest(userId: string, language: string = 'en', skillLev
   };
 }
 
-function fallbackQuests(userId: string, language: string = 'en', skillLevel: SkillLevel = 'beginner'): InsertQuest[] {
+function fallbackQuests(userId: string, language: string = 'en', skillLevel: SkillLevel = 'beginner', recentTypes: string[] = []): InsertQuest[] {
   const isKorean = language === 'ko';
   const pool = isKorean ? dailyQuestsPoolKo : dailyQuestsPoolEn;
   const filtered = pool.filter(q => q.level === skillLevel);
 
-  // All 15 quest types — pick 5 diverse ones, no two from similar categories
+  // All 15 quest types — pick 6 diverse ones, avoid recently used types
   const ALL_TYPES = ["term", "pattern", "news", "search", "compare", "valuation", "sector", "dividend", "earnings", "hedge", "insider", "rrg", "chart", "economic", "macro_action"];
 
-  // Shuffle types for daily variety
-  const shuffled = ALL_TYPES.sort(() => Math.random() - 0.5);
+  // Shuffle types for daily variety, deprioritize recently used ones
+  const shuffled = [...ALL_TYPES].sort(() => Math.random() - 0.5);
+  const recentSet = new Set(recentTypes);
+  // Move recently-used types to end so fresh types are picked first
+  const prioritized = [...shuffled.filter(t => !recentSet.has(t)), ...shuffled.filter(t => recentSet.has(t))];
+
   const selected: FallbackQuestData[] = [];
   const usedTypes = new Set<string>();
 
-  for (const type of shuffled) {
-    if (selected.length >= 5) break;
+  for (const type of prioritized) {
+    if (selected.length >= 6) break;
     if (usedTypes.has(type)) continue;
     const typeQuests = filtered.filter(q => q.type === type);
     if (typeQuests.length > 0) {
@@ -432,8 +441,8 @@ function fallbackQuests(userId: string, language: string = 'en', skillLevel: Ski
     }
   }
 
-  // Fill up to 5 from any remaining if needed
-  while (selected.length < 5 && filtered.length > 0) {
+  // Fill up to 6 from any remaining if needed
+  while (selected.length < 6 && filtered.length > 0) {
     const remaining = filtered.filter(q => !selected.includes(q));
     if (remaining.length === 0) break;
     selected.push(remaining[Math.floor(Math.random() * remaining.length)]);

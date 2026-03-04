@@ -18,6 +18,10 @@ The core experience centers around:
 - Multi-language support (English and Korean)
 - Live USD/KRW currency conversion with real-time exchange rates (CurrencyContext provider)
 - Skill level-based quest difficulty (beginner/intermediate/advanced) with 24+ fallback quests per language
+- Quest difficulty badge on QuestCard reflects xpReward (≥25→🦖Advanced, ≥20→🦕Intermediate, else 🥚Beginner) — independent of user's skill level
+- 7-stage Dino evolution (Egg→Hatching→Baby Dino→Explorer→Raptor Hunter→T-Rex→Dino King) tied to 0–6 quest completions per day
+- Smart "Learn More" panel after daily quests complete: shows 3 personalized next-step activities filtered by user's skillLevel (beginner/intermediate/advanced), linking to relevant app sections
+- Anti-repetition quest system: `recentQuestTypes` (last 18 = 3 days × 6) stored in user_profiles, passed to quiz-generator to exclude recently used quest types
 - Professional Economic Calendar with 40+ curated events (Feb–Aug 2026) covering NFP, CPI, PCE, FOMC, GDP, Retail Sales, ISM PMIs and more
   - KST auto-conversion using `Intl.DateTimeFormat` with `Asia/Seoul` timezone (accounts for US DST automatically)
   - Expandable event deep-dives: Definition, Market Impact (color-coded), Correlation Insight, Linked Indicators

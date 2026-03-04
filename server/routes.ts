@@ -443,10 +443,18 @@ export async function registerRoutes(
     });
 
     if (!hasAnyTodayQuest || quests.length === 0) {
+      // Save current quest types to recent history before clearing (for anti-repetition)
+      const currentTypes = quests.map(q => q.type);
+      const existingRecent = profile.recentQuestTypes || [];
+      const updatedRecent = [...existingRecent, ...currentTypes].slice(-18);
+      if (currentTypes.length > 0) {
+        await storage.updateRecentQuestTypes(userId, updatedRecent);
+      }
+
       // Quests are stale (from a previous day) — clear and regenerate fresh daily quests
       await storage.clearQuests(userId);
       const skillLevel = (profile.skillLevel as 'beginner' | 'intermediate' | 'advanced') || 'beginner';
-      const newQuests = await generateDailyQuests(userId, profile.language || 'en', skillLevel);
+      const newQuests = await generateDailyQuests(userId, profile.language || 'en', skillLevel, updatedRecent);
       for (const q of newQuests) {
         await storage.createQuest(q);
       }

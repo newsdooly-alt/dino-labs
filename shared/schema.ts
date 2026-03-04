@@ -21,6 +21,7 @@ export const userProfiles = pgTable("user_profiles", {
   language: text("language").default("en").notNull(),
   skillLevel: text("skill_level").default("beginner").notNull(), // "beginner" | "intermediate" | "advanced"
   lastDailyQuestAt: timestamp("last_daily_quest_at"),
+  recentQuestTypes: text("recent_quest_types").array().default([]).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

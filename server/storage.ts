@@ -27,6 +27,7 @@ export interface IStorage {
   updateNickname(id: string, nickname: string): Promise<UserProfile>;
   updateThemeColor(id: string, themeColor: string): Promise<UserProfile>;
   updateProfileSettings(id: string, settings: { nickname?: string; themeColor?: string }): Promise<UserProfile>;
+  updateRecentQuestTypes(id: string, types: string[]): Promise<void>;
   getLeaderboard(limit?: number): Promise<UserProfile[]>;
 
   // Stocks
@@ -131,6 +132,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userProfiles.id, id))
       .returning();
     return profile;
+  }
+
+  async updateRecentQuestTypes(id: string, types: string[]): Promise<void> {
+    // Keep the last 18 types (6 per day × 3 days)
+    const capped = types.slice(-18);
+    await db.update(userProfiles)
+      .set({ recentQuestTypes: capped })
+      .where(eq(userProfiles.id, id));
   }
 
   async updateUserLanguage(id: string, language: string): Promise<UserProfile> {

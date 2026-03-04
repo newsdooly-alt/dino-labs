@@ -96,11 +96,17 @@ const TYPE_CONFIG: Record<string, { icon: JSX.Element; bgClass: string; ko: stri
   macro_action:{ icon: <Zap className="w-6 h-6 text-yellow-500" />,          bgClass: "bg-yellow-500/15",  ko: "오늘의 실전 과제",en: "Daily Mission" },
 };
 
-const TIER_CONFIG = {
-  beginner:     { emoji: "🥚", ko: "아기 공룡",    en: "Baby Dino",     color: "border-green-500/40 text-green-600 dark:text-green-400 bg-green-500/5" },
-  intermediate: { emoji: "🦕", ko: "랩터 헌터",   en: "Raptor Hunter", color: "border-teal-500/40 text-teal-600 dark:text-teal-400 bg-teal-500/5" },
-  advanced:     { emoji: "🦖", ko: "T-Rex 투자자", en: "T-Rex Investor",color: "border-orange-500/40 text-orange-600 dark:text-orange-400 bg-orange-500/5" },
+const DIFFICULTY_CONFIG = {
+  beginner:     { emoji: "🥚", ko: "입문",     en: "Beginner",     color: "border-green-500/40 text-green-600 dark:text-green-400 bg-green-500/5" },
+  intermediate: { emoji: "🦕", ko: "중급",     en: "Intermediate", color: "border-teal-500/40 text-teal-600 dark:text-teal-400 bg-teal-500/5" },
+  advanced:     { emoji: "🦖", ko: "고급",     en: "Advanced",     color: "border-orange-500/40 text-orange-600 dark:text-orange-400 bg-orange-500/5" },
 };
+
+function getQuestDifficulty(xpReward: number): keyof typeof DIFFICULTY_CONFIG {
+  if (xpReward >= 25) return "advanced";
+  if (xpReward >= 20) return "intermediate";
+  return "beginner";
+}
 
 export function QuestCard({ quest, questNumber }: QuestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -113,8 +119,8 @@ export function QuestCard({ quest, questNumber }: QuestCardProps) {
   const lang = (user?.language || "en") as keyof typeof translations;
   const t = translations[lang];
 
-  const skillLevel = (user?.skillLevel || "beginner") as keyof typeof TIER_CONFIG;
-  const tier = TIER_CONFIG[skillLevel] || TIER_CONFIG.beginner;
+  const diffKey = getQuestDifficulty(quest.xpReward);
+  const diff = DIFFICULTY_CONFIG[diffKey];
 
   const options = quest.options as string[];
   const isCorrect = selectedOption === quest.correctAnswer;
@@ -161,8 +167,8 @@ export function QuestCard({ quest, questNumber }: QuestCardProps) {
             </p>
           </div>
         </div>
-        <Badge variant="outline" className={`shrink-0 text-[10px] ${tier.color}`}>
-          {tier.emoji} {lang === "ko" ? tier.ko : tier.en}
+        <Badge variant="outline" className={`shrink-0 text-[10px] ${diff.color}`}>
+          {diff.emoji} {lang === "ko" ? diff.ko : diff.en}
         </Badge>
       </div>
     );
@@ -190,8 +196,8 @@ export function QuestCard({ quest, questNumber }: QuestCardProps) {
                   {lang === "ko" ? typeConf.ko : typeConf.en}
                   {questNumber && <span className="ml-1 text-muted-foreground/50">#{questNumber}</span>}
                 </p>
-                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${tier.color}`}>
-                  {tier.emoji} {lang === "ko" ? tier.ko : tier.en}
+                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${diff.color}`}>
+                  {diff.emoji} {lang === "ko" ? diff.ko : diff.en}
                 </Badge>
               </div>
               <h3 className="font-display font-bold text-[0.9rem] md:text-[1.05rem] leading-[1.5]">

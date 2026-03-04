@@ -19,7 +19,7 @@ import confetti from "canvas-confetti";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-const DAILY_QUEST_COUNT = 5;
+const DAILY_QUEST_COUNT = 6;
 const EGG_REWARD_KEY = "dinolingo_egg_rewarded_date";
 const QUEST_COMPLETE_KEY = "dinolingo_quest_complete_shown";
 const PREDICTION_DATE_KEY = "dinolingo_prediction_date";
@@ -33,12 +33,32 @@ const WEEKLY_XP_KEY = "dinolingo_weekly_pick_xp";
 const WEEKLY_STOCKS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOGL"];
 
 const DINO_STAGES = [
-  { emoji: "🥚", ko: "알", en: "Egg", color: "from-stone-400 to-stone-500", minCompleted: 0 },
-  { emoji: "🦕", ko: "아기 공룡", en: "Baby Dino", color: "from-green-400 to-emerald-500", minCompleted: 1 },
-  { emoji: "🦖", ko: "랩터 헌터", en: "Raptor Hunter", color: "from-teal-400 to-cyan-500", minCompleted: 3 },
-  { emoji: "🦴", ko: "T-Rex 투자자", en: "T-Rex Investor", color: "from-orange-400 to-red-500", minCompleted: 5 },
-  { emoji: "👑", ko: "공룡 왕", en: "Dino King", color: "from-yellow-400 to-amber-500", minCompleted: 6 },
+  { emoji: "🥚", ko: "알",       en: "Egg",          color: "from-stone-400 to-stone-500",   minCompleted: 0 },
+  { emoji: "🐣", ko: "부화 시작", en: "Hatching",     color: "from-lime-400 to-green-500",    minCompleted: 1 },
+  { emoji: "🦕", ko: "아기 공룡", en: "Baby Dino",    color: "from-green-400 to-emerald-500", minCompleted: 2 },
+  { emoji: "🦎", ko: "탐험가",   en: "Explorer",     color: "from-teal-400 to-cyan-500",     minCompleted: 3 },
+  { emoji: "🦖", ko: "랩터 헌터", en: "Raptor Hunter",color: "from-blue-400 to-indigo-500",   minCompleted: 4 },
+  { emoji: "🦴", ko: "T-Rex",    en: "T-Rex",        color: "from-orange-400 to-red-500",    minCompleted: 5 },
+  { emoji: "👑", ko: "공룡 왕",   en: "Dino King",    color: "from-yellow-400 to-amber-500",  minCompleted: 6 },
 ];
+
+const LEARN_MORE_CONTENT = {
+  beginner: [
+    { icon: "📘", en: "Read Today's Market Briefing", ko: "오늘의 시장 브리핑 읽기", en_desc: "Understand the day's top movers and macro themes", ko_desc: "오늘 시장의 주요 움직임과 거시 테마를 이해하세요", route: "/quests", tab: "news" },
+    { icon: "🔍", en: "Search a Stock You're Curious About", ko: "궁금한 종목 검색하기", en_desc: "Find a stock in the Pro Dashboard and read its Key Metrics", ko_desc: "프로 대시보드에서 관심 종목의 핵심 지표를 확인하세요", route: "/pro" },
+    { icon: "📈", en: "Check Today's Biggest Gainers", ko: "오늘의 상승률 TOP 종목 확인", en_desc: "See which stocks gained the most and why", ko_desc: "어떤 종목이 가장 많이 올랐는지, 이유는 무엇인지 확인하세요", route: "/pro" },
+  ],
+  intermediate: [
+    { icon: "🔄", en: "Analyze the RRG Sector Rotation Chart", ko: "RRG 섹터 로테이션 분석", en_desc: "Find which sectors are in the Leading quadrant today", ko_desc: "오늘 Leading 구간에 있는 섹터를 RRG에서 확인하세요", route: "/pro" },
+    { icon: "📊", en: "Compare P/E Ratios: Find a Stock Under 15", ko: "P/E 비율 비교: 15 이하 종목 찾기", en_desc: "Use the screener to find potentially undervalued stocks", ko_desc: "스크리너로 잠재적 저평가 종목을 찾아보세요", route: "/pro" },
+    { icon: "🏦", en: "Check a Super Investor's Latest Portfolio", ko: "슈퍼인베스터 최신 포트폴리오 확인", en_desc: "See what top investors like Buffett are holding this quarter", ko_desc: "버핏 등 슈퍼인베스터가 이번 분기 보유한 종목을 확인하세요", route: "/investors" },
+  ],
+  advanced: [
+    { icon: "📉", en: "Analyze Debt-to-Equity Trends in a Sector", ko: "섹터별 부채비율 트렌드 분석", en_desc: "Compare D/E ratios across financials, tech, and energy", ko_desc: "금융·기술·에너지 섹터의 부채비율을 비교 분석하세요", route: "/pro" },
+    { icon: "🎯", en: "Build a Macro-Hedged Watch List", ko: "매크로 헤지 워치리스트 구성", en_desc: "Add 2 safe-haven + 2 growth stocks to your watchlist", ko_desc: "안전자산 2종목 + 성장주 2종목으로 워치리스트를 구성하세요", route: "/pro" },
+    { icon: "🧮", en: "Evaluate an Upcoming Earnings Release", ko: "다음 실적 발표 종목 분석", en_desc: "Find a stock with earnings in 7 days and assess EPS expectations", ko_desc: "7일 내 실적 발표 종목을 찾아 EPS 예상치를 분석하세요", route: "/pro" },
+  ],
+};
 
 function getDinoStage(count: number) {
   let stage = DINO_STAGES[0];
@@ -62,6 +82,7 @@ export default function Quests() {
   const { data: quests, isLoading } = useQuests();
   const { data: user } = useUser();
   const [showPractice, setShowPractice] = useState(false);
+  const [showLearnMore, setShowLearnMore] = useState(false);
   const [activeTab, setActiveTab] = useState<"quests" | "news">("quests");
   const [showCompletionModal, setShowCompletionModal] = useState(false);
 
@@ -491,22 +512,26 @@ export default function Quests() {
                       <div className="flex flex-wrap gap-3 justify-center">
                         <Button
                           variant="outline"
-                          onClick={() => { setShowCompletionModal(false); setShowPractice(true); }}
+                          onClick={() => { setShowCompletionModal(false); setShowLearnMore(true); }}
                           className="gap-2"
                           data-testid="button-learn-more"
                         >
                           <BookOpen className="w-4 h-4" />
                           {t.learn_more}
                         </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => { setShowCompletionModal(false); setShowPractice(true); }}
+                          className="gap-2"
+                          data-testid="button-practice-from-modal"
+                        >
+                          <Dumbbell className="w-4 h-4" />
+                          {t.practice_more}
+                        </Button>
                         <Link href="/collection">
                           <Button variant="outline" className="gap-2" data-testid="button-go-to-collection">
                             <Egg className="w-4 h-4" />
                             {t.my_collection}
-                          </Button>
-                        </Link>
-                        <Link href="/">
-                          <Button variant="ghost" className="gap-2" data-testid="button-back-to-dashboard-quest">
-                            {lang === "ko" ? "대시보드로" : "Back to Dashboard"}
                           </Button>
                         </Link>
                       </div>
@@ -545,7 +570,51 @@ export default function Quests() {
             </Card>
           )}
 
-          {showPractice ? (
+          {showLearnMore ? (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <BookOpen className="w-6 h-6 text-primary" />
+                  {lang === "ko" ? "맞춤 학습 추천" : "Personalized Next Steps"}
+                </h2>
+                <Button variant="ghost" onClick={() => setShowLearnMore(false)} data-testid="button-back-from-learn-more">
+                  {lang === "ko" ? "퀘스트로 돌아가기" : "Back to Quests"}
+                </Button>
+              </div>
+              <p className="text-muted-foreground mb-6">
+                {lang === "ko"
+                  ? `${user?.skillLevel === "advanced" ? "고급" : user?.skillLevel === "intermediate" ? "중급" : "입문"} 레벨에 맞는 심화 학습 과제입니다.`
+                  : `Curated for your ${user?.skillLevel || "beginner"} level — these activities build real market intuition.`}
+              </p>
+              <div className="space-y-3">
+                {(LEARN_MORE_CONTENT[(user?.skillLevel as keyof typeof LEARN_MORE_CONTENT) || "beginner"]).map((item, idx) => (
+                  <Link href={item.route} key={idx}>
+                    <div
+                      className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
+                      data-testid={`learn-more-item-${idx}`}
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-xl shrink-0 group-hover:bg-primary/20 transition-colors">
+                        {item.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm mb-0.5">{lang === "ko" ? item.ko : item.en}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{lang === "ko" ? item.ko_desc : item.en_desc}</p>
+                      </div>
+                      <div className="shrink-0 flex items-center self-center">
+                        <span className="text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">{lang === "ko" ? "이동 →" : "Go →"}</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-6 flex gap-3">
+                <Button onClick={() => { setShowLearnMore(false); setShowPractice(true); }} className="gap-2" data-testid="button-switch-to-practice">
+                  <Dumbbell className="w-4 h-4" />
+                  {t.practice_more}
+                </Button>
+              </div>
+            </div>
+          ) : showPractice ? (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
