@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Briefcase, Info, TrendingUp, TrendingDown, Minus,
-  PieChart as PieChartIcon, List, Search, ChevronDown, ChevronUp, Globe,
+  PieChart as PieChartIcon, List, Search, Globe,
   RefreshCw, CheckCircle2, ExternalLink, AlertCircle, FileText, CircleDot,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -151,7 +151,6 @@ export default function SuperInvestors() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<InvestorCategory | "all">("all");
-  const [showAllHoldings, setShowAllHoldings] = useState(true);
   const [whyDialogHolding, setWhyDialogHolding] = useState<{
     ticker: string; company: string; en: string; ko: string;
   } | null>(null);
@@ -290,10 +289,8 @@ export default function SuperInvestors() {
   }, [selectedInvestor, real13F, investorHasCIK]);
 
   const displayedHoldings = useMemo(() => {
-    // "Wrong Data = Zero Data": for CIK-mapped investors, only show real data (never static fallback)
-    const src = effectiveHoldings;
-    return showAllHoldings ? src : src.slice(0, 10);
-  }, [effectiveHoldings, showAllHoldings]);
+    return effectiveHoldings;
+  }, [effectiveHoldings]);
 
   // Tickers for live price fetching — US-style tickers (batch 1); KRX/JPN fetched separately below
   const liveQuoteTickers = useMemo(() => {
@@ -1128,21 +1125,14 @@ export default function SuperInvestors() {
                           </Card>
                           );
                         })}
-                        {/* View All / Show Less (mobile) */}
-                        {effectiveHoldings.length > 10 && (
-                          <div className="text-center pt-1">
-                            <Button
-                              variant="ghost"
-                              onClick={() => setShowAllHoldings(!showAllHoldings)}
-                              className="font-bold text-primary hover:text-primary hover:bg-primary/10"
-                              data-testid="button-toggle-holdings-mobile"
-                            >
-                              {showAllHoldings ? (
-                                <><ChevronUp className="w-4 h-4 mr-2" />{lang === "ko" ? "접기" : "Show Less"}</>
-                              ) : (
-                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${effectiveHoldings.length}개)` : `View All ${effectiveHoldings.length} Holdings`}</>
-                              )}
-                            </Button>
+                        {/* All holdings shown — no limit */}
+                        {effectiveHoldings.length > 0 && (
+                          <div className="text-center pt-1 pb-1">
+                            <p className="text-[10px] text-muted-foreground font-medium">
+                              {lang === "ko"
+                                ? `전체 ${effectiveHoldings.length}개 보유 종목`
+                                : `${effectiveHoldings.length} holdings · all shown`}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1327,29 +1317,12 @@ export default function SuperInvestors() {
                           </div>
                         </div>
 
-                        {/* View All / Show Less (desktop) */}
-                        {effectiveHoldings.length > 10 && (
-                          <div className="border-t border-border p-4 text-center">
-                            <Button
-                              variant="ghost"
-                              onClick={() => setShowAllHoldings(!showAllHoldings)}
-                              className="font-bold text-primary hover:text-primary hover:bg-primary/10"
-                              data-testid="button-toggle-holdings"
-                            >
-                              {showAllHoldings ? (
-                                <><ChevronUp className="w-4 h-4 mr-2" />{lang === "ko" ? "접기" : "Show Less"}</>
-                              ) : (
-                                <><ChevronDown className="w-4 h-4 mr-2" />{lang === "ko" ? `전체 보기 (${effectiveHoldings.length}개)` : `View All ${effectiveHoldings.length} Holdings`}</>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                        {effectiveHoldings.length <= 10 && effectiveHoldings.length > 0 && (
+                        {effectiveHoldings.length > 0 && (
                           <div className="border-t border-border px-4 py-3">
                             <p className="text-[10px] text-muted-foreground text-center font-medium">
                               {lang === "ko"
-                                ? `총 ${effectiveHoldings.length}개 보유 종목 · 상위 포지션 기준`
-                                : `${effectiveHoldings.length} holdings shown · Top positions by weight`}
+                                ? `전체 ${effectiveHoldings.length}개 보유 종목 · 상위 포지션 기준`
+                                : `All ${effectiveHoldings.length} holdings shown · Top positions by weight`}
                             </p>
                           </div>
                         )}

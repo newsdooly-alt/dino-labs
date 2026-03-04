@@ -171,15 +171,21 @@ export async function searchStocks(query: string): Promise<SearchResult[]> {
 export async function getStockHistory(
   symbol: string, 
   period: string = '1mo', 
-  interval: string = '1d'
+  interval: string = '1d',
+  start?: string,
+  end?: string,
 ): Promise<HistoryDataPoint[]> {
   const upperSymbol = symbol.toUpperCase();
   
   try {
-    const response = await fetch(
-      `${PYTHON_SERVICE_URL}/history/${upperSymbol}?period=${period}&interval=${interval}`,
-      { signal: AbortSignal.timeout(15000) }
-    );
+    let url = `${PYTHON_SERVICE_URL}/history/${upperSymbol}?interval=${interval}`;
+    if (start) {
+      url += `&start=${start}`;
+      if (end) url += `&end=${end}`;
+    } else {
+      url += `&period=${period}`;
+    }
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

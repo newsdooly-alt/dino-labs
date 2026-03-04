@@ -1155,9 +1155,11 @@ export async function registerRoutes(
     const symbol = req.params.symbol.toUpperCase();
     const period = (req.query.period as string) || '1mo';
     const interval = (req.query.interval as string) || '1d';
+    const start = req.query.start as string | undefined;
+    const end = req.query.end as string | undefined;
     
     try {
-      const history = await getStockHistory(symbol, period, interval);
+      const history = await getStockHistory(symbol, period, interval, start, end);
       res.json({
         symbol,
         period,

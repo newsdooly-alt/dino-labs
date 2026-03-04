@@ -160,6 +160,7 @@ export interface LWChartProps {
   lang?: string;
   className?: string;
   onCrosshairMove?: (data: LWCandlePoint | null) => void;
+  onScrollToStart?: () => void;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -184,11 +185,17 @@ export function LWChart({
   lang = "en",
   className,
   onCrosshairMove,
+  onScrollToStart,
 }: LWChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rsiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const visibleTimeRangeRef = useRef<{ from: Time; to: Time } | null>(null);
+  const scrollFiredRef = useRef(false);
+  const onScrollToStartRef = useRef(onScrollToStart);
+  onScrollToStartRef.current = onScrollToStart;
 
   const colors = maColors ?? MA_COLORS;
 
@@ -538,6 +545,27 @@ export function LWChart({
           if (range) macdChart?.timeScale().setVisibleLogicalRange(range);
         });
       }
+    }
+
+    // ── Visible time-range tracking (preserves scroll position across data updates)
+    mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
+      if (range) visibleTimeRangeRef.current = range as { from: Time; to: Time };
+    });
+
+    // ── Scroll-to-start detection (triggers infinite scroll load-more)
+    scrollFiredRef.current = false;
+    mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (range && range.from <= 2 && !scrollFiredRef.current) {
+        scrollFiredRef.current = true;
+        onScrollToStartRef.current?.();
+      }
+    });
+
+    // ── Restore visible time range after data re-load
+    if (visibleTimeRangeRef.current) {
+      try {
+        mainChart.timeScale().setVisibleRange(visibleTimeRangeRef.current);
+      } catch { /* ignore – range may be outside new data window */ }
     }
 
     // ── ResizeObserver ─────────────────────────────────────────────────────

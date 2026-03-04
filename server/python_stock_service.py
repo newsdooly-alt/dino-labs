@@ -649,10 +649,15 @@ def get_history(symbol):
     """Get historical price data for charts."""
     period = request.args.get('period', '1mo')
     interval = request.args.get('interval', '1d')
+    start = request.args.get('start', None)
+    end = request.args.get('end', None)
     
     try:
         ticker = yf.Ticker(symbol.upper())
-        hist = ticker.history(period=period, interval=interval)
+        if start:
+            hist = ticker.history(start=start, end=end, interval=interval)
+        else:
+            hist = ticker.history(period=period, interval=interval)
         
         if hist.empty:
             return jsonify({"error": "No historical data found", "symbol": symbol}), 404
