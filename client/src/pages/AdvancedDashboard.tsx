@@ -299,13 +299,6 @@ function getStageAnalysis(price: number, sma50: number | null, sma200: number | 
   return { stage: "N/A", desc: "-", color: "#6b7280" };
 }
 
-function formatMarketCap(v: number | null): string {
-  if (!v) return "--";
-  if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
-  if (v >= 1e9)  return `$${(v / 1e9).toFixed(2)}B`;
-  if (v >= 1e6)  return `$${(v / 1e6).toFixed(2)}M`;
-  return `$${v.toLocaleString()}`;
-}
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -341,7 +334,7 @@ export default function AdvancedDashboard() {
   const [, navigate] = useLocation();
   const searchStr = useSearch();
   const { theme } = useTheme();
-  const { formatPrice, isKoreanStock, isJapaneseStock } = useCurrency();
+  const { formatPrice, formatMarketCap, currency, setCurrency, currencySymbol, isKoreanStock, isJapaneseStock } = useCurrency();
   const { data: user } = useUser();
   const lang = (user?.language || "en") as string;
   const t = translations[lang as keyof typeof translations];
@@ -964,13 +957,23 @@ export default function AdvancedDashboard() {
 
             {/* Key Metrics */}
             <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">{lang === "ko" ? "핵심 지표" : "Key Metrics"}</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "핵심 지표" : "Key Metrics"}</p>
+                <button
+                  data-testid="button-currency-toggle"
+                  onClick={() => setCurrency(currency === "usd" ? (isKr ? "krw" : isJp ? "jpy" : "usd") : "usd")}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  title={lang === "ko" ? "통화 전환" : "Toggle currency"}
+                >
+                  {currency.toUpperCase()}
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { lbl: lang === "ko" ? "시가총액" : "Mkt Cap", val: formatMarketCap(info?.marketCap) },
+                  { lbl: lang === "ko" ? "시가총액" : "Mkt Cap", val: formatMarketCap(info?.marketCap, { nativeCurrency }) },
                   { lbl: lang === "ko" ? "PER" : "P/E",          val: info?.peRatio?.toFixed(1) ?? "--" },
-                  { lbl: lang === "ko" ? "52주 고" : "52W High", val: info?.["52WeekHigh"] != null ? `$${info["52WeekHigh"].toFixed(0)}` : "--" },
-                  { lbl: lang === "ko" ? "52주 저" : "52W Low",  val: info?.["52WeekLow"]  != null ? `$${info["52WeekLow"].toFixed(0)}`  : "--" },
+                  { lbl: lang === "ko" ? "52주 고" : "52W High", val: formatPrice(info?.["52WeekHigh"], { nativeCurrency, compact: true }) },
+                  { lbl: lang === "ko" ? "52주 저" : "52W Low",  val: formatPrice(info?.["52WeekLow"],  { nativeCurrency, compact: true }) },
                   { lbl: lang === "ko" ? "베타" : "Beta",         val: info?.beta?.toFixed(2) ?? "--" },
                   { lbl: lang === "ko" ? "배당수익" : "Div Yld",  val: info?.dividendYield != null ? `${(info.dividendYield * 100).toFixed(2)}%` : "--" },
                 ].map(({ lbl, val }) => (

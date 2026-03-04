@@ -708,6 +708,10 @@ def get_info(symbol):
         ticker = yf.Ticker(symbol.upper())
         info = ticker.info
         is_kr = is_korean_ticker(symbol)
+        is_jp = is_japanese_ticker(symbol)
+        
+        native_currency = 'KRW' if is_kr else 'JPY' if is_jp else 'USD'
+        native_region = 'South Korea' if is_kr else 'Japan' if is_jp else 'United States'
         
         result = {
             "symbol": symbol.upper(),
@@ -726,9 +730,10 @@ def get_info(symbol):
             "avgVolume": info.get('averageVolume'),
             "beta": info.get('beta'),
             "pbRatio": info.get('priceToBook'),
-            "region": 'South Korea' if is_kr else 'United States',
-            "currency": 'KRW' if is_kr else 'USD',
+            "region": native_region,
+            "currency": native_currency,
             "isKorean": is_kr,
+            "isJapanese": is_jp,
         }
         
         return jsonify(result)
