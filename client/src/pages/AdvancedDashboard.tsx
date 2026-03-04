@@ -6,23 +6,20 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useUser } from "@/hooks/use-user";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { cleanCompanyName } from "@/lib/stockUtils";
-import { calculateSMA, calculateRSI, calculateBollingerBands, calculateSupportResistance } from "@/lib/technicalAnalysis";
+import { calculateSMA } from "@/lib/technicalAnalysis";
 import { cn } from "@/lib/utils";
 import {
   ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  ReferenceArea, CartesianGrid, ReferenceLine,
+  ReferenceArea, ReferenceLine,
 } from "recharts";
-import { LWChart, type LWCandlePoint } from "@/components/LWChart";
+import { TradingViewChart } from "@/components/TradingViewChart";
 import { Input } from "@/components/ui/input";
 import {
-  TrendingUp, TrendingDown, BarChart3, Activity,
-  CandlestickChart, LineChart as LineChartIcon,
-  RefreshCw, AlertCircle, ChevronRight, Zap,
-  Globe, Star, ArrowUpRight, ArrowDownRight,
+  BarChart3, Activity,
+  ChevronRight, Zap,
+  Globe, Star,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { translations } from "@/lib/translations";
 
 // ── Screener stocks ──────────────────────────────────────────────────
@@ -131,12 +128,6 @@ export default function AdvancedDashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState("NVDA");
   const [mobileTab, setMobileTab] = useState<MobileTab>("chart");
   const [selectedPeriod, setSelectedPeriod] = useState("1m");
-  const [showSR, setShowSR] = useState(true);
-  const [showVolume, setShowVolume] = useState(true);
-  const [showMA, setShowMA] = useState(true);
-  const [chartType, setChartType] = useState<"candle" | "area">("candle");
-  const [showMACD, setShowMACD] = useState(false);
-  const [showRSI, setShowRSI] = useState(false);
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
 
@@ -217,7 +208,7 @@ export default function AdvancedDashboard() {
   const periodConfig = PERIOD_OPTIONS.find(p => p.key === selectedPeriod) ?? PERIOD_OPTIONS[2];
   const isIntraday = selectedPeriod === "1d";
 
-  const { data: history, isLoading: isHistoryLoading, isFetching: isHistoryFetching } = useQuery<any>({
+  const { data: history } = useQuery<any>({
     queryKey: ["/api/stocks/history", selectedSymbol, periodConfig.period, periodConfig.interval],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/history/${selectedSymbol}?period=${periodConfig.period}&interval=${periodConfig.interval}`);
@@ -228,19 +219,11 @@ export default function AdvancedDashboard() {
     staleTime: 60000,
   });
 
-  // Only render chart when data for the EXACT selected period/symbol is confirmed loaded.
-  const isChartReady = !isHistoryLoading && !isHistoryFetching && history?.period === periodConfig.period && history?.symbol === selectedSymbol;
-
   const rawHistory = history?.data ?? [];
   const closes = rawHistory.map((d: any) => d.close as number);
 
   const sma50  = calculateSMA(closes, 50);
   const sma200 = calculateSMA(closes, 200);
-  const srLevels = useMemo(() => {
-    if (isIntraday || closes.length < 20) return { supports: [], resistances: [] };
-    return calculateSupportResistance(closes, 2);
-  }, [closes, isIntraday]);
-
   const chartData = useMemo(() => {
     return rawHistory.map((d: any, i: number) => {
       const dt = new Date(d.date);
@@ -259,19 +242,6 @@ export default function AdvancedDashboard() {
     });
   }, [rawHistory, sma50, sma200, isIntraday, lang]);
 
-  const lwChartData = useMemo((): LWCandlePoint[] => {
-    return rawHistory.map((d: any, i: number) => ({
-      date: d.date,
-      open: d.open || d.close,
-      high: d.high || d.close,
-      low: d.low || d.close,
-      close: d.close,
-      volume: d.volume ?? 0,
-      changePct: i > 0 && rawHistory[i - 1].close > 0
-        ? ((d.close - rawHistory[i - 1].close) / rawHistory[i - 1].close) * 100
-        : 0,
-    }));
-  }, [rawHistory]);
 
 
   const periodReturnPct = selectedPeriod === "1d"
@@ -375,10 +345,10 @@ export default function AdvancedDashboard() {
 
   const ChartPanel = () => (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header with price + period tabs */}
+      {/* Header: price + period tabs */}
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50 flex-shrink-0 flex-wrap">
         <div>
-          <span className="text-xs font-bold text-muted-foreground truncate max-w-[120px] block">{displayName}</span>
+          <span className="text-xs font-bold text-muted-foreground truncate max-w-[140px] block">{displayName}</span>
           <div className="flex items-center gap-2">
             {isQuoteLoading ? <div className="h-5 w-16 bg-muted rounded animate-pulse" /> : (
               <span className="text-base font-bold font-mono">{formatPrice(quote?.price, { nativeCurrency })}</span>
@@ -391,76 +361,23 @@ export default function AdvancedDashboard() {
         <div className="flex gap-0.5 flex-wrap">
           {PERIOD_OPTIONS.map(opt => (
             <button key={opt.key} onClick={() => setSelectedPeriod(opt.key)}
-              className={cn("px-2 py-0.5 text-[11px] font-semibold rounded", selectedPeriod === opt.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+              className={cn("px-2 py-0.5 text-[11px] font-semibold rounded transition-colors", selectedPeriod === opt.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
               data-testid={`adv-period-${opt.key}`}
             >{opt.label}</button>
           ))}
         </div>
       </div>
 
-      {/* Indicator toggles */}
-      <div className="flex gap-1.5 px-3 py-1.5 border-b border-border/30 flex-wrap flex-shrink-0">
-        {[
-          { key: "sr",   label: lang === "ko" ? "S/R선" : "S/R",   state: showSR,     set: () => setShowSR(v => !v),     cls: "text-amber-500 bg-amber-500/10 border-amber-500/30" },
-          { key: "vol",  label: lang === "ko" ? "거래량" : "Vol",   state: showVolume, set: () => setShowVolume(v => !v), cls: "text-blue-500 bg-blue-500/10 border-blue-500/30" },
-          { key: "ma",   label: "MA 50/200",                         state: showMA,     set: () => setShowMA(v => !v),     cls: "text-orange-500 bg-orange-500/10 border-orange-500/30" },
-          { key: "rsi",  label: "RSI",                               state: showRSI,    set: () => setShowRSI(v => !v),    cls: "text-purple-500 bg-purple-500/10 border-purple-500/30" },
-          { key: "macd", label: "MACD",                              state: showMACD,   set: () => setShowMACD(v => !v),   cls: "text-indigo-500 bg-indigo-500/10 border-indigo-500/30" },
-        ].map(btn => (
-          <button key={btn.key} onClick={btn.set}
-            className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all", btn.state ? btn.cls : "text-muted-foreground bg-muted/30 border-border")}
-            data-testid={`adv-toggle-${btn.key}`}
-          >{btn.label}</button>
-        ))}
-        <div className="flex ml-auto gap-0.5">
-          <button onClick={() => setChartType("candle")} className={cn("flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border", chartType === "candle" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground border-border")} data-testid="adv-candle">
-            <CandlestickChart className="w-3 h-3" />{lang === "ko" ? "캔들" : "Candle"}
-          </button>
-          <button onClick={() => setChartType("area")} className={cn("flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border", chartType === "area" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground border-border")} data-testid="adv-area">
-            <LineChartIcon className="w-3 h-3" />{lang === "ko" ? "라인" : "Line"}
-          </button>
-        </div>
-      </div>
-
-      {/* MA legend */}
-      {showMA && !isIntraday && (
-        <div className="flex items-center gap-3 px-3 py-1 flex-shrink-0">
-          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500"><span className="w-4 h-0.5 bg-amber-500 inline-block" />SMA 50</span>
-          <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500"><span className="w-4 h-0.5 bg-rose-500 inline-block" />SMA 200</span>
-        </div>
-      )}
-
-      {/* Main chart */}
-      <div className="flex-1 overflow-hidden min-h-0 px-1 flex flex-col">
-        {!isChartReady ? (
-          <div className="h-full flex items-center justify-center">
-            <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : lwChartData.length > 0 ? (
-          <LWChart
-            data={lwChartData}
-            height={showMACD || showRSI ? 220 : 280}
-            isDark={isDark}
-            formatPrice={(v, opts) => formatPrice(v, { nativeCurrency, ...(opts || {}) })}
-            nativeCurrency={nativeCurrency}
-            isIntraday={isIntraday}
-            chartType={chartType === "area" ? "area" : "candle"}
-            showVolume={showVolume}
-            showMA={showMA && !isIntraday}
-            maPeriods={[50, 200]}
-            maColors={["#f59e0b", "#ef4444"]}
-            showRSI={showRSI && !isIntraday}
-            showMACD={showMACD && !isIntraday}
-            showSR={showSR}
-            srLevels={srLevels}
-            lang={lang}
-            className="flex-1"
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-            <AlertCircle className="w-4 h-4 mr-2" />{lang === "ko" ? "데이터 없음" : "No data"}
-          </div>
-        )}
+      {/* TradingView Chart — fills remaining space */}
+      <div className="flex-1 min-h-0">
+        <TradingViewChart
+          symbol={selectedSymbol}
+          periodKey={selectedPeriod}
+          chartType="candle"
+          isDark={isDark}
+          lang={lang === "ko" ? "ko" : "en"}
+          fillContainer
+        />
       </div>
     </div>
   );

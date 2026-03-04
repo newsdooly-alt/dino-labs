@@ -73,9 +73,10 @@ export interface TradingViewChartProps {
   periodKey?: string;
   chartType?: "candle" | "area" | "line";
   isDark?: boolean;
-  height?: number;
+  height?: number | string;
   lang?: string;
   className?: string;
+  fillContainer?: boolean;
 }
 
 export function TradingViewChart({
@@ -86,6 +87,7 @@ export function TradingViewChart({
   height = 500,
   lang = "en",
   className,
+  fillContainer = false,
 }: TradingViewChartProps) {
   const wrapRef  = useRef<HTMLDivElement>(null);
   const idRef    = useRef(`tv_${++_counter}`);
@@ -122,16 +124,33 @@ export function TradingViewChart({
         style,
         locale: lang === "ko" ? "ko" : "en",
         toolbar_bg: isDark ? "#0f172a" : "#f9fafb",
-        withdateranges: true,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        save_image: false,
+
+        withdateranges:     true,
+        hide_top_toolbar:   false,
+        hide_side_toolbar:  false,
+        hide_legend:        false,
         allow_symbol_change: true,
-        details: false,
-        hotlist: false,
-        calendar: false,
-        show_popup_button: false,
-        studies: [],
+        save_image:         false,
+        enable_publishing:  false,
+
+        studies: ["Volume@tv-basicstudies"],
+
+        studies_overrides: {
+          "volume.volume.color.0":      "#ef4444",
+          "volume.volume.color.1":      "#22c55e",
+          "volume.volume ma.visible":   false,
+          "volume.show ma":             false,
+        },
+
+        overrides: {
+          "mainSeriesProperties.showCountdown": true,
+          "paneProperties.backgroundType":       isDark ? "solid" : "solid",
+          "paneProperties.background":           isDark ? "#0f172a" : "#ffffff",
+          "paneProperties.gridLinesMode":        1,
+          "paneProperties.horzGridProperties.color": isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+          "paneProperties.vertGridProperties.color": isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+          "scalesProperties.showStudyLastValue":  true,
+        },
       });
     };
 
@@ -141,15 +160,20 @@ export function TradingViewChart({
       cleanRef.current = true;
       if (wrap) wrap.innerHTML = "";
     };
-  // Recreate widget when any of these change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, periodKey, chartType, isDark, lang]);
+
+  const heightStyle = fillContainer
+    ? { height: "100%", minHeight: 0 }
+    : typeof height === "string"
+      ? { height, minHeight: 240 }
+      : { height, minHeight: height };
 
   return (
     <div
       ref={wrapRef}
       className={cn("w-full overflow-hidden", className)}
-      style={{ height, minHeight: height }}
+      style={heightStyle}
     />
   );
 }
