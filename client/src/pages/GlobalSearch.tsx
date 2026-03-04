@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { Search, TrendingUp, TrendingDown, Loader2, Globe, Sparkles } from "lucide-react";
@@ -90,11 +90,23 @@ export default function GlobalSearch() {
   const isKo  = lang === "ko";
   const { formatPrice } = useCurrency();
 
-  // Sync query when URL param changes (e.g. Dashboard navigates here)
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isUserTyping = useRef(false);
+
+  // Focus input on mount (more reliable than autoFocus on mobile)
+  useEffect(() => {
+    const timer = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Sync query when URL param changes (e.g. Dashboard navigates here with ?q=)
+  // Only sync when user is NOT actively typing (prevents resetting in-progress input)
   useEffect(() => {
     const q = new URLSearchParams(searchStr).get("q") || "";
-    setQuery(q);
-    setDebounced(q);
+    if (!isUserTyping.current) {
+      setQuery(q);
+      setDebounced(q);
+    }
   }, [searchStr]);
 
   // Debounce typed query
@@ -208,13 +220,17 @@ export default function GlobalSearch() {
           <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
         )}
         <Input
+          ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            isUserTyping.current = true;
+            setQuery(e.target.value);
+          }}
+          onBlur={() => { isUserTyping.current = false; }}
           placeholder={isKo
             ? "도요타, 삼성전자, 엔비디아, AAPL…"
             : "Search by name, ticker, or Korean name…"}
           className="pl-12 pr-12 h-14 text-base rounded-2xl border-border bg-card shadow-sm"
-          autoFocus
           data-testid="input-global-search"
         />
       </motion.div>

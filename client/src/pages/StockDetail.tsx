@@ -328,7 +328,7 @@ export default function StockDetail() {
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">{lang === "ko" ? "TradingView 내장 툴바에서 기간·차트 유형을 변경하세요" : "Use the TradingView toolbar to change period & chart type"}</p>
             <button
-              onClick={() => setShowProModal(true)}
+              onClick={() => navigate(`/pro?symbol=${encodeURIComponent(symbol)}`)}
               className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition-all bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20 text-violet-600 dark:text-violet-400 border-violet-400/30 hover:border-violet-400/60 touch-manipulation whitespace-nowrap"
               data-testid="button-pro-analysis"
             >

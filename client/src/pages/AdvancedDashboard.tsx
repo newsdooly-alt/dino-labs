@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import React, { useState, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useUser } from "@/hooks/use-user";
@@ -136,6 +136,7 @@ const SUPER_INVESTOR_TIPS = [
 // ── Main Component ────────────────────────────────────────────────────
 export default function AdvancedDashboard() {
   const [, navigate] = useLocation();
+  const searchStr = useSearch();
   const { theme } = useTheme();
   const { formatPrice, isKoreanStock, isJapaneseStock } = useCurrency();
   const { data: user } = useUser();
@@ -147,8 +148,22 @@ export default function AdvancedDashboard() {
   const tooltipBg = isDark ? "#111827" : "#ffffff";
   const tooltipBorder = isDark ? "#374151" : "#e5e7eb";
 
-  // UI state
-  const [selectedSymbol, setSelectedSymbol] = useState("NVDA");
+  // Read ticker from URL param (?symbol=AAPL) — set by Pro Dashboard button in StockDetail
+  const urlSymbol = useMemo(() => {
+    const s = new URLSearchParams(searchStr).get("symbol");
+    return s ? s.toUpperCase() : null;
+  }, [searchStr]);
+
+  // UI state — initialise from URL param if present, otherwise default to NVDA
+  const [selectedSymbol, setSelectedSymbol] = useState(() => urlSymbol || "NVDA");
+
+  // If symbol from URL isn't in our screener list, track it as an extra symbol
+  const isExtraSymbol = urlSymbol && !SCREENER_STOCKS.some(s => s.symbol === urlSymbol);
+
+  // Sync selectedSymbol when URL param changes (e.g. user navigates from a different stock)
+  React.useEffect(() => {
+    if (urlSymbol) setSelectedSymbol(urlSymbol);
+  }, [urlSymbol]);
   const [mobileTab, setMobileTab] = useState<MobileTab>("earnings");
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
@@ -283,6 +298,21 @@ export default function AdvancedDashboard() {
   const StockChipStrip = () => (
     <div className="overflow-x-auto border-b border-border/30 flex-shrink-0" style={{ WebkitOverflowScrolling: "touch" }}>
       <div className="flex gap-1 px-2 py-1.5" style={{ minWidth: "max-content" }}>
+        {/* Extra symbol chip (when navigated from a stock not in screener list) */}
+        {isExtraSymbol && urlSymbol && (
+          <button
+            key={urlSymbol}
+            onClick={() => setSelectedSymbol(urlSymbol)}
+            className={cn(
+              "flex flex-col items-center px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors shrink-0 border border-violet-400/40",
+              selectedSymbol === urlSymbol ? "bg-primary/20 text-primary border-primary/40" : "text-violet-400 bg-violet-500/10 hover:bg-violet-500/20"
+            )}
+            data-testid={`stock-chip-extra-${urlSymbol}`}
+          >
+            <span>🔍 {urlSymbol.replace(".KS", "").replace(".KQ", "").replace(".T", "")}</span>
+            <span className="text-[9px] text-muted-foreground">{lang === "ko" ? "탐색 중" : "Browsing"}</span>
+          </button>
+        )}
         {SCREENER_STOCKS.map(s => {
           const isSelected = s.symbol === selectedSymbol;
           const q = screenerData?.quotes?.find(q => q.symbol === s.symbol);
@@ -329,6 +359,23 @@ export default function AdvancedDashboard() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto border-t border-border/30">
+        {isExtraSymbol && urlSymbol && (
+          <button onClick={() => setSelectedSymbol(urlSymbol)}
+            className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
+              selectedSymbol === urlSymbol ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
+            data-testid={`screener-stock-extra-${urlSymbol}`}>
+            <span className="text-sm shrink-0">🔍</span>
+            <div className="flex-1 min-w-0">
+              <p className={cn("text-xs font-bold truncate", selectedSymbol === urlSymbol ? "text-primary" : "text-violet-400")}>
+                {quote?.name ? cleanCompanyName(quote.name) : urlSymbol}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{urlSymbol}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[9px] text-violet-400 font-medium">{lang === "ko" ? "탐색 중" : "Browsing"}</p>
+            </div>
+          </button>
+        )}
         {isScreenerLoading ? (
           <div className="p-3 space-y-1.5">{Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}</div>
         ) : screenerRows.map(row => {
@@ -496,8 +543,8 @@ export default function AdvancedDashboard() {
                   {lang === "ko" ? "📊 과거 실적" : "📊 Past Earnings"}
                 </p>
                 {/* Header row */}
-                <div className="grid grid-cols-4 gap-1 mb-1.5 px-0.5">
-                  {[lang === "ko" ? "분기" : "Quarter", lang === "ko" ? "시장 예상치" : "Est.", lang === "ko" ? "실제 발표치" : "Act.", lang === "ko" ? "서프라이즈" : "Surp"].map(h => (
+                <div className="grid grid-cols-3 gap-1 mb-1.5 px-0.5">
+                  {[lang === "ko" ? "분기" : "Quarter", lang === "ko" ? "시장 예상치" : "Est. EPS", lang === "ko" ? "실제 발표치" : "Act. EPS"].map(h => (
                     <p key={h} className="text-[8px] font-bold text-muted-foreground uppercase tracking-wide">{h}</p>
                   ))}
                 </div>
@@ -507,7 +554,7 @@ export default function AdvancedDashboard() {
                     const beat = hasBeatMiss && h.epsActual > h.epsEstimate;
                     const miss = hasBeatMiss && h.epsActual < h.epsEstimate;
                     return (
-                      <div key={i} className={cn("grid grid-cols-4 gap-1 items-center rounded-lg px-1.5 py-1",
+                      <div key={i} className={cn("grid grid-cols-3 gap-1 items-center rounded-lg px-1.5 py-1",
                         beat ? "bg-emerald-500/8 border border-emerald-500/20" :
                         miss ? "bg-rose-500/8 border border-rose-500/20" : "bg-background/30")}>
                         <span className="text-[9px] text-muted-foreground font-mono">
@@ -519,11 +566,6 @@ export default function AdvancedDashboard() {
                         <span className={cn("text-[9px] font-mono font-bold",
                           beat ? "text-emerald-500" : miss ? "text-rose-500" : "text-foreground")}>
                           ${h.epsActual.toFixed(2)}
-                        </span>
-                        <span className={cn("text-[9px] font-bold",
-                          h.surprisePct != null ? (h.surprisePct > 0 ? "text-emerald-500" : h.surprisePct < 0 ? "text-rose-500" : "text-muted-foreground") :
-                          beat ? "text-emerald-500" : miss ? "text-rose-500" : "text-muted-foreground")}>
-                          {h.surprisePct != null ? `${h.surprisePct > 0 ? "+" : ""}${h.surprisePct.toFixed(1)}%` : beat ? "Beat" : miss ? "Miss" : "--"}
                         </span>
                       </div>
                     );
@@ -631,6 +673,42 @@ export default function AdvancedDashboard() {
             ))}
           </div>
         </div>
+
+        {/* RRG Status Summary */}
+        {(() => {
+          const counts: Record<string, number> = {};
+          SECTOR_QUADRANTS.forEach(s => { counts[s.q] = (counts[s.q] || 0) + 1; });
+          const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "leading";
+          const statusConfig: Record<string, { color: string; bgColor: string; borderColor: string; en: string; ko: string }> = {
+            leading:   { color: "text-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/25", en: "Strong momentum — sectors are leading the market.", ko: "강한 모멘텀 — 섹터들이 시장을 선도하고 있습니다." },
+            weakening: { color: "text-yellow-500",  bgColor: "bg-yellow-500/10",  borderColor: "border-yellow-500/25",  en: "Slowing down — potential profit-taking zone.",    ko: "둔화 중 — 차익 실현 구간에 접어들 수 있습니다." },
+            lagging:   { color: "text-rose-500",    bgColor: "bg-rose-500/10",    borderColor: "border-rose-500/25",    en: "Underperforming — wait for a reversal signal.",  ko: "저성과 — 반전 신호를 기다리세요." },
+            improving: { color: "text-indigo-500",  bgColor: "bg-indigo-500/10",  borderColor: "border-indigo-500/25",  en: "Gaining strength — showing recovery signs.",     ko: "회복 중 — 강세로의 전환 조짐이 보입니다." },
+          };
+          const cfg = statusConfig[dominant] || statusConfig.leading;
+          const dominantLabel = dominant === "leading" ? (lang === "ko" ? "선도" : "Leading") :
+            dominant === "weakening" ? (lang === "ko" ? "약화" : "Weakening") :
+            dominant === "lagging"   ? (lang === "ko" ? "지연" : "Lagging") :
+            (lang === "ko" ? "회복" : "Improving");
+          return (
+            <div className={cn("rounded-xl p-3 border text-xs", cfg.bgColor, cfg.borderColor)} data-testid="rrg-status-box">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+                {lang === "ko" ? "RRG 현황" : "RRG Status"}
+              </p>
+              <p className={cn("font-semibold leading-snug", cfg.color)}>
+                <span className="font-bold">{dominantLabel}:</span> {lang === "ko" ? cfg.ko : cfg.en}
+              </p>
+              <div className="flex gap-2 mt-1.5 flex-wrap">
+                {Object.entries(counts).map(([q, n]) => (
+                  <span key={q} className="text-[9px] text-muted-foreground">
+                    {q === "leading" ? "↗" : q === "weakening" ? "↘" : q === "lagging" ? "↙" : "↗"} {q} {n}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         <button onClick={() => navigate("/market-trends")}
           className="text-[10px] text-primary hover:underline flex items-center gap-1 justify-center py-1 w-full">
           <Globe className="w-3 h-3" />{lang === "ko" ? "전체 RRG 보기 →" : "Full RRG Chart →"}
