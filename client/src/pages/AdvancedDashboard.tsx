@@ -12,7 +12,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ReferenceArea, ReferenceLine,
 } from "recharts";
-import { TradingViewChart } from "@/components/TradingViewChart";
+import { GlobalChart } from "@/components/GlobalChart";
 import { Input } from "@/components/ui/input";
 import {
   Activity, ChevronRight, Zap, Globe,
@@ -1249,7 +1249,7 @@ export default function AdvancedDashboard() {
 
         {/* TradingView Chart — fixed 50vh */}
         <div className="w-full flex-shrink-0 overflow-hidden" style={{ height: "50vh", minHeight: 260, maxHeight: 480 }}>
-          <TradingViewChart
+          <GlobalChart
             symbol={selectedSymbol}
             periodKey="1m"
             chartType="candle"
@@ -1316,7 +1316,7 @@ export default function AdvancedDashboard() {
         <div className="flex-1 min-w-0 border-r border-border/50 overflow-hidden flex flex-col">
           {ChartHeader()}
           <div className="flex-1 min-h-0">
-            <TradingViewChart
+            <GlobalChart
               symbol={selectedSymbol}
               periodKey="1m"
               chartType="candle"

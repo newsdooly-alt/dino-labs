@@ -22,7 +22,7 @@ import { translations } from "@/lib/translations";
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { TradingViewChart } from "@/components/TradingViewChart";
+import { GlobalChart } from "@/components/GlobalChart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
@@ -339,7 +339,7 @@ export default function StockDetail() {
         </CardHeader>
 
         <CardContent className="p-0">
-          <TradingViewChart
+          <GlobalChart
             symbol={symbol}
             periodKey="1m"
             chartType="candle"
