@@ -527,13 +527,11 @@ export default function AdvancedDashboard() {
   const rrgXDomain: [number, number] = [Math.min(rrgXMin, 98), Math.max(rrgXMax, 102)];
   const rrgYDomain: [number, number] = [Math.min(rrgYMin, 98), Math.max(rrgYMax, 102)];
 
-  // ── EPS formatter — uses native currency of selected symbol ─────────
+  // ── EPS formatter — respects global currency conversion ─────────────
   const formatEps = React.useCallback((value: number | null | undefined): string => {
     if (value == null) return "--";
-    if (nativeCurrency === "KRW") return `₩${Math.round(value).toLocaleString("ko-KR")}`;
-    if (nativeCurrency === "JPY") return `¥${Math.round(value).toLocaleString("ja-JP")}`;
-    return `$${value.toFixed(2)}`;
-  }, [nativeCurrency]);
+    return formatPrice(value, { nativeCurrency });
+  }, [nativeCurrency, formatPrice]);
 
   const positiveRS = screenerRows.filter(s => s.rs > 0).length;
   const breadthPct = screenerRows.length > 0 ? Math.round((positiveRS / screenerRows.length) * 100) : 0;
@@ -630,10 +628,8 @@ export default function AdvancedDashboard() {
         const tickerName = getNameByTicker(row.symbol, lang);
         const localizedName = tickerName ?? getLocalizedCompanyName(cleanCompanyName(row.name || ""), lang);
         const price = typeof row.price === "number" ? row.price : null;
-        const priceFmt = price == null ? "--"
-          : isKrRow ? `₩${Math.round(price).toLocaleString()}`
-          : isJpRow ? `¥${Math.round(price).toLocaleString()}`
-          : `$${price.toFixed(2)}`;
+        const rowNativeCurrency = isKrRow ? "KRW" : isJpRow ? "JPY" : "USD";
+        const priceFmt = price == null ? "--" : formatPrice(price, { nativeCurrency: rowNativeCurrency });
         const displaySymbol = isKrRow
           ? row.symbol.replace(".KS", "").replace(".KQ", "")
           : row.symbol;
@@ -754,10 +750,10 @@ export default function AdvancedDashboard() {
               <div className="p-3 space-y-1.5">{Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}</div>
             ) : screenerRows.map(row => {
               const isSelected = row.symbol === selectedSymbol;
-              const isKrStock = row.symbol.endsWith(".KS") || row.symbol.endsWith(".KQ");
+              const rowNativeCurrency = row.symbol.endsWith(".KS") || row.symbol.endsWith(".KQ") ? "KRW"
+                : row.symbol.endsWith(".T") ? "JPY" : "USD";
               const priceFmt = row.price == null ? "--"
-                : isKrStock ? `₩${Math.round(row.price).toLocaleString()}`
-                : `$${row.price.toFixed(2)}`;
+                : formatPrice(row.price, { nativeCurrency: rowNativeCurrency });
               const displayN = getNameByTicker(row.symbol, lang) ?? getLocalizedCompanyName(cleanCompanyName(row.name), lang);
               return (
                 <button key={row.symbol} onClick={() => setSelectedSymbol(row.symbol)}
