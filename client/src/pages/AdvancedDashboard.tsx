@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import {
   Activity, ChevronRight, Zap, Globe,
   Calendar, Maximize2, Minimize2, DollarSign,
-  TrendingUp, BarChart3, Lightbulb,
+  TrendingUp, BarChart3, Lightbulb, Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { translations } from "@/lib/translations";
@@ -46,8 +46,6 @@ const ALL_SYMS_WITH_SPY = ["SPY", ...SCREENER_SYMS].join(",");
 
 // History period used for Stage Analysis SMA calculations only
 const HISTORY_PERIOD = { period: "1mo", interval: "1d" };
-
-type MobileTab = "earnings" | "rrg" | "insights";
 
 // ── Sector RRG data ──────────────────────────────────────────────────
 const SECTOR_QUADRANTS = [
@@ -164,11 +162,13 @@ export default function AdvancedDashboard() {
   React.useEffect(() => {
     if (urlSymbol) setSelectedSymbol(urlSymbol);
   }, [urlSymbol]);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("earnings");
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
   const [rrgFocused, setRrgFocused] = useState(false);
   const [showAllInvestors, setShowAllInvestors] = useState(false);
+  const [mobileSearchInput, setMobileSearchInput] = useState("");
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const isUserTypingMobile = useRef(false);
 
   const isKr = isKoreanStock(selectedSymbol);
   const isJp = isJapaneseStock(selectedSymbol);
@@ -869,9 +869,48 @@ export default function AdvancedDashboard() {
 
       {/* ══════════════════════════════════════════════════════════════
           MOBILE LAYOUT (< md)
-          Stock chips → Chart (60vh) → Tabs → Scrollable content
+          Search → Chips → Price → Chart (50vh) → RRG → Earnings → Investors
       ══════════════════════════════════════════════════════════════ */}
-      <div className="md:hidden flex flex-col">
+      <div className="md:hidden flex flex-col w-full overflow-x-hidden" style={{ maxWidth: "100vw" }}>
+
+        {/* ── Mobile symbol search bar ───────────────────────────── */}
+        <div className="px-3 py-2 border-b border-border/30 bg-background/95">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const val = mobileSearchInput.trim().toUpperCase();
+              if (val) {
+                setSelectedSymbol(val);
+                setMobileSearchInput("");
+                isUserTypingMobile.current = false;
+              }
+            }}
+            className="relative flex items-center gap-2"
+          >
+            <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              ref={mobileSearchRef}
+              value={mobileSearchInput}
+              onChange={(e) => {
+                isUserTypingMobile.current = true;
+                setMobileSearchInput(e.target.value.toUpperCase());
+              }}
+              onBlur={() => { isUserTypingMobile.current = false; }}
+              placeholder={lang === "ko" ? "종목 검색 (예: AAPL)" : "Search symbol (e.g. AAPL)"}
+              className="h-9 text-sm pl-9 pr-4 bg-muted/50 border-border/50"
+              autoComplete="off"
+              autoCapitalize="characters"
+              data-testid="input-mobile-pro-search"
+            />
+            <button
+              type="submit"
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-bold border border-primary/30 hover:bg-primary/25 transition-colors"
+              data-testid="button-mobile-pro-search-submit"
+            >
+              {lang === "ko" ? "조회" : "Go"}
+            </button>
+          </form>
+        </div>
 
         {/* Stock chip horizontal strip */}
         <StockChipStrip />
@@ -898,8 +937,8 @@ export default function AdvancedDashboard() {
           )}
         </div>
 
-        {/* TradingView Chart — fixed 60vh */}
-        <div className="w-full flex-shrink-0" style={{ height: "60vh", minHeight: 280, maxHeight: 520 }}>
+        {/* TradingView Chart — fixed 50vh */}
+        <div className="w-full flex-shrink-0 overflow-hidden" style={{ height: "50vh", minHeight: 260, maxHeight: 480 }}>
           <TradingViewChart
             symbol={selectedSymbol}
             periodKey="1m"
@@ -910,32 +949,19 @@ export default function AdvancedDashboard() {
           />
         </div>
 
-        {/* Tab nav — directly below chart */}
-        <div className="flex border-b border-border bg-background sticky top-[49px] z-10">
-          {([
-            { key: "earnings" as MobileTab, icon: Calendar,   label: lang === "ko" ? "실적" : "Earnings" },
-            { key: "rrg"      as MobileTab, icon: BarChart3,  label: "RRG" },
-            { key: "insights" as MobileTab, icon: Lightbulb,  label: lang === "ko" ? "인사이트" : "Insights" },
-          ]).map(tab => (
-            <button key={tab.key} onClick={() => setMobileTab(tab.key)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-colors",
-                mobileTab === tab.key
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              data-testid={`mobile-tab-${tab.key}`}>
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </button>
-          ))}
+        {/* RRG Section */}
+        <div className="w-full border-t border-border/30">
+          <RRGChartPanel />
         </div>
 
-        {/* Tab content — scrollable, natural height */}
-        <div className="w-full">
-          {mobileTab === "earnings" && <EarningsPanel />}
-          {mobileTab === "rrg"      && <RRGChartPanel />}
-          {mobileTab === "insights" && <InsightsPanel />}
+        {/* Earnings Section */}
+        <div className="w-full border-t border-border/30">
+          <EarningsPanel />
+        </div>
+
+        {/* Super Investors — full list with scroll toggle */}
+        <div className="w-full border-t border-border/30 pb-6">
+          <InsightsPanel />
         </div>
       </div>
 
