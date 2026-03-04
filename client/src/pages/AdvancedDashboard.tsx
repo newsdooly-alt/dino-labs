@@ -15,8 +15,9 @@ import {
 import { TradingViewChart } from "@/components/TradingViewChart";
 import { Input } from "@/components/ui/input";
 import {
-  BarChart3, Activity, ChevronRight, Zap, Globe, Star,
-  Calendar, TrendingUp, Maximize2, Minimize2, DollarSign,
+  Activity, ChevronRight, Zap, Globe,
+  Calendar, Maximize2, Minimize2, DollarSign,
+  TrendingUp, BarChart3, Lightbulb,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { translations } from "@/lib/translations";
@@ -43,16 +44,10 @@ const SCREENER_STOCKS = [
 const SCREENER_SYMS = SCREENER_STOCKS.map(s => s.symbol);
 const ALL_SYMS_WITH_SPY = ["SPY", ...SCREENER_SYMS].join(",");
 
-const PERIOD_OPTIONS = [
-  { key: "1d",  label: "1D",  period: "1d",  interval: "5m"  },
-  { key: "1w",  label: "1W",  period: "5d",  interval: "15m" },
-  { key: "1m",  label: "1M",  period: "1mo", interval: "1d"  },
-  { key: "1y",  label: "1Y",  period: "1y",  interval: "1wk" },
-  { key: "5y",  label: "5Y",  period: "5y",  interval: "1wk" },
-  { key: "all", label: "ALL", period: "max", interval: "1mo" },
-];
+// History period used for Stage Analysis SMA calculations only
+const HISTORY_PERIOD = { period: "1mo", interval: "1d" };
 
-type MobileTab = "chart" | "rrg" | "earnings";
+type MobileTab = "earnings" | "rrg" | "insights";
 
 // ── Sector RRG data ──────────────────────────────────────────────────
 const SECTOR_QUADRANTS = [
@@ -113,9 +108,17 @@ function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
   const now = new Date();
   const target = new Date(dateStr);
-  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+// ── Super Investor Tips ───────────────────────────────────────────────
+const SUPER_INVESTOR_TIPS = [
+  { name: "Warren Buffett", tip: "en: Buy wonderful companies at fair prices, not fair companies at wonderful prices.", tipKo: "훌륭한 회사를 공정한 가격에 사세요. 공정한 회사를 훌륭한 가격에 사지 마세요." },
+  { name: "Peter Lynch", tip: "Invest in what you know. The best investments are often hiding in plain sight.", tipKo: "아는 것에 투자하세요. 최고의 투자는 종종 눈앞에 있습니다." },
+  { name: "Charlie Munger", tip: "Invert, always invert. Avoiding stupidity is easier than seeking brilliance.", tipKo: "항상 뒤집어 생각하세요. 어리석음을 피하는 것이 탁월함을 추구하는 것보다 쉽습니다." },
+  { name: "Howard Marks", tip: "The most important thing is understanding market cycles and where we stand in them.", tipKo: "가장 중요한 것은 시장 사이클을 이해하고 우리가 어디에 있는지 파악하는 것입니다." },
+  { name: "Ray Dalio", tip: "Diversify well. No one asset is always better; balance is the key to all-weather investing.", tipKo: "잘 분산하세요. 어떤 자산도 항상 좋지 않습니다. 균형이 전천후 투자의 핵심입니다." },
+];
 
 // ── Main Component ────────────────────────────────────────────────────
 export default function AdvancedDashboard() {
@@ -133,11 +136,11 @@ export default function AdvancedDashboard() {
 
   // UI state
   const [selectedSymbol, setSelectedSymbol] = useState("NVDA");
-  const [mobileTab, setMobileTab] = useState<MobileTab>("chart");
-  const [selectedPeriod, setSelectedPeriod] = useState("1m");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("earnings");
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
   const [rrgFocused, setRrgFocused] = useState(false);
+  const [tipIndex] = useState(() => Math.floor(Math.random() * SUPER_INVESTOR_TIPS.length));
 
   const isKr = isKoreanStock(selectedSymbol);
   const isJp = isJapaneseStock(selectedSymbol);
@@ -185,8 +188,6 @@ export default function AdvancedDashboard() {
     });
   }, [screenerData, spyChange, screenerSort, screenerSearch, lang]);
 
-  const selectedScreenerInfo = SCREENER_STOCKS.find(s => s.symbol === selectedSymbol);
-
   // ── Live quote ─────────────────────────────────────────────────────
   const { data: quote, isLoading: isQuoteLoading } = useQuery<any>({
     queryKey: ["/api/stocks/live", selectedSymbol],
@@ -200,7 +201,7 @@ export default function AdvancedDashboard() {
     refetchInterval: 30000,
   });
 
-  // ── Stock info (fundamentals) ──────────────────────────────────────
+  // ── Stock info ─────────────────────────────────────────────────────
   const { data: info } = useQuery<any>({
     queryKey: ["/api/stocks/info", selectedSymbol, lang],
     queryFn: async () => {
@@ -224,14 +225,11 @@ export default function AdvancedDashboard() {
     staleTime: 6 * 60 * 60 * 1000,
   });
 
-  // ── History (for Stage Analysis) ───────────────────────────────────
-  const periodConfig = PERIOD_OPTIONS.find(p => p.key === selectedPeriod) ?? PERIOD_OPTIONS[2];
-  const isIntraday = selectedPeriod === "1d";
-
+  // ── History for Stage Analysis SMA ─────────────────────────────────
   const { data: history } = useQuery<any>({
-    queryKey: ["/api/stocks/history", selectedSymbol, periodConfig.period, periodConfig.interval],
+    queryKey: ["/api/stocks/history", selectedSymbol, HISTORY_PERIOD.period, HISTORY_PERIOD.interval],
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/history/${selectedSymbol}?period=${periodConfig.period}&interval=${periodConfig.interval}`);
+      const res = await fetch(`/api/stocks/history/${selectedSymbol}?period=${HISTORY_PERIOD.period}&interval=${HISTORY_PERIOD.interval}`);
       if (!res.ok) throw new Error("History failed");
       return res.json();
     },
@@ -243,41 +241,17 @@ export default function AdvancedDashboard() {
   const closes = rawHistory.map((d: any) => d.close as number);
   const sma50  = calculateSMA(closes, 50);
   const sma200 = calculateSMA(closes, 200);
-  const chartData = useMemo(() => {
-    return rawHistory.map((d: any, i: number) => {
-      const dt = new Date(d.date);
-      const label = isIntraday
-        ? dt.toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-        : dt.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" });
-      return {
-        date: label, rawDate: d.date,
-        price: d.close, open: d.open,
-        high: d.high || d.close, low: d.low || d.close, close: d.close,
-        volume: d.volume ?? 0,
-        sma50: sma50[i] ?? null,
-        sma200: sma200[i] ?? null,
-        isUp: d.close >= d.open,
-      };
-    });
-  }, [rawHistory, sma50, sma200, isIntraday, lang]);
 
-  const periodReturnPct = selectedPeriod === "1d"
-    ? (quote?.changePercent ?? 0)
-    : chartData.length > 1
-      ? ((chartData[chartData.length - 1].price - chartData[0].price) / chartData[0].price) * 100
-      : (quote?.changePercent ?? 0);
-  const isPositive = periodReturnPct >= 0;
-
-  const lastIdx = chartData.length - 1;
-  const lastSMA50  = lastIdx >= 0 ? (chartData[lastIdx].sma50  as number | null) : null;
-  const lastSMA200 = lastIdx >= 0 ? (chartData[lastIdx].sma200 as number | null) : null;
-  const lastPrice  = lastIdx >= 0 ? chartData[lastIdx].price : (quote?.price ?? 0);
-  const stageInfo = getStageAnalysis(lastPrice, lastSMA50, lastSMA200, lang);
+  const lastIdx   = rawHistory.length - 1;
+  const lastSMA50  = lastIdx >= 0 ? (sma50[lastIdx]  ?? null) : null;
+  const lastSMA200 = lastIdx >= 0 ? (sma200[lastIdx] ?? null) : null;
+  const lastPrice  = lastIdx >= 0 ? rawHistory[lastIdx].close : (quote?.price ?? 0);
+  const stageInfo  = getStageAnalysis(lastPrice, lastSMA50, lastSMA200, lang);
 
   const positiveRS = screenerRows.filter(s => s.rs > 0).length;
   const breadthPct = screenerRows.length > 0 ? Math.round((positiveRS / screenerRows.length) * 100) : 0;
 
-  const { data: breadthData } = useQuery<{ pctAboveSMA50: number; pctAboveSMA200: number; above50: number; above200: number; total: number }>({
+  const { data: breadthData } = useQuery<any>({
     queryKey: ["/api/market/breadth"],
     queryFn: async () => {
       const res = await fetch("/api/market/breadth");
@@ -287,9 +261,39 @@ export default function AdvancedDashboard() {
     staleTime: 15 * 60 * 1000,
   });
 
+  const isPositive = (quote?.changePercent ?? 0) >= 0;
   const displayName = getLocalizedCompanyName(cleanCompanyName(quote?.name || selectedSymbol), lang);
+  const selectedScreenerInfo = SCREENER_STOCKS.find(s => s.symbol === selectedSymbol);
+  const tip = SUPER_INVESTOR_TIPS[tipIndex];
 
-  // ── Screener Panel ─────────────────────────────────────────────────
+  // ── Stock chip strip (reused on mobile + desktop left panel) ───────
+  const StockChipStrip = () => (
+    <div className="overflow-x-auto border-b border-border/30 flex-shrink-0" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className="flex gap-1 px-2 py-1.5" style={{ minWidth: "max-content" }}>
+        {SCREENER_STOCKS.map(s => {
+          const isSelected = s.symbol === selectedSymbol;
+          const q = screenerData?.quotes?.find(q => q.symbol === s.symbol);
+          const cp = q?.changePercent ?? 0;
+          return (
+            <button
+              key={s.symbol}
+              onClick={() => setSelectedSymbol(s.symbol)}
+              className={cn(
+                "flex flex-col items-center px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors shrink-0",
+                isSelected ? "bg-primary/20 text-primary border border-primary/40" : "text-muted-foreground hover:bg-muted/50"
+              )}
+              data-testid={`stock-chip-${s.symbol}`}
+            >
+              <span>{s.flag} {s.symbol.replace(".KS", "").replace(".KQ", "")}</span>
+              <span className={cp >= 0 ? "text-emerald-500" : "text-rose-500"}>{cp >= 0 ? "+" : ""}{cp.toFixed(1)}%</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // ── Screener Panel (PC left sidebar) ───────────────────────────────
   const ScreenerPanel = () => (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-2 pt-2 pb-1 flex-shrink-0">
@@ -305,15 +309,15 @@ export default function AdvancedDashboard() {
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "정렬" : "Sort"}</span>
         <div className="flex gap-0.5">
           {([["rs", "RS"], ["change", "%"], ["vol", "Vol"], ["name", "A-Z"]] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setScreenerSort(key)} className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === key ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")} data-testid={`sort-screener-${key}`}>{label}</button>
+            <button key={key} onClick={() => setScreenerSort(key)}
+              className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === key ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")}
+              data-testid={`sort-screener-${key}`}>{label}</button>
           ))}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto border-t border-border/30">
         {isScreenerLoading ? (
-          <div className="p-3 space-y-1.5">
-            {Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}
-          </div>
+          <div className="p-3 space-y-1.5">{Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}</div>
         ) : screenerRows.map(row => {
           const isSelected = row.symbol === selectedSymbol;
           const isKrStock = row.symbol.endsWith(".KS") || row.symbol.endsWith(".KQ");
@@ -322,15 +326,10 @@ export default function AdvancedDashboard() {
             : `$${row.price.toFixed(2)}`;
           const displayN = getLocalizedCompanyName(cleanCompanyName(row.name), lang);
           return (
-            <button
-              key={row.symbol}
-              onClick={() => { setSelectedSymbol(row.symbol); setMobileTab("chart"); }}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
-                isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50"
-              )}
-              data-testid={`screener-stock-${row.symbol}`}
-            >
+            <button key={row.symbol} onClick={() => setSelectedSymbol(row.symbol)}
+              className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
+                isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
+              data-testid={`screener-stock-${row.symbol}`}>
               <span className="text-sm shrink-0">{row.flag}</span>
               <div className="flex-1 min-w-0">
                 <p className={cn("text-xs font-bold truncate", isSelected ? "text-primary" : "")}>{displayN}</p>
@@ -338,15 +337,9 @@ export default function AdvancedDashboard() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-xs font-mono font-semibold">{priceFmt}</p>
-                {screenerSort === "vol" && row.volume > 0 ? (
-                  <p className="text-[10px] text-muted-foreground">
-                    {row.volume >= 1e9 ? `${(row.volume / 1e9).toFixed(1)}B` : row.volume >= 1e6 ? `${(row.volume / 1e6).toFixed(1)}M` : `${(row.volume / 1e3).toFixed(0)}K`}
-                  </p>
-                ) : (
-                  <p className={cn("text-[10px] font-bold", row.rs >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                    {screenerSort === "change" ? `${row.changePercent >= 0 ? "+" : ""}${row.changePercent.toFixed(2)}%` : `RS ${row.rs >= 0 ? "+" : ""}${row.rs.toFixed(1)}%`}
-                  </p>
-                )}
+                <p className={cn("text-[10px] font-bold", row.rs >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                  {screenerSort === "change" ? `${row.changePercent >= 0 ? "+" : ""}${row.changePercent.toFixed(2)}%` : `RS ${row.rs >= 0 ? "+" : ""}${row.rs.toFixed(1)}%`}
+                </p>
               </div>
             </button>
           );
@@ -355,39 +348,30 @@ export default function AdvancedDashboard() {
     </div>
   );
 
-  // ── Chart Panel ────────────────────────────────────────────────────
-  const ChartPanel = () => (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50 flex-shrink-0 flex-wrap">
-        <div>
-          <span className="text-xs font-bold text-muted-foreground truncate max-w-[140px] block">{displayName}</span>
-          <div className="flex items-center gap-2">
-            {isQuoteLoading ? <div className="h-5 w-16 bg-muted rounded animate-pulse" /> : (
+  // ── Chart Header (PC only — minimal, no period buttons) ────────────
+  const ChartHeader = () => (
+    <div className="flex items-center gap-3 px-3 py-2 border-b border-border/50 flex-shrink-0 bg-background/80">
+      <div className="flex-1 min-w-0">
+        <span className="text-[11px] font-semibold text-muted-foreground truncate block">{displayName}</span>
+        <div className="flex items-center gap-2">
+          {isQuoteLoading ? <div className="h-5 w-20 bg-muted rounded animate-pulse" /> : (
+            <>
               <span className="text-base font-bold font-mono">{formatPrice(quote?.price, { nativeCurrency })}</span>
-            )}
-            <span className={cn("text-xs font-semibold", isPositive ? "text-emerald-500" : "text-rose-500")}>
-              {isPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-0.5 flex-wrap">
-          {PERIOD_OPTIONS.map(opt => (
-            <button key={opt.key} onClick={() => setSelectedPeriod(opt.key)}
-              className={cn("px-2 py-0.5 text-[11px] font-semibold rounded transition-colors", selectedPeriod === opt.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-              data-testid={`adv-period-${opt.key}`}
-            >{opt.label}</button>
-          ))}
+              <span className={cn("text-xs font-semibold", isPositive ? "text-emerald-500" : "text-rose-500")}>
+                {isPositive ? "+" : ""}{(quote?.changePercent ?? 0).toFixed(2)}%
+              </span>
+              <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "오늘" : "today"}</span>
+            </>
+          )}
         </div>
       </div>
-      <div className="flex-1 min-h-0">
-        <TradingViewChart
-          symbol={selectedSymbol}
-          periodKey={selectedPeriod}
-          chartType="candle"
-          isDark={isDark}
-          lang={lang === "ko" ? "ko" : "en"}
-          fillContainer
-        />
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {quote?.isMarketOpen != null && (
+          <>
+            <span className={cn("w-1.5 h-1.5 rounded-full", quote.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
+            <span className="text-[10px] text-muted-foreground">{quote.isMarketOpen ? (lang === "ko" ? "개장" : "Open") : (lang === "ko" ? "마감" : "Closed")}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -395,26 +379,17 @@ export default function AdvancedDashboard() {
   // ── Earnings Panel ─────────────────────────────────────────────────
   const EarningsPanel = () => {
     const daysLeft = daysUntil(earnings?.nextEarningsDate);
-    const surprisePct = earnings?.lastSurprisePct;
-    const surprisePositive = surprisePct != null && surprisePct >= 0;
-
     return (
-      <div className="flex flex-col overflow-y-auto space-y-3 p-3">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex-shrink-0">
-          {lang === "ko" ? "📅 실적 & 어닝스" : "📅 Earnings"}
-        </p>
-
+      <div className="space-y-3 p-3">
         {isEarningsLoading ? (
-          <div className="space-y-2">
-            {[1,2,3].map(i => <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />)}
-          </div>
+          <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-muted/50 rounded-xl animate-pulse" />)}</div>
         ) : (
           <>
-            {/* Next Earnings Date */}
+            {/* Next Earnings */}
             <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
               <div className="flex items-center gap-1.5 mb-1.5">
-                <Calendar className="w-3 h-3 text-primary" />
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                   {lang === "ko" ? "다음 실적 발표" : "Next Earnings"}
                 </p>
               </div>
@@ -425,15 +400,14 @@ export default function AdvancedDashboard() {
                   </p>
                   {daysLeft != null && (
                     <p className={cn("text-[10px] font-semibold mt-0.5", daysLeft <= 14 ? "text-amber-500" : "text-muted-foreground")}>
-                      {daysLeft <= 0
-                        ? (lang === "ko" ? "오늘 또는 지남" : "Today or passed")
+                      {daysLeft <= 0 ? (lang === "ko" ? "오늘 또는 지남" : "Today or passed")
                         : lang === "ko" ? `${daysLeft}일 후` : `in ${daysLeft} days`}
                     </p>
                   )}
                   {earnings?.nextEpsEstimate != null && (
-                    <div className="mt-1.5 bg-background/40 rounded-lg p-1.5">
+                    <div className="mt-1.5 bg-background/50 rounded-lg p-2">
                       <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "EPS 컨센서스" : "EPS Consensus"}</p>
-                      <p className="text-xs font-mono font-semibold text-foreground">${earnings.nextEpsEstimate.toFixed(2)}</p>
+                      <p className="text-sm font-mono font-bold">${earnings.nextEpsEstimate.toFixed(2)}</p>
                       {earnings.nextEpsLow != null && earnings.nextEpsHigh != null && (
                         <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "범위" : "Range"}: <span className="font-mono">${earnings.nextEpsLow.toFixed(2)} – ${earnings.nextEpsHigh.toFixed(2)}</span></p>
                       )}
@@ -445,84 +419,74 @@ export default function AdvancedDashboard() {
               )}
             </div>
 
-            {/* Last Earnings Result */}
+            {/* Last Quarter + EPS */}
             <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <DollarSign className="w-3 h-3 text-emerald-500" />
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
-                  {lang === "ko" ? "최근 실적" : "Last Quarter"}
-                </p>
+              <div className="flex items-center gap-1.5 mb-2">
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "최근 실적" : "Last Quarter"}</p>
                 {earnings?.lastEarningsDate && (
                   <span className="text-[9px] text-muted-foreground ml-auto">
                     {new Date(earnings.lastEarningsDate).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
                   </span>
                 )}
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "분기 EPS" : "Q EPS"}</p>
-                  <p className={cn("text-sm font-bold font-mono", earnings?.lastEpsActual != null ? (earnings.lastEpsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "text-foreground")}>
+                  <p className={cn("text-sm font-bold font-mono", earnings?.lastEpsActual != null ? (earnings.lastEpsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "")}>
                     {earnings?.lastEpsActual != null ? `$${earnings.lastEpsActual.toFixed(2)}` : "--"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "연간 EPS" : "Annual EPS"}</p>
-                  <p className="text-sm font-bold font-mono">
-                    {earnings?.trailingEps != null ? `$${earnings.trailingEps.toFixed(2)}` : "--"}
-                  </p>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "연간 EPS" : "Annual"}</p>
+                  <p className="text-sm font-bold font-mono">{earnings?.trailingEps != null ? `$${earnings.trailingEps.toFixed(2)}` : "--"}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상" : "Forward"}</p>
+                  <p className="text-sm font-bold font-mono text-primary">{earnings?.forwardEps != null ? `$${earnings.forwardEps.toFixed(2)}` : "--"}</p>
                 </div>
               </div>
-
-              {earnings?.forwardEps != null && (
-                <div className="mt-2 bg-primary/10 rounded-lg px-2 py-1.5 border border-primary/20">
-                  <p className="text-[9px] text-muted-foreground">{lang === "ko" ? "예상 연간 EPS" : "Forward EPS (est.)"}</p>
-                  <p className="text-sm font-bold text-primary font-mono">${earnings.forwardEps.toFixed(2)}</p>
-                </div>
-              )}
             </div>
 
-            {/* EPS History */}
+            {/* EPS History bars */}
             {earnings?.history?.length > 1 && (
               <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-                  {lang === "ko" ? "EPS 히스토리" : "EPS History"}
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
+                  {lang === "ko" ? "분기별 EPS" : "Quarterly EPS"}
                 </p>
-                <div className="space-y-1.5">
-                  {(earnings.history as any[]).slice(0, 4).map((h: any, i: number) => {
-                    const beat = h.epsActual != null && h.epsEstimate != null && h.epsActual >= h.epsEstimate;
-                    return (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="text-[9px] text-muted-foreground w-14 shrink-0">
-                          {new Date(h.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
-                        </span>
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          {h.epsActual != null && (
-                            <div className={cn("h-full rounded-full", beat ? "bg-emerald-500" : "bg-rose-500")}
-                              style={{ width: `${Math.min(100, Math.max(10, Math.abs(h.epsActual) * 20))}%` }} />
-                          )}
-                        </div>
-                        <span className={cn("text-[9px] font-mono font-semibold w-10 text-right", h.epsActual != null ? (h.epsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "text-muted-foreground")}>
-                          {h.epsActual != null ? `$${h.epsActual.toFixed(2)}` : "--"}
-                        </span>
+                <div className="space-y-2">
+                  {(earnings.history as any[]).slice(0, 5).map((h: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground w-14 shrink-0">
+                        {new Date(h.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", year: "2-digit" })}
+                      </span>
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        {h.epsActual != null && (
+                          <div className={cn("h-full rounded-full", h.epsActual >= 0 ? "bg-emerald-500" : "bg-rose-500")}
+                            style={{ width: `${Math.min(100, Math.max(8, Math.abs(h.epsActual) * 20))}%` }} />
+                        )}
                       </div>
-                    );
-                  })}
+                      <span className={cn("text-[9px] font-mono font-semibold w-10 text-right shrink-0",
+                        h.epsActual != null ? (h.epsActual >= 0 ? "text-emerald-500" : "text-rose-500") : "text-muted-foreground")}>
+                        {h.epsActual != null ? `$${h.epsActual.toFixed(2)}` : "--"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Fundamentals summary */}
+            {/* Key Metrics */}
             <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-                {lang === "ko" ? "핵심 지표" : "Key Metrics"}
-              </p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">{lang === "ko" ? "핵심 지표" : "Key Metrics"}</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { lbl: lang === "ko" ? "시가총액" : "Mkt Cap",    val: formatMarketCap(info?.marketCap) },
-                  { lbl: lang === "ko" ? "PER" : "P/E",             val: info?.peRatio?.toFixed(1) ?? "--" },
-                  { lbl: lang === "ko" ? "주당순이익" : "EPS",       val: info?.eps != null ? `$${info.eps.toFixed(2)}` : "--" },
-                  { lbl: lang === "ko" ? "베타" : "Beta",            val: info?.beta?.toFixed(2) ?? "--" },
+                  { lbl: lang === "ko" ? "시가총액" : "Mkt Cap", val: formatMarketCap(info?.marketCap) },
+                  { lbl: lang === "ko" ? "PER" : "P/E",          val: info?.peRatio?.toFixed(1) ?? "--" },
+                  { lbl: lang === "ko" ? "52주 고" : "52W High", val: info?.["52WeekHigh"] != null ? `$${info["52WeekHigh"].toFixed(0)}` : "--" },
+                  { lbl: lang === "ko" ? "52주 저" : "52W Low",  val: info?.["52WeekLow"]  != null ? `$${info["52WeekLow"].toFixed(0)}`  : "--" },
+                  { lbl: lang === "ko" ? "베타" : "Beta",         val: info?.beta?.toFixed(2) ?? "--" },
+                  { lbl: lang === "ko" ? "배당수익" : "Div Yld",  val: info?.dividendYield != null ? `${(info.dividendYield * 100).toFixed(2)}%` : "--" },
                 ].map(({ lbl, val }) => (
                   <div key={lbl} className="bg-background/40 rounded-lg p-1.5">
                     <p className="text-[9px] text-muted-foreground">{lbl}</p>
@@ -531,104 +495,39 @@ export default function AdvancedDashboard() {
                 ))}
               </div>
             </div>
-
-            {/* Detail link */}
-            <button onClick={() => navigate(`/stock/${selectedSymbol}`)} className="text-[10px] text-primary hover:underline flex items-center gap-1 justify-center py-1">
-              {lang === "ko" ? "상세 페이지 →" : "Full detail page →"} <ChevronRight className="w-2.5 h-2.5" />
-            </button>
           </>
         )}
       </div>
     );
   };
 
-  // ── RRG + Analysis Panel ───────────────────────────────────────────
-  const RRGPanel = () => {
-    const miniRRGData = SECTOR_QUADRANTS.map(s => ({
-      ...s,
-      x: QUADRANT_POS[s.label]?.x ?? 100,
-      y: QUADRANT_POS[s.label]?.y ?? 100,
-    }));
-
+  // ── RRG Chart Panel ────────────────────────────────────────────────
+  const RRGChartPanel = ({ compact = false }: { compact?: boolean }) => {
+    const miniRRGData = SECTOR_QUADRANTS.map(s => ({ ...s, x: QUADRANT_POS[s.label]?.x ?? 100, y: QUADRANT_POS[s.label]?.y ?? 100 }));
     const quadrantLabel = (q: string) => {
       if (q === "leading")   return lang === "ko" ? "선도" : "Leading";
       if (q === "weakening") return lang === "ko" ? "약화" : "Weakening";
       if (q === "lagging")   return lang === "ko" ? "지연" : "Lagging";
       return lang === "ko" ? "회복" : "Improving";
     };
-
-    const rrgHeight = rrgFocused ? 320 : 200;
-
+    const chartH = rrgFocused ? 340 : compact ? 240 : 220;
+    const dotR = rrgFocused ? 10 : 8;
     return (
-      <div className="flex flex-col overflow-y-auto space-y-3 p-3">
-        {/* Stage Analysis */}
-        <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
-            {lang === "ko" ? "📊 스테이지 분석" : "📊 Stage Analysis"}
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full shrink-0" style={{ background: stageInfo.color }} />
-            <span className="text-sm font-bold" style={{ color: stageInfo.color }}>{stageInfo.stage}</span>
-            <span className="text-[10px] text-muted-foreground ml-1">{stageInfo.desc}</span>
-          </div>
-          <div className="mt-2 flex gap-3 text-[10px]">
-            {lastSMA50  != null && <p className="text-amber-500">SMA50: {formatPrice(lastSMA50,  { nativeCurrency, compact: true })}</p>}
-            {lastSMA200 != null && <p className="text-rose-400">SMA200: {formatPrice(lastSMA200, { nativeCurrency, compact: true })}</p>}
-          </div>
-        </div>
-
-        {/* Market Breadth */}
-        <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-            {lang === "ko" ? "📈 시장 폭" : "📈 Market Breadth"}
-          </p>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "RS 양수" : "Positive RS"}</span>
-            <span className="text-xs font-bold" style={{ color: breadthPct >= 50 ? "#22c55e" : "#ef4444" }}>{breadthPct}%</span>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${breadthPct}%`, background: breadthPct >= 50 ? "#22c55e" : "#ef4444" }} />
-          </div>
-          <p className="text-[9px] text-muted-foreground mt-1">{positiveRS}/{screenerRows.length} {lang === "ko" ? "종목 SPY 대비 강세" : "outperforming SPY"}</p>
-          {breadthData && breadthData.total > 0 && (
-            <div className="mt-2 space-y-1.5">
-              {[
-                { lbl: lang === "ko" ? "SMA50 위" : "Above SMA50",  pct: breadthData.pctAboveSMA50,  color: "#f59e0b" },
-                { lbl: lang === "ko" ? "SMA200 위" : "Above SMA200", pct: breadthData.pctAboveSMA200, color: "#ef4444" },
-              ].map(({ lbl, pct, color }) => (
-                <div key={lbl}>
-                  <div className="flex justify-between text-[9px] mb-0.5">
-                    <span className="text-muted-foreground">{lbl}</span>
-                    <span className="font-semibold" style={{ color }}>{pct}%</span>
-                  </div>
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color, opacity: 0.75 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* RRG Sector Rotation */}
+      <div className="space-y-3 p-3">
         <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
               {lang === "ko" ? "🔄 섹터 순환 (RRG)" : "🔄 Sector Rotation (RRG)"}
             </p>
-            <button
-              onClick={() => setRrgFocused(f => !f)}
+            <button onClick={() => setRrgFocused(f => !f)}
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="btn-rrg-focus"
-              title={rrgFocused ? "Collapse" : "Focus Mode"}
-            >
-              {rrgFocused ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+              data-testid="btn-rrg-focus" title={rrgFocused ? "Collapse" : "Focus Mode"}>
+              {rrgFocused ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           </div>
-
-          <div className="relative" style={{ height: rrgHeight }}>
+          <div className="relative" style={{ height: chartH }}>
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 4, left: 4 }}>
+              <ScatterChart margin={{ top: 22, right: 20, bottom: 6, left: 6 }}>
                 <ReferenceArea x1={100} x2={112} y1={100} y2={110} fill="rgba(34,197,94,0.10)" />
                 <ReferenceArea x1={88}  x2={100} y1={100} y2={110} fill="rgba(99,102,241,0.10)" />
                 <ReferenceArea x1={100} x2={112} y1={90}  y2={100} fill="rgba(234,179,8,0.10)" />
@@ -641,21 +540,20 @@ export default function AdvancedDashboard() {
                   if (!active || !payload?.length) return null;
                   const d = payload[0]?.payload;
                   return (
-                    <div style={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 6, padding: "4px 8px", fontSize: 11 }}>
-                      <p style={{ fontWeight: 700, color: d.color }}>{d.label}</p>
-                      <p style={{ color: tickColor, fontSize: 10 }}>{lang === "ko" ? d.labelKo : d.label} — {quadrantLabel(d.q)}</p>
+                    <div style={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 6, padding: "5px 10px", fontSize: 11 }}>
+                      <p style={{ fontWeight: 700, color: d.color }}>{d.label} <span style={{ color: tickColor, fontSize: 10 }}>{lang === "ko" ? d.labelKo : d.label}</span></p>
+                      <p style={{ color: tickColor, fontSize: 10 }}>{quadrantLabel(d.q)}</p>
                     </div>
                   );
                 }} />
                 <Scatter data={miniRRGData} shape={(props: any) => {
                   const { cx, cy, payload } = props;
                   if (!cx || !cy) return <g />;
-                  const r = rrgFocused ? 10 : 8;
                   return (
                     <g>
-                      <circle cx={cx} cy={cy} r={r} fill={payload.color} opacity={0.9} />
-                      <text x={cx} y={cy + r * 0.45} textAnchor="middle" fontSize={rrgFocused ? 8 : 6.5} fill="white" fontWeight="bold">
-                        {payload.label.replace("XL", "").replace("RE", "RE")}
+                      <circle cx={cx} cy={cy} r={dotR} fill={payload.color} opacity={0.92} />
+                      <text x={cx} y={cy + dotR * 0.42} textAnchor="middle" fontSize={rrgFocused ? 8.5 : 7} fill="white" fontWeight="bold">
+                        {payload.label.replace("XL", "")}
                       </text>
                     </g>
                   );
@@ -663,147 +561,247 @@ export default function AdvancedDashboard() {
               </ScatterChart>
             </ResponsiveContainer>
             {/* High-contrast quadrant labels */}
-            <div className="absolute top-0 right-1 text-[10px] text-emerald-400 font-bold drop-shadow">{lang === "ko" ? "선도 ↗" : "Leading ↗"}</div>
-            <div className="absolute top-0 left-1 text-[10px] text-indigo-400 font-bold drop-shadow">{lang === "ko" ? "회복 ↗" : "Improving ↗"}</div>
-            <div className="absolute bottom-0 right-1 text-[10px] text-yellow-400 font-bold drop-shadow">{lang === "ko" ? "약화 ↘" : "Weakening ↘"}</div>
-            <div className="absolute bottom-0 left-1 text-[10px] text-rose-400 font-bold drop-shadow">{lang === "ko" ? "지연 ↙" : "Lagging ↙"}</div>
+            <div className="absolute top-0 right-1 text-[10px] text-emerald-400 font-bold drop-shadow-sm">{lang === "ko" ? "선도 ↗" : "Leading ↗"}</div>
+            <div className="absolute top-0 left-1 text-[10px] text-indigo-400 font-bold drop-shadow-sm">{lang === "ko" ? "회복 ↗" : "Improving ↗"}</div>
+            <div className="absolute bottom-0 right-1 text-[10px] text-yellow-400 font-bold drop-shadow-sm">{lang === "ko" ? "약화 ↘" : "Weakening ↘"}</div>
+            <div className="absolute bottom-0 left-1 text-[10px] text-rose-400 font-bold drop-shadow-sm">{lang === "ko" ? "지연 ↙" : "Lagging ↙"}</div>
           </div>
-
           <div className="flex flex-wrap gap-1 mt-2">
             {SECTOR_QUADRANTS.map(s => (
-              <span key={s.label} className="flex items-center gap-0.5 text-[8px]">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: s.color }} />
+              <span key={s.label} className="flex items-center gap-0.5 text-[9px]">
+                <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: s.color }} />
                 <span className="text-muted-foreground">{lang === "ko" ? s.labelKo : s.label}</span>
               </span>
             ))}
           </div>
         </div>
-
-        <button onClick={() => navigate("/market-trends")} className="text-[10px] text-primary hover:underline flex items-center gap-1 justify-center py-1">
+        <button onClick={() => navigate("/market-trends")}
+          className="text-[10px] text-primary hover:underline flex items-center gap-1 justify-center py-1 w-full">
           <Globe className="w-3 h-3" />{lang === "ko" ? "전체 RRG 보기 →" : "Full RRG Chart →"}
         </button>
       </div>
     );
   };
 
+  // ── Insights Panel (Stage Analysis + Market Breadth + Super Investor Tips) ─────
+  const InsightsPanel = () => (
+    <div className="space-y-3 p-3">
+      {/* Stage Analysis */}
+      <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
+          {lang === "ko" ? "📊 스테이지 분석" : "📊 Stage Analysis"}
+        </p>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-3 h-3 rounded-full shrink-0" style={{ background: stageInfo.color }} />
+          <span className="text-sm font-bold" style={{ color: stageInfo.color }}>{stageInfo.stage}</span>
+          <span className="text-[10px] text-muted-foreground">{stageInfo.desc}</span>
+        </div>
+        <div className="flex gap-4 text-[10px] mt-1">
+          {lastSMA50  != null && <p className="text-amber-500 font-mono">SMA50: {formatPrice(lastSMA50,  { nativeCurrency, compact: true })}</p>}
+          {lastSMA200 != null && <p className="text-rose-400 font-mono">SMA200: {formatPrice(lastSMA200, { nativeCurrency, compact: true })}</p>}
+        </div>
+      </div>
+
+      {/* Market Breadth */}
+      <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
+          {lang === "ko" ? "📈 시장 폭 지수" : "📈 Market Breadth"}
+        </p>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-muted-foreground">{lang === "ko" ? "RS 양수 종목" : "Positive RS vs SPY"}</span>
+          <span className="text-xs font-bold" style={{ color: breadthPct >= 50 ? "#22c55e" : "#ef4444" }}>{breadthPct}%</span>
+        </div>
+        <div className="h-2 bg-muted rounded-full overflow-hidden mb-1">
+          <div className="h-full rounded-full transition-all" style={{ width: `${breadthPct}%`, background: breadthPct >= 50 ? "#22c55e" : "#ef4444" }} />
+        </div>
+        <p className="text-[9px] text-muted-foreground">{positiveRS}/{screenerRows.length} {lang === "ko" ? "종목이 SPY 대비 강세" : "stocks outperforming SPY"}</p>
+        {breadthData && breadthData.total > 0 && (
+          <div className="mt-2 space-y-2">
+            {[
+              { lbl: lang === "ko" ? "SMA50 위" : "Above SMA50",  pct: breadthData.pctAboveSMA50,  color: "#f59e0b" },
+              { lbl: lang === "ko" ? "SMA200 위" : "Above SMA200", pct: breadthData.pctAboveSMA200, color: "#ef4444" },
+            ].map(({ lbl, pct, color }) => (
+              <div key={lbl}>
+                <div className="flex justify-between text-[9px] mb-0.5">
+                  <span className="text-muted-foreground">{lbl}</span>
+                  <span className="font-semibold" style={{ color }}>{pct}%</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color, opacity: 0.75 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Super Investor Tip */}
+      <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-3 border border-primary/20">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Lightbulb className="w-3.5 h-3.5 text-primary" />
+          <p className="text-[10px] font-bold text-primary uppercase tracking-wide">{lang === "ko" ? "슈퍼 투자자의 조언" : "Super Investor Tip"}</p>
+        </div>
+        <p className="text-[10px] font-semibold text-foreground/90 leading-relaxed italic">
+          "{lang === "ko" ? tip.tipKo : tip.tip}"
+        </p>
+        <p className="text-[9px] text-muted-foreground mt-1.5 font-semibold">— {tip.name}</p>
+      </div>
+
+      {/* Stock description if available */}
+      {info?.description && (
+        <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+            {lang === "ko" ? "회사 소개" : "About"}
+          </p>
+          <p className="text-[10px] leading-relaxed text-foreground/75 line-clamp-4">
+            {lang === "ko" && info.descriptionKo ? info.descriptionKo : info.description}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Right Panel (PC) = Earnings + RRG stacked ──────────────────────
+  const RightPanel = () => (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Earnings — top half, scrollable */}
+      <div className="flex-1 min-h-0 overflow-y-auto border-b border-border/50">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1">
+          {lang === "ko" ? "📅 실적 & 어닝스" : "📅 Earnings & Data"}
+        </p>
+        <EarningsPanel />
+      </div>
+      {/* RRG — bottom, collapsible */}
+      <div className={cn("flex-shrink-0 overflow-y-auto transition-all duration-300", rrgFocused ? "h-[520px]" : "h-[340px]")}>
+        <RRGChartPanel compact />
+      </div>
+    </div>
+  );
+
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="w-full max-w-[100vw] overflow-x-hidden" style={{ height: "calc(100vh - 56px)" }}>
-      <div className="flex flex-col h-full overflow-hidden">
+    <div className="w-full overflow-x-hidden" style={{ maxWidth: "100vw" }}>
 
-        {/* ── Title bar ─────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 flex-shrink-0 bg-background/95 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-primary" />
-            <span className="text-sm font-bold">DinoInvest <span className="text-primary">Pro</span></span>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">{lang === "ko" ? "고급 대시보드" : "Advanced"}</Badge>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            {quote?.isMarketOpen != null && (
-              <>
-                <span className={cn("w-1.5 h-1.5 rounded-full", quote.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
-                <span>{quote.isMarketOpen ? (lang === "ko" ? "장 개장" : "Market Open") : (lang === "ko" ? "장 마감" : "Closed")}</span>
-              </>
-            )}
-          </div>
+      {/* ── Title bar (shared) ─────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          <span className="text-sm font-bold">DinoInvest <span className="text-primary">Pro</span></span>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">{lang === "ko" ? "고급 대시보드" : "Advanced"}</Badge>
         </div>
-
-        {/* ── Mobile: content + sticky bottom nav ───────────────────── */}
-        <div className="md:hidden flex flex-col flex-1 overflow-hidden">
-          {/* Content area */}
-          <div className="flex-1 overflow-hidden">
-            {mobileTab === "chart" && (
-              <div className="h-full flex flex-col overflow-hidden">
-                {/* Mobile screener strip */}
-                <div className="flex-shrink-0 border-b border-border/30 overflow-x-auto">
-                  <div className="flex gap-1 px-2 py-1.5 min-w-max">
-                    {SCREENER_STOCKS.map(s => {
-                      const isSelected = s.symbol === selectedSymbol;
-                      const q = screenerData?.quotes?.find(q => q.symbol === s.symbol);
-                      const cp = q?.changePercent ?? 0;
-                      return (
-                        <button
-                          key={s.symbol}
-                          onClick={() => setSelectedSymbol(s.symbol)}
-                          className={cn(
-                            "flex flex-col items-center px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors shrink-0",
-                            isSelected ? "bg-primary/20 text-primary border border-primary/40" : "text-muted-foreground hover:bg-muted/50"
-                          )}
-                          data-testid={`mobile-stock-chip-${s.symbol}`}
-                        >
-                          <span>{s.flag} {s.symbol.replace(".KS", "").replace(".KQ", "")}</span>
-                          <span className={cp >= 0 ? "text-emerald-500" : "text-rose-500"}>{cp >= 0 ? "+" : ""}{cp.toFixed(1)}%</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                {/* Chart */}
-                <ChartPanel />
-              </div>
-            )}
-            {mobileTab === "rrg" && (
-              <div className="h-full overflow-y-auto">
-                <RRGPanel />
-              </div>
-            )}
-            {mobileTab === "earnings" && (
-              <div className="h-full overflow-y-auto">
-                <EarningsPanel />
-              </div>
-            )}
-          </div>
-
-          {/* Sticky bottom tab nav */}
-          <div className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-sm">
-            <div className="flex">
-              {([
-                { key: "chart",    icon: Activity,   label: lang === "ko" ? "차트" : "Chart" },
-                { key: "rrg",      icon: Globe,      label: lang === "ko" ? "RRG" : "RRG" },
-                { key: "earnings", icon: Calendar,   label: lang === "ko" ? "실적" : "Earnings" },
-              ] as { key: MobileTab; icon: any; label: string }[]).map(tab => (
-                <button key={tab.key} onClick={() => setMobileTab(tab.key)}
-                  className={cn(
-                    "flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors",
-                    mobileTab === tab.key ? "text-primary border-t-2 border-primary -mt-px" : "text-muted-foreground"
-                  )}
-                  data-testid={`mobile-tab-${tab.key}`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          {quote?.isMarketOpen != null && (
+            <>
+              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", quote.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
+              <span className="hidden sm:inline">{quote.isMarketOpen ? (lang === "ko" ? "장 개장" : "Market Open") : (lang === "ko" ? "장 마감" : "Closed")}</span>
+            </>
+          )}
         </div>
-
-        {/* ── Desktop 3-column layout (md+) ─────────────────────────── */}
-        <div className="hidden md:flex flex-1 overflow-hidden">
-
-          {/* Col 1: Screener (200px) */}
-          <div className="w-[200px] flex-shrink-0 border-r border-border/50 overflow-hidden flex flex-col">
-            <ScreenerPanel />
-          </div>
-
-          {/* Col 2: Chart (flex-1) */}
-          <div className="flex-1 min-w-0 border-r border-border/50 overflow-hidden flex flex-col">
-            <ChartPanel />
-          </div>
-
-          {/* Col 3: Right panel — Earnings on top, RRG below (290px) */}
-          <div className="w-[290px] flex-shrink-0 overflow-hidden flex flex-col">
-            {/* Right panel top: Earnings */}
-            <div className="flex-1 min-h-0 overflow-y-auto border-b border-border/50">
-              <EarningsPanel />
-            </div>
-            {/* Right panel bottom: RRG (shrinks/grows with focus mode) */}
-            <div className={cn("flex-shrink-0 overflow-y-auto transition-all duration-300", rrgFocused ? "h-[520px]" : "h-[320px]")}>
-              <RRGPanel />
-            </div>
-          </div>
-        </div>
-
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          MOBILE LAYOUT (< md)
+          Stock chips → Chart (60vh) → Tabs → Scrollable content
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="md:hidden flex flex-col">
+
+        {/* Stock chip horizontal strip */}
+        <StockChipStrip />
+
+        {/* Price header */}
+        <div className="flex items-center gap-3 px-3 py-2 border-b border-border/30 bg-background flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-semibold text-muted-foreground truncate block">{displayName}</span>
+            <div className="flex items-center gap-2">
+              {isQuoteLoading ? <div className="h-5 w-20 bg-muted rounded animate-pulse" /> : (
+                <>
+                  <span className="text-base font-bold font-mono">{formatPrice(quote?.price, { nativeCurrency })}</span>
+                  <span className={cn("text-xs font-bold", isPositive ? "text-emerald-500" : "text-rose-500")}>
+                    {isPositive ? "+" : ""}{(quote?.changePercent ?? 0).toFixed(2)}%
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          {selectedScreenerInfo && (
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">
+              {lang === "ko" ? selectedScreenerInfo.sectorKo : selectedScreenerInfo.sectorEn}
+            </Badge>
+          )}
+        </div>
+
+        {/* TradingView Chart — fixed 60vh */}
+        <div className="w-full flex-shrink-0" style={{ height: "60vh", minHeight: 280, maxHeight: 520 }}>
+          <TradingViewChart
+            symbol={selectedSymbol}
+            periodKey="1m"
+            chartType="candle"
+            isDark={isDark}
+            lang={lang === "ko" ? "ko" : "en"}
+            fillContainer
+          />
+        </div>
+
+        {/* Tab nav — directly below chart */}
+        <div className="flex border-b border-border bg-background sticky top-[49px] z-10">
+          {([
+            { key: "earnings" as MobileTab, icon: Calendar,   label: lang === "ko" ? "실적" : "Earnings" },
+            { key: "rrg"      as MobileTab, icon: BarChart3,  label: "RRG" },
+            { key: "insights" as MobileTab, icon: Lightbulb,  label: lang === "ko" ? "인사이트" : "Insights" },
+          ]).map(tab => (
+            <button key={tab.key} onClick={() => setMobileTab(tab.key)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-colors",
+                mobileTab === tab.key
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              data-testid={`mobile-tab-${tab.key}`}>
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content — scrollable, natural height */}
+        <div className="w-full">
+          {mobileTab === "earnings" && <EarningsPanel />}
+          {mobileTab === "rrg"      && <RRGChartPanel />}
+          {mobileTab === "insights" && <InsightsPanel />}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DESKTOP LAYOUT (md+)  — 3-column, fixed viewport height
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="hidden md:flex" style={{ height: "calc(100vh - 57px)" }}>
+
+        {/* Col 1: Screener (200px) */}
+        <div className="w-[200px] flex-shrink-0 border-r border-border/50 overflow-hidden flex flex-col">
+          <ScreenerPanel />
+        </div>
+
+        {/* Col 2: Chart (flex-1) */}
+        <div className="flex-1 min-w-0 border-r border-border/50 overflow-hidden flex flex-col">
+          <ChartHeader />
+          <div className="flex-1 min-h-0">
+            <TradingViewChart
+              symbol={selectedSymbol}
+              periodKey="1m"
+              chartType="candle"
+              isDark={isDark}
+              lang={lang === "ko" ? "ko" : "en"}
+              fillContainer
+            />
+          </div>
+        </div>
+
+        {/* Col 3: Right panel — Earnings + RRG (290px) */}
+        <div className="w-[290px] flex-shrink-0 overflow-hidden flex flex-col">
+          <RightPanel />
+        </div>
+      </div>
+
     </div>
   );
 }
