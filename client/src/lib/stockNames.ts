@@ -638,6 +638,18 @@ export function getLocalizedCompanyName(englishName: string, lang: string): stri
 }
 
 /**
+ * Look up a stock's localized name by ticker symbol.
+ * Checks KOREAN_STOCK_ALIASES first (exact ticker match).
+ * Returns null if no ticker match found.
+ */
+export function getNameByTicker(ticker: string, lang: string): string | null {
+  if (!ticker) return null;
+  const alias = KOREAN_STOCK_ALIASES.find(a => a.ticker === ticker);
+  if (!alias) return null;
+  return lang === "ko" ? alias.ko : alias.en;
+}
+
+/**
  * Search the Korean alias list for stocks matching a Korean query.
  * Normalizes whitespace for comparison.
  */

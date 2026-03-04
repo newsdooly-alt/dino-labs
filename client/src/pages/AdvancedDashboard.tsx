@@ -4,7 +4,7 @@ import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useUser } from "@/hooks/use-user";
-import { getLocalizedCompanyName } from "@/lib/stockNames";
+import { getLocalizedCompanyName, getNameByTicker } from "@/lib/stockNames";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { calculateSMA } from "@/lib/technicalAnalysis";
 import { cn } from "@/lib/utils";
@@ -155,7 +155,9 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
                   <span className="text-[12px] font-semibold text-foreground font-mono">{r.symbol}</span>
                   <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{r.type}</span>
                 </div>
-                <div className="text-[10px] text-muted-foreground truncate">{r.name}</div>
+                <div className="text-[10px] text-muted-foreground truncate">
+                  {getNameByTicker(r.symbol, lang) ?? getLocalizedCompanyName(r.name, lang)}
+                </div>
               </div>
               <span className="text-[9px] text-muted-foreground/60 shrink-0">{r.currency || ""}</span>
             </button>
@@ -329,7 +331,7 @@ export default function AdvancedDashboard() {
   const [screenerSort, setScreenerSort] = useState<"rs" | "name" | "change" | "vol">("rs");
   const [screenerSearch, setScreenerSearch] = useState("");
   const [rrgFocused, setRrgFocused] = useState(false);
-  const [showAllInvestors, setShowAllInvestors] = useState(false);
+  const [showAllInvestors, setShowAllInvestors] = useState(true);
   const [rankTab, setRankTab] = useState<"actives" | "gainers" | "losers">("actives");
   const [leftTab, setLeftTab] = useState<"screener" | "actives" | "gainers" | "losers">("screener");
 
@@ -469,7 +471,7 @@ export default function AdvancedDashboard() {
   });
 
   const isPositive = (quote?.changePercent ?? 0) >= 0;
-  const displayName = getLocalizedCompanyName(cleanCompanyName(quote?.name || selectedSymbol), lang);
+  const displayName = getNameByTicker(selectedSymbol, lang) ?? getLocalizedCompanyName(cleanCompanyName(quote?.name || selectedSymbol), lang);
   const selectedScreenerInfo = SCREENER_STOCKS.find(s => s.symbol === selectedSymbol);
   const visibleInvestors = showAllInvestors ? SUPER_INVESTOR_TIPS : SUPER_INVESTOR_TIPS.slice(0, 5);
 
@@ -506,7 +508,11 @@ export default function AdvancedDashboard() {
               )}
               data-testid={`stock-chip-${s.symbol}`}
             >
-              <span>{s.flag} {s.symbol.replace(".KS", "").replace(".KQ", "")}</span>
+              <span>{s.flag} {(() => {
+                const isKrChip = s.symbol.endsWith(".KS") || s.symbol.endsWith(".KQ");
+                const raw = s.symbol.replace(".KS","").replace(".KQ","").replace(".T","");
+                return isKrChip ? (getNameByTicker(s.symbol, lang) ?? raw) : raw;
+              })()}</span>
               <span className={cp >= 0 ? "text-emerald-500" : "text-rose-500"}>{cp >= 0 ? "+" : ""}{cp.toFixed(1)}%</span>
             </button>
           );
@@ -525,6 +531,18 @@ export default function AdvancedDashboard() {
       ) : data.map((row: any) => {
         const cp: number = typeof row.changePercent === "number" ? row.changePercent : 0;
         const isSelected = row.symbol === selectedSymbol;
+        const isKrRow = row.symbol?.endsWith(".KS") || row.symbol?.endsWith(".KQ");
+        const isJpRow = row.symbol?.endsWith(".T");
+        const tickerName = getNameByTicker(row.symbol, lang);
+        const localizedName = tickerName ?? getLocalizedCompanyName(cleanCompanyName(row.name || ""), lang);
+        const price = typeof row.price === "number" ? row.price : null;
+        const priceFmt = price == null ? "--"
+          : isKrRow ? `₩${Math.round(price).toLocaleString()}`
+          : isJpRow ? `¥${Math.round(price).toLocaleString()}`
+          : `$${price.toFixed(2)}`;
+        const displaySymbol = isKrRow
+          ? row.symbol.replace(".KS", "").replace(".KQ", "")
+          : row.symbol;
         return (
           <button
             key={row.symbol}
@@ -534,11 +552,11 @@ export default function AdvancedDashboard() {
             data-testid={`ranking-stock-${row.symbol}`}
           >
             <div className="flex-1 min-w-0">
-              <p className={cn("text-[11px] font-bold truncate", isSelected ? "text-primary" : "")}>{row.symbol}</p>
-              <p className="text-[9px] text-muted-foreground truncate">{row.name}</p>
+              <p className={cn("text-[11px] font-bold truncate", isSelected ? "text-primary" : "")}>{localizedName}</p>
+              <p className="text-[9px] text-muted-foreground truncate">{displaySymbol}</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[11px] font-mono font-semibold">${typeof row.price === "number" ? row.price.toFixed(2) : "--"}</p>
+              <p className="text-[11px] font-mono font-semibold">{priceFmt}</p>
               <p className={cn("text-[10px] font-bold", cp >= 0 ? "text-emerald-500" : "text-rose-500")}>
                 {cp >= 0 ? "+" : ""}{cp.toFixed(2)}%
               </p>
@@ -646,7 +664,7 @@ export default function AdvancedDashboard() {
               const priceFmt = row.price == null ? "--"
                 : isKrStock ? `₩${Math.round(row.price).toLocaleString()}`
                 : `$${row.price.toFixed(2)}`;
-              const displayN = getLocalizedCompanyName(cleanCompanyName(row.name), lang);
+              const displayN = getNameByTicker(row.symbol, lang) ?? getLocalizedCompanyName(cleanCompanyName(row.name), lang);
               return (
                 <button key={row.symbol} onClick={() => setSelectedSymbol(row.symbol)}
                   className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
