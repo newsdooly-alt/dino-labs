@@ -709,6 +709,28 @@ export async function registerRoutes(
     }
   });
 
+  // === Market Rankings (via Python/yfinance screener) ===
+  async function fetchPyRanking(path: string): Promise<any[]> {
+    const r = await fetch(`http://127.0.0.1:5001/screener/${path}`, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error(`Python screener ${path} error`);
+    return r.json();
+  }
+
+  app.get("/api/market/gainers", async (req, res) => {
+    try { res.json(await fetchPyRanking("gainers")); }
+    catch { res.json([]); }
+  });
+
+  app.get("/api/market/losers", async (req, res) => {
+    try { res.json(await fetchPyRanking("losers")); }
+    catch { res.json([]); }
+  });
+
+  app.get("/api/market/actives", async (req, res) => {
+    try { res.json(await fetchPyRanking("actives")); }
+    catch { res.json([]); }
+  });
+
   app.get("/api/market/mood", async (req, res) => {
     const lang = (req.query.lang as string) || "en";
     const isKorean = lang === "ko";

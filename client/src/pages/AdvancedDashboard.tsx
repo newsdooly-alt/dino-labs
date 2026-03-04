@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import {
   Activity, ChevronRight, Zap, Globe,
   Calendar, Maximize2, Minimize2, DollarSign,
-  TrendingUp, BarChart3, Lightbulb, Search,
+  TrendingUp, BarChart3, Lightbulb,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { translations } from "@/lib/translations";
@@ -186,9 +186,8 @@ export default function AdvancedDashboard() {
   const [screenerSearch, setScreenerSearch] = useState("");
   const [rrgFocused, setRrgFocused] = useState(false);
   const [showAllInvestors, setShowAllInvestors] = useState(false);
-  const [mobileSearchInput, setMobileSearchInput] = useState("");
-  const mobileSearchRef = useRef<HTMLInputElement>(null);
-  const isUserTypingMobile = useRef(false);
+  const [rankTab, setRankTab] = useState<"actives" | "gainers" | "losers">("actives");
+  const [leftTab, setLeftTab] = useState<"screener" | "actives" | "gainers" | "losers">("screener");
 
   const isKr = isKoreanStock(selectedSymbol);
   const isJp = isJapaneseStock(selectedSymbol);
@@ -309,6 +308,22 @@ export default function AdvancedDashboard() {
     staleTime: 15 * 60 * 1000,
   });
 
+  const { data: gainersData = [], isLoading: isGainersLoading } = useQuery<any[]>({
+    queryKey: ["/api/market/gainers"],
+    queryFn: async () => { const r = await fetch("/api/market/gainers"); return r.ok ? r.json() : []; },
+    staleTime: 5 * 60 * 1000, refetchInterval: 5 * 60 * 1000,
+  });
+  const { data: losersData = [], isLoading: isLosersLoading } = useQuery<any[]>({
+    queryKey: ["/api/market/losers"],
+    queryFn: async () => { const r = await fetch("/api/market/losers"); return r.ok ? r.json() : []; },
+    staleTime: 5 * 60 * 1000, refetchInterval: 5 * 60 * 1000,
+  });
+  const { data: activesData = [], isLoading: isActivesLoading } = useQuery<any[]>({
+    queryKey: ["/api/market/actives"],
+    queryFn: async () => { const r = await fetch("/api/market/actives"); return r.ok ? r.json() : []; },
+    staleTime: 5 * 60 * 1000, refetchInterval: 5 * 60 * 1000,
+  });
+
   const isPositive = (quote?.changePercent ?? 0) >= 0;
   const displayName = getLocalizedCompanyName(cleanCompanyName(quote?.name || selectedSymbol), lang);
   const selectedScreenerInfo = SCREENER_STOCKS.find(s => s.symbol === selectedSymbol);
@@ -356,75 +371,165 @@ export default function AdvancedDashboard() {
     </div>
   );
 
+  // ── Ranking List (shared: mobile + desktop tabs) ──────────────────
+  const RankingStockList = ({ data, isLoading, emptyMsg }: { data: any[]; isLoading: boolean; emptyMsg: string }) => (
+    <div className="flex-1 overflow-y-auto">
+      {isLoading ? (
+        <div className="p-2 space-y-1">{Array(10).fill(0).map((_, i) => <div key={i} className="h-9 bg-muted/50 rounded-lg animate-pulse" />)}</div>
+      ) : data.length === 0 ? (
+        <div className="p-4 text-center text-[10px] text-muted-foreground">{emptyMsg}</div>
+      ) : data.map((row: any) => {
+        const cp: number = typeof row.changePercent === "number" ? row.changePercent : 0;
+        const isSelected = row.symbol === selectedSymbol;
+        return (
+          <button
+            key={row.symbol}
+            onClick={() => setSelectedSymbol(row.symbol)}
+            className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/20",
+              isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
+            data-testid={`ranking-stock-${row.symbol}`}
+          >
+            <div className="flex-1 min-w-0">
+              <p className={cn("text-[11px] font-bold truncate", isSelected ? "text-primary" : "")}>{row.symbol}</p>
+              <p className="text-[9px] text-muted-foreground truncate">{row.name}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[11px] font-mono font-semibold">${typeof row.price === "number" ? row.price.toFixed(2) : "--"}</p>
+              <p className={cn("text-[10px] font-bold", cp >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                {cp >= 0 ? "+" : ""}{cp.toFixed(2)}%
+              </p>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // ── Market Ranking Panel tabs (reusable, tab state passed in) ──────
+  const MarketRankingTabs = ({ tab, setTab }: { tab: "actives"|"gainers"|"losers"; setTab: (t: "actives"|"gainers"|"losers") => void }) => (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex border-b border-border/40 flex-shrink-0">
+        {([
+          ["actives", "🔥", lang === "ko" ? "인기" : "Active"],
+          ["gainers", "🚀", lang === "ko" ? "급등" : "Gainers"],
+          ["losers",  "📉", lang === "ko" ? "급락" : "Losers"],
+        ] as const).map(([key, icon, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={cn("flex-1 flex flex-col items-center py-1.5 text-[10px] font-bold transition-colors",
+              tab === key ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground")}
+            data-testid={`ranking-tab-${key}`}>
+            <span className="text-sm leading-none">{icon}</span>
+            <span className="mt-0.5">{label}</span>
+          </button>
+        ))}
+      </div>
+      {tab === "actives" && <RankingStockList data={activesData} isLoading={isActivesLoading} emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} />}
+      {tab === "gainers" && <RankingStockList data={gainersData} isLoading={isGainersLoading} emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} />}
+      {tab === "losers"  && <RankingStockList data={losersData}  isLoading={isLosersLoading}  emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} />}
+    </div>
+  );
+
   // ── Screener Panel (PC left sidebar) ───────────────────────────────
   const ScreenerPanel = () => (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="px-2 pt-2 pb-1 flex-shrink-0">
-        <Input
-          placeholder={lang === "ko" ? "종목 검색..." : "Search..."}
-          value={screenerSearch}
-          onChange={e => setScreenerSearch(e.target.value)}
-          className="h-7 text-xs"
-          data-testid="input-screener-search"
-        />
-      </div>
-      <div className="flex items-center justify-between px-2 pb-1 flex-shrink-0">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "정렬" : "Sort"}</span>
-        <div className="flex gap-0.5">
-          {([["rs", "RS"], ["change", "%"], ["vol", "Vol"], ["name", "A-Z"]] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setScreenerSort(key)}
-              className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === key ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")}
-              data-testid={`sort-screener-${key}`}>{label}</button>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto border-t border-border/30">
-        {isExtraSymbol && urlSymbol && (
-          <button onClick={() => setSelectedSymbol(urlSymbol)}
-            className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
-              selectedSymbol === urlSymbol ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
-            data-testid={`screener-stock-extra-${urlSymbol}`}>
-            <span className="text-sm shrink-0">🔍</span>
-            <div className="flex-1 min-w-0">
-              <p className={cn("text-xs font-bold truncate", selectedSymbol === urlSymbol ? "text-primary" : "text-violet-400")}>
-                {quote?.name ? cleanCompanyName(quote.name) : urlSymbol}
-              </p>
-              <p className="text-[10px] text-muted-foreground">{urlSymbol}</p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-[9px] text-violet-400 font-medium">{lang === "ko" ? "탐색 중" : "Browsing"}</p>
-            </div>
-          </button>
-        )}
-        {isScreenerLoading ? (
-          <div className="p-3 space-y-1.5">{Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}</div>
-        ) : screenerRows.map(row => {
-          const isSelected = row.symbol === selectedSymbol;
-          const isKrStock = row.symbol.endsWith(".KS") || row.symbol.endsWith(".KQ");
-          const priceFmt = row.price == null ? "--"
-            : isKrStock ? `₩${Math.round(row.price).toLocaleString()}`
-            : `$${row.price.toFixed(2)}`;
-          const displayN = getLocalizedCompanyName(cleanCompanyName(row.name), lang);
+      {/* Tab bar: Screener | Popular | Gainers | Losers */}
+      <div className="flex border-b border-border/40 flex-shrink-0">
+        <button onClick={() => setLeftTab("screener")}
+          className={cn("flex-1 py-1.5 text-[10px] font-bold transition-colors",
+            leftTab === "screener" ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground")}
+          data-testid="left-tab-screener">
+          📊 {lang === "ko" ? "스크리너" : "Screen"}
+        </button>
+        {(["actives","gainers","losers"] as const).map(key => {
+          const labels: Record<string,string[]> = { actives: ["🔥","인기","Active"], gainers: ["🚀","급등","Gain"], losers: ["📉","급락","Loss"] };
+          const [icon, ko, en] = labels[key];
           return (
-            <button key={row.symbol} onClick={() => setSelectedSymbol(row.symbol)}
-              className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
-                isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
-              data-testid={`screener-stock-${row.symbol}`}>
-              <span className="text-sm shrink-0">{row.flag}</span>
-              <div className="flex-1 min-w-0">
-                <p className={cn("text-xs font-bold truncate", isSelected ? "text-primary" : "")}>{displayN}</p>
-                <p className="text-[10px] text-muted-foreground">{row.symbol}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-xs font-mono font-semibold">{priceFmt}</p>
-                <p className={cn("text-[10px] font-bold", row.rs >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                  {screenerSort === "change" ? `${row.changePercent >= 0 ? "+" : ""}${row.changePercent.toFixed(2)}%` : `RS ${row.rs >= 0 ? "+" : ""}${row.rs.toFixed(1)}%`}
-                </p>
-              </div>
+            <button key={key} onClick={() => setLeftTab(key)}
+              className={cn("flex-1 py-1.5 text-[10px] font-bold transition-colors",
+                leftTab === key ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground")}
+              data-testid={`left-tab-${key}`}>
+              {icon} {lang === "ko" ? ko : en}
             </button>
           );
         })}
       </div>
+
+      {/* Screener tab content */}
+      {leftTab === "screener" && (
+        <>
+          <div className="px-2 pt-2 pb-1 flex-shrink-0">
+            <Input
+              placeholder={lang === "ko" ? "종목 검색..." : "Search..."}
+              value={screenerSearch}
+              onChange={e => setScreenerSearch(e.target.value)}
+              className="h-7 text-xs"
+              data-testid="input-screener-search"
+            />
+          </div>
+          <div className="flex items-center justify-between px-2 pb-1 flex-shrink-0">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{lang === "ko" ? "정렬" : "Sort"}</span>
+            <div className="flex gap-0.5">
+              {([["rs", "RS"], ["change", "%"], ["vol", "Vol"], ["name", "A-Z"]] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setScreenerSort(key)}
+                  className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold", screenerSort === key ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground")}
+                  data-testid={`sort-screener-${key}`}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto border-t border-border/30">
+            {isExtraSymbol && urlSymbol && (
+              <button onClick={() => setSelectedSymbol(urlSymbol)}
+                className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
+                  selectedSymbol === urlSymbol ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
+                data-testid={`screener-stock-extra-${urlSymbol}`}>
+                <span className="text-sm shrink-0">🔍</span>
+                <div className="flex-1 min-w-0">
+                  <p className={cn("text-xs font-bold truncate", selectedSymbol === urlSymbol ? "text-primary" : "text-violet-400")}>
+                    {quote?.name ? cleanCompanyName(quote.name) : urlSymbol}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{urlSymbol}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] text-violet-400 font-medium">{lang === "ko" ? "탐색 중" : "Browsing"}</p>
+                </div>
+              </button>
+            )}
+            {isScreenerLoading ? (
+              <div className="p-3 space-y-1.5">{Array(8).fill(0).map((_, i) => <div key={i} className="h-10 bg-muted/50 rounded-lg animate-pulse" />)}</div>
+            ) : screenerRows.map(row => {
+              const isSelected = row.symbol === selectedSymbol;
+              const isKrStock = row.symbol.endsWith(".KS") || row.symbol.endsWith(".KQ");
+              const priceFmt = row.price == null ? "--"
+                : isKrStock ? `₩${Math.round(row.price).toLocaleString()}`
+                : `$${row.price.toFixed(2)}`;
+              const displayN = getLocalizedCompanyName(cleanCompanyName(row.name), lang);
+              return (
+                <button key={row.symbol} onClick={() => setSelectedSymbol(row.symbol)}
+                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
+                    isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
+                  data-testid={`screener-stock-${row.symbol}`}>
+                  <span className="text-sm shrink-0">{row.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-xs font-bold truncate", isSelected ? "text-primary" : "")}>{displayN}</p>
+                    <p className="text-[10px] text-muted-foreground">{row.symbol}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-mono font-semibold">{priceFmt}</p>
+                    <p className={cn("text-[10px] font-bold", row.rs >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                      {screenerSort === "change" ? `${row.changePercent >= 0 ? "+" : ""}${row.changePercent.toFixed(2)}%` : `RS ${row.rs >= 0 ? "+" : ""}${row.rs.toFixed(1)}%`}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Ranking tab contents — directly show list, no inner tab bar */}
+      {leftTab === "actives" && <div className="flex-1 min-h-0 overflow-hidden flex flex-col"><RankingStockList data={activesData} isLoading={isActivesLoading} emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} /></div>}
+      {leftTab === "gainers" && <div className="flex-1 min-h-0 overflow-hidden flex flex-col"><RankingStockList data={gainersData} isLoading={isGainersLoading} emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} /></div>}
+      {leftTab === "losers"  && <div className="flex-1 min-h-0 overflow-hidden flex flex-col"><RankingStockList data={losersData}  isLoading={isLosersLoading}  emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} /></div>}
     </div>
   );
 
@@ -948,46 +1053,7 @@ export default function AdvancedDashboard() {
       ══════════════════════════════════════════════════════════════ */}
       <div className="md:hidden flex flex-col w-full overflow-x-hidden" style={{ maxWidth: "100vw" }}>
 
-        {/* ── Mobile symbol search bar ───────────────────────────── */}
-        <div className="px-3 py-2 border-b border-border/30 bg-background/95">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const val = mobileSearchInput.trim().toUpperCase();
-              if (val) {
-                setSelectedSymbol(val);
-                setMobileSearchInput("");
-                isUserTypingMobile.current = false;
-              }
-            }}
-            className="relative flex items-center gap-2"
-          >
-            <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <Input
-              ref={mobileSearchRef}
-              value={mobileSearchInput}
-              onChange={(e) => {
-                isUserTypingMobile.current = true;
-                setMobileSearchInput(e.target.value.toUpperCase());
-              }}
-              onBlur={() => { isUserTypingMobile.current = false; }}
-              placeholder={lang === "ko" ? "종목 검색 (예: AAPL)" : "Search symbol (e.g. AAPL)"}
-              className="h-9 text-sm pl-9 pr-4 bg-muted/50 border-border/50"
-              autoComplete="off"
-              autoCapitalize="characters"
-              data-testid="input-mobile-pro-search"
-            />
-            <button
-              type="submit"
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-bold border border-primary/30 hover:bg-primary/25 transition-colors"
-              data-testid="button-mobile-pro-search-submit"
-            >
-              {lang === "ko" ? "조회" : "Go"}
-            </button>
-          </form>
-        </div>
-
-        {/* Stock chip horizontal strip */}
+          {/* Stock chip horizontal strip */}
         <StockChipStrip />
 
         {/* Price header */}
@@ -1021,7 +1087,34 @@ export default function AdvancedDashboard() {
             isDark={isDark}
             lang={lang === "ko" ? "ko" : "en"}
             fillContainer
+            onSymbolChange={setSelectedSymbol}
           />
+        </div>
+
+        {/* ── Market Ranking Panel (mobile) — below chart ─────────── */}
+        <div className="w-full border-t border-border/30 flex-shrink-0" style={{ maxWidth: "100vw" }}>
+          <div className="px-0">
+            <div className="flex border-b border-border/40">
+              {([
+                ["actives", "🔥", lang === "ko" ? "인기주식" : "Most Active"],
+                ["gainers", "🚀", lang === "ko" ? "급등주" : "Top Gainers"],
+                ["losers",  "📉", lang === "ko" ? "급락주" : "Top Losers"],
+              ] as const).map(([key, icon, label]) => (
+                <button key={key} onClick={() => setRankTab(key)}
+                  className={cn("flex-1 flex items-center justify-center gap-1 py-2 text-[11px] font-bold transition-colors",
+                    rankTab === key ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground")}
+                  data-testid={`mobile-rank-tab-${key}`}>
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+            {/* Compact scrollable list — max 8 rows shown */}
+            <div className="overflow-y-auto" style={{ maxHeight: 280 }}>
+              {rankTab === "actives" && <RankingStockList data={activesData} isLoading={isActivesLoading} emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} />}
+              {rankTab === "gainers" && <RankingStockList data={gainersData} isLoading={isGainersLoading} emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} />}
+              {rankTab === "losers"  && <RankingStockList data={losersData}  isLoading={isLosersLoading}  emptyMsg={lang === "ko" ? "데이터 없음" : "No data"} />}
+            </div>
+          </div>
         </div>
 
         {/* RRG Section */}
@@ -1061,6 +1154,7 @@ export default function AdvancedDashboard() {
               isDark={isDark}
               lang={lang === "ko" ? "ko" : "en"}
               fillContainer
+              onSymbolChange={setSelectedSymbol}
             />
           </div>
         </div>

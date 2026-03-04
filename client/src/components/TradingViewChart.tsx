@@ -67,6 +67,14 @@ function ensureTVScript(cb: () => void) {
 
 let _counter = 0;
 
+// ── Reverse symbol mapper (TradingView → internal) ───────────────────────────
+export function fromTVSymbol(tvSym: string): string {
+  if (tvSym.startsWith("KRX:")) return `${tvSym.slice(4)}.KS`;
+  if (tvSym.startsWith("TSE:")) return `${tvSym.slice(4)}.T`;
+  const colon = tvSym.indexOf(":");
+  return colon >= 0 ? tvSym.slice(colon + 1) : tvSym;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export interface TradingViewChartProps {
   symbol: string;
@@ -77,6 +85,7 @@ export interface TradingViewChartProps {
   lang?: string;
   className?: string;
   fillContainer?: boolean;
+  onSymbolChange?: (symbol: string) => void;
 }
 
 export function TradingViewChart({
@@ -88,10 +97,13 @@ export function TradingViewChart({
   lang = "en",
   className,
   fillContainer = false,
+  onSymbolChange,
 }: TradingViewChartProps) {
-  const wrapRef  = useRef<HTMLDivElement>(null);
-  const idRef    = useRef(`tv_${++_counter}`);
-  const cleanRef = useRef(false);
+  const wrapRef       = useRef<HTMLDivElement>(null);
+  const idRef         = useRef(`tv_${++_counter}`);
+  const cleanRef      = useRef(false);
+  const onSymbolRef   = useRef(onSymbolChange);
+  onSymbolRef.current = onSymbolChange;
 
   useEffect(() => {
     cleanRef.current = false;
@@ -113,7 +125,7 @@ export function TradingViewChart({
 
     const create = () => {
       if (cleanRef.current || !inner.isConnected) return;
-      new window.TradingView.widget({
+      const widget = new window.TradingView.widget({
         container_id: id,
         autosize: true,
         symbol: tvSym,
@@ -152,6 +164,21 @@ export function TradingViewChart({
           "scalesProperties.showStudyLastValue":  true,
         },
       });
+
+      // Subscribe to symbol changes from inside the TV widget
+      if (onSymbolRef.current && widget && typeof widget.onChartReady === "function") {
+        widget.onChartReady(() => {
+          try {
+            widget.activeChart().onSymbolChanged().subscribe(null, () => {
+              try {
+                const newTVSym: string = widget.activeChart().symbol();
+                const internal = fromTVSymbol(newTVSym);
+                onSymbolRef.current?.(internal);
+              } catch { /* ignore */ }
+            });
+          } catch { /* ignore — some widget builds don't expose this */ }
+        });
+      }
     };
 
     ensureTVScript(create);

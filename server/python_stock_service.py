@@ -1586,6 +1586,60 @@ def get_economic_actuals():
     return jsonify({"actuals": result, "fetchedAt": fetched_at})
 
 
+
+# ── Yahoo Finance Screener (Gainers / Losers / Most Active) ──────────
+_screener_cache: dict = {}
+_SCREENER_TTL = 300  # 5 minutes
+
+def _fetch_yf_screener(scr_id: str) -> list:
+    """Fetch a predefined Yahoo Finance screener list. Returns list of dicts."""
+    import time as _t
+    import requests as _req
+    cached = _screener_cache.get(scr_id)
+    if cached and (_t.time() - cached["ts"]) < _SCREENER_TTL:
+        return cached["data"]
+    url = (
+        "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
+        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count=25"
+    )
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    try:
+        resp = _req.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        raw = resp.json()
+        quotes = raw.get("finance", {}).get("result", [{}])[0].get("quotes", [])
+        data = [
+            {
+                "symbol": q.get("symbol", ""),
+                "name":   q.get("longName") or q.get("shortName") or q.get("symbol", ""),
+                "price":  q.get("regularMarketPrice", 0),
+                "changePercent": q.get("regularMarketChangePercent", 0),
+                "change": q.get("regularMarketChange", 0),
+            }
+            for q in quotes if q.get("symbol")
+        ]
+        _screener_cache[scr_id] = {"data": data, "ts": _t.time()}
+        return data
+    except Exception as exc:
+        print(f"[Screener] {scr_id} error: {exc}")
+        return _screener_cache.get(scr_id, {}).get("data", [])
+
+
+@app.route('/screener/gainers', methods=['GET'])
+def screener_gainers():
+    return jsonify(_fetch_yf_screener("day_gainers"))
+
+
+@app.route('/screener/losers', methods=['GET'])
+def screener_losers():
+    return jsonify(_fetch_yf_screener("day_losers"))
+
+
+@app.route('/screener/actives', methods=['GET'])
+def screener_actives():
+    return jsonify(_fetch_yf_screener("most_actives"))
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)
