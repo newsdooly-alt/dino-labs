@@ -865,6 +865,27 @@ def get_earnings(symbol):
         return jsonify({"error": str(e), "nextEarningsDate": None, "lastEpsActual": None, "history": []}), 200
 
 
+@app.route('/dividends/<path:symbol>', methods=['GET'])
+def get_dividends(symbol):
+    """Get dividend payment dates and amounts for a symbol."""
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        divs = ticker.dividends
+        if divs is None or divs.empty:
+            return jsonify({"symbol": symbol.upper(), "dividends": []})
+        result = []
+        for date, amount in divs.items():
+            if amount > 0:
+                result.append({
+                    "date": date.strftime("%Y-%m-%d"),
+                    "amount": round(float(amount), 4)
+                })
+        result.sort(key=lambda x: x["date"])
+        return jsonify({"symbol": symbol.upper(), "dividends": result})
+    except Exception as e:
+        return jsonify({"symbol": symbol, "dividends": [], "error": str(e)}), 200
+
+
 @app.route('/fear-greed', methods=['GET'])
 def get_fear_greed():
     """Fetch CNN Fear & Greed Index from production endpoint."""

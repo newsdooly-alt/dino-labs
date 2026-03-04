@@ -1266,6 +1266,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/stocks/dividends/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+      const pythonHealthy = await fetch("http://127.0.0.1:5001/health").then(r => r.ok).catch(() => false);
+      if (!pythonHealthy) return res.json({ symbol, dividends: [] });
+      const data = await fetch(`http://127.0.0.1:5001/dividends/${encodeURIComponent(symbol)}`).then(r => r.json());
+      res.json(data);
+    } catch {
+      res.json({ symbol, dividends: [] });
+    }
+  });
+
   // Stock-specific news
   app.get("/api/stocks/news/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
