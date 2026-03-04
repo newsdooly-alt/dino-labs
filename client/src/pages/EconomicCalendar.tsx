@@ -256,20 +256,20 @@ function EventItem({
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{secondaryName}</p>
           )}
 
-          <div className="flex gap-4 mt-2">
-            <div className="flex flex-col">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+            <div className="flex flex-col min-w-[48px]">
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "실제" : "Actual"}
               </span>
               <ActualValueDisplay actual={event.actual} forecast={event.forecast} unit={event.unit} />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-[48px]">
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "예상" : "Forecast"}
               </span>
               <span className="font-mono text-xs text-foreground/80">{event.forecast || "—"}</span>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-[48px]">
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "이전" : "Previous"}
               </span>
@@ -402,8 +402,9 @@ export default function EconomicCalendar() {
   }>({
     queryKey: ["/api/economic-actuals"],
     queryFn: () => fetch("/api/economic-actuals").then((r) => r.json()),
-    refetchInterval: 60 * 1000,
-    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: true,
   });
 
   const lastUpdatedLabel = useMemo(() => {
@@ -496,7 +497,7 @@ export default function EconomicCalendar() {
       : "All times shown in US Eastern Time (ET). Daylight Saving Time (EDT/EST) is applied automatically.";
 
   return (
-    <div className="p-4 md:p-6 space-y-5 pb-28" data-testid="economic-calendar-page">
+    <div className="p-4 md:p-6 space-y-5 pb-28 overflow-x-hidden max-w-full" data-testid="economic-calendar-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 flex-wrap">

@@ -1017,11 +1017,11 @@ export default function AdvancedDashboard() {
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1">
           {lang === "ko" ? "📅 실적 & 어닝스" : "📅 Earnings & Data"}
         </p>
-        <EarningsPanel />
+        {EarningsPanel()}
       </div>
       {/* RRG — bottom, collapsible */}
       <div className={cn("flex-shrink-0 overflow-y-auto transition-all duration-300", rrgFocused ? "h-[520px]" : "h-[340px]")}>
-        <RRGChartPanel compact />
+        {RRGChartPanel({ compact: true })}
       </div>
     </div>
   );
@@ -1054,7 +1054,7 @@ export default function AdvancedDashboard() {
       <div className="md:hidden flex flex-col w-full overflow-x-hidden" style={{ maxWidth: "100vw" }}>
 
           {/* Stock chip horizontal strip */}
-        <StockChipStrip />
+        {StockChipStrip()}
 
         {/* Price header */}
         <div className="flex items-center gap-3 px-3 py-2 border-b border-border/30 bg-background flex-shrink-0">
@@ -1119,17 +1119,17 @@ export default function AdvancedDashboard() {
 
         {/* RRG Section */}
         <div className="w-full border-t border-border/30">
-          <RRGChartPanel />
+          {RRGChartPanel({})}
         </div>
 
         {/* Earnings Section */}
         <div className="w-full border-t border-border/30">
-          <EarningsPanel />
+          {EarningsPanel()}
         </div>
 
         {/* Super Investors — full list with scroll toggle */}
         <div className="w-full border-t border-border/30 pb-6">
-          <InsightsPanel />
+          {InsightsPanel()}
         </div>
       </div>
 
@@ -1140,12 +1140,12 @@ export default function AdvancedDashboard() {
 
         {/* Col 1: Screener (200px) */}
         <div className="w-[200px] flex-shrink-0 border-r border-border/50 overflow-hidden flex flex-col">
-          <ScreenerPanel />
+          {ScreenerPanel()}
         </div>
 
         {/* Col 2: Chart (flex-1) */}
         <div className="flex-1 min-w-0 border-r border-border/50 overflow-hidden flex flex-col">
-          <ChartHeader />
+          {ChartHeader()}
           <div className="flex-1 min-h-0">
             <TradingViewChart
               symbol={selectedSymbol}
@@ -1161,7 +1161,7 @@ export default function AdvancedDashboard() {
 
         {/* Col 3: Right panel — Earnings + RRG (290px) */}
         <div className="w-[290px] flex-shrink-0 overflow-hidden flex flex-col">
-          <RightPanel />
+          {RightPanel()}
         </div>
       </div>
 
