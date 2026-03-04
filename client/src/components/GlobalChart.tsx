@@ -47,13 +47,21 @@ interface CandlePoint {
 // isIntraday: whether to use intraday (5m) data
 const RANGES = [
   { key: "1d",  label: "1D",  daysBack: 1,    fetchPeriod: "5d",  fetchInterval: "5m",  isIntraday: true  },
-  { key: "1w",  label: "1W",  daysBack: 7,    fetchPeriod: "1y",  fetchInterval: "1d",  isIntraday: false },
-  { key: "1m",  label: "1M",  daysBack: 30,   fetchPeriod: "1y",  fetchInterval: "1d",  isIntraday: false },
-  { key: "3m",  label: "3M",  daysBack: 90,   fetchPeriod: "1y",  fetchInterval: "1d",  isIntraday: false },
-  { key: "1y",  label: "1Y",  daysBack: 365,  fetchPeriod: "5y",  fetchInterval: "1wk", isIntraday: false },
-  { key: "5y",  label: "5Y",  daysBack: 1825, fetchPeriod: "5y",  fetchInterval: "1wk", isIntraday: false },
-  { key: "all", label: "ALL", daysBack: 99999,fetchPeriod: "max", fetchInterval: "1mo", isIntraday: false },
+  { key: "1w",  label: "1W",  daysBack: 7,    fetchPeriod: "2y",  fetchInterval: "1d",  isIntraday: false },
+  { key: "1m",  label: "1M",  daysBack: 30,   fetchPeriod: "2y",  fetchInterval: "1d",  isIntraday: false },
+  { key: "3m",  label: "3M",  daysBack: 90,   fetchPeriod: "2y",  fetchInterval: "1d",  isIntraday: false },
+  { key: "1y",  label: "1Y",  daysBack: 365,  fetchPeriod: "5y",  fetchInterval: "1d",  isIntraday: false },
+  { key: "5y",  label: "5Y",  daysBack: 1825, fetchPeriod: "max", fetchInterval: "1wk", isIntraday: false },
+  { key: "all", label: "ALL", daysBack: 99999,fetchPeriod: "max", fetchInterval: "1wk", isIntraday: false },
 ] as const;
+
+// How many days to fetch per "load more" chunk, keyed by interval
+const FETCH_CHUNK_DAYS: Record<string, number> = {
+  "5m":  7,     // 1 week of intraday
+  "1d":  3650,  // ~10 years of daily
+  "1wk": 18250, // ~50 years of weekly
+  "1mo": 18250,
+};
 
 type RangeKey = typeof RANGES[number]["key"];
 
@@ -160,12 +168,15 @@ function InfiniteScrollChart({
   const volSeriesRef   = useRef<ISeriesApi<"Histogram"> | null>(null);
 
   // Data buffer
-  const allDataRef     = useRef<CandlePoint[]>([]);
-  const intradayRef    = useRef(false);  // true while intraday (5m) data is loaded
-  const loadedRangeRef = useRef<string>(""); // tracks which range data is buffered
+  const allDataRef        = useRef<CandlePoint[]>([]);
+  const intradayRef       = useRef(false);       // true while intraday (5m) data is loaded
+  const loadedRangeRef    = useRef<string>("");  // tracks which range data is buffered
+  const currentIntervalRef= useRef<string>("1d");// interval of the currently buffered data
+  const oldestDateRef     = useRef<string>("");  // oldest date fetched (for "no more data" guard)
 
   // Guards
   const fetchingMoreRef   = useRef(false);
+  const noMoreOldDataRef  = useRef(false);       // true when we hit IPO / start of history
   const initialLoadingRef = useRef(false);
 
   // Keep latest callbacks in refs (avoid stale closures inside chart event handlers)
@@ -260,6 +271,9 @@ function InfiniteScrollChart({
       allDataRef.current = data;
       intradayRef.current = range.isIntraday;
       loadedRangeRef.current = key;
+      currentIntervalRef.current = range.fetchInterval;
+      noMoreOldDataRef.current = false;
+      oldestDateRef.current = data[0]?.date?.slice(0, 10) ?? "";
 
       // Update time scale visibility for intraday mode
       chartRef.current?.applyOptions({
@@ -282,14 +296,13 @@ function InfiniteScrollChart({
     const range     = RANGES.find(r => r.key === rangeKey)!;
     const prevRange = RANGES.find(r => r.key === prevKey)!;
 
-    // If switching between intraday and non-intraday, or no data yet → reload
+    // Reload if: no data, intraday changed, or interval changed (mixing bars is forbidden)
+    const intervalChanged = range.fetchInterval !== currentIntervalRef.current;
     const needsNewData =
       allDataRef.current.length === 0 ||
       range.isIntraday !== prevRange.isIntraday ||
-      // Switching to a longer period that our buffer doesn't cover
-      (range.key === "1y" && loadedRangeRef.current === "1m") ||
-      (range.key === "5y" && loadedRangeRef.current !== "5y" && loadedRangeRef.current !== "all") ||
-      (range.key === "all" && loadedRangeRef.current !== "all");
+      intervalChanged ||
+      (range.key === "all" && loadedRangeRef.current !== "all" && loadedRangeRef.current !== "5y");
 
     if (needsNewData) {
       loadForRange(rangeKey);
@@ -304,13 +317,16 @@ function InfiniteScrollChart({
   useEffect(() => {
     allDataRef.current = [];
     loadedRangeRef.current = "";
+    currentIntervalRef.current = "1d";
+    noMoreOldDataRef.current = false;
+    oldestDateRef.current = "";
     loadForRange(rangeKeyRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
 
   // ── Fetch older data (infinite scroll handler) ─────────────────────────
   const fetchOlderData = useCallback(async () => {
-    if (fetchingMoreRef.current) return;
+    if (fetchingMoreRef.current || noMoreOldDataRef.current) return;
     const data = allDataRef.current;
     if (data.length === 0) return;
 
@@ -318,23 +334,34 @@ function InfiniteScrollChart({
     onLoadingRef.current(true);
 
     try {
+      // Use the SAME interval as the currently buffered data to avoid bar-width mixing
+      const interval   = intradayRef.current ? "5m" : currentIntervalRef.current;
+      const chunkDays  = FETCH_CHUNK_DAYS[interval] ?? 3650;
+
       const oldestDate = data[0].date.slice(0, 10);
-      const endMs   = new Date(oldestDate).getTime();
-      // Go back ~1 year (daily) or 5 years (weekly depending on interval)
-      const interval = intradayRef.current ? "1d" : "1d";
-      const startMs  = endMs - 365 * 86400000;
-      const startDate = new Date(startMs).toISOString().slice(0, 10);
+      const endMs      = new Date(oldestDate).getTime();
+      const startMs    = endMs - chunkDays * 86400000;
+      const startDate  = new Date(startMs).toISOString().slice(0, 10);
 
       const older = await fetchCandles(symbolRef.current, {
         interval,
         start: startDate,
         end:   oldestDate,
       });
-      if (older.length === 0) return;
 
-      const existingDates = new Set(data.map(d => d.date));
-      const fresh = older.filter(d => !existingDates.has(d.date));
-      if (fresh.length === 0) return;
+      if (older.length === 0) {
+        // No data before this date — assume we've reached the IPO
+        noMoreOldDataRef.current = true;
+        return;
+      }
+
+      // Deduplicate by first 10 chars of date (handles timezone offsets in date strings)
+      const existingDates = new Set(data.map(d => d.date.slice(0, 10)));
+      const fresh = older.filter(d => !existingDates.has(d.date.slice(0, 10)));
+      if (fresh.length === 0) {
+        noMoreOldDataRef.current = true;
+        return;
+      }
 
       const combined = [...fresh, ...data];
       combined.sort((a, b) => a.date.localeCompare(b.date));
@@ -377,6 +404,7 @@ function InfiniteScrollChart({
         secondsVisible: false,
         fixLeftEdge: false,
         fixRightEdge: false,
+        minBarSpacing: 2,        // prevent bars from collapsing on long histories
       },
       // Zoom via mouse wheel, pan via drag — same on mobile (pinch / touch-drag)
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -402,8 +430,11 @@ function InfiniteScrollChart({
     }
     mainSeriesRef.current = main;
 
-    // Scale margins so volume bars don't overlap candles
-    chart.priceScale("right").applyOptions({ scaleMargins: { top: 0.1, bottom: 0.18 } });
+    // Scale margins so volume bars don't overlap candles; autoScale: re-fits Y as user pans
+    chart.priceScale("right").applyOptions({
+      scaleMargins: { top: 0.1, bottom: 0.18 },
+      autoScale: true,
+    });
 
     // ── Volume series ─────────────────────────────────────────────────────
     const vol = chart.addSeries(HistogramSeries, {
@@ -479,9 +510,10 @@ function InfiniteScrollChart({
     });
 
     // ── Left-edge detection → infinite scroll ────────────────────────────
+    // Trigger at <= 20 bars from the left edge (fires well before user hits empty space on mobile)
     let edgeFired = false;
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range && range.from <= 2 && !edgeFired && !fetchingMoreRef.current) {
+      if (range && range.from <= 20 && !edgeFired && !fetchingMoreRef.current && !noMoreOldDataRef.current) {
         edgeFired = true;
         fetchOlderData().finally(() => { edgeFired = false; });
       }
