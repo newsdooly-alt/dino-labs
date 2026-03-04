@@ -314,14 +314,8 @@ export default function StockDetail() {
               <div className="text-3xl font-bold font-mono">{formatPrice(quote?.price, { nativeCurrency })}</div>
               <div className={cn("flex items-center gap-1 text-base font-semibold flex-wrap justify-end", isPeriodPositive ? "text-emerald-500" : "text-rose-500")}>
                 {isPeriodPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {selectedPeriod === "1d" ? (
-                  <>{(quote?.change ?? 0) >= 0 ? "+" : ""}{formatPrice(quote?.change, { nativeCurrency })} ({(quote?.changePercent ?? 0) >= 0 ? "+" : ""}{quote?.changePercent?.toFixed(2) || "0.00"}%)</>
-                ) : (
-                  <>{isPeriodPositive ? "+" : ""}{formatPrice(periodReturnAbs, { nativeCurrency: displayNative })} ({isPeriodPositive ? "+" : ""}{periodReturnPct.toFixed(2)}%)</>
-                )}
-                {selectedPeriod !== "1d" && chartData.length > 1 && (
-                  <span className="text-xs text-muted-foreground font-normal ml-0.5">({periodLabelStr})</span>
-                )}
+                <>{(quote?.change ?? 0) >= 0 ? "+" : ""}{formatPrice(quote?.change, { nativeCurrency })} ({(quote?.changePercent ?? 0) >= 0 ? "+" : ""}{quote?.changePercent?.toFixed(2) || "0.00"}%)</>
+                <span className="text-xs text-muted-foreground font-normal">{lang === "ko" ? "오늘" : "today"}</span>
               </div>
             </>
           )}

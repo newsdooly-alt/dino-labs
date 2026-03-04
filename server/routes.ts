@@ -1190,6 +1190,19 @@ export async function registerRoutes(
     }
   });
 
+  // Earnings data
+  app.get("/api/stocks/earnings/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+      const pythonHealthy = await fetch("http://127.0.0.1:5001/health").then(r => r.ok).catch(() => false);
+      if (!pythonHealthy) return res.json({ nextEarningsDate: null, lastEpsActual: null, history: [] });
+      const data = await fetch(`http://127.0.0.1:5001/earnings/${encodeURIComponent(symbol)}`).then(r => r.json());
+      res.json(data);
+    } catch (e: any) {
+      res.json({ nextEarningsDate: null, lastEpsActual: null, history: [] });
+    }
+  });
+
   // Stock-specific news
   app.get("/api/stocks/news/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();

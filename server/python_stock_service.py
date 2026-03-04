@@ -646,6 +646,85 @@ def get_info(symbol):
         return jsonify({"error": str(e), "symbol": symbol}), 500
 
 
+@app.route('/earnings/<path:symbol>', methods=['GET'])
+def get_earnings(symbol):
+    """Get earnings dates, EPS estimates, and actuals for a symbol."""
+    try:
+        import pandas as pd
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.info
+
+        result = {
+            "nextEarningsDate": None,
+            "nextEpsEstimate": None,
+            "nextEpsHigh": None,
+            "nextEpsLow": None,
+            "lastEarningsDate": None,
+            "lastEpsActual": None,
+            "lastEpsEstimate": None,
+            "lastSurprisePct": None,
+            "trailingEps": None,
+            "forwardEps": None,
+            "history": [],
+        }
+
+        # Trailing / forward EPS from info
+        trailing = info.get("trailingEps")
+        forward  = info.get("forwardEps")
+        if trailing is not None:
+            result["trailingEps"] = float(trailing)
+        if forward is not None:
+            result["forwardEps"] = float(forward)
+
+        # Next earnings from calendar
+        try:
+            cal = ticker.calendar
+            if cal and isinstance(cal, dict):
+                dates = cal.get("Earnings Date")
+                if dates and len(dates) > 0:
+                    result["nextEarningsDate"] = str(dates[0])
+                avg = cal.get("Earnings Average")
+                high = cal.get("Earnings High")
+                low  = cal.get("Earnings Low")
+                if avg is not None:
+                    result["nextEpsEstimate"] = float(avg)
+                if high is not None:
+                    result["nextEpsHigh"] = float(high)
+                if low is not None:
+                    result["nextEpsLow"] = float(low)
+        except Exception:
+            pass
+
+        # Historical quarterly EPS from income statement
+        try:
+            qs = ticker.quarterly_income_stmt
+            if qs is not None and not qs.empty and "Diluted EPS" in qs.index:
+                eps_row = qs.loc["Diluted EPS"]
+                history = []
+                for col in eps_row.index:
+                    val = eps_row[col]
+                    if val is not None and pd.notna(val):
+                        history.append({
+                            "date": str(col.date()) if hasattr(col, "date") else str(col),
+                            "epsActual": float(val),
+                            "epsEstimate": None,
+                        })
+                history.sort(key=lambda x: x["date"], reverse=True)
+                result["history"] = history[:6]
+
+                # Most recent quarter as "last earnings"
+                if history:
+                    result["lastEarningsDate"] = history[0]["date"]
+                    result["lastEpsActual"]    = history[0]["epsActual"]
+                    result["lastEpsEstimate"]  = result["trailingEps"]
+        except Exception:
+            pass
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e), "nextEarningsDate": None, "lastEpsActual": None, "history": []}), 200
+
+
 @app.route('/fear-greed', methods=['GET'])
 def get_fear_greed():
     """Fetch CNN Fear & Greed Index from production endpoint."""
