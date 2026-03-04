@@ -12,12 +12,13 @@ import {
   Globe,
   ArrowRightLeft,
   TrendingUp,
-  AlertCircle,
   Activity,
   ChevronLeft,
   ChevronRight,
   Zap,
   RefreshCw,
+  Table2,
+  LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
@@ -28,6 +29,7 @@ import {
   startOfMonth,
   isSameDay,
   isSameMonth,
+  isToday,
 } from "date-fns";
 
 interface EconomicEvent {
@@ -53,6 +55,7 @@ interface EconomicEvent {
 }
 
 type Timezone = "KST" | "ET";
+type ViewMode = "table" | "cards";
 
 const INDICATOR_KO_MAP: Record<string, string> = {
   "ISM Manufacturing PMI": "미국 ISM 제조업 구매관리자지수",
@@ -96,6 +99,42 @@ const COUNTRY_LABELS: Record<string, { en: string; ko: string }> = {
   "JPN": { en: "Japan", ko: "일본" },
   "EU": { en: "EU", ko: "유럽" },
 };
+
+const CATEGORY_COLORS: Record<string, string> = {
+  "Central Bank": "text-purple-500",
+  "Inflation": "text-red-500",
+  "Employment": "text-green-500",
+  "Consumer": "text-blue-500",
+  "Growth": "text-emerald-500",
+  "Manufacturing": "text-orange-500",
+  "Services": "text-cyan-500",
+  "Housing": "text-yellow-500",
+};
+
+// Indicators where a HIGHER actual vs forecast is BAD for the economy (red = beat, green = miss)
+const HIGH_BAD_INDICATORS = new Set([
+  "Consumer Price Index (CPI) (MoM)",
+  "Core CPI (YoY)",
+  "Producer Price Index (PPI) (MoM)",
+  "Core PCE Price Index (MoM)",
+  "Unemployment Rate",
+  "Japan CPI (YoY)",
+  "South Korea CPI (YoY)",
+  "EU HICP (YoY)",
+  "EU Core HICP (YoY)",
+  "Harmonized Index of Consumer Prices (HICP) (YoY)",
+  "Core HICP (YoY)",
+]);
+
+function getActualColor(event: EconomicEvent): string {
+  if (!event.actual || !event.forecast) return "";
+  const a = parseFloat(event.actual.replace(/[+%K]/g, ""));
+  const f = parseFloat(event.forecast.replace(/[+%K]/g, ""));
+  if (isNaN(a) || isNaN(f) || a === f) return "";
+  const isNegativeIndicator = HIGH_BAD_INDICATORS.has(event.indicator);
+  const beat = isNegativeIndicator ? a < f : a > f;
+  return beat ? "text-emerald-500" : "text-red-500";
+}
 
 function getIndicatorKo(event: EconomicEvent): string {
   if (event.indicatorKo) return event.indicatorKo;
@@ -163,17 +202,6 @@ const IMPORTANCE_CONFIG = {
   },
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  "Central Bank": "text-purple-500",
-  "Inflation": "text-red-500",
-  "Employment": "text-green-500",
-  "Consumer": "text-blue-500",
-  "Growth": "text-emerald-500",
-  "Manufacturing": "text-orange-500",
-  "Services": "text-cyan-500",
-  "Housing": "text-yellow-500",
-};
-
 function ImportanceBars({ level }: { level: "Low" | "Medium" | "High" }) {
   const cfg = IMPORTANCE_CONFIG[level];
   return (
@@ -181,23 +209,232 @@ function ImportanceBars({ level }: { level: "Low" | "Medium" | "High" }) {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className={cn("rounded-sm w-1", i <= cfg.bars ? cfg.barClass : "bg-muted")}
-          style={{ height: i === 1 ? 6 : i === 2 ? 9 : 12 }}
+          className={cn("rounded-sm w-1.5", i <= cfg.bars ? cfg.barClass : "bg-muted/60")}
+          style={{ height: i === 1 ? 7 : i === 2 ? 11 : 15 }}
         />
       ))}
     </div>
   );
 }
 
-function ActualValueDisplay({ actual, forecast, unit }: { actual: string | null; forecast: string | null; unit: string | null }) {
-  if (!actual) return <span className="text-muted-foreground font-mono text-xs">—</span>;
-  const actualNum = parseFloat(actual);
-  const forecastNum = parseFloat(forecast || "");
-  let color = "text-foreground";
-  if (!isNaN(actualNum) && !isNaN(forecastNum)) {
-    color = actualNum > forecastNum ? "text-red-500" : actualNum < forecastNum ? "text-green-500" : "text-foreground";
+function ActualBadge({ event }: { event: EconomicEvent }) {
+  if (!event.actual) {
+    return <span className="text-muted-foreground font-mono text-xs tabular-nums">—</span>;
   }
-  return <span className={cn("font-mono font-bold text-xs", color)}>{actual}</span>;
+  const color = getActualColor(event);
+  return (
+    <span className={cn("font-mono font-bold text-sm tabular-nums", color || "text-foreground")}>
+      {event.actual}
+    </span>
+  );
+}
+
+function EventDetail({ event, lang }: { event: EconomicEvent; lang: string }) {
+  const cfg = IMPORTANCE_CONFIG[event.importance];
+  const definition = lang === "ko" ? event.definitionKo : event.definitionEn;
+  const impact = lang === "ko" ? event.impactKo : event.impactEn;
+  const correlation = lang === "ko" ? event.correlationKo : event.correlationEn;
+  const counterIndicator = lang === "ko" ? event.counterIndicatorKo : event.counterIndicatorEn;
+  return (
+    <div className="space-y-4">
+      <section>
+        <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-1.5">
+          <Info className="w-3.5 h-3.5" />
+          {lang === "ko" ? "지표 정의" : "Definition"}
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">{definition}</p>
+      </section>
+      <section>
+        <div className="flex items-center gap-1.5 text-xs font-bold mb-1.5">
+          <Activity className="w-3.5 h-3.5 text-orange-500" />
+          <span className="text-orange-500">{lang === "ko" ? "시장 영향" : "Market Impact"}</span>
+          <Badge variant="outline" className={cn("ml-1 text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}>
+            {lang === "ko" ? cfg.labelKo : cfg.label}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">{impact}</p>
+      </section>
+      <section className="p-3.5 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2">
+          <ArrowRightLeft className="w-3.5 h-3.5" />
+          {lang === "ko" ? "상관관계 인사이트" : "Correlation Insight"}
+        </div>
+        <p className="text-xs text-foreground/90 leading-relaxed">{correlation}</p>
+        <div className="mt-3 pt-2.5 border-t border-primary/15 flex items-center justify-between gap-2">
+          <span className="text-[10px] text-muted-foreground shrink-0">
+            {lang === "ko" ? "연계 지표" : "Linked Indicators"}
+          </span>
+          <div className="flex flex-wrap gap-1 justify-end">
+            {counterIndicator.split(",").map((ind, i) => (
+              <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/15 text-primary border-none">
+                {ind.trim()}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function EventTableRow({ event, lang, tz }: { event: EconomicEvent; lang: string; tz: Timezone }) {
+  const [expanded, setExpanded] = useState(false);
+  const tzTime = toTzTime(event.time, tz);
+  const flag = COUNTRY_FLAGS[event.country] || "🌐";
+  const name = lang === "ko" ? getIndicatorKo(event) : event.indicator;
+  const isPast = new Date(event.time) < new Date();
+  const actualColor = getActualColor(event);
+
+  return (
+    <>
+      <tr
+        className={cn(
+          "border-b border-border/40 transition-colors cursor-pointer group",
+          expanded ? "bg-muted/40" : "hover:bg-muted/20"
+        )}
+        onClick={() => setExpanded(!expanded)}
+        data-testid={`table-row-${event.id}`}
+      >
+        <td className="py-3 pl-3 pr-2 w-[58px]">
+          <span className="font-mono text-xs tabular-nums text-foreground/70 whitespace-nowrap">{tzTime}</span>
+        </td>
+        <td className="py-3 px-1 w-[26px]">
+          <span className="text-base leading-none">{flag}</span>
+        </td>
+        <td className="py-3 px-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold text-foreground leading-tight">{name}</span>
+            {lang === "ko" && name !== event.indicator && (
+              <span className="text-[10px] text-muted-foreground leading-tight hidden sm:block">{event.indicator}</span>
+            )}
+          </div>
+        </td>
+        <td className="py-3 px-2 w-[44px]">
+          <ImportanceBars level={event.importance} />
+        </td>
+        <td className="py-3 px-3 w-[72px] text-right">
+          {event.actual ? (
+            <span className={cn("font-mono font-bold text-sm tabular-nums", actualColor || "text-foreground")}>
+              {event.actual}
+            </span>
+          ) : (
+            <span className={cn("font-mono text-xs tabular-nums", isPast ? "text-muted-foreground/40" : "text-muted-foreground")}>
+              {isPast ? "N/A" : "—"}
+            </span>
+          )}
+        </td>
+        <td className="py-3 px-3 w-[72px] text-right hidden sm:table-cell">
+          <span className="font-mono text-xs text-foreground/60 tabular-nums">{event.forecast || "—"}</span>
+        </td>
+        <td className="py-3 pr-3 pl-2 w-[72px] text-right hidden sm:table-cell">
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">{event.previous || "—"}</span>
+        </td>
+        <td className="py-3 pr-3 w-[20px] text-right">
+          {expanded
+            ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-muted/20 border-b border-border/40">
+          <td colSpan={8} className="px-4 py-4">
+            <div className="sm:hidden flex gap-6 mb-4 text-xs">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{lang === "ko" ? "예상" : "Forecast"}</span>
+                <span className="font-mono text-foreground/70">{event.forecast || "—"}</span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{lang === "ko" ? "이전" : "Previous"}</span>
+                <span className="font-mono text-muted-foreground">{event.previous || "—"}</span>
+              </div>
+            </div>
+            <EventDetail event={event} lang={lang} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function EventTableView({
+  events,
+  lang,
+  tz,
+  isLoading,
+}: {
+  events: EconomicEvent[];
+  lang: string;
+  tz: Timezone;
+  isLoading: boolean;
+}) {
+  const tzLabel = getTzLabel(tz, new Date());
+  if (isLoading) {
+    return (
+      <div className="divide-y divide-border/40">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex gap-3 p-4 items-center">
+            <Skeleton className="h-3 w-10 shrink-0" />
+            <Skeleton className="h-4 w-4 rounded shrink-0" />
+            <Skeleton className="h-3 flex-1" />
+            <Skeleton className="h-4 w-8 shrink-0" />
+            <Skeleton className="h-4 w-12 shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (events.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
+        <div className="w-14 h-14 bg-muted/60 rounded-2xl flex items-center justify-center mb-3">
+          <Clock className="w-7 h-7 text-muted-foreground/30" />
+        </div>
+        <h4 className="font-semibold text-muted-foreground mb-1 text-sm">
+          {lang === "ko" ? "이 날짜에는 일정이 없습니다" : "No events on this date"}
+        </h4>
+        <p className="text-xs text-muted-foreground/60 max-w-[220px] leading-relaxed">
+          {lang === "ko"
+            ? "캘린더에서 점이 표시된 날짜를 선택하면 주요 경제 지표를 확인할 수 있습니다"
+            : "Select a marked date on the calendar to view scheduled economic indicators"}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/80 bg-muted/20">
+            <th className="text-left py-2.5 pl-3 pr-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+              {lang === "ko" ? `시간 (${tzLabel})` : `Time (${tzLabel})`}
+            </th>
+            <th className="py-2.5 px-1" />
+            <th className="text-left py-2.5 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              {lang === "ko" ? "지표" : "Event"}
+            </th>
+            <th className="text-center py-2.5 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+              {lang === "ko" ? "중요도" : "Impact"}
+            </th>
+            <th className="text-right py-2.5 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              {lang === "ko" ? "실제" : "Actual"}
+            </th>
+            <th className="text-right py-2.5 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
+              {lang === "ko" ? "예상" : "Forecast"}
+            </th>
+            <th className="text-right py-2.5 pl-2 pr-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
+              {lang === "ko" ? "이전" : "Previous"}
+            </th>
+            <th className="py-2.5 pr-3 w-[20px]" />
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((event) => (
+            <EventTableRow key={event.id} event={event} lang={lang} tz={tz} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function EventItem({
@@ -217,15 +454,14 @@ function EventItem({
   const tzLabel = getTzLabel(tz, new Date(event.time));
   const catColor = CATEGORY_COLORS[event.category] || "text-muted-foreground";
   const flag = COUNTRY_FLAGS[event.country] || "🌐";
-
   const definition = lang === "ko" ? event.definitionKo : event.definitionEn;
   const impact = lang === "ko" ? event.impactKo : event.impactEn;
   const correlation = lang === "ko" ? event.correlationKo : event.correlationEn;
   const counterIndicator = lang === "ko" ? event.counterIndicatorKo : event.counterIndicatorEn;
-
   const primaryName = lang === "ko" ? getIndicatorKo(event) : event.indicator;
   const secondaryName = lang === "ko" && getIndicatorKo(event) !== event.indicator ? event.indicator : null;
   const categoryLabel = lang === "ko" ? (CATEGORY_KO_MAP[event.category] || event.category) : event.category;
+  const actualColor = getActualColor(event);
 
   return (
     <div className="border-b border-border/60 last:border-0" data-testid={`event-item-${event.id}`}>
@@ -239,7 +475,6 @@ function EventItem({
           <span className="text-sm font-mono font-semibold tabular-nums">{tzTime}</span>
           <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">{tzLabel}</span>
         </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-base leading-none">{flag}</span>
@@ -255,13 +490,18 @@ function EventItem({
           {secondaryName && (
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{secondaryName}</p>
           )}
-
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
             <div className="flex flex-col min-w-[48px]">
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "실제" : "Actual"}
               </span>
-              <ActualValueDisplay actual={event.actual} forecast={event.forecast} unit={event.unit} />
+              {event.actual ? (
+                <span className={cn("font-mono font-bold text-xs tabular-nums", actualColor || "text-foreground")}>
+                  {event.actual}
+                </span>
+              ) : (
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">—</span>
+              )}
             </div>
             <div className="flex flex-col min-w-[48px]">
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
@@ -277,59 +517,14 @@ function EventItem({
             </div>
           </div>
         </div>
-
         <div className="shrink-0 text-muted-foreground ml-1">
           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
-
       {isExpanded && (
         <div className="px-4 pb-5 bg-muted/20 border-t border-border/40 animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="pt-4 space-y-4">
-            <section>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-1.5">
-                <Info className="w-3.5 h-3.5" />
-                {lang === "ko" ? "지표 정의" : "Definition"}
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">{definition}</p>
-            </section>
-
-            <section>
-              <div className="flex items-center gap-1.5 text-xs font-bold mb-1.5">
-                <Activity className="w-3.5 h-3.5 text-orange-500" />
-                <span className="text-orange-500">
-                  {lang === "ko" ? "시장 영향" : "Market Impact"}
-                </span>
-                <Badge variant="outline" className={cn("ml-1 text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}>
-                  {lang === "ko" ? cfg.labelKo : cfg.label}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">{impact}</p>
-            </section>
-
-            <section className="p-3.5 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2">
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-                {lang === "ko" ? "상관관계 인사이트" : "Correlation Insight"}
-              </div>
-              <p className="text-xs text-foreground/90 leading-relaxed">{correlation}</p>
-              <div className="mt-3 pt-2.5 border-t border-primary/15 flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground">
-                  {lang === "ko" ? "연계 지표" : "Linked Indicators"}
-                </span>
-                <div className="flex flex-wrap gap-1 justify-end">
-                  {counterIndicator.split(",").map((ind, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="text-[10px] px-1.5 py-0 h-4 bg-primary/15 text-primary border-none"
-                    >
-                      {ind.trim()}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </section>
+          <div className="pt-4">
+            <EventDetail event={event} lang={lang} />
           </div>
         </div>
       )}
@@ -364,6 +559,7 @@ export default function EconomicCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [timezone, setTimezone] = useState<Timezone>("KST");
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const eventListRef = useRef<HTMLDivElement>(null);
 
   const year = viewMonth.getFullYear();
@@ -480,12 +676,8 @@ export default function EconomicCalendar() {
   const currentTzLabel = getTzLabel(timezone, new Date());
   const tzToggleLabel =
     timezone === "KST"
-      ? lang === "ko"
-        ? "ET로 보기"
-        : "Switch to ET"
-      : lang === "ko"
-      ? "KST로 보기"
-      : "Switch to KST";
+      ? lang === "ko" ? "ET로 보기" : "Switch to ET"
+      : lang === "ko" ? "KST로 보기" : "Switch to KST";
 
   const tzInfoText =
     timezone === "KST"
@@ -496,8 +688,16 @@ export default function EconomicCalendar() {
       ? "모든 시간은 미국 동부 시간(ET)으로 표시됩니다. EDT(UTC-4)와 EST(UTC-5) 서머타임이 자동 반영됩니다."
       : "All times shown in US Eastern Time (ET). Daylight Saving Time (EDT/EST) is applied automatically.";
 
+  const selectedDateLabel = format(
+    selectedDate,
+    lang === "ko" ? "yyyy년 M월 d일 (EEEE)" : "EEEE, MMMM d, yyyy"
+  );
+
+  const isTodaySelected = isToday(selectedDate);
+
   return (
     <div className="p-4 md:p-6 space-y-5 pb-28 overflow-x-hidden max-w-full" data-testid="economic-calendar-page">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 flex-wrap">
@@ -534,18 +734,20 @@ export default function EconomicCalendar() {
             )}
           </div>
         </div>
-
-        <button
-          onClick={() => setTimezone((tz) => (tz === "KST" ? "ET" : "KST"))}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm font-medium shrink-0"
-          data-testid="button-timezone-toggle"
-        >
-          <Globe className="w-4 h-4 text-primary" />
-          <span>{tzToggleLabel}</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setTimezone((tz) => (tz === "KST" ? "ET" : "KST"))}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm font-medium"
+            data-testid="button-timezone-toggle"
+          >
+            <Globe className="w-4 h-4 text-primary" />
+            <span>{tzToggleLabel}</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Calendar Panel */}
         <div className="lg:col-span-5">
           <Card className="border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
@@ -567,7 +769,6 @@ export default function EconomicCalendar() {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-
             <CardContent className="p-0 flex justify-center pb-3">
               <Calendar
                 mode="single"
@@ -617,7 +818,6 @@ export default function EconomicCalendar() {
                 }}
               />
             </CardContent>
-
             <div className="px-4 pb-4 flex items-center justify-center gap-5 text-[11px] text-muted-foreground border-t border-border/40 pt-3">
               {[
                 { color: "bg-red-500", label: lang === "ko" ? "높음" : "High" },
@@ -649,36 +849,50 @@ export default function EconomicCalendar() {
               </div>
             </div>
           </div>
+
+          {/* Color legend for actual values */}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/20 rounded-xl px-3 py-2.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
+                {lang === "ko" ? "실제 > 예상 (긍정)" : "Actual beat forecast"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 bg-red-500/8 border border-red-500/20 rounded-xl px-3 py-2.5">
+              <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+              <span className="text-[10px] text-red-600 dark:text-red-400 font-medium leading-tight">
+                {lang === "ko" ? "실제 < 예상 (부정)" : "Actual missed forecast"}
+              </span>
+            </div>
+          </div>
         </div>
 
+        {/* Events Panel */}
         <div className="lg:col-span-7 space-y-3" ref={eventListRef}>
+          {/* Selected date header */}
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="font-bold text-base">
-                {format(selectedDate, lang === "ko" ? "yyyy년 M월 d일" : "PPP")}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-base">{selectedDateLabel}</h3>
+                {isTodaySelected && (
+                  <Badge className="text-[10px] px-2 py-0.5 h-5 bg-emerald-500 text-white border-none font-bold">
+                    {lang === "ko" ? "오늘" : "TODAY"}
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {selectedDateEvents.length > 0 ? (
                   <>
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] px-1.5 py-0 h-4 bg-muted/60 text-muted-foreground border-none"
-                    >
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-muted/60 text-muted-foreground border-none">
                       {selectedDateEvents.length} {lang === "ko" ? "건" : "events"}
                     </Badge>
                     {highCount > 0 && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-4 bg-red-500/10 text-red-500 border-red-500/20"
-                      >
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-red-500/10 text-red-500 border-red-500/20">
                         {highCount} High
                       </Badge>
                     )}
                     {mediumCount > 0 && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-4 bg-orange-500/10 text-orange-500 border-orange-500/20"
-                      >
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-orange-500/10 text-orange-500 border-orange-500/20">
                         {mediumCount} Medium
                       </Badge>
                     )}
@@ -692,80 +906,122 @@ export default function EconomicCalendar() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5" data-testid="country-filter-bar">
-            {(["ALL", ...ALL_COUNTRIES] as const).map((c) => {
-              const isActive = countryFilter === c;
-              return (
-                <button
-                  key={c}
-                  onClick={() => setCountryFilter(c)}
-                  data-testid={`button-filter-${c.toLowerCase()}`}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
-                    isActive
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
-                  )}
-                >
-                  {c === "ALL" ? (
-                    <span>{lang === "ko" ? "전체" : "All"}</span>
-                  ) : (
-                    <>
-                      <span>{COUNTRY_FLAGS[c]}</span>
-                      <span>
-                        {lang === "ko" ? COUNTRY_LABELS[c].ko : COUNTRY_LABELS[c].en}
-                      </span>
-                    </>
-                  )}
-                </button>
-              );
-            })}
+          {/* Country filter + View toggle */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-1.5 flex-1" data-testid="country-filter-bar">
+              {(["ALL", ...ALL_COUNTRIES] as const).map((c) => {
+                const isActive = countryFilter === c;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCountryFilter(c)}
+                    data-testid={`button-filter-${c.toLowerCase()}`}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground"
+                    )}
+                  >
+                    {c === "ALL" ? (
+                      <span>{lang === "ko" ? "전체" : "All"}</span>
+                    ) : (
+                      <>
+                        <span>{COUNTRY_FLAGS[c]}</span>
+                        <span>{lang === "ko" ? COUNTRY_LABELS[c].ko : COUNTRY_LABELS[c].en}</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* View mode toggle */}
+            <div className="flex items-center gap-0.5 p-1 bg-muted/40 border border-border/60 rounded-lg shrink-0" data-testid="view-mode-toggle">
+              <button
+                onClick={() => setViewMode("table")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all",
+                  viewMode === "table"
+                    ? "bg-card shadow-sm text-foreground border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                data-testid="button-view-table"
+              >
+                <Table2 className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">{lang === "ko" ? "표" : "Table"}</span>
+              </button>
+              <button
+                onClick={() => setViewMode("cards")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all",
+                  viewMode === "cards"
+                    ? "bg-card shadow-sm text-foreground border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                data-testid="button-view-cards"
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">{lang === "ko" ? "카드" : "Cards"}</span>
+              </button>
+            </div>
           </div>
 
-          <Card className="border-border rounded-2xl shadow-sm overflow-hidden min-h-[420px]">
-            {isLoading ? (
-              <div className="divide-y divide-border">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="p-4 flex items-center gap-3">
-                    <div className="flex flex-col items-center min-w-[46px] gap-1">
-                      <Skeleton className="h-4 w-10" />
-                      <Skeleton className="h-2 w-6" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex gap-2">
-                        <Skeleton className="h-4 w-14" />
-                        <Skeleton className="h-4 w-20" />
-                      </div>
-                      <Skeleton className="h-4 w-3/4" />
-                      <div className="flex gap-4">
-                        <Skeleton className="h-6 w-10" />
-                        <Skeleton className="h-6 w-10" />
-                        <Skeleton className="h-6 w-10" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : selectedDateEvents.length > 0 ? (
-              <div className="divide-y divide-border/60">
-                {selectedDateEvents.map((event) => (
-                  <EventItem key={event.id} event={event} lang={lang} tz={timezone} />
-                ))}
-              </div>
+          {/* Event list */}
+          <Card className="border-border rounded-2xl shadow-sm overflow-hidden min-h-[380px]">
+            {viewMode === "table" ? (
+              <EventTableView
+                events={selectedDateEvents}
+                lang={lang}
+                tz={timezone}
+                isLoading={isLoading}
+              />
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-center px-8">
-                <div className="w-16 h-16 bg-muted/60 rounded-2xl flex items-center justify-center mb-4">
-                  <Clock className="w-8 h-8 text-muted-foreground/30" />
-                </div>
-                <h4 className="font-semibold text-muted-foreground mb-1">
-                  {lang === "ko" ? "이 날짜에는 일정이 없습니다" : "No events on this date"}
-                </h4>
-                <p className="text-xs text-muted-foreground/60 max-w-[220px] leading-relaxed">
-                  {lang === "ko"
-                    ? "캘린더에서 점이 표시된 날짜를 선택하면 주요 경제 지표를 확인할 수 있습니다"
-                    : "Select a marked date on the calendar to view scheduled economic indicators"}
-                </p>
-              </div>
+              <>
+                {isLoading ? (
+                  <div className="divide-y divide-border">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="p-4 flex items-center gap-3">
+                        <div className="flex flex-col items-center min-w-[46px] gap-1">
+                          <Skeleton className="h-4 w-10" />
+                          <Skeleton className="h-2 w-6" />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex gap-2">
+                            <Skeleton className="h-4 w-14" />
+                            <Skeleton className="h-4 w-20" />
+                          </div>
+                          <Skeleton className="h-4 w-3/4" />
+                          <div className="flex gap-4">
+                            <Skeleton className="h-6 w-10" />
+                            <Skeleton className="h-6 w-10" />
+                            <Skeleton className="h-6 w-10" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : selectedDateEvents.length > 0 ? (
+                  <div className="divide-y divide-border/60">
+                    {selectedDateEvents.map((event) => (
+                      <EventItem key={event.id} event={event} lang={lang} tz={timezone} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 text-center px-8">
+                    <div className="w-16 h-16 bg-muted/60 rounded-2xl flex items-center justify-center mb-4">
+                      <Clock className="w-8 h-8 text-muted-foreground/30" />
+                    </div>
+                    <h4 className="font-semibold text-muted-foreground mb-1">
+                      {lang === "ko" ? "이 날짜에는 일정이 없습니다" : "No events on this date"}
+                    </h4>
+                    <p className="text-xs text-muted-foreground/60 max-w-[220px] leading-relaxed">
+                      {lang === "ko"
+                        ? "캘린더에서 점이 표시된 날짜를 선택하면 주요 경제 지표를 확인할 수 있습니다"
+                        : "Select a marked date on the calendar to view scheduled economic indicators"}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </Card>
 
@@ -773,9 +1029,20 @@ export default function EconomicCalendar() {
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary/60" />
             <span>{tzInfoText}</span>
           </div>
+
+          {/* Data sources info */}
+          <div className="flex items-start gap-2.5 text-xs text-muted-foreground bg-muted/20 rounded-xl px-3.5 py-3 border border-border/20">
+            <RefreshCw className="w-3.5 h-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
+            <span>
+              {lang === "ko"
+                ? "실제 수치는 BLS(미국 노동통계청) 및 FRED(세인트루이스 연준) 공개 데이터를 30초마다 자동 갱신합니다. 공식 발표 후 수시간 내 반영됩니다."
+                : "Actual values are auto-refreshed every 30s via BLS (Bureau of Labor Statistics) and FRED (St. Louis Fed) public data. Values typically appear within hours of the official release."}
+            </span>
+          </div>
         </div>
       </div>
 
+      {/* Bottom legends */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {Object.entries(COUNTRY_FLAGS).map(([country, flag]) => (
           <div

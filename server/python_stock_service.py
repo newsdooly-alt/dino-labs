@@ -1488,47 +1488,77 @@ def get_market_breadth():
 
 
 
-# ===== ECONOMIC ACTUALS (FRED) =====
+# ===== ECONOMIC ACTUALS (FRED + BLS) =====
 _fred_raw_cache: dict = {}        # series_id -> [(date_str, float)]
 _fred_raw_cache_ts: dict = {}     # series_id -> float (time.time)
-FRED_CACHE_TTL = 15 * 60         # 15 minutes
+FRED_CACHE_TTL = 5 * 60          # 5 minutes (faster refresh for live data)
 FRED_BASE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
+
+# BLS Public API v1 (no API key) — updates within ~1 hr of official release
+# Format: https://api.bls.gov/publicAPI/v1/timeseries/data/{series_id}
+BLS_BASE_URL = "https://api.bls.gov/publicAPI/v1/timeseries/data"
+_bls_cache: dict = {}       # series_id -> {year: str, period: "M01"…, value: float}[]
+_bls_cache_ts: dict = {}    # series_id -> float
+BLS_CACHE_TTL = 5 * 60      # 5 minutes
+
+# BLS series: event_id -> (series_id, ref_year, ref_period "M01"…"M12", fmt)
+# Only NFP and Unemployment are mapped here (BLS is faster than FRED for these)
+EVENT_BLS_MAP = {
+    # NFP: BLS CES0000000001 — all-nonfarm level in thousands; compute MoM change
+    "2026-03-06-nfp":    ("CES0000000001", "2026", "M02", "bls_change_k"),
+    "2026-04-03-nfp":    ("CES0000000001", "2026", "M03", "bls_change_k"),
+    "2026-05-01-nfp":    ("CES0000000001", "2026", "M04", "bls_change_k"),
+    "2026-06-05-nfp":    ("CES0000000001", "2026", "M05", "bls_change_k"),
+    "2026-07-03-nfp":    ("CES0000000001", "2026", "M06", "bls_change_k"),
+    "2026-08-07-nfp":    ("CES0000000001", "2026", "M07", "bls_change_k"),
+    # Unemployment rate: BLS LNS14000000
+    "2026-03-06-unemp":  ("LNS14000000", "2026", "M02", "bls_direct_pct"),
+    "2026-04-03-unemp":  ("LNS14000000", "2026", "M03", "bls_direct_pct"),
+    "2026-05-01-unemp":  ("LNS14000000", "2026", "M04", "bls_direct_pct"),
+    "2026-06-05-unemp":  ("LNS14000000", "2026", "M05", "bls_direct_pct"),
+    "2026-07-03-unemp":  ("LNS14000000", "2026", "M06", "bls_direct_pct"),
+    "2026-08-07-unemp":  ("LNS14000000", "2026", "M07", "bls_direct_pct"),
+    # CPI: BLS CUUR0000SA0 (All Urban Consumers, all items)
+    "2026-03-11-cpi":    ("CUUR0000SA0", "2026", "M02", "bls_pct_mom"),
+    "2026-04-10-cpi":    ("CUUR0000SA0", "2026", "M03", "bls_pct_mom"),
+    "2026-05-13-cpi":    ("CUUR0000SA0", "2026", "M04", "bls_pct_mom"),
+    "2026-06-11-cpi":    ("CUUR0000SA0", "2026", "M05", "bls_pct_mom"),
+    "2026-07-15-cpi":    ("CUUR0000SA0", "2026", "M06", "bls_pct_mom"),
+    "2026-08-12-cpi":    ("CUUR0000SA0", "2026", "M07", "bls_pct_mom"),
+    # Core CPI: BLS CUUR0000SA0L1E (less food and energy)
+    "2026-03-11-core-cpi": ("CUUR0000SA0L1E", "2026", "M02", "bls_pct_yoy"),
+    "2026-04-10-core-cpi": ("CUUR0000SA0L1E", "2026", "M03", "bls_pct_yoy"),
+    "2026-05-13-core-cpi": ("CUUR0000SA0L1E", "2026", "M04", "bls_pct_yoy"),
+    "2026-06-11-core-cpi": ("CUUR0000SA0L1E", "2026", "M05", "bls_pct_yoy"),
+    "2026-07-15-core-cpi": ("CUUR0000SA0L1E", "2026", "M06", "bls_pct_yoy"),
+    "2026-08-12-core-cpi": ("CUUR0000SA0L1E", "2026", "M07", "bls_pct_yoy"),
+    # PPI: BLS WPU00000000 (Producer Price Index, all commodities)
+    "2026-03-12-ppi":    ("WPU00000000", "2026", "M02", "bls_pct_mom"),
+    "2026-04-11-ppi":    ("WPU00000000", "2026", "M03", "bls_pct_mom"),
+    "2026-05-14-ppi":    ("WPU00000000", "2026", "M04", "bls_pct_mom"),
+    "2026-06-12-ppi":    ("WPU00000000", "2026", "M05", "bls_pct_mom"),
+    "2026-07-14-ppi":    ("WPU00000000", "2026", "M06", "bls_pct_mom"),
+    "2026-08-13-ppi":    ("WPU00000000", "2026", "M07", "bls_pct_mom"),
+}
 
 # Map: event_id -> (fred_series_id, obs_date "YYYY-MM-01", fmt)
 # fmt: "direct_pct" | "direct_idx" | "change_k" | "pct_mom" | "pct_yoy"
 EVENT_FRED_MAP = {
     "2026-02-27-pce":       ("PCEPILFE",        "2026-01-01", "pct_mom"),
     "2026-02-27-sentiment": ("UMCSENT",         "2026-02-01", "direct_idx"),
-    "2026-03-06-nfp":       ("PAYEMS",          "2026-02-01", "change_k"),
-    "2026-03-06-unemp":     ("UNRATE",          "2026-02-01", "direct_pct"),
-    "2026-03-11-cpi":       ("CPIAUCSL",        "2026-02-01", "pct_mom"),
-    "2026-03-11-core-cpi":  ("CPILFESL",        "2026-02-01", "pct_yoy"),
-    "2026-03-12-ppi":       ("PPIACO",          "2026-02-01", "pct_mom"),
     "2026-03-17-retail":    ("RSXFS",           "2026-02-01", "pct_mom"),
     "2026-03-27-pce":       ("PCEPILFE",        "2026-02-01", "pct_mom"),
     "2026-03-31-conf-board":("CONCCONF",        "2026-03-01", "direct_idx"),
     "2026-04-01-ism-mfg":   (None, None, None),
-    "2026-04-03-nfp":       ("PAYEMS",          "2026-03-01", "change_k"),
-    "2026-04-03-unemp":     ("UNRATE",          "2026-03-01", "direct_pct"),
-    "2026-04-10-cpi":       ("CPIAUCSL",        "2026-03-01", "pct_mom"),
-    "2026-04-11-ppi":       ("PPIACO",          "2026-03-01", "pct_mom"),
     "2026-04-16-retail":    ("RSXFS",           "2026-03-01", "pct_mom"),
     "2026-04-30-gdp":       ("A191RL1Q225SBEA", "2026-01-01", "direct_pct"),
     "2026-04-30-pce":       ("PCEPILFE",        "2026-03-01", "pct_mom"),
-    "2026-05-01-nfp":       ("PAYEMS",          "2026-04-01", "change_k"),
-    "2026-05-13-cpi":       ("CPIAUCSL",        "2026-04-01", "pct_mom"),
     "2026-05-15-retail":    ("RSXFS",           "2026-04-01", "pct_mom"),
     "2026-05-30-pce":       ("PCEPILFE",        "2026-04-01", "pct_mom"),
-    "2026-06-05-nfp":       ("PAYEMS",          "2026-05-01", "change_k"),
-    "2026-06-11-cpi":       ("CPIAUCSL",        "2026-05-01", "pct_mom"),
     "2026-06-19-retail":    ("RSXFS",           "2026-05-01", "pct_mom"),
     "2026-06-27-pce":       ("PCEPILFE",        "2026-05-01", "pct_mom"),
-    "2026-07-03-nfp":       ("PAYEMS",          "2026-06-01", "change_k"),
-    "2026-07-15-cpi":       ("CPIAUCSL",        "2026-06-01", "pct_mom"),
     "2026-07-17-retail":    ("RSXFS",           "2026-06-01", "pct_mom"),
     "2026-07-31-gdp-q2":    ("A191RL1Q225SBEA", "2026-04-01", "direct_pct"),
-    "2026-08-07-nfp":       ("PAYEMS",          "2026-07-01", "change_k"),
-    "2026-08-12-cpi":       ("CPIAUCSL",        "2026-07-01", "pct_mom"),
     "2026-08-14-retail":    ("RSXFS",           "2026-07-01", "pct_mom"),
     "2026-08-28-pce":       ("PCEPILFE",        "2026-07-01", "pct_mom"),
     # ── Japan CPI (Statistics Bureau of Japan via FRED) ────────────────
@@ -1622,14 +1652,117 @@ def _format_fred_value(series_id: str, obs_date: str, fmt: str) -> str | None:
         return None
     return None
 
+def _fetch_bls_series(series_id: str) -> list:
+    """Fetch BLS series observations (no API key, v1). Returns [{year, period, value}]."""
+    import time as _t
+    now = _t.time()
+    if series_id in _bls_cache and (now - _bls_cache_ts.get(series_id, 0)) < BLS_CACHE_TTL:
+        return _bls_cache[series_id]
+    try:
+        url = f"{BLS_BASE_URL}/{series_id}"
+        resp = requests.get(url, timeout=12, headers={"User-Agent": "Mozilla/5.0"})
+        if not resp.ok:
+            return _bls_cache.get(series_id, [])
+        data = resp.json()
+        rows = []
+        for obs in data.get("Results", {}).get("series", [{}])[0].get("data", []):
+            try:
+                period = obs.get("period", "")
+                if not period.startswith("M"):
+                    continue
+                val_str = obs.get("value", "").strip()
+                if val_str in ("-", ""):
+                    continue
+                rows.append({
+                    "year": obs["year"],
+                    "period": period,
+                    "value": float(val_str),
+                })
+            except (ValueError, KeyError):
+                pass
+        _bls_cache[series_id] = rows
+        _bls_cache_ts[series_id] = now
+        return rows
+    except Exception as e:
+        print(f"[BLS] fetch error {series_id}: {e}")
+        return _bls_cache.get(series_id, [])
+
+def _format_bls_value(series_id: str, ref_year: str, ref_period: str, fmt: str) -> str | None:
+    """Compute the display string from a BLS series."""
+    rows = _fetch_bls_series(series_id)
+    if not rows:
+        return None
+    obs_map = {(r["year"], r["period"]): r["value"] for r in rows}
+    val = obs_map.get((ref_year, ref_period))
+    if val is None:
+        return None
+    try:
+        if fmt == "bls_direct_pct":
+            return f"{val:.1f}%"
+        elif fmt == "bls_direct_idx":
+            return f"{val:.1f}"
+        elif fmt == "bls_change_k":
+            month_num = int(ref_period[1:])
+            if month_num == 1:
+                prev_year = str(int(ref_year) - 1)
+                prev_period = "M12"
+            else:
+                prev_year = ref_year
+                prev_period = f"M{month_num - 1:02d}"
+            prev_val = obs_map.get((prev_year, prev_period))
+            if prev_val is None:
+                return None
+            change = val - prev_val
+            sign = "+" if change >= 0 else ""
+            return f"{sign}{change:.0f}K"
+        elif fmt == "bls_pct_mom":
+            month_num = int(ref_period[1:])
+            if month_num == 1:
+                prev_year = str(int(ref_year) - 1)
+                prev_period = "M12"
+            else:
+                prev_year = ref_year
+                prev_period = f"M{month_num - 1:02d}"
+            prev_val = obs_map.get((prev_year, prev_period))
+            if prev_val is None or prev_val == 0:
+                return None
+            pct = (val - prev_val) / prev_val * 100
+            sign = "+" if pct >= 0 else ""
+            return f"{sign}{pct:.2f}%"
+        elif fmt == "bls_pct_yoy":
+            month_num = int(ref_period[1:])
+            yoy_year = str(int(ref_year) - 1)
+            yoy_val = obs_map.get((yoy_year, ref_period))
+            if yoy_val is None or yoy_val == 0:
+                return None
+            pct = (val - yoy_val) / yoy_val * 100
+            sign = "+" if pct >= 0 else ""
+            return f"{sign}{pct:.1f}%"
+    except Exception:
+        return None
+    return None
+
 @app.route('/economic_actuals', methods=['GET'])
 def get_economic_actuals():
-    """Return actual values for economic events fetched from FRED (no API key needed)."""
-    result = {}
-    fetched_at = None
+    """Return actual values for economic events from BLS (primary) + FRED (fallback)."""
     import time as _time
+    result = {}
     fetched_at = int(_time.time())
+
+    # BLS source (faster — updates within ~1 hr of official release)
+    for event_id, mapping in EVENT_BLS_MAP.items():
+        series_id, ref_year, ref_period, fmt = mapping
+        try:
+            value = _format_bls_value(series_id, ref_year, ref_period, fmt)
+            if value is not None:
+                result[event_id] = value
+        except Exception as e:
+            print(f"[BLS actuals] error for {event_id}: {e}")
+
+    # FRED source (fallback for non-BLS events: PCE, retail, GDP, Japan/Korea CPI)
     for event_id, mapping in EVENT_FRED_MAP.items():
+        if event_id in result:
+            continue
         series_id, obs_date, fmt = mapping
         if series_id is None:
             continue
@@ -1639,6 +1772,10 @@ def get_economic_actuals():
                 result[event_id] = value
         except Exception as e:
             print(f"[FRED actuals] error for {event_id}: {e}")
+
+    sources = {"bls": sum(1 for k in result if k in EVENT_BLS_MAP),
+               "fred": sum(1 for k in result if k in EVENT_FRED_MAP)}
+    print(f"[economic_actuals] {len(result)} actuals returned (BLS:{sources['bls']} FRED:{sources['fred']})")
     return jsonify({"actuals": result, "fetchedAt": fetched_at})
 
 
