@@ -47,6 +47,26 @@ const ALL_SYMS_WITH_SPY = ["SPY", ...SCREENER_SYMS].join(",");
 // History period used for Stage Analysis SMA calculations only
 const HISTORY_PERIOD = { period: "1mo", interval: "1d" };
 
+// ── Symbol → Sector ETF mapping for contextual RRG analysis ─────────
+const SYMBOL_SECTOR_ETF: Record<string, { etf: string; sectorEn: string; sectorKo: string }> = {
+  NVDA:        { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  AAPL:        { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  MSFT:        { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  AMD:         { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  TSLA:        { etf: "XLY",  sectorEn: "Consumer Discretionary", sectorKo: "임의소비재" },
+  AMZN:        { etf: "XLY",  sectorEn: "Consumer Discretionary", sectorKo: "임의소비재" },
+  META:        { etf: "XLC",  sectorEn: "Communication Services", sectorKo: "커뮤니케이션" },
+  GOOGL:       { etf: "XLC",  sectorEn: "Communication Services", sectorKo: "커뮤니케이션" },
+  NFLX:        { etf: "XLC",  sectorEn: "Communication Services", sectorKo: "커뮤니케이션" },
+  JPM:         { etf: "XLF",  sectorEn: "Financials",          sectorKo: "금융" },
+  XOM:         { etf: "XLE",  sectorEn: "Energy",              sectorKo: "에너지" },
+  "005930.KS": { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  "000660.KS": { etf: "XLK",  sectorEn: "Technology",          sectorKo: "기술" },
+  "005380.KS": { etf: "XLY",  sectorEn: "Consumer Discretionary", sectorKo: "임의소비재" },
+  "035420.KS": { etf: "XLC",  sectorEn: "Communication Services", sectorKo: "커뮤니케이션" },
+  SPY:         { etf: "XLK",  sectorEn: "Broad Market",        sectorKo: "전체 시장" },
+};
+
 // ── Sector RRG data ──────────────────────────────────────────────────
 const SECTOR_QUADRANTS = [
   { label: "XLK", labelKo: "기술",    q: "leading",   color: "#6366f1" },
@@ -674,37 +694,92 @@ export default function AdvancedDashboard() {
           </div>
         </div>
 
-        {/* RRG Status Summary */}
+        {/* Professional RRG Analysis — stock-specific */}
         {(() => {
-          const counts: Record<string, number> = {};
-          SECTOR_QUADRANTS.forEach(s => { counts[s.q] = (counts[s.q] || 0) + 1; });
-          const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "leading";
-          const statusConfig: Record<string, { color: string; bgColor: string; borderColor: string; en: string; ko: string }> = {
-            leading:   { color: "text-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/25", en: "Strong momentum — sectors are leading the market.", ko: "강한 모멘텀 — 섹터들이 시장을 선도하고 있습니다." },
-            weakening: { color: "text-yellow-500",  bgColor: "bg-yellow-500/10",  borderColor: "border-yellow-500/25",  en: "Slowing down — potential profit-taking zone.",    ko: "둔화 중 — 차익 실현 구간에 접어들 수 있습니다." },
-            lagging:   { color: "text-rose-500",    bgColor: "bg-rose-500/10",    borderColor: "border-rose-500/25",    en: "Underperforming — wait for a reversal signal.",  ko: "저성과 — 반전 신호를 기다리세요." },
-            improving: { color: "text-indigo-500",  bgColor: "bg-indigo-500/10",  borderColor: "border-indigo-500/25",  en: "Gaining strength — showing recovery signs.",     ko: "회복 중 — 강세로의 전환 조짐이 보입니다." },
-          };
-          const cfg = statusConfig[dominant] || statusConfig.leading;
-          const dominantLabel = dominant === "leading" ? (lang === "ko" ? "선도" : "Leading") :
-            dominant === "weakening" ? (lang === "ko" ? "약화" : "Weakening") :
-            dominant === "lagging"   ? (lang === "ko" ? "지연" : "Lagging") :
-            (lang === "ko" ? "회복" : "Improving");
+          const sectorInfo = SYMBOL_SECTOR_ETF[selectedSymbol];
+          const etf = sectorInfo?.etf;
+          const sectorData = etf ? SECTOR_QUADRANTS.find(s => s.label === etf) : null;
+          const quadrant = sectorData?.q || "leading";
+
+          // Stock's RS vs SPY from screenerRows; fall back to live quote diff
+          const stockRow = screenerRows.find(r => r.symbol === selectedSymbol);
+          const stockRS = stockRow?.rs ?? ((quote?.changePercent ?? 0) - spyChange);
+
+          // Peer comparison within same sector
+          const peers = screenerRows.filter(r => {
+            const peerSector = SYMBOL_SECTOR_ETF[r.symbol];
+            return peerSector?.etf === etf && r.symbol !== selectedSymbol;
+          });
+          const peerAvgRS = peers.length > 0 ? peers.reduce((s, p) => s + p.rs, 0) / peers.length : 0;
+          const stockVsPeers = stockRS - peerAvgRS;
+          const outperforming = stockVsPeers > 0;
+
+          const quadrantLabel = {
+            leading:   { en: "Leading ↗",   ko: "선도 ↗",   color: "text-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/25" },
+            improving: { en: "Improving ↗", ko: "회복 ↗",   color: "text-indigo-500",  bgColor: "bg-indigo-500/10",  borderColor: "border-indigo-500/25" },
+            weakening: { en: "Weakening ↘", ko: "약화 ↘",   color: "text-yellow-500",  bgColor: "bg-yellow-500/10",  borderColor: "border-yellow-500/25" },
+            lagging:   { en: "Lagging ↙",   ko: "지연 ↙",   color: "text-rose-500",    bgColor: "bg-rose-500/10",    borderColor: "border-rose-500/25" },
+          }[quadrant as keyof typeof quadrantLabel] || { en: "Leading ↗", ko: "선도 ↗", color: "text-emerald-500", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/25" };
+
+          // Signal logic
+          const signal = (() => {
+            if (quadrant === "leading" && outperforming) return { en: "Strong Buy", ko: "강력 매수", color: "text-emerald-500" };
+            if (quadrant === "leading" && !outperforming) return { en: "Hold / Buy Dip", ko: "보유 / 조정 시 매수", color: "text-emerald-400" };
+            if (quadrant === "improving" && outperforming) return { en: "Accumulate", ko: "분할 매수", color: "text-indigo-500" };
+            if (quadrant === "improving" && !outperforming) return { en: "Watch Closely", ko: "주시", color: "text-indigo-400" };
+            if (quadrant === "weakening" && outperforming) return { en: "Reduce Position", ko: "비중 축소", color: "text-yellow-500" };
+            if (quadrant === "weakening" && !outperforming) return { en: "Sell / Avoid", ko: "매도 / 회피", color: "text-orange-500" };
+            if (quadrant === "lagging" && outperforming) return { en: "Wait for Turn", ko: "반전 대기", color: "text-rose-400" };
+            return { en: "Avoid", ko: "회피", color: "text-rose-500" };
+          })();
+
+          const sectorName = sectorInfo ? (lang === "ko" ? sectorInfo.sectorKo : sectorInfo.sectorEn) : (lang === "ko" ? "전체 시장" : "Broad Market");
+          const etfLabel = etf || "SPY";
+          const ql = lang === "ko" ? quadrantLabel.ko : quadrantLabel.en;
+          const rsSign = stockRS >= 0 ? "+" : "";
+          const peerSign = stockVsPeers >= 0 ? "+" : "";
+
+          const line1 = lang === "ko"
+            ? `${etfLabel} (${sectorName}) 섹터는 현재 S&P 500 대비 [${ql}] 사분면에 위치하여 상대적 강도를 ${quadrant === "leading" || quadrant === "improving" ? "강화" : "약화"}하고 있습니다.`
+            : `The ${etfLabel} (${sectorName}) sector is in the [${ql}] quadrant, showing ${quadrant === "leading" || quadrant === "improving" ? "strengthening" : "weakening"} relative strength vs. the S&P 500.`;
+
+          const line2 = sectorInfo
+            ? (lang === "ko"
+                ? `${selectedSymbol.replace(".KS","").replace(".KQ","")}는 섹터 동종 기업 대비 RS ${peerSign}${stockVsPeers.toFixed(1)}%로 ${outperforming ? "초과 성과" : "하회 성과"}를 보이며, 롤테이션 모멘텀 기준 [${signal.ko}] 신호입니다.`
+                : `${selectedSymbol.replace(".KS","").replace(".KQ","")} ${outperforming ? "outperforms" : "underperforms"} sector peers by ${peerSign}${stockVsPeers.toFixed(1)}% RS differential, suggesting a [${signal.en}] signal based on rotation momentum.`)
+            : (lang === "ko"
+                ? `${selectedSymbol}의 현재 RS는 S&P 500 대비 ${rsSign}${stockRS.toFixed(1)}%입니다. 전체 시장 추세를 참고하세요.`
+                : `${selectedSymbol} has a current RS of ${rsSign}${stockRS.toFixed(1)}% vs. S&P 500. Monitor broader market trend.`);
+
           return (
-            <div className={cn("rounded-xl p-3 border text-xs", cfg.bgColor, cfg.borderColor)} data-testid="rrg-status-box">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-                {lang === "ko" ? "RRG 현황" : "RRG Status"}
-              </p>
-              <p className={cn("font-semibold leading-snug", cfg.color)}>
-                <span className="font-bold">{dominantLabel}:</span> {lang === "ko" ? cfg.ko : cfg.en}
-              </p>
-              <div className="flex gap-2 mt-1.5 flex-wrap">
-                {Object.entries(counts).map(([q, n]) => (
-                  <span key={q} className="text-[9px] text-muted-foreground">
-                    {q === "leading" ? "↗" : q === "weakening" ? "↘" : q === "lagging" ? "↙" : "↗"} {q} {n}
-                  </span>
-                ))}
+            <div className={cn("rounded-xl p-3 border overflow-hidden", quadrantLabel.bgColor, quadrantLabel.borderColor)} data-testid="rrg-analysis-box">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                  {lang === "ko" ? "📡 RRG 섹터 분석" : "📡 RRG Sector Analysis"}
+                </p>
+                <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded-md border", quadrantLabel.bgColor, quadrantLabel.borderColor, quadrantLabel.color)}>
+                  {lang === "ko" ? quadrantLabel.ko : quadrantLabel.en}
+                </span>
               </div>
+              <p className={cn("text-[10px] leading-relaxed mb-1.5", quadrantLabel.color)}>
+                {line1}
+              </p>
+              <p className="text-[10px] leading-relaxed text-foreground/80">
+                {line2}
+              </p>
+              {sectorInfo && (
+                <div className="flex gap-3 mt-2 pt-2 border-t border-border/30 flex-wrap">
+                  <span className="text-[9px] text-muted-foreground">
+                    RS vs SPY: <span className={stockRS >= 0 ? "text-emerald-500 font-bold" : "text-rose-500 font-bold"}>{rsSign}{stockRS.toFixed(2)}%</span>
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">
+                    vs Sector: <span className={stockVsPeers >= 0 ? "text-emerald-500 font-bold" : "text-rose-500 font-bold"}>{peerSign}{stockVsPeers.toFixed(2)}%</span>
+                  </span>
+                  <span className={cn("text-[9px] font-bold ml-auto", signal.color)}>
+                    ▶ {lang === "ko" ? signal.ko : signal.en}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })()}
