@@ -1847,6 +1847,9 @@ def _fetch_yf_screener(scr_id: str) -> list:
                 "price":  q.get("regularMarketPrice", 0),
                 "changePercent": q.get("regularMarketChangePercent", 0),
                 "change": q.get("regularMarketChange", 0),
+                "marketCap": q.get("marketCap", None),
+                "isPenny": (q.get("regularMarketPrice", 0) or 0) < 5.0,
+                "volatilityRank": abs(q.get("regularMarketChangePercent", 0) or 0),
             }
             for q in quotes if q.get("symbol")
         ]
@@ -1857,14 +1860,31 @@ def _fetch_yf_screener(scr_id: str) -> list:
         return _screener_cache.get(scr_id, {}).get("data", [])
 
 
+def _merge_screener_lists(*lists) -> list:
+    """Merge multiple screener result lists, deduplicate by symbol, sort by volatilityRank desc."""
+    seen = set()
+    merged = []
+    for lst in lists:
+        for item in lst:
+            sym = item.get("symbol", "")
+            if sym and sym not in seen:
+                seen.add(sym)
+                merged.append(item)
+    merged.sort(key=lambda x: x.get("volatilityRank", 0), reverse=True)
+    return merged[:30]
+
+
 @app.route('/screener/gainers', methods=['GET'])
 def screener_gainers():
-    return jsonify(_fetch_yf_screener("day_gainers"))
+    main = _fetch_yf_screener("day_gainers")
+    small = _fetch_yf_screener("small_cap_gainers")
+    return jsonify(_merge_screener_lists(main, small))
 
 
 @app.route('/screener/losers', methods=['GET'])
 def screener_losers():
-    return jsonify(_fetch_yf_screener("day_losers"))
+    main = _fetch_yf_screener("day_losers")
+    return jsonify(main)
 
 
 @app.route('/screener/actives', methods=['GET'])

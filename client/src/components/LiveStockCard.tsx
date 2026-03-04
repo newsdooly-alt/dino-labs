@@ -174,7 +174,7 @@ export function LiveStockCard({ symbols, showDinoMessage = true, clickable = tru
               "flex items-center justify-between p-2 rounded-lg transition-colors",
               clickable && "cursor-pointer hover-elevate"
             )}
-            onClick={clickable ? () => navigate(`/stock/${quote.symbol}`) : undefined}
+            onClick={clickable ? () => navigate(`/pro?symbol=${quote.symbol}`) : undefined}
             data-testid={`stock-${quote.symbol}`}
           >
             <div className="flex items-center gap-3 min-w-0">

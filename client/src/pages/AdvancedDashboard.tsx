@@ -352,6 +352,13 @@ export default function AdvancedDashboard() {
 
   // UI state — initialise from URL param if present, otherwise default to NVDA
   const [selectedSymbol, setSelectedSymbol] = useState(() => urlSymbol || "NVDA");
+  const chartRef = React.useRef<HTMLDivElement>(null);
+  const handleSelectSymbol = React.useCallback((symbol: string) => {
+    setSelectedSymbol(symbol);
+    if (window.innerWidth < 768 && chartRef.current) {
+      chartRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   // If symbol from URL isn't in our screener list, track it as an extra symbol
   const isExtraSymbol = urlSymbol && !SCREENER_STOCKS.some(s => s.symbol === urlSymbol);
@@ -575,7 +582,7 @@ export default function AdvancedDashboard() {
         {isExtraSymbol && urlSymbol && (
           <button
             key={urlSymbol}
-            onClick={() => setSelectedSymbol(urlSymbol)}
+            onClick={() => handleSelectSymbol(urlSymbol!)}
             className={cn(
               "flex flex-col items-center px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors shrink-0 border border-violet-400/40",
               selectedSymbol === urlSymbol ? "bg-primary/20 text-primary border-primary/40" : "text-violet-400 bg-violet-500/10 hover:bg-violet-500/20"
@@ -593,7 +600,7 @@ export default function AdvancedDashboard() {
           return (
             <button
               key={s.symbol}
-              onClick={() => setSelectedSymbol(s.symbol)}
+              onClick={() => handleSelectSymbol(s.symbol)}
               className={cn(
                 "flex flex-col items-center px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors shrink-0",
                 isSelected ? "bg-primary/20 text-primary border border-primary/40" : "text-muted-foreground hover:bg-muted/50"
@@ -633,16 +640,26 @@ export default function AdvancedDashboard() {
         const displaySymbol = isKrRow
           ? row.symbol.replace(".KS", "").replace(".KQ", "")
           : row.symbol;
+        const isPenny = !isKrRow && !isJpRow && price != null && price < 5.0;
+        const isHighVol = Math.abs(cp) >= 20;
         return (
           <button
             key={row.symbol}
-            onClick={() => setSelectedSymbol(row.symbol)}
+            onClick={() => handleSelectSymbol(row.symbol)}
             className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/20",
               isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
             data-testid={`ranking-stock-${row.symbol}`}
           >
             <div className="flex-1 min-w-0">
-              <p className={cn("text-[11px] font-bold truncate", isSelected ? "text-primary" : "")}>{localizedName}</p>
+              <div className="flex items-center gap-1 flex-wrap">
+                <p className={cn("text-[11px] font-bold truncate", isSelected ? "text-primary" : "")}>{localizedName}</p>
+                {isPenny && (
+                  <span className="text-[8px] font-bold px-1 py-0 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">PENNY</span>
+                )}
+                {isHighVol && (
+                  <span className="text-[8px] font-bold px-1 py-0 rounded bg-rose-500/15 text-rose-500 shrink-0">VOL⚡</span>
+                )}
+              </div>
               <p className="text-[9px] text-muted-foreground truncate">{displaySymbol}</p>
             </div>
             <div className="text-right shrink-0">
@@ -730,7 +747,7 @@ export default function AdvancedDashboard() {
           </div>
           <div className="flex-1 overflow-y-auto border-t border-border/30">
             {isExtraSymbol && urlSymbol && (
-              <button onClick={() => setSelectedSymbol(urlSymbol)}
+              <button onClick={() => handleSelectSymbol(urlSymbol!)}
                 className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
                   selectedSymbol === urlSymbol ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
                 data-testid={`screener-stock-extra-${urlSymbol}`}>
@@ -756,7 +773,7 @@ export default function AdvancedDashboard() {
                 : formatPrice(row.price, { nativeCurrency: rowNativeCurrency });
               const displayN = getNameByTicker(row.symbol, lang) ?? getLocalizedCompanyName(cleanCompanyName(row.name), lang);
               return (
-                <button key={row.symbol} onClick={() => setSelectedSymbol(row.symbol)}
+                <button key={row.symbol} onClick={() => handleSelectSymbol(row.symbol)}
                   className={cn("w-full flex items-center gap-2 px-3 py-2 text-left transition-colors border-b border-border/30",
                     isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50")}
                   data-testid={`screener-stock-${row.symbol}`}>
@@ -1350,7 +1367,7 @@ export default function AdvancedDashboard() {
         </div>
 
         {/* Chart — GlobalChart manages its own responsive height (400px mobile) */}
-        <div className="w-full flex-shrink-0 overflow-hidden">
+        <div ref={chartRef} className="w-full flex-shrink-0 overflow-hidden">
           <GlobalChart
             symbol={selectedSymbol}
             periodKey="1m"
