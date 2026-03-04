@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -17,10 +17,154 @@ import { Input } from "@/components/ui/input";
 import {
   Activity, ChevronRight, Zap, Globe,
   Calendar, Maximize2, Minimize2, DollarSign,
-  TrendingUp, BarChart3, Lightbulb,
+  TrendingUp, BarChart3, Lightbulb, Search, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { translations } from "@/lib/translations";
+
+// ── Exchange flag helper ─────────────────────────────────────────────
+function exchangeFlag(sym: string): string {
+  if (sym.endsWith(".KS") || sym.endsWith(".KQ")) return "🇰🇷";
+  if (sym.endsWith(".T"))  return "🇯🇵";
+  if (sym.endsWith(".HK")) return "🇭🇰";
+  if (sym.endsWith(".L"))  return "🇬🇧";
+  if (sym.endsWith(".PA") || sym.endsWith(".AS")) return "🇪🇺";
+  if (sym.endsWith(".DE") || sym.endsWith(".SW")) return "🇪🇺";
+  return "🇺🇸";
+}
+
+// ── GlobalSymbolSearch (module-level – never re-mounts on parent renders) ──
+interface SearchResult {
+  symbol: string;
+  name: string;
+  type: string;
+  region: string;
+  currency?: string;
+  isKorean?: boolean;
+}
+interface GlobalSymbolSearchProps {
+  lang: string;
+  onSelectSymbol: (symbol: string) => void;
+}
+function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
+  const [query, setQuery]     = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [open, setOpen]       = useState(false);
+  const [loading, setLoading] = useState(false);
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const debounce  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 1) { setResults([]); setOpen(false); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/stocks/search?query=${encodeURIComponent(q.trim())}`);
+      if (res.ok) {
+        const data: SearchResult[] = await res.json();
+        setResults(data.slice(0, 8));
+        setOpen(true);
+      }
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => doSearch(val), 200);
+  }, [doSearch]);
+
+  const handleSelect = useCallback((sym: string) => {
+    setQuery("");
+    setResults([]);
+    setOpen(false);
+    onSelectSymbol(sym);
+  }, [onSelectSymbol]);
+
+  const handleClear = useCallback(() => {
+    setQuery("");
+    setResults([]);
+    setOpen(false);
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const placeholder = lang === "ko" ? "종목 검색… (예: AAPL, 삼성, TOYOTA)" : "Search symbol… (e.g. CIEN, SAMSUNG, TOYOTA)";
+
+  return (
+    <div ref={wrapperRef} className="relative flex-1 max-w-xs sm:max-w-sm">
+      <div className="relative flex items-center">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          ref={inputRef}
+          data-testid="input-global-symbol-search"
+          type="text"
+          value={query}
+          onChange={handleChange}
+          onFocus={() => { if (results.length > 0) setOpen(true); }}
+          placeholder={placeholder}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          className="w-full h-7 pl-8 pr-7 text-[11px] bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/60"
+        />
+        {query && (
+          <button
+            data-testid="button-clear-search"
+            onMouseDown={(e) => { e.preventDefault(); handleClear(); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-background border border-border rounded-md shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+          {loading && (
+            <div className="px-3 py-2 text-[11px] text-muted-foreground">{lang === "ko" ? "검색 중…" : "Searching…"}</div>
+          )}
+          {!loading && results.length === 0 && query.trim().length > 0 && (
+            <div className="px-3 py-2 text-[11px] text-muted-foreground">{lang === "ko" ? "결과 없음" : "No results"}</div>
+          )}
+          {results.map((r) => (
+            <button
+              key={r.symbol}
+              data-testid={`result-symbol-${r.symbol}`}
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(r.symbol); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-muted/60 transition-colors border-b border-border/30 last:border-0"
+            >
+              <span className="text-base shrink-0">{exchangeFlag(r.symbol)}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[12px] font-semibold text-foreground font-mono">{r.symbol}</span>
+                  <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{r.type}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground truncate">{r.name}</div>
+              </div>
+              <span className="text-[9px] text-muted-foreground/60 shrink-0">{r.currency || ""}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Screener stocks ──────────────────────────────────────────────────
 const SCREENER_STOCKS = [
@@ -1031,17 +1175,18 @@ export default function AdvancedDashboard() {
     <div className="w-full overflow-x-hidden" style={{ maxWidth: "100vw" }}>
 
       {/* ── Title bar (shared) ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-background/95 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center gap-2 shrink-0">
           <Zap className="w-4 h-4 text-primary" />
-          <span className="text-sm font-bold">DinoInvest <span className="text-primary">Pro</span></span>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">{lang === "ko" ? "고급 대시보드" : "Advanced"}</Badge>
+          <span className="text-sm font-bold hidden sm:inline">DinoInvest <span className="text-primary">Pro</span></span>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary hidden sm:inline-flex">{lang === "ko" ? "고급" : "Pro"}</Badge>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <GlobalSymbolSearch lang={lang} onSelectSymbol={setSelectedSymbol} />
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
           {quote?.isMarketOpen != null && (
             <>
               <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", quote.isMarketOpen ? "bg-green-500 animate-pulse" : "bg-gray-400")} />
-              <span className="hidden sm:inline">{quote.isMarketOpen ? (lang === "ko" ? "장 개장" : "Market Open") : (lang === "ko" ? "장 마감" : "Closed")}</span>
+              <span className="hidden sm:inline">{quote.isMarketOpen ? (lang === "ko" ? "장 개장" : "Open") : (lang === "ko" ? "장 마감" : "Closed")}</span>
             </>
           )}
         </div>

@@ -357,6 +357,62 @@ def search_stocks():
             if len(results) >= 10:
                 return jsonify({"results": results})
     
+    # ── Yahoo Finance universal symbol search ─────────────────────────
+    # Replaces the old hardcoded popular_stocks dictionary.
+    # Covers NYSE, NASDAQ, AMEX, KRX, TSE, LSE, XETRA, Euronext, ETFs, etc.
+    remaining_slots = 10 - len(results)
+    if remaining_slots > 0:
+        try:
+            import requests as _req
+            yf_url = (
+                "https://query1.finance.yahoo.com/v1/finance/search"
+                f"?q={_req.utils.quote(raw_query)}"
+                f"&quotesCount={remaining_slots + 5}&newsCount=0&enableFuzzyQuery=true"
+            )
+            yf_resp = _req.get(
+                yf_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                timeout=6,
+            )
+            yf_quotes = yf_resp.json().get("quotes", []) if yf_resp.status_code == 200 else []
+            for q in yf_quotes:
+                sym = q.get("symbol", "")
+                if not sym or sym in added_symbols:
+                    continue
+                name = q.get("shortname") or q.get("longname") or sym
+                quote_type = (q.get("quoteType") or "Equity").capitalize()
+                exch = q.get("exchange", "")
+                # Determine region & currency from symbol suffix
+                if sym.endswith(".KS") or sym.endswith(".KQ"):
+                    region, currency, is_kr = "South Korea", "KRW", True
+                elif sym.endswith(".T"):
+                    region, currency, is_kr = "Japan", "JPY", False
+                elif sym.endswith(".HK"):
+                    region, currency, is_kr = "Hong Kong", "HKD", False
+                elif sym.endswith(".L"):
+                    region, currency, is_kr = "United Kingdom", "GBP", False
+                elif sym.endswith(".PA") or sym.endswith(".AS") or sym.endswith(".DE") or sym.endswith(".SW"):
+                    region, currency, is_kr = "Europe", "EUR", False
+                else:
+                    region = "United States"
+                    currency = q.get("currency") or "USD"
+                    is_kr = False
+                results.append({
+                    "symbol": sym,
+                    "name": name,
+                    "type": quote_type,
+                    "region": region,
+                    "currency": currency,
+                    "isKorean": is_kr,
+                    "exchange": exch,
+                })
+                added_symbols.add(sym)
+                if len(results) >= 10:
+                    break
+        except Exception as _e:
+            pass  # Silently fall through; return whatever Korean results we have
+
+    # Kept for backward compatibility: old popular_stocks = {
     popular_stocks = {
         'AAPL': 'Apple Inc.',
         'MSFT': 'Microsoft Corporation',
