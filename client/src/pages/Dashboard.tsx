@@ -1,10 +1,9 @@
-import { useState, useRef, useCallback } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Newspaper, Clock, ExternalLink, ChevronLeft, Zap } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, ExternalLink, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -19,25 +18,6 @@ interface MarketMoodData {
   index: number;
   label: string;
   dinoAdvice: string;
-}
-
-interface NewsItem {
-  title: string;
-  publisher: string;
-  link: string;
-  publishedAt: number;
-  thumbnail: string | null;
-  koreanSummary?: string | null;
-  japaneseSummary?: string | null;
-}
-
-interface NewsResponse {
-  news: NewsItem[];
-  count: number;
-  total: number;
-  page: number;
-  hasMore: boolean;
-  source: string;
 }
 
 function timeAgo(timestamp: number, lang: string): string {
@@ -55,8 +35,6 @@ function timeAgo(timestamp: number, lang: string): string {
   const d = Math.floor(diff / 86400);
   return lang === "ko" ? `${d}일 전` : lang === "ja" ? `${d}日前` : `${d}d ago`;
 }
-
-const NEWS_EMOJI_FALLBACKS = ["📈", "💹", "📊", "🏦", "💰", "🌐", "📉", "🔔", "💡", "🏛️"];
 
 interface LiveStockQuote {
   symbol: string;
@@ -118,26 +96,6 @@ export default function Dashboard() {
 
   const displayName = getNickname(user?.nickname || "Guest");
 
-  // News carousel state
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [carouselPage, setCarouselPage] = useState(0);
-  const CARD_W = 220; // card width + gap (208 + 12)
-
-  const scrollToPage = useCallback((idx: number, total: number) => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const clamped = Math.max(0, Math.min(idx, total - 1));
-    el.scrollTo({ left: clamped * CARD_W, behavior: "smooth" });
-    setCarouselPage(clamped);
-  }, []);
-
-  const handleCarouselScroll = useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const page = Math.round(el.scrollLeft / CARD_W);
-    setCarouselPage(page);
-  }, []);
-
   const { data: moodData, isLoading: isMoodLoading } = useQuery<MarketMoodData>({
     queryKey: ["/api/market/mood", lang],
     queryFn: async () => {
@@ -146,18 +104,6 @@ export default function Dashboard() {
       return res.json();
     },
     staleTime: 1000 * 60 * 5,
-  });
-
-  const { data: newsData, isLoading: isNewsLoading } = useQuery<NewsResponse>({
-    queryKey: ["/api/news", lang, "dashboard"],
-    queryFn: async () => {
-      const res = await fetch(`/api/news?lang=${lang}&limit=10&page=1`);
-      if (!res.ok) throw new Error("Failed to fetch news");
-      return res.json();
-    },
-    staleTime: 1000 * 60 * 10,
-    gcTime: 1000 * 60 * 30,
-    retry: 1,
   });
 
   const { data: hotIssuesData, isLoading: isHotLoading } = useQuery<HotIssuesResponse>({
@@ -250,65 +196,72 @@ export default function Dashboard() {
       </motion.div>
 
       {/* ── Section: 오늘의 이슈 Preview ── */}
-      {(isHotLoading || (hotIssuesData && hotIssuesData.issues.length > 0)) && (
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-4 h-4 text-primary fill-primary" />
-            <h2 className="text-base font-bold text-foreground">
-              {isKo ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues"}
-            </h2>
-            <Link
-              href="/hot-issues"
-              className="ml-auto flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-              data-testid="link-hot-issues-all"
-            >
-              {isKo ? "전체 보기" : lang === "ja" ? "すべて見る" : "See all"}
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="w-4 h-4 text-primary fill-primary" />
+          <h2 className="text-base font-bold text-foreground">
+            {isKo ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues"}
+          </h2>
+          <Link
+            href="/hot-issues"
+            className="ml-auto flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+            data-testid="link-hot-issues-all"
+          >
+            {isKo ? "전체 보기" : lang === "ja" ? "すべて見る" : "See all"}
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
 
-          {isHotLoading ? (
-            <div className="space-y-2.5">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-16 rounded-2xl bg-muted animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {(hotIssuesData?.issues || []).slice(0, 3).map((issue, idx) => (
-                <a
-                  key={idx}
-                  href={issue.link || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    "flex items-center gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
-                    issue.isHot
-                      ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
-                      : "border-border bg-muted/40 hover:bg-muted/70"
+        {isHotLoading ? (
+          <div className="space-y-2.5">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : (hotIssuesData?.issues || []).length === 0 ? null : (
+          <div className="space-y-2">
+            {(hotIssuesData?.issues || []).slice(0, 5).map((issue, idx) => (
+              <a
+                key={idx}
+                href={issue.link || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "flex items-start gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
+                  issue.isHot
+                    ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
+                    : "border-border bg-muted/40 hover:bg-muted/70"
+                )}
+                data-testid={`card-hot-issue-${idx}`}
+              >
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    {issue.isHot && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
+                        <Flame className="w-2.5 h-2.5" />
+                        HOT
+                      </span>
+                    )}
+                    <p className="text-sm font-semibold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
+                      {issue.title}
+                    </p>
+                  </div>
+                  {issue.summary && (
+                    <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
+                      {issue.summary}
+                    </p>
                   )}
-                  data-testid={`card-hot-issue-${idx}`}
-                >
-                  {issue.isHot && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
-                      <Flame className="w-2.5 h-2.5" />
-                      HOT
-                    </span>
-                  )}
-                  <p className="text-sm font-semibold text-foreground leading-snug flex-1 line-clamp-1 group-hover:text-primary transition-colors">
-                    {issue.title}
-                  </p>
-                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
-              ))}
-            </div>
-          )}
-        </motion.section>
-      )}
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
+            ))}
+          </div>
+        )}
+      </motion.section>
 
       {/* ── Section 1: Market Temperature ── */}
       <motion.section
@@ -358,145 +311,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-      </motion.section>
-
-      {/* ── Top Headlines Horizontal Carousel ── */}
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.05 }}
-        data-testid="section-top-headlines"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Newspaper className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground" data-testid="label-top-headlines">
-              {lang === "ko" ? "주요 헤드라인" : lang === "ja" ? "主要ニュース" : "Top Headlines"}
-            </h2>
-          </div>
-          <a href="https://finance.yahoo.com/news/" target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs font-bold text-primary"
-            data-testid="link-all-news"
-          >
-            {lang === "ko" ? "더보기" : lang === "ja" ? "もっと見る" : "More"}
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-
-        {isNewsLoading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex-shrink-0 w-52 h-44 bg-muted rounded-2xl animate-pulse" />
-            ))}
-          </div>
-        ) : newsData && newsData.news.length > 0 ? (() => {
-          const totalItems = newsData.news.length;
-          const visibleCount = 3;
-          const maxPage = Math.max(0, totalItems - visibleCount);
-          return (
-            <div className="relative">
-              {/* Prev arrow — visible on md+ screens */}
-              <button
-                onClick={() => scrollToPage(carouselPage - 1, totalItems)}
-                disabled={carouselPage === 0}
-                className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-card border border-border shadow items-center justify-center text-primary hover:bg-primary/10 transition disabled:opacity-30 disabled:pointer-events-none"
-                aria-label="Previous"
-                data-testid="btn-news-prev"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              {/* Next arrow */}
-              <button
-                onClick={() => scrollToPage(carouselPage + 1, totalItems)}
-                disabled={carouselPage >= maxPage}
-                className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-card border border-border shadow items-center justify-center text-primary hover:bg-primary/10 transition disabled:opacity-30 disabled:pointer-events-none"
-                aria-label="Next"
-                data-testid="btn-news-next"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-
-              {/* Scroll track */}
-              <div
-                ref={carouselRef}
-                onScroll={handleCarouselScroll}
-                className="flex gap-3 overflow-x-auto pb-3 -mx-5 px-5 scrollbar-hide snap-x snap-mandatory"
-                data-testid="carousel-news"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-              >
-                {newsData.news.map((item, idx) => {
-                  const headline = lang === "ko" && item.koreanSummary
-                    ? item.koreanSummary
-                    : lang === "ja" && item.japaneseSummary
-                    ? item.japaneseSummary
-                    : item.title;
-                  const fallbackEmoji = NEWS_EMOJI_FALLBACKS[idx % NEWS_EMOJI_FALLBACKS.length];
-
-                  return (
-                    <a
-                      key={idx}
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 w-52 snap-start rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-md transition-all overflow-hidden group"
-                      data-testid={`news-card-${idx}`}
-                    >
-                      {item.thumbnail ? (
-                        <div className="w-full h-24 overflow-hidden bg-muted">
-                          <img
-                            src={item.thumbnail}
-                            alt=""
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-full h-24 bg-primary/5 flex items-center justify-center border-b border-border">
-                          <span className="text-4xl">{fallbackEmoji}</span>
-                        </div>
-                      )}
-                      <div className="p-3 space-y-2">
-                        <p className="text-xs font-semibold leading-snug line-clamp-3 text-foreground" data-testid={`news-headline-${idx}`}>
-                          {headline}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[80px]">
-                            {item.publisher}
-                          </span>
-                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
-                            <Clock className="w-2.5 h-2.5" />
-                            {timeAgo(item.publishedAt, lang)}
-                          </span>
-                        </div>
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
-
-              {/* Pagination dots */}
-              {totalItems > 1 && (
-                <div className="flex justify-center gap-1.5 mt-3" data-testid="carousel-dots">
-                  {newsData.news.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => scrollToPage(idx, totalItems)}
-                      className={cn(
-                        "rounded-full transition-all",
-                        idx === carouselPage
-                          ? "w-4 h-2 bg-primary"
-                          : "w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
-                      )}
-                      aria-label={`Go to news ${idx + 1}`}
-                      data-testid={`dot-news-${idx}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })() : null}
       </motion.section>
 
       {/* ── Section 2: Quick Watchlist ── */}
