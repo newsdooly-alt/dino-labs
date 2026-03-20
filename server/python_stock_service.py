@@ -1965,6 +1965,101 @@ def screener_actives():
     return jsonify(_fetch_yf_screener("most_actives"))
 
 
+# ===== PEER COMPARISON =====
+PEER_MAP: dict[str, list[str]] = {
+    # US Technology
+    "AAPL":      ["MSFT", "GOOGL", "META", "AMZN", "SONY"],
+    "MSFT":      ["AAPL", "GOOGL", "ORCL", "SAP",  "CRM"],
+    "GOOGL":     ["META", "MSFT",  "NFLX", "SNAP", "AAPL"],
+    "GOOG":      ["META", "MSFT",  "NFLX", "SNAP", "AAPL"],
+    "META":      ["GOOGL","SNAP",  "PINS", "NFLX", "TWTR"],
+    "AMZN":      ["MSFT", "GOOGL", "AAPL", "WMT",  "EBAY"],
+    "NVDA":      ["AMD",  "INTC",  "QCOM", "AVGO", "TSM"],
+    "AMD":       ["NVDA", "INTC",  "QCOM", "AVGO", "MRVL"],
+    "INTC":      ["NVDA", "AMD",   "QCOM", "TSM",  "AVGO"],
+    "QCOM":      ["NVDA", "AMD",   "AVGO", "MRVL", "NXPI"],
+    "AVGO":      ["NVDA", "QCOM",  "AMD",  "MRVL", "TXN"],
+    "TSM":       ["INTC", "NVDA",  "UMC",  "AVGO", "STM"],
+    "TSLA":      ["GM",   "F",     "NIO",  "RIVN", "STLA"],
+    "NFLX":      ["DIS",  "PARA",  "WBD",  "AMZN", "AAPL"],
+    "ORCL":      ["MSFT", "SAP",   "CRM",  "IBM",  "NOW"],
+    "CRM":       ["ORCL", "SAP",   "MSFT", "NOW",  "WDAY"],
+    "IBM":       ["MSFT", "ORCL",  "HPE",  "DELL", "ACN"],
+    "JPM":       ["BAC",  "WFC",   "GS",   "MS",   "C"],
+    "BAC":       ["JPM",  "WFC",   "GS",   "MS",   "C"],
+    "GS":        ["MS",   "JPM",   "BAC",  "BX",   "KKR"],
+    "XOM":       ["CVX",  "COP",   "BP",   "SHEL", "TTE"],
+    "CVX":       ["XOM",  "COP",   "BP",   "SHEL", "TTE"],
+    "JNJ":       ["PFE",  "MRK",   "ABBV", "LLY",  "BMY"],
+    "PFE":       ["JNJ",  "MRK",   "ABBV", "LLY",  "AMGN"],
+    "LLY":       ["PFE",  "JNJ",   "MRK",  "ABBV", "AMGN"],
+    "WMT":       ["AMZN", "TGT",   "COST", "EBAY", "HD"],
+    "COST":      ["WMT",  "TGT",   "HD",   "LOW",  "AMZN"],
+    # Korea
+    "005930.KS": ["000660.KS","034220.KS","009150.KS","051910.KS","035420.KS"],
+    "000660.KS": ["005930.KS","034220.KS","009150.KS","004000.KS","058470.KS"],
+    "035420.KS": ["035720.KS","259960.KS","112040.KS","047050.KS","030200.KS"],
+    "005380.KS": ["000270.KS","012330.KS","006400.KS","010950.KS","004020.KS"],
+    "000270.KS": ["005380.KS","012330.KS","010950.KS","004020.KS","011210.KS"],
+    "068270.KS": ["091990.KS","207940.KS","051200.KS","086900.KS","145020.KS"],
+    "051910.KS": ["009150.KS","011170.KS","004170.KS","010060.KS","006120.KS"],
+    # Japan
+    "7203.T":    ["7267.T","7201.T","7261.T","7270.T","7269.T"],
+    "6758.T":    ["6501.T","6752.T","6971.T","6702.T","7974.T"],
+    "9984.T":    ["6702.T","6501.T","8306.T","6981.T","6367.T"],
+    "8306.T":    ["8316.T","8411.T","8604.T","8591.T","8766.T"],
+    "7974.T":    ["6758.T","9684.T","3765.T","7832.T","2432.T"],
+}
+
+_peers_cache: dict = {}
+_peers_cache_ts: dict = {}
+PEERS_CACHE_TTL = 15 * 60  # 15 minutes
+
+def _fetch_single_peer(sym: str) -> dict:
+    import time as _t
+    try:
+        ticker = yf.Ticker(sym)
+        info = ticker.info
+        price = (info.get("currentPrice") or info.get("regularMarketPrice")
+                 or info.get("navPrice") or 0)
+        return {
+            "symbol": sym,
+            "name": info.get("longName") or info.get("shortName") or sym,
+            "price": price,
+            "peRatio": info.get("trailingPE"),
+            "pbRatio": info.get("priceToBook"),
+            "dividendYield": info.get("dividendYield"),
+            "marketCap": info.get("marketCap"),
+            "profitMargin": info.get("profitMargins"),
+            "revenueGrowth": info.get("revenueGrowth"),
+            "sector": info.get("sector"),
+            "industry": info.get("industry"),
+        }
+    except Exception as e:
+        return {"symbol": sym, "name": sym, "price": None, "error": str(e)}
+
+@app.route('/peers/<symbol>', methods=['GET'])
+def get_peers(symbol):
+    import time as _t
+    sym_upper = symbol.upper()
+    now = _t.time()
+
+    if sym_upper in _peers_cache and (now - _peers_cache_ts.get(sym_upper, 0)) < PEERS_CACHE_TTL:
+        return jsonify(_peers_cache[sym_upper])
+
+    peer_list = PEER_MAP.get(sym_upper, [])
+    all_syms = [sym_upper] + peer_list[:4]  # main + up to 4 peers
+
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        results = list(ex.map(_fetch_single_peer, all_syms))
+
+    payload = {"symbol": sym_upper, "peers": results, "count": len(results)}
+    _peers_cache[sym_upper] = payload
+    _peers_cache_ts[sym_upper] = now
+    print(f"[peers] {sym_upper}: fetched {len(results)} peers")
+    return jsonify(payload)
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)

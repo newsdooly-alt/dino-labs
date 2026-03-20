@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { StockAnalysisModal } from "@/components/StockAnalysisModal";
+import { PeerComparison } from "@/components/PeerComparison";
 
 interface StockQuote {
   symbol: string;
@@ -394,6 +395,9 @@ export default function StockDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Peer Comparison ── */}
+      <PeerComparison symbol={symbol} lang={lang} />
 
       {/* ── Dino Insight ── */}
       <Card className="border-primary/30 bg-primary/5 dark:bg-primary/10">

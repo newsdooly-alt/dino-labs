@@ -1289,6 +1289,22 @@ export async function registerRoutes(
     }
   });
 
+  // Peer comparison
+  app.get("/api/stocks/peers/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+      const r = await fetch(`http://127.0.0.1:5001/peers/${encodeURIComponent(symbol)}`, {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!r.ok) return res.json({ symbol, peers: [], count: 0 });
+      const data = await r.json();
+      res.json(data);
+    } catch (err: any) {
+      console.error("[Peers] Error:", err.message);
+      res.json({ symbol, peers: [], count: 0 });
+    }
+  });
+
   // Earnings data
   app.get("/api/stocks/earnings/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
