@@ -1042,7 +1042,7 @@ export async function registerRoutes(
 
   // === Global Macro Dashboard ===
   const MACRO_SYMBOLS = [
-    "ES=F", "NQ=F", "YM=F", "^N225",
+    "ES=F", "NQ=F", "YM=F", "^N225", "^KS11", "^KQ11", "^KS200",
     "GC=F", "CL=F", "HG=F",
     "DX-Y.NYB", "USDKRW=X",
     "^TNX", "^IRX",
@@ -1118,9 +1118,9 @@ export async function registerRoutes(
       const categories = [
         {
           id: 'futures',
-          label: 'Equity Futures',
-          labelKo: '주식 선물',
-          symbols: ['ES=F', 'NQ=F', 'YM=F', '^N225'],
+          label: 'Equity Futures & Indices',
+          labelKo: '주식 선물 & 지수',
+          symbols: ['ES=F', 'NQ=F', 'YM=F', '^N225', '^KS11', '^KQ11', '^KS200'],
           icon: 'trending-up',
         },
         {

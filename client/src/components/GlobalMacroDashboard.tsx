@@ -43,11 +43,14 @@ interface MacroDashboardData {
   fetchedAt: string;
 }
 
-const DISPLAY_NAMES: Record<string, { en: string; ko: string }> = {
-  "ES=F":      { en: "S&P 500 Futures",   ko: "S&P500 선물" },
-  "NQ=F":      { en: "Nasdaq Futures",     ko: "나스닥 선물" },
-  "YM=F":      { en: "Dow Futures",        ko: "다우 선물" },
-  "^N225":     { en: "Nikkei 225",          ko: "닛케이 225" },
+const DISPLAY_NAMES: Record<string, { en: string; ko: string; ja?: string; flag?: string }> = {
+  "ES=F":      { en: "S&P 500 Futures",   ko: "S&P500 선물",      flag: "🇺🇸" },
+  "NQ=F":      { en: "Nasdaq Futures",     ko: "나스닥 선물",       flag: "🇺🇸" },
+  "YM=F":      { en: "Dow Futures",        ko: "다우 선물",         flag: "🇺🇸" },
+  "^N225":     { en: "Nikkei 225",         ko: "닛케이 225",        flag: "🇯🇵" },
+  "^KS11":     { en: "KOSPI",              ko: "코스피",            flag: "🇰🇷" },
+  "^KQ11":     { en: "KOSDAQ",             ko: "코스닥",            flag: "🇰🇷" },
+  "^KS200":    { en: "KOSPI 200",          ko: "코스피 200",        flag: "🇰🇷" },
   "GC=F":      { en: "Gold",               ko: "금" },
   "CL=F":      { en: "Crude Oil (WTI)",    ko: "원유 (WTI)" },
   "HG=F":      { en: "Copper (Dr. Cu)",    ko: "구리 (닥터 구리)" },
@@ -171,8 +174,11 @@ function formatMacroPrice(symbol: string, price: number): string {
   if (symbol === "^VIX") {
     return price.toFixed(2);
   }
-  if (["ES=F", "NQ=F", "YM=F", "NK=F"].includes(symbol)) {
+  if (["ES=F", "NQ=F", "YM=F", "NK=F", "^N225"].includes(symbol)) {
     return price.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+  if (["^KS11", "^KQ11", "^KS200"].includes(symbol)) {
+    return price.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
   }
   return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 }
@@ -294,21 +300,23 @@ export function GlobalMacroDashboard() {
               {categoryAssets.map(asset => {
                 const displayName = DISPLAY_NAMES[asset.symbol];
                 const name = displayName ? (lang === "ko" ? displayName.ko : displayName.en) : (asset.name || asset.symbol);
+                const flag = displayName?.flag ?? null;
                 const isPositive = asset.changePercent >= 0;
                 const isVix = asset.symbol === "^VIX";
-                const isBond = asset.symbol === "^TNX" || asset.symbol === "^IRX";
                 const isInverted = category.invertedSignal || false;
+                const isKrIndex = ["^KS11", "^KQ11", "^KS200"].includes(asset.symbol);
 
                 const effectivePositive = isInverted ? !isPositive : isPositive;
 
                 return (
                   <div
                     key={asset.symbol}
-                    className="flex items-center gap-3 px-4 py-3"
+                    className={cn("flex items-center gap-3 px-4 py-3", isKrIndex && "bg-rose-500/3")}
                     data-testid={`macro-asset-${asset.symbol.replace(/[^a-zA-Z0-9]/g, "-")}`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
+                        {flag && <span className="text-sm shrink-0">{flag}</span>}
                         <span className="font-semibold text-sm truncate">{name}</span>
                         {isVix && asset.price > 0 && <VixGauge price={asset.price} />}
                         {asset.isStale && (
