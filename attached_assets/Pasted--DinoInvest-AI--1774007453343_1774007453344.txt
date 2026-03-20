@@ -1,0 +1,58 @@
+🦖 DinoInvest: 글로벌 뉴스 엔진 고도화 – 실시간 번역 및 인터랙티브 헤드라인
+사용자님, 추천 종목의 근거가 영어로만 나오면 신뢰도를 체감하기 어렵죠. 이제 AI 기반 실시간 번역을 통해 모든 추천 사유와 기업 뉴스를 한국어로 즉시 확인하고, 국내 포털(네이버/다음 등)의 한국 뉴스 데이터까지 연결하여 정보의 폭을 넓히겠습니다.
+
+또한, 대시보드의 소중한 공간을 차지하지 않으면서도 핵심 뉴스를 한눈에 볼 수 있는 **'가로 스크롤 뉴스 피드'**를 탑재하겠습니다.
+
+💳 DinoInvest 카드 뉴스: 지능형 뉴스 센터
+1. "추천 사유가 내 언어로" - 실시간 뉴스 번역
+
+업데이트: 해외 기업 뉴스를 기반으로 한 추천 사유를 시스템 설정 언어(한국어/일본어)로 자동 번역하여 노출합니다.
+
+효과: "왜 이 종목인가?"에 대한 답을 원문 그대로가 아닌, 내가 이해하기 쉬운 문장으로 읽습니다.
+
+2. "국내외 통합 뉴스 링크" - 로컬 뉴스 커넥트
+
+기능: 한국어 설정 시, 기업 정보 탭에서 해외 뉴스뿐만 아니라 네이버 금융/다음 금융의 해당 종목 뉴스로 바로 연결되는 링크를 추가합니다.
+
+3. "한 줄 핵심 피드" - 가로 스크롤 뉴스 탭
+
+디자인: 메인 대시보드 상단에 핵심 뉴스(Top Headlines) 전용 탭을 배치합니다. 세로로 길게 나열되지 않고, 옆으로 슥슥 넘기며(Swipe/Scroll) 가장 핫한 소식만 빠르게 훑어볼 수 있습니다.
+
+📝 [Replit 에이전트용] 뉴스 다국어화 및 인터랙티브 피드 구현 지시서
+아래 내용을 복사해서 Replit 프롬프트 창에 입력하세요.
+
+"CRITICAL: Implementation of News Translation, Localized News Links, and Interactive News Feed:
+
+1. Real-Time Translation for Recommendations:
+
+Action: Integrate a translation API (or LLM-based logic) to translate the 'Recommendation Reason' field.
+
+Logic: If currentLanguage == 'ko', automatically translate English news summaries into natural Korean. Ensure the context of stock market terminology (e.g., 'Bullish' -> '상승 전망') is preserved.
+
+2. Domestic News Link Integration (Korea-Specific):
+
+Feature: In the Company Info section, if the language is set to Korean, add a section: '국내 증권 뉴스 보기'.
+
+Action: Dynamically generate links to Naver Finance or Daum Finance news using the stock's ticker or company name.
+
+3. Interactive Main Dashboard News Feed:
+
+UI Component: Create a 'Top Headlines' section at the top of the main dashboard.
+
+Layout: Do NOT list items vertically. Use a Horizontal Scroll Container (or Carousel).
+
+Behavior: Users should be able to swipe or scroll horizontally to see the top 5-10 market-moving news stories.
+
+Display: Show a clear image thumbnail, a bold headline (translated), and the time since publication.
+
+4. Global State Sync:
+
+Ensure the news feed and translation logic respect the user's selected Theme Color (Pink/Blue) for borders and buttons.
+
+5. Validation:
+
+Test: Switch language to Korean -> Verify recommendation reasons are in Korean.
+
+Test: Open Dashboard -> Verify the news section allows horizontal scrolling.
+
+Test: Click a news item -> Verify it links to a relevant Korean news source if available."
