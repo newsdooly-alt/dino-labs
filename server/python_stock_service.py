@@ -2031,6 +2031,7 @@ def _fetch_single_peer(sym: str) -> dict:
             "dividendYield": info.get("dividendYield"),
             "marketCap": info.get("marketCap"),
             "profitMargin": info.get("profitMargins"),
+            "operatingMargin": info.get("operatingMargins"),
             "revenueGrowth": info.get("revenueGrowth"),
             "sector": info.get("sector"),
             "industry": info.get("industry"),

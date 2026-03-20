@@ -206,60 +206,62 @@ export default function Dashboard() {
           <h2 className="text-base font-bold text-foreground">
             {isKo ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues"}
           </h2>
-          <Link
-            href="/hot-issues"
-            className="ml-auto flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-            data-testid="link-hot-issues-all"
-          >
-            {isKo ? "전체 보기" : lang === "ja" ? "すべて見る" : "See all"}
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
         </div>
 
         {isHotLoading ? (
           <div className="space-y-2.5">
-            {[0, 1, 2, 3, 4].map((i) => (
+            {[0, 1, 2].map((i) => (
               <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : (hotIssuesData?.issues || []).length === 0 ? null : (
-          <div className="space-y-2">
-            {(hotIssuesData?.issues || []).slice(0, 5).map((issue, idx) => (
-              <a
-                key={idx}
-                href={issue.link || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  "flex items-start gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
-                  issue.isHot
-                    ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
-                    : "border-border bg-muted/40 hover:bg-muted/70"
-                )}
-                data-testid={`card-hot-issue-${idx}`}
-              >
-                <div className="flex-1 min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    {issue.isHot && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
-                        <Flame className="w-2.5 h-2.5" />
-                        HOT
-                      </span>
-                    )}
-                    <p className="text-sm font-semibold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
-                      {issue.title}
-                    </p>
-                  </div>
-                  {issue.summary && (
-                    <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
-                      {issue.summary}
-                    </p>
+          <>
+            <div className="space-y-2">
+              {(hotIssuesData?.issues || []).slice(0, 3).map((issue, idx) => (
+                <a
+                  key={idx}
+                  href={issue.link || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "flex items-start gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
+                    issue.isHot
+                      ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
+                      : "border-border bg-muted/40 hover:bg-muted/70"
                   )}
-                </div>
-                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </a>
-            ))}
-          </div>
+                  data-testid={`card-hot-issue-${idx}`}
+                >
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      {issue.isHot && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
+                          <Flame className="w-2.5 h-2.5" />
+                          HOT
+                        </span>
+                      )}
+                      <p className="text-sm font-semibold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
+                        {issue.title}
+                      </p>
+                    </div>
+                    {issue.summary && (
+                      <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
+                        {issue.summary}
+                      </p>
+                    )}
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+              ))}
+            </div>
+            <Link
+              href="/hot-issues"
+              className="mt-3 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-2xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 text-sm font-semibold text-primary transition-all"
+              data-testid="link-hot-issues-more"
+            >
+              {isKo ? "더보기" : lang === "ja" ? "もっと見る" : "View More"}
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </>
         )}
       </motion.section>
 
