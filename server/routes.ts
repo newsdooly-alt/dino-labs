@@ -883,6 +883,8 @@ export async function registerRoutes(
         const translated = await Promise.all(
           stocksWithHeadlines.map(async (stock: any) => {
             try {
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 8000);
               const aiRes = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [
@@ -891,9 +893,13 @@ export async function registerRoutes(
                 ],
                 max_tokens: 150,
               });
-              return { ...stock, newsHeadline: aiRes.choices[0]?.message?.content?.trim() || stock.newsHeadline };
-            } catch {
-              return stock;
+              clearTimeout(timeout);
+              const tx = aiRes.choices[0]?.message?.content?.trim();
+              console.log(`[Recommended] Translated (${lang}): "${stock.newsHeadline}" => "${tx}"`);
+              return { ...stock, translatedHeadline: tx || null };
+            } catch (err: any) {
+              console.error(`[Recommended] Translation failed for ${stock.symbol}:`, err.message);
+              return { ...stock, translatedHeadline: null };
             }
           })
         );

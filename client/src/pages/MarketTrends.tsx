@@ -55,6 +55,24 @@ export default function MarketTrends() {
         </section>
       </div>
 
+      {/* Korean Futures / Indices */}
+      <section className="mb-8">
+        <h2 className="text-xl font-bold flex items-center gap-3 mb-3">
+          <Flag className="w-5 h-5 text-rose-500" />
+          🇰🇷 {lang === "ko" ? "한국 선물·지수" : lang === "ja" ? "韓国先物・指数" : "Korea Futures & Indices"}
+        </h2>
+        <p className="text-muted-foreground text-sm mb-5">
+          {lang === "ko"
+            ? "KOSPI·KOSDAQ 지수 및 선물 현황 — 한국 시장의 전반적 방향을 확인하세요"
+            : lang === "ja"
+            ? "KOSPI・KOSDAQ指数および先物 — 韓国市場全体の方向性を確認できます"
+            : "KOSPI & KOSDAQ index and futures levels — track the overall direction of the Korean market"}
+        </p>
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-lg">
+          <LiveStockCard symbols={["^KS11", "^KQ11", "^KS200"]} />
+        </div>
+      </section>
+
       {/* Korean Market */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <section>
@@ -112,8 +130,8 @@ export default function MarketTrends() {
 
       <div className="mt-4 bg-card/50 border border-border rounded-3xl p-6">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
-            <TrendingUp className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
             <p className="font-bold text-lg mb-1">{t.dino_says}</p>

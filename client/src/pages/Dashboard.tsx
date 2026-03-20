@@ -1,9 +1,10 @@
+import { useState, useRef, useCallback } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Newspaper, Clock, ExternalLink } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Newspaper, Clock, ExternalLink, ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -99,6 +100,26 @@ export default function Dashboard() {
   const { formatTime, timezoneLabel } = useTimezone();
 
   const displayName = getNickname(user?.nickname || "Guest");
+
+  // News carousel state
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [carouselPage, setCarouselPage] = useState(0);
+  const CARD_W = 220; // card width + gap (208 + 12)
+
+  const scrollToPage = useCallback((idx: number, total: number) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(idx, total - 1));
+    el.scrollTo({ left: clamped * CARD_W, behavior: "smooth" });
+    setCarouselPage(clamped);
+  }, []);
+
+  const handleCarouselScroll = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const page = Math.round(el.scrollLeft / CARD_W);
+    setCarouselPage(page);
+  }, []);
 
   const { data: moodData, isLoading: isMoodLoading } = useQuery<MarketMoodData>({
     queryKey: ["/api/market/mood", lang],
@@ -275,65 +296,117 @@ export default function Dashboard() {
         {isNewsLoading ? (
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex-shrink-0 w-52 h-40 bg-muted rounded-2xl animate-pulse" />
+              <div key={i} className="flex-shrink-0 w-52 h-44 bg-muted rounded-2xl animate-pulse" />
             ))}
           </div>
-        ) : newsData && newsData.news.length > 0 ? (
-          <div
-            className="flex gap-3 overflow-x-auto pb-3 -mx-5 px-5 scrollbar-hide snap-x snap-mandatory"
-            data-testid="carousel-news"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            {newsData.news.map((item, idx) => {
-              const headline = lang === "ko" && item.koreanSummary
-                ? item.koreanSummary
-                : lang === "ja" && item.japaneseSummary
-                ? item.japaneseSummary
-                : item.title;
-              const fallbackEmoji = NEWS_EMOJI_FALLBACKS[idx % NEWS_EMOJI_FALLBACKS.length];
+        ) : newsData && newsData.news.length > 0 ? (() => {
+          const totalItems = newsData.news.length;
+          const visibleCount = 3;
+          const maxPage = Math.max(0, totalItems - visibleCount);
+          return (
+            <div className="relative">
+              {/* Prev arrow — visible on md+ screens */}
+              <button
+                onClick={() => scrollToPage(carouselPage - 1, totalItems)}
+                disabled={carouselPage === 0}
+                className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-card border border-border shadow items-center justify-center text-primary hover:bg-primary/10 transition disabled:opacity-30 disabled:pointer-events-none"
+                aria-label="Previous"
+                data-testid="btn-news-prev"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
 
-              return (
-                <a
-                  key={idx}
-                  href={item.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 w-52 snap-start rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-md transition-all overflow-hidden group"
-                  data-testid={`news-card-${idx}`}
-                >
-                  {item.thumbnail ? (
-                    <div className="w-full h-24 overflow-hidden bg-muted">
-                      <img
-                        src={item.thumbnail}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-24 bg-primary/5 flex items-center justify-center border-b border-border">
-                      <span className="text-4xl">{fallbackEmoji}</span>
-                    </div>
-                  )}
-                  <div className="p-3 space-y-2">
-                    <p className="text-xs font-semibold leading-snug line-clamp-3 text-foreground" data-testid={`news-headline-${idx}`}>
-                      {headline}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[80px]">
-                        {item.publisher}
-                      </span>
-                      <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
-                        <Clock className="w-2.5 h-2.5" />
-                        {timeAgo(item.publishedAt, lang)}
-                      </span>
-                    </div>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        ) : null}
+              {/* Next arrow */}
+              <button
+                onClick={() => scrollToPage(carouselPage + 1, totalItems)}
+                disabled={carouselPage >= maxPage}
+                className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-card border border-border shadow items-center justify-center text-primary hover:bg-primary/10 transition disabled:opacity-30 disabled:pointer-events-none"
+                aria-label="Next"
+                data-testid="btn-news-next"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* Scroll track */}
+              <div
+                ref={carouselRef}
+                onScroll={handleCarouselScroll}
+                className="flex gap-3 overflow-x-auto pb-3 -mx-5 px-5 scrollbar-hide snap-x snap-mandatory"
+                data-testid="carousel-news"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {newsData.news.map((item, idx) => {
+                  const headline = lang === "ko" && item.koreanSummary
+                    ? item.koreanSummary
+                    : lang === "ja" && item.japaneseSummary
+                    ? item.japaneseSummary
+                    : item.title;
+                  const fallbackEmoji = NEWS_EMOJI_FALLBACKS[idx % NEWS_EMOJI_FALLBACKS.length];
+
+                  return (
+                    <a
+                      key={idx}
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 w-52 snap-start rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-md transition-all overflow-hidden group"
+                      data-testid={`news-card-${idx}`}
+                    >
+                      {item.thumbnail ? (
+                        <div className="w-full h-24 overflow-hidden bg-muted">
+                          <img
+                            src={item.thumbnail}
+                            alt=""
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-24 bg-primary/5 flex items-center justify-center border-b border-border">
+                          <span className="text-4xl">{fallbackEmoji}</span>
+                        </div>
+                      )}
+                      <div className="p-3 space-y-2">
+                        <p className="text-xs font-semibold leading-snug line-clamp-3 text-foreground" data-testid={`news-headline-${idx}`}>
+                          {headline}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[80px]">
+                            {item.publisher}
+                          </span>
+                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+                            <Clock className="w-2.5 h-2.5" />
+                            {timeAgo(item.publishedAt, lang)}
+                          </span>
+                        </div>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+
+              {/* Pagination dots */}
+              {totalItems > 1 && (
+                <div className="flex justify-center gap-1.5 mt-3" data-testid="carousel-dots">
+                  {newsData.news.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => scrollToPage(idx, totalItems)}
+                      className={cn(
+                        "rounded-full transition-all",
+                        idx === carouselPage
+                          ? "w-4 h-2 bg-primary"
+                          : "w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                      )}
+                      aria-label={`Go to news ${idx + 1}`}
+                      data-testid={`dot-news-${idx}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })() : null}
       </motion.section>
 
       {/* ── Section 2: Quick Watchlist ── */}

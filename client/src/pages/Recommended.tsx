@@ -27,6 +27,7 @@ interface RecommendedStock {
   market?: string;
   currency: string;
   newsHeadline?: string;
+  translatedHeadline?: string | null;
   newsSource?: string;
   newsUrl?: string;
 }
@@ -190,8 +191,11 @@ export default function Recommended() {
             const localizedName = getLocalizedCompanyName(cleanCompanyName(stock.name), lang);
             const marketBadge = getMarketBadge(stock);
             const hasNews = !!stock.newsHeadline;
-            const reasonText = hasNews
-              ? `${getNewsPrefix(lang)}${stock.newsHeadline}`
+            const displayHeadline = lang !== "en"
+              ? (stock.translatedHeadline || null)
+              : stock.newsHeadline || null;
+            const reasonText = hasNews && displayHeadline
+              ? `${getNewsPrefix(lang)}${displayHeadline}`
               : getMomentumReason(stock, lang);
 
             return (
