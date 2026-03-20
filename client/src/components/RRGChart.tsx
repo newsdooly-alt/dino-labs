@@ -84,29 +84,30 @@ interface SectorGroup {
 }
 
 const COUNTRY_CONFIGS: Record<Country, {
-  nameEn: string; nameKo: string; flag: string;
-  descEn: string; descKo: string;
-  sectorLabels: Record<string, { en: string; ko: string }>;
+  nameEn: string; nameKo: string; nameJa: string; flag: string;
+  descEn: string; descKo: string; descJa: string;
+  sectorLabels: Record<string, { en: string; ko: string; ja: string }>;
   sectorColors: Record<string, string>;
   top10: Record<string, string[]>;
   sectorGroups?: SectorGroup[];
 }> = {
   us: {
-    nameEn: "US (S&P 500)", nameKo: "미국 (S&P 500)", flag: "🇺🇸",
+    nameEn: "US (S&P 500)", nameKo: "미국 (S&P 500)", nameJa: "米国 (S&P 500)", flag: "🇺🇸",
     descEn: "11 SPDR sector ETFs vs SPY benchmark",
     descKo: "11개 SPDR 섹터 ETF vs SPY 벤치마크",
+    descJa: "11本のSPDRセクターETF vs SPYベンチマーク",
     sectorLabels: {
-      XLK:  { en: "Technology",      ko: "기술" },
-      XLF:  { en: "Financials",      ko: "금융" },
-      XLV:  { en: "Healthcare",      ko: "헬스케어" },
-      XLE:  { en: "Energy",          ko: "에너지" },
-      XLY:  { en: "Cons. Disc.",     ko: "임의소비재" },
-      XLP:  { en: "Cons. Staples",   ko: "필수소비재" },
-      XLI:  { en: "Industrials",     ko: "산업재" },
-      XLB:  { en: "Materials",       ko: "소재" },
-      XLRE: { en: "Real Estate",     ko: "리츠" },
-      XLU:  { en: "Utilities",       ko: "유틸리티" },
-      XLC:  { en: "Comm. Svcs",      ko: "통신" },
+      XLK:  { en: "Technology",      ko: "기술",       ja: "テクノロジー" },
+      XLF:  { en: "Financials",      ko: "금융",       ja: "金融" },
+      XLV:  { en: "Healthcare",      ko: "헬스케어",   ja: "ヘルスケア" },
+      XLE:  { en: "Energy",          ko: "에너지",     ja: "エネルギー" },
+      XLY:  { en: "Cons. Disc.",     ko: "임의소비재", ja: "一般消費財" },
+      XLP:  { en: "Cons. Staples",   ko: "필수소비재", ja: "生活必需品" },
+      XLI:  { en: "Industrials",     ko: "산업재",     ja: "資本財" },
+      XLB:  { en: "Materials",       ko: "소재",       ja: "素材" },
+      XLRE: { en: "Real Estate",     ko: "리츠",       ja: "不動産" },
+      XLU:  { en: "Utilities",       ko: "유틸리티",   ja: "公益事業" },
+      XLC:  { en: "Comm. Svcs",      ko: "통신",       ja: "通信サービス" },
     },
     sectorColors: {
       XLK: "#6366f1", XLF: "#f59e0b", XLV: "#10b981", XLE: "#ef4444",
@@ -128,9 +129,10 @@ const COUNTRY_CONFIGS: Record<Country, {
     },
   },
   kr: {
-    nameEn: "Korea (KOSPI)", nameKo: "한국 (코스피)", flag: "🇰🇷",
+    nameEn: "Korea (KOSPI)", nameKo: "한국 (코스피)", nameJa: "韓国 (KOSPI)", flag: "🇰🇷",
     descEn: "8 KOSPI sectors vs KOSPI Index — sector rotation",
     descKo: "8개 코스피 섹터 vs 코스피 지수 — 섹터 순환",
+    descJa: "8セクター vs KOSPIインデックス — セクターローテーション",
     sectorGroups: [
       { id: "KR_SEMI",  members: ["005930.KS","000660.KS"] },
       { id: "KR_AUTO",  members: ["005380.KS"] },
@@ -142,14 +144,14 @@ const COUNTRY_CONFIGS: Record<Country, {
       { id: "KR_TELE",  members: ["017670.KS"] },
     ],
     sectorLabels: {
-      KR_SEMI:  { en: "Semiconductors",  ko: "반도체" },
-      KR_AUTO:  { en: "Automotive",      ko: "자동차" },
-      KR_BIO:   { en: "Bio/Pharma",      ko: "바이오/제약" },
-      KR_FIN:   { en: "Finance",         ko: "금융" },
-      KR_CHEM:  { en: "Chem/Battery",    ko: "화학/배터리" },
-      KR_NET:   { en: "Internet",        ko: "인터넷" },
-      KR_STEEL: { en: "Steel/Materials", ko: "철강/소재" },
-      KR_TELE:  { en: "Telecom",         ko: "통신" },
+      KR_SEMI:  { en: "Semiconductors",  ko: "반도체",     ja: "半導体" },
+      KR_AUTO:  { en: "Automotive",      ko: "자동차",     ja: "自動車" },
+      KR_BIO:   { en: "Bio/Pharma",      ko: "바이오/제약", ja: "バイオ/製薬" },
+      KR_FIN:   { en: "Finance",         ko: "금융",       ja: "金融" },
+      KR_CHEM:  { en: "Chem/Battery",    ko: "화학/배터리", ja: "化学/バッテリー" },
+      KR_NET:   { en: "Internet",        ko: "인터넷",     ja: "インターネット" },
+      KR_STEEL: { en: "Steel/Materials", ko: "철강/소재",  ja: "鉄鋼/素材" },
+      KR_TELE:  { en: "Telecom",         ko: "통신",       ja: "通信" },
     },
     sectorColors: {
       KR_SEMI:  "#6366f1", KR_AUTO:  "#f59e0b", KR_BIO:   "#10b981",
@@ -168,9 +170,10 @@ const COUNTRY_CONFIGS: Record<Country, {
     },
   },
   jp: {
-    nameEn: "Japan (Nikkei 225)", nameKo: "일본 (닛케이 225)", flag: "🇯🇵",
+    nameEn: "Japan (Nikkei 225)", nameKo: "일본 (닛케이 225)", nameJa: "日本 (日経225)", flag: "🇯🇵",
     descEn: "8 Nikkei sectors vs N225 benchmark — sector rotation",
     descKo: "8개 닛케이 섹터 vs N225 지수 — 섹터 순환",
+    descJa: "8セクター vs 日経225ベンチマーク — セクターローテーション",
     sectorGroups: [
       { id: "JP_AUTO",   members: ["7203.T"] },
       { id: "JP_ELEC",   members: ["6758.T","6501.T"] },
@@ -182,14 +185,14 @@ const COUNTRY_CONFIGS: Record<Country, {
       { id: "JP_UTIL",   members: ["9501.T","4661.T"] },
     ],
     sectorLabels: {
-      JP_AUTO:   { en: "Automotive",     ko: "자동차" },
-      JP_ELEC:   { en: "Electronics",    ko: "전자/기술" },
-      JP_FIN:    { en: "Finance",        ko: "금융" },
-      JP_PHARM:  { en: "Pharma",         ko: "제약" },
-      JP_IT:     { en: "IT/Tech",        ko: "IT/기술" },
-      JP_RETAIL: { en: "Retail",         ko: "유통" },
-      JP_RE:     { en: "Real Estate",    ko: "부동산" },
-      JP_UTIL:   { en: "Utility/Leisure",ko: "유틸/레저" },
+      JP_AUTO:   { en: "Automotive",     ko: "자동차",  ja: "自動車" },
+      JP_ELEC:   { en: "Electronics",    ko: "전자/기술", ja: "電子機器/技術" },
+      JP_FIN:    { en: "Finance",        ko: "금융",    ja: "金融" },
+      JP_PHARM:  { en: "Pharma",         ko: "제약",    ja: "製薬" },
+      JP_IT:     { en: "IT/Tech",        ko: "IT/기술", ja: "IT/ソフト" },
+      JP_RETAIL: { en: "Retail",         ko: "유통",    ja: "小売" },
+      JP_RE:     { en: "Real Estate",    ko: "부동산",  ja: "不動産" },
+      JP_UTIL:   { en: "Utility/Leisure",ko: "유틸/레저", ja: "公益/レジャー" },
     },
     sectorColors: {
       JP_AUTO:   "#ef4444", JP_ELEC:   "#6366f1", JP_FIN:    "#f59e0b",
@@ -208,20 +211,21 @@ const COUNTRY_CONFIGS: Record<Country, {
     },
   },
   eu: {
-    nameEn: "Europe (STOXX 600)", nameKo: "유럽 (STOXX 600)", flag: "🇪🇺",
+    nameEn: "Europe (STOXX 600)", nameKo: "유럽 (STOXX 600)", nameJa: "欧州 (STOXX 600)", flag: "🇪🇺",
     descEn: "Country ETFs vs VGK (Vanguard Europe ETF) — country rotation",
     descKo: "유럽 국가별 ETF vs VGK 벤치마크 — 국가 순환",
+    descJa: "欧州国別ETF vs VGKベンチマーク — カントリーローテーション",
     sectorLabels: {
-      EWG:  { en: "Germany",     ko: "독일" },
-      EWQ:  { en: "France",      ko: "프랑스" },
-      EWI:  { en: "Italy",       ko: "이탈리아" },
-      EWP:  { en: "Spain",       ko: "스페인" },
-      EWN:  { en: "Netherlands", ko: "네덜란드" },
-      EWL:  { en: "Switzerland", ko: "스위스" },
-      EWU:  { en: "UK",          ko: "영국" },
-      EWD:  { en: "Sweden",      ko: "스웨덴" },
-      EWO:  { en: "Austria",     ko: "오스트리아" },
-      ENOR: { en: "Norway",      ko: "노르웨이" },
+      EWG:  { en: "Germany",     ko: "독일",     ja: "ドイツ" },
+      EWQ:  { en: "France",      ko: "프랑스",   ja: "フランス" },
+      EWI:  { en: "Italy",       ko: "이탈리아", ja: "イタリア" },
+      EWP:  { en: "Spain",       ko: "스페인",   ja: "スペイン" },
+      EWN:  { en: "Netherlands", ko: "네덜란드", ja: "オランダ" },
+      EWL:  { en: "Switzerland", ko: "스위스",   ja: "スイス" },
+      EWU:  { en: "UK",          ko: "영국",     ja: "イギリス" },
+      EWD:  { en: "Sweden",      ko: "스웨덴",   ja: "スウェーデン" },
+      EWO:  { en: "Austria",     ko: "오스트리아", ja: "オーストリア" },
+      ENOR: { en: "Norway",      ko: "노르웨이", ja: "ノルウェー" },
     },
     sectorColors: {
       EWG: "#ef4444", EWQ: "#6366f1", EWI: "#10b981", EWP: "#f59e0b",
@@ -245,17 +249,17 @@ const COUNTRY_CONFIGS: Record<Country, {
 
 // ─── Shared Constants ─────────────────────────────────────────────────────────
 const QUADRANT_CONFIG = {
-  leading:   { label: "Leading",   labelKo: "주도",  color: "#22c55e", bg: "rgba(34,197,94,0.10)",  border: "rgba(34,197,94,0.25)",  desc: "Outperforming & gaining momentum",     descKo: "강도와 모멘텀 모두 우수" },
-  weakening: { label: "Weakening", labelKo: "약화",  color: "#eab308", bg: "rgba(234,179,8,0.10)",  border: "rgba(234,179,8,0.25)",  desc: "Outperforming but losing momentum",    descKo: "강도는 높으나 모멘텀 둔화" },
-  lagging:   { label: "Lagging",   labelKo: "침체",  color: "#ef4444", bg: "rgba(239,68,68,0.10)",  border: "rgba(239,68,68,0.25)",  desc: "Underperforming & losing momentum",    descKo: "강도와 모멘텀 모두 부진" },
-  improving: { label: "Improving", labelKo: "회복",  color: "#3b82f6", bg: "rgba(59,130,246,0.10)", border: "rgba(59,130,246,0.25)", desc: "Underperforming but gaining momentum", descKo: "강도는 낮으나 모멘텀 회복" },
+  leading:   { label: "Leading",   labelKo: "주도", labelJa: "リード",  color: "#22c55e", bg: "rgba(34,197,94,0.10)",  border: "rgba(34,197,94,0.25)",  desc: "Outperforming & gaining momentum",     descKo: "강도와 모멘텀 모두 우수",   descJa: "強度・モメンタム共に優秀" },
+  weakening: { label: "Weakening", labelKo: "약화", labelJa: "弱体化", color: "#eab308", bg: "rgba(234,179,8,0.10)",  border: "rgba(234,179,8,0.25)",  desc: "Outperforming but losing momentum",    descKo: "강도는 높으나 모멘텀 둔화", descJa: "強度は高いがモメンタム鈍化" },
+  lagging:   { label: "Lagging",   labelKo: "침체", labelJa: "停滞",   color: "#ef4444", bg: "rgba(239,68,68,0.10)",  border: "rgba(239,68,68,0.25)",  desc: "Underperforming & losing momentum",    descKo: "강도와 모멘텀 모두 부진",   descJa: "強度・モメンタム共に不振" },
+  improving: { label: "Improving", labelKo: "회복", labelJa: "回復",   color: "#3b82f6", bg: "rgba(59,130,246,0.10)", border: "rgba(59,130,246,0.25)", desc: "Underperforming but gaining momentum", descKo: "강도는 낮으나 모멘텀 회복", descJa: "強度は低いがモメンタム回復" },
 };
 
-const FLOW_DESCRIPTION: Record<string, { en: string; ko: string }> = {
-  leading:   { en: "Capital is strongly allocated here — this sector leads the market.",   ko: "자금이 집중되는 선도 섹터입니다." },
-  weakening: { en: "Rotation starting — smart money may be moving out of this sector.",    ko: "수익 실현 구간 — 자금이 빠져나올 수 있습니다." },
-  lagging:   { en: "Capital is leaving — this sector is underperforming the market.",      ko: "소외된 섹터 — 시장 대비 부진합니다." },
-  improving: { en: "Opportunity zone — capital is beginning to rotate back in.",           ko: "기회 구간 — 자금이 돌아오기 시작합니다." },
+const FLOW_DESCRIPTION: Record<string, { en: string; ko: string; ja: string }> = {
+  leading:   { en: "Capital is strongly allocated here — this sector leads the market.",   ko: "자금이 집중되는 선도 섹터입니다.",          ja: "資金が集中するリードセクターです。" },
+  weakening: { en: "Rotation starting — smart money may be moving out of this sector.",    ko: "수익 실현 구간 — 자금이 빠져나올 수 있습니다.", ja: "ローテーション開始 — 資金が流出する可能性があります。" },
+  lagging:   { en: "Capital is leaving — this sector is underperforming the market.",      ko: "소외된 섹터 — 시장 대비 부진합니다.",        ja: "資金が流出中 — 市場対比で低迷しています。" },
+  improving: { en: "Opportunity zone — capital is beginning to rotate back in.",           ko: "기회 구간 — 자금이 돌아오기 시작합니다.",    ja: "チャンスゾーン — 資金が戻り始めています。" },
 };
 
 // ─── Sector Aggregation ────────────────────────────────────────────────────────
@@ -334,16 +338,18 @@ function CustomTooltip({ active, payload, lang, country, onSelect }: {
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="w-3 h-3 rounded-full shrink-0" style={{ background: d._color }} />
-        <span className="font-bold text-sm">{label ? (lang === "ko" ? label.ko : label.en) : d.symbol}</span>
+        <span className="font-bold text-sm">
+          {label ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en) : d.symbol}
+        </span>
         {label && <span className="text-xs text-muted-foreground font-mono">({d.symbol.replace(/^(KR|JP)_/, "")})</span>}
       </div>
       <div className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full mb-2"
         style={{ background: q.bg, color: q.color, border: `1px solid ${q.border}` }}
       >
-        {lang === "ko" ? `현재: ${q.labelKo}` : `Status: ${q.label}`}
+        {lang === "ko" ? `현재: ${q.labelKo}` : lang === "ja" ? `状態: ${q.labelJa}` : `Status: ${q.label}`}
       </div>
       <p className="text-xs text-muted-foreground leading-relaxed mb-2">
-        {lang === "ko" ? flow?.ko : flow?.en}
+        {lang === "ko" ? flow?.ko : lang === "ja" ? flow?.ja : flow?.en}
       </p>
       <div className="grid grid-cols-2 gap-1 text-xs">
         <div className="text-muted-foreground">RS-Ratio</div>
@@ -352,7 +358,7 @@ function CustomTooltip({ active, payload, lang, country, onSelect }: {
         <div className="font-mono font-semibold text-right">{d.rsMomentum?.toFixed(2)}</div>
       </div>
       <p className="text-[10px] text-primary mt-2 text-center opacity-70">
-        {lang === "ko" ? "탭하여 자세히 보기" : "Tap for details"}
+        {lang === "ko" ? "탭하여 자세히 보기" : lang === "ja" ? "タップして詳細を表示" : "Tap for details"}
       </p>
     </div>
   );
@@ -361,11 +367,11 @@ function CustomTooltip({ active, payload, lang, country, onSelect }: {
 // ─── Insight Tag definitions ──────────────────────────────────────────────────
 type InsightTag = "주도주" | "낙폭과대" | "유망주" | "약세전환";
 
-const INSIGHT_CONFIG: Record<InsightTag, { ko: string; en: string; color: string; bg: string; icon: JSX.Element }> = {
-  "주도주":  { ko: "주도주",   en: "Leader",    color: "#22c55e", bg: "rgba(34,197,94,0.12)",   icon: <Star className="w-2.5 h-2.5" /> },
-  "낙폭과대":{ ko: "낙폭과대", en: "Laggard",   color: "#ef4444", bg: "rgba(239,68,68,0.12)",   icon: <AlertTriangle className="w-2.5 h-2.5" /> },
-  "유망주":  { ko: "유망주",   en: "Improving", color: "#3b82f6", bg: "rgba(59,130,246,0.12)",  icon: <Sparkles className="w-2.5 h-2.5" /> },
-  "약세전환":{ ko: "약세전환", en: "Weakening", color: "#eab308", bg: "rgba(234,179,8,0.12)",   icon: <AlertTriangle className="w-2.5 h-2.5" /> },
+const INSIGHT_CONFIG: Record<InsightTag, { ko: string; en: string; ja: string; color: string; bg: string; icon: JSX.Element }> = {
+  "주도주":  { ko: "주도주",   en: "Leader",    ja: "リーダー",  color: "#22c55e", bg: "rgba(34,197,94,0.12)",   icon: <Star className="w-2.5 h-2.5" /> },
+  "낙폭과대":{ ko: "낙폭과대", en: "Laggard",   ja: "出遅れ",    color: "#ef4444", bg: "rgba(239,68,68,0.12)",   icon: <AlertTriangle className="w-2.5 h-2.5" /> },
+  "유망주":  { ko: "유망주",   en: "Improving", ja: "上昇中",    color: "#3b82f6", bg: "rgba(59,130,246,0.12)",  icon: <Sparkles className="w-2.5 h-2.5" /> },
+  "약세전환":{ ko: "약세전환", en: "Weakening", ja: "弱転換",    color: "#eab308", bg: "rgba(234,179,8,0.12)",   icon: <AlertTriangle className="w-2.5 h-2.5" /> },
 };
 
 // Top 10 companies sub-component with live prices, clickable links, and insight tags
@@ -455,7 +461,6 @@ function SectorTop10({
       if (sectorQuadrant === "leading") {
         const leader = leaderStock?.localName ?? sorted2[0]?.localName;
         const second = sorted2[1]?.localName;
-        const underval = laggardStock?.localName ?? stockList[stockList.length - 1]?.localName;
         if (leader && second)
           return `현재 이 섹터는 ${leader}이(가) 이끌고 있으며, ${second}도 강한 상승 모멘텀을 보이고 있습니다. RS-Ratio ${sectorRsRatio.toFixed(2)}로 시장 대비 우위에 있습니다.`;
         if (leader)
@@ -478,6 +483,31 @@ function SectorTop10({
           : `이 섹터는 수익 실현 구간으로, 모멘텀 약화 신호에 주목하세요.`;
       }
       return `이 섹터의 RS-Ratio는 ${sectorRsRatio.toFixed(2)}입니다.`;
+    } else if (lang === "ja") {
+      if (sectorQuadrant === "leading") {
+        const leader = leaderStock?.localName ?? sorted2[0]?.rawName;
+        const second = sorted2[1]?.rawName;
+        if (leader && second)
+          return `このセクターは${leader}が牽引しており、${second}も強い上昇モメンタムを示しています。RS-Ratio ${sectorRsRatio.toFixed(2)} — ベンチマーク上回り。`;
+        if (leader)
+          return `${leader}がこのセクターをリードしています。RS-Ratio ${sectorRsRatio.toFixed(2)}でリードゾーンに位置します。`;
+      } else if (sectorQuadrant === "improving") {
+        const s = improvingStock?.rawName ?? sorted2[0]?.rawName;
+        return s
+          ? `${s}のモメンタム改善が注目されます。このセクターは割安ゾーンから回復シグナルを示しています。`
+          : `このセクターはImproving（回復）ゾーンにあります。Leadingへのローテーションに注目。`;
+      } else if (sectorQuadrant === "lagging") {
+        const s = laggardStock?.rawName ?? sorted2[sorted2.length - 1]?.rawName;
+        return s
+          ? `${s}はこのセクターで相対的に割安に見えます。平均回帰反発の可能性を監視してください。`
+          : `このセクターはベンチマークをアンダーパフォームしています。慎重なアプローチが必要です。`;
+      } else if (sectorQuadrant === "weakening") {
+        const s = sorted2[0]?.rawName;
+        return s
+          ? `このセクターは強度を維持していますが、モメンタムが低下しています。${s}のトレンド変化に注意してください。`
+          : `このセクターはWeakening（弱体化）ゾーンにあります。利益確定シグナルに注目。`;
+      }
+      return `このセクターのRS-Ratioは${sectorRsRatio.toFixed(2)}です。`;
     } else {
       if (sectorQuadrant === "leading") {
         const leader = leaderStock?.localName ?? sorted2[0]?.rawName;
@@ -515,7 +545,7 @@ function SectorTop10({
       </div>
 
       <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-2 px-1">
-        {lang === "ko" ? `${sectorName} 주요 종목` : `Top ${sectorName} Holdings`}
+        {lang === "ko" ? `${sectorName} 주요 종목` : lang === "ja" ? `${sectorName} 主要銘柄` : `Top ${sectorName} Holdings`}
       </p>
 
       <div className="space-y-0.5">
@@ -531,7 +561,7 @@ function SectorTop10({
               onClick={() => navigate(`/stock/${encodeURIComponent(ticker)}`)}
               className="w-full flex items-center justify-between px-2 py-2 rounded-lg bg-background/60 hover:bg-background/95 hover:shadow-sm transition-all group text-left"
               data-testid={`rrg-top10-${ticker}-${idx}`}
-              aria-label={lang === "ko" ? `${localName} 상세 보기` : `View ${rawName} detail`}
+              aria-label={lang === "ko" ? `${localName} 상세 보기` : lang === "ja" ? `${localName} 詳細を見る` : `View ${rawName} detail`}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0 text-center">{idx + 1}</span>
@@ -550,7 +580,7 @@ function SectorTop10({
                         style={{ color: tagConf.color, background: tagConf.bg }}
                       >
                         {tagConf.icon}
-                        {lang === "ko" ? tagConf.ko : tagConf.en}
+                        {lang === "ko" ? tagConf.ko : lang === "ja" ? tagConf.ja : tagConf.en}
                       </span>
                     )}
                   </div>
@@ -584,6 +614,8 @@ function SectorTop10({
 export function RRGChart() {
   const { data: user } = useUser();
   const lang = user?.language || "ko";
+  const L = (ko: string, en: string, ja?: string) =>
+    lang === "ko" ? ko : lang === "ja" ? (ja ?? en) : en;
   const [country, setCountry] = useState<Country>("us");
   const [selected, setSelected] = useState<RRGSector | null>(null);
   const [showInfo, setShowInfo] = useState(false);
@@ -638,16 +670,18 @@ export function RRGChart() {
         <div className="text-center space-y-3 mt-6">
           <TrendingUp className="w-10 h-10 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground text-sm">
-            {lang === "ko"
-              ? "RRG 데이터를 불러오는 중 오류가 발생했습니다. 해외 시장 데이터는 시간이 걸릴 수 있습니다."
-              : "Could not load RRG data. Cross-market data may take a moment to compute."}
+            {L(
+            "RRG 데이터를 불러오는 중 오류가 발생했습니다. 해외 시장 데이터는 시간이 걸릴 수 있습니다.",
+            "Could not load RRG data. Cross-market data may take a moment to compute.",
+            "RRGデータの読み込み中にエラーが発生しました。クロスマーケットデータの計算に時間がかかる場合があります。"
+          )}
           </p>
           <button onClick={() => refetch()}
             className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
             data-testid="button-retry-rrg"
           >
             <RefreshCw className="w-3 h-3" />
-            {lang === "ko" ? "다시 시도" : "Retry"}
+            {L("다시 시도", "Retry", "再試行")}
           </button>
         </div>
       </div>
@@ -661,7 +695,9 @@ export function RRGChart() {
 
   const scatterData = displaySectors.map(s => {
     const label = cfg.sectorLabels[s.symbol];
-    const localName = label ? (lang === "ko" ? label.ko : label.en) : s.symbol.replace(/^(KR|JP)_/, "");
+    const localName = label
+      ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en)
+      : s.symbol.replace(/^(KR|JP)_/, "");
     return {
       ...s,
       x: s.rsRatio,
@@ -695,10 +731,10 @@ export function RRGChart() {
               <span className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
                 <TrendingUp className="w-3.5 h-3.5 text-white" />
               </span>
-              {lang === "ko" ? "섹터 순환 그래프 (RRG)" : "Relative Rotation Graph (RRG)"}
+              {L("섹터 순환 그래프 (RRG)", "Relative Rotation Graph (RRG)", "セクターローテーショングラフ (RRG)")}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {lang === "ko" ? cfg.descKo : cfg.descEn}
+              {lang === "ko" ? cfg.descKo : lang === "ja" ? cfg.descJa : cfg.descEn}
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -722,9 +758,11 @@ export function RRGChart() {
 
         {showInfo && (
           <div className="mt-3 bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground leading-relaxed">
-            {lang === "ko"
-              ? "RRG는 각 섹터의 상대적 강도(RS-Ratio)와 모멘텀(RS-Momentum)을 시각화합니다. 우상단(Leading) 섹터가 현재 시장을 주도하며, 꼬리(Trail)는 최근 이동 경로입니다. 시계 방향 순환: 회복 → 주도 → 약화 → 침체. 핀치/휠로 확대하거나 드래그해서 이동하세요."
-              : "RRG plots RS-Ratio (outperformance) on X and RS-Momentum (rate of change) on Y. Tails show recent movement. Sectors typically rotate clockwise: Improving → Leading → Weakening → Lagging. Pinch/scroll to zoom, drag to pan."}
+            {L(
+              "RRG는 각 섹터의 상대적 강도(RS-Ratio)와 모멘텀(RS-Momentum)을 시각화합니다. 우상단(Leading) 섹터가 현재 시장을 주도하며, 꼬리(Trail)는 최근 이동 경로입니다. 시계 방향 순환: 회복 → 주도 → 약화 → 침체. 핀치/휠로 확대하거나 드래그해서 이동하세요.",
+              "RRG plots RS-Ratio (outperformance) on X and RS-Momentum (rate of change) on Y. Tails show recent movement. Sectors typically rotate clockwise: Improving → Leading → Weakening → Lagging. Pinch/scroll to zoom, drag to pan.",
+              "RRGはRS-Ratio（超過リターン）をX軸、RS-Momentum（変化率）をY軸にプロットします。テールは直近の動きを示します。時計回り循環：回復→リード→弱体化→停滞。ピンチ/スクロールでズーム、ドラッグで移動。"
+            )}
           </div>
         )}
       </div>
@@ -737,21 +775,19 @@ export function RRGChart() {
             style={{ background: q.bg, color: q.color, border: `1px solid ${q.border}` }}
           >
             <span className="w-2 h-2 rounded-full" style={{ background: q.color }} />
-            {lang === "ko" ? q.labelKo : q.label}
+            {lang === "ko" ? q.labelKo : lang === "ja" ? q.labelJa : q.label}
             <span className="opacity-60 font-normal">({quadrantCounts[key as keyof typeof quadrantCounts]})</span>
           </div>
         ))}
         <div className="ml-auto text-[10px] text-muted-foreground self-center hidden sm:block">
-          {lang === "ko"
-            ? `업데이트 (KST): ${toKST(data.fetchedAt)}`
-            : `Last Updated (KST): ${toKST(data.fetchedAt)}`}
+          {L(`업데이트 (KST): ${toKST(data.fetchedAt)}`, `Last Updated (KST): ${toKST(data.fetchedAt)}`, `更新 (KST): ${toKST(data.fetchedAt)}`)}
         </div>
       </div>
 
       {/* Quadrant Statistics Panel */}
       <div className="px-5 py-3 border-b border-border/40 bg-muted/20">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-          {lang === "ko" ? "섹터 분포 통계" : "Quadrant Distribution"} — {displaySectors.length} {lang === "ko" ? "개 섹터" : "sectors"}
+          {L("섹터 분포 통계", "Quadrant Distribution", "クアドラント分布")} — {displaySectors.length} {L("개 섹터", "sectors", "セクター")}
         </p>
         <div className="grid grid-cols-4 gap-1.5 mb-2">
           {(Object.entries(QUADRANT_CONFIG) as [string, typeof QUADRANT_CONFIG["leading"]][]).map(([key, q]) => {
@@ -761,12 +797,12 @@ export function RRGChart() {
               .filter(s => s.quadrant === key)
               .map(s => {
                 const lbl = cfg.sectorLabels?.[s.symbol];
-                return lbl ? (lang === "ko" ? lbl.ko : lbl.en) : s.symbol;
+                return lbl ? (lang === "ko" ? lbl.ko : lang === "ja" ? lbl.ja : lbl.en) : s.symbol;
               })
               .join(", ");
             return (
               <div key={key} className="rounded-lg p-2 text-center" style={{ background: q.bg, border: `1px solid ${q.border}` }} title={sectorNames}>
-                <p className="text-[9px] font-semibold mb-0.5" style={{ color: q.color }}>{lang === "ko" ? q.labelKo : q.label}</p>
+                <p className="text-[9px] font-semibold mb-0.5" style={{ color: q.color }}>{lang === "ko" ? q.labelKo : lang === "ja" ? q.labelJa : q.label}</p>
                 <p className="text-base font-bold leading-none" style={{ color: q.color }}>{pct}<span className="text-[9px] font-normal">%</span></p>
                 <p className="text-[9px] text-muted-foreground mt-0.5">{count}/{displaySectors.length}</p>
               </div>
@@ -840,7 +876,7 @@ export function RRGChart() {
 
               {/* Hint for zoom */}
               <div className="absolute bottom-2 right-2 z-20 text-[9px] text-muted-foreground/50 pointer-events-none hidden sm:block">
-                {lang === "ko" ? "스크롤/핀치로 확대" : "Scroll or pinch to zoom"}
+                {L("스크롤/핀치로 확대", "Scroll or pinch to zoom", "スクロール/ピンチでズーム")}
               </div>
 
               <TransformComponent
@@ -852,16 +888,16 @@ export function RRGChart() {
                   <div className="absolute inset-0 pointer-events-none z-10" style={{ top: 20, left: 42, right: 50, bottom: 32 }}>
                     <div className="relative w-full h-full">
                       <span className="absolute top-2 left-4 text-[10px] font-bold text-blue-400 opacity-40 uppercase tracking-wider">
-                        {lang === "ko" ? "회복" : "Improving"}
+                        {L("회복", "Improving", "回復")}
                       </span>
                       <span className="absolute top-2 right-4 text-[10px] font-bold text-green-400 opacity-40 uppercase tracking-wider">
-                        {lang === "ko" ? "주도" : "Leading"}
+                        {L("주도", "Leading", "リード")}
                       </span>
                       <span className="absolute bottom-2 left-4 text-[10px] font-bold text-red-400 opacity-40 uppercase tracking-wider">
-                        {lang === "ko" ? "침체" : "Lagging"}
+                        {L("침체", "Lagging", "停滞")}
                       </span>
                       <span className="absolute bottom-2 right-4 text-[10px] font-bold text-yellow-400 opacity-40 uppercase tracking-wider">
-                        {lang === "ko" ? "약화" : "Weakening"}
+                        {L("약화", "Weakening", "弱体化")}
                       </span>
                     </div>
                   </div>
@@ -875,12 +911,12 @@ export function RRGChart() {
                       <XAxis type="number" dataKey="x" domain={[xMin, xMax]} tickCount={7}
                         tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                         tickLine={false} axisLine={false}
-                        label={{ value: lang === "ko" ? "← RS-비율 →" : "← RS-Ratio →", position: "insideBottom", offset: -8, fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        label={{ value: L("← RS-비율 →", "← RS-Ratio →", "← RS-レシオ →"), position: "insideBottom", offset: -8, fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                       />
                       <YAxis type="number" dataKey="y" domain={[yMin, yMax]} tickCount={7}
                         tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                         tickLine={false} axisLine={false}
-                        label={{ value: lang === "ko" ? "RS-모멘텀" : "RS-Momentum", angle: -90, position: "insideLeft", offset: 12, fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        label={{ value: L("RS-모멘텀", "RS-Momentum", "RS-モメンタム"), angle: -90, position: "insideLeft", offset: 12, fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                       />
 
                       <Tooltip
@@ -950,7 +986,7 @@ export function RRGChart() {
               data-testid={`rrg-sector-${s.symbol}`}
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-              <span className="font-semibold">{label ? (lang === "ko" ? label.ko : label.en) : shortId}</span>
+              <span className="font-semibold">{label ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en) : shortId}</span>
               <span className="text-muted-foreground text-[10px] font-mono">({s.symbol.includes(".") ? s.symbol.split(".")[0] : shortId})</span>
               <span className="font-bold" style={{ color: q.color }}>·</span>
             </button>
@@ -964,7 +1000,7 @@ export function RRGChart() {
         const flow = FLOW_DESCRIPTION[selected.quadrant];
         const label = cfg.sectorLabels[selected.symbol];
         const top10Tickers = cfg.top10[selected.symbol] ?? [];
-        const sectorName = label ? (lang === "ko" ? label.ko : label.en) : selected.symbol;
+        const sectorName = label ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en) : selected.symbol;
 
         return (
           <div className="mx-5 mb-5 rounded-2xl border overflow-hidden"
@@ -977,17 +1013,17 @@ export function RRGChart() {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: cfg.sectorColors[selected.symbol] }} />
                   <span className="font-bold">
-                    {label ? (lang === "ko" ? label.ko : label.en) : selected.symbol.replace(/^(KR|JP)_/, "")}
+                    {label ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en) : selected.symbol.replace(/^(KR|JP)_/, "")}
                   </span>
                   {label && <span className="text-xs text-muted-foreground">{selected.symbol.replace(/^(KR|JP)_/, "")}</span>}
                 </div>
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full mb-2"
                   style={{ background: "white", color: q.color, border: `1px solid ${q.border}` }}
                 >
-                  {lang === "ko" ? `현재 상태: ${q.labelKo}` : `Current Status: ${q.label}`}
+                  {lang === "ko" ? `현재 상태: ${q.labelKo}` : lang === "ja" ? `現在の状態: ${q.labelJa}` : `Current Status: ${q.label}`}
                 </div>
                 <p className="text-sm leading-relaxed" style={{ color: q.color }}>
-                  {lang === "ko" ? flow.ko : flow.en}
+                  {lang === "ko" ? flow.ko : lang === "ja" ? flow.ja : flow.en}
                 </p>
               </div>
               {/* CLOSE BUTTON — large and visible on mobile */}
@@ -996,7 +1032,7 @@ export function RRGChart() {
                 className="flex items-center justify-center w-9 h-9 rounded-xl border-2 bg-background/80 text-foreground hover:bg-background shadow-sm transition-all shrink-0 touch-manipulation"
                 style={{ borderColor: q.border }}
                 data-testid="button-rrg-close-detail"
-                aria-label={lang === "ko" ? "닫기" : "Close"}
+                aria-label={L("닫기", "Close", "閉じる")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1008,14 +1044,18 @@ export function RRGChart() {
                 <p className="text-xs text-muted-foreground mb-1">RS-Ratio</p>
                 <p className="font-mono font-bold text-lg">{selected.rsRatio.toFixed(3)}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {selected.rsRatio >= 100 ? (lang === "ko" ? "▲ 벤치마크 상회" : "▲ Outperforming") : (lang === "ko" ? "▼ 벤치마크 하회" : "▼ Underperforming")}
+                  {selected.rsRatio >= 100
+                    ? L("▲ 벤치마크 상회", "▲ Outperforming", "▲ ベンチマーク上回り")
+                    : L("▼ 벤치마크 하회", "▼ Underperforming", "▼ ベンチマーク下回り")}
                 </p>
               </div>
               <div className="bg-background/70 rounded-xl p-3">
                 <p className="text-xs text-muted-foreground mb-1">RS-Momentum</p>
                 <p className="font-mono font-bold text-lg">{selected.rsMomentum.toFixed(3)}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {selected.rsMomentum >= 100 ? (lang === "ko" ? "▲ 모멘텀 상승" : "▲ Momentum rising") : (lang === "ko" ? "▼ 모멘텀 둔화" : "▼ Momentum falling")}
+                  {selected.rsMomentum >= 100
+                    ? L("▲ 모멘텀 상승", "▲ Momentum rising", "▲ モメンタム上昇")
+                    : L("▼ 모멘텀 둔화", "▼ Momentum falling", "▼ モメンタム低下")}
                 </p>
               </div>
             </div>
@@ -1029,9 +1069,7 @@ export function RRGChart() {
                   data-testid="button-rrg-toggle-top10"
                 >
                   <span>
-                    {lang === "ko"
-                      ? `${sectorName} 주요 기업 TOP 10`
-                      : `Top 10 Companies in ${sectorName}`}
+                    {L(`${sectorName} 주요 기업 TOP 10`, `Top 10 Companies in ${sectorName}`, `${sectorName} 主要企業 TOP 10`)}
                   </span>
                   <span className="text-muted-foreground text-xs">{showTop10 ? "▲" : "▼"}</span>
                 </button>
@@ -1065,11 +1103,11 @@ export function RRGChart() {
 function CountryTabs({ country, onChange, lang }: {
   country: Country; onChange: (c: Country) => void; lang: string;
 }) {
-  const tabs: { id: Country; flag: string; en: string; ko: string }[] = [
-    { id: "us", flag: "🇺🇸", en: "US",      ko: "미국" },
-    { id: "kr", flag: "🇰🇷", en: "Korea",   ko: "한국" },
-    { id: "jp", flag: "🇯🇵", en: "Japan",   ko: "일본" },
-    { id: "eu", flag: "🇪🇺", en: "Europe",  ko: "유럽" },
+  const tabs: { id: Country; flag: string; en: string; ko: string; ja: string }[] = [
+    { id: "us", flag: "🇺🇸", en: "US",      ko: "미국", ja: "米国" },
+    { id: "kr", flag: "🇰🇷", en: "Korea",   ko: "한국", ja: "韓国" },
+    { id: "jp", flag: "🇯🇵", en: "Japan",   ko: "일본", ja: "日本" },
+    { id: "eu", flag: "🇪🇺", en: "Europe",  ko: "유럽", ja: "欧州" },
   ];
   return (
     <div className="flex gap-1.5 flex-wrap" role="tablist" aria-label="Country selector">
@@ -1088,7 +1126,7 @@ function CountryTabs({ country, onChange, lang }: {
           data-testid={`rrg-tab-${tab.id}`}
         >
           <span>{tab.flag}</span>
-          <span>{lang === "ko" ? tab.ko : tab.en}</span>
+          <span>{lang === "ko" ? tab.ko : lang === "ja" ? tab.ja : tab.en}</span>
         </button>
       ))}
     </div>

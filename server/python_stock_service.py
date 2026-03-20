@@ -1089,6 +1089,35 @@ def is_eu_ticker(symbol):
     EU_ADRS = {"ASML", "SAP", "NVO", "AZN", "SHEL", "BP", "UL", "GSK", "TM", "HMC", "SONY"}
     return symbol.upper() in EU_ADRS
 
+def fetch_top_headline(symbol: str) -> dict:
+    """Fetch the most recent news headline for a stock symbol. Returns {} on failure."""
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        news = ticker.news
+        if not news:
+            return {}
+        item = news[0]
+        content = item.get('content', item)
+        title = content.get('title', item.get('title', ''))
+        if not title:
+            return {}
+        publisher = 'Unknown'
+        if content.get('provider'):
+            publisher = content.get('provider', {}).get('displayName', 'Unknown')
+        else:
+            publisher = item.get('publisher', 'Unknown')
+        link = ''
+        if content.get('canonicalUrl'):
+            link = content.get('canonicalUrl', {}).get('url', '')
+        elif content.get('clickThroughUrl'):
+            link = content.get('clickThroughUrl', {}).get('url', '')
+        else:
+            link = item.get('link', '')
+        return {"headline": title, "source": publisher, "url": link}
+    except Exception:
+        return {}
+
+
 @app.route('/recommended', methods=['GET'])
 def get_recommended_stocks():
     """Get recommended stocks from US, KR, JP, and EU markets — balanced global portfolio."""
@@ -1192,6 +1221,28 @@ def get_recommended_stocks():
         # Re-sort final picks by score descending for display
         results_scored = {r["symbol"]: r["_score"] if "_score" in r else 0 for r in results}
         top_picks.sort(key=lambda x: results_scored.get(x["symbol"], 0), reverse=True)
+
+        # Fetch top news headline for each final pick (best-effort, with timeout protection)
+        import concurrent.futures
+        symbols_for_news = [r["symbol"] for r in top_picks]
+        news_map = {}
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+                future_to_sym = {executor.submit(fetch_top_headline, sym): sym for sym in symbols_for_news}
+                for future in concurrent.futures.as_completed(future_to_sym, timeout=8):
+                    sym = future_to_sym[future]
+                    try:
+                        news_map[sym] = future.result()
+                    except Exception:
+                        news_map[sym] = {}
+        except Exception as e:
+            print(f"[yfinance] News fetch error: {e}")
+
+        for r in top_picks:
+            nd = news_map.get(r["symbol"], {})
+            r["newsHeadline"] = nd.get("headline", "")
+            r["newsSource"] = nd.get("source", "")
+            r["newsUrl"] = nd.get("url", "")
 
         response = {"recommended": top_picks, "count": len(top_picks)}
         _recommended_cache["data"] = response

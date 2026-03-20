@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { useLocation } from "wouter";
-import { TrendingUp, BarChart3, ChevronRight, RefreshCw, Sparkles, Globe } from "lucide-react";
+import { TrendingUp, BarChart3, ChevronRight, RefreshCw, Sparkles, Globe, Newspaper, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -26,6 +26,9 @@ interface RecommendedStock {
   isJapanese?: boolean;
   market?: string;
   currency: string;
+  newsHeadline?: string;
+  newsSource?: string;
+  newsUrl?: string;
 }
 
 interface RecommendedResponse {
@@ -33,7 +36,13 @@ interface RecommendedResponse {
   count: number;
 }
 
-function getRecommendationReason(stock: RecommendedStock, lang: string): string {
+function getNewsPrefix(lang: string): string {
+  if (lang === "ko") return "📰 최근 뉴스: ";
+  if (lang === "ja") return "📰 最新ニュース: ";
+  return "📰 Breaking: ";
+}
+
+function getMomentumReason(stock: RecommendedStock, lang: string): string {
   const vr = stock.volumeRatio;
   const cp = stock.changePercent;
 
@@ -47,6 +56,18 @@ function getRecommendationReason(stock: RecommendedStock, lang: string): string 
     if (cp > 3) return "강한 가격 상승 모멘텀으로 시장의 관심이 집중되고 있습니다.";
     if (cp > 0) return "꾸준한 상승세와 안정적인 거래량을 보여주고 있습니다.";
     return "높은 유동성으로 투자자들의 관심이 집중되는 종목입니다.";
+  }
+
+  if (lang === "ja") {
+    if (vr >= 2.0 && cp > 2) return "平均を大幅に上回る出来高を伴う上昇で、強い買い圧力が確認されています。";
+    if (vr >= 2.0 && cp > 0) return "売買代金が集中し、市場の主導株として注目されています。";
+    if (vr >= 2.0 && cp <= 0) return "出来高急増で大きな値動きが予想される銘柄です。";
+    if (vr >= 1.5 && cp > 1) return "主要移動平均線を出来高を伴って突破し、さらなる上昇が期待されます。";
+    if (vr >= 1.5 && cp > 0) return "出来高増加を伴う安定した上昇トレンドを示しています。";
+    if (vr >= 1.5 && cp <= 0) return "高出来高での調整中につき、反発の可能性に注目してください。";
+    if (cp > 3) return "強い価格モメンタムで市場の注目が集まっています。";
+    if (cp > 0) return "安定した出来高を伴う着実な上昇を見せています。";
+    return "高い流動性で投資家の注目が集まっている銘柄です。";
   }
 
   if (vr >= 2.0 && cp > 2) return "Strong buying pressure with volume significantly above average.";
@@ -88,6 +109,7 @@ export default function Recommended() {
   const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
   const isKo = lang === "ko";
+  const isJa = lang === "ja";
   const { formatPrice } = useCurrency();
 
   const { data, isLoading, refetch, isRefetching } = useQuery<RecommendedResponse>({
@@ -104,24 +126,31 @@ export default function Recommended() {
 
   const stocks = data?.recommended || [];
 
+  const pageTitle = isJa ? "おすすめ銘柄" : isKo ? "추천 종목" : "Recommended Stocks";
+  const pageSubtitle = isJa
+    ? "米国・韓国・日本・欧州市場から出来高と価格モメンタムで厳選したグローバル推奨銘柄です。"
+    : isKo
+    ? "미국·한국·일본·유럽 시장에서 거래량과 가격 모멘텀 기반으로 선별한 글로벌 추천 종목입니다."
+    : "Global picks from US, KR, JP & EU markets — curated by volume and price momentum.";
+  const globalPicksLabel = isJa ? "グローバル推奨" : isKo ? "글로벌 추천" : "Global Picks";
+  const refreshLabel = isJa ? "更新" : isKo ? "새로고침" : "Refresh";
+  const loadingFailedLabel = isJa ? "推奨銘柄を読み込めません。" : isKo ? "추천 종목을 불러올 수 없습니다." : "Unable to load recommendations.";
+  const tryAgainLabel = isJa ? "再試行" : isKo ? "다시 시도" : "Try Again";
+
   return (
     <div className="p-4 md:p-10 max-w-4xl mx-auto min-h-screen w-full">
       <div className="mb-8 text-center">
         <h1 className="text-3xl md:text-5xl font-display font-bold mb-3" data-testid="heading-recommended">
-          {isKo ? "추천 종목" : "Recommended Stocks"}
+          {pageTitle}
         </h1>
-        <p className="text-muted-foreground text-base max-w-lg mx-auto">
-          {isKo
-            ? "미국·한국·일본·유럽 시장에서 거래량과 가격 모멘텀 기반으로 선별한 글로벌 추천 종목입니다."
-            : "Global picks from US, KR, JP & EU markets — curated by volume and price momentum."}
-        </p>
+        <p className="text-muted-foreground text-base max-w-lg mx-auto">{pageSubtitle}</p>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-primary" />
           <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-            {isKo ? "글로벌 추천" : "Global Picks"}
+            {globalPicksLabel}
           </span>
           {stocks.length > 0 && (
             <span className="text-xs text-muted-foreground">
@@ -137,23 +166,21 @@ export default function Recommended() {
           data-testid="button-refresh-recommended"
         >
           <RefreshCw className={cn("w-4 h-4 mr-1", isRefetching && "animate-spin")} />
-          {isKo ? "새로고침" : "Refresh"}
+          {refreshLabel}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="h-28 bg-card/50 rounded-2xl animate-pulse" />
+            <div key={i} className="h-32 bg-card/50 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : stocks.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">
-            {isKo ? "추천 종목을 불러올 수 없습니다." : "Unable to load recommendations."}
-          </p>
+          <p className="text-muted-foreground">{loadingFailedLabel}</p>
           <Button onClick={() => refetch()} className="mt-4" data-testid="button-retry-recommended">
-            {isKo ? "다시 시도" : "Try Again"}
+            {tryAgainLabel}
           </Button>
         </Card>
       ) : (
@@ -162,6 +189,10 @@ export default function Recommended() {
             const nativeCurrency = stock.currency?.toUpperCase() as "KRW" | "JPY" | "USD";
             const localizedName = getLocalizedCompanyName(cleanCompanyName(stock.name), lang);
             const marketBadge = getMarketBadge(stock);
+            const hasNews = !!stock.newsHeadline;
+            const reasonText = hasNews
+              ? `${getNewsPrefix(lang)}${stock.newsHeadline}`
+              : getMomentumReason(stock, lang);
 
             return (
               <motion.div
@@ -194,9 +225,37 @@ export default function Recommended() {
                         )}
                       </p>
 
-                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed" data-testid={`text-reason-${stock.symbol}`}>
-                        {getRecommendationReason(stock, lang)}
+                      {/* Reason / News headline */}
+                      <p
+                        className={cn(
+                          "text-xs mt-2 leading-relaxed",
+                          hasNews ? "text-foreground/80" : "text-muted-foreground"
+                        )}
+                        data-testid={`text-reason-${stock.symbol}`}
+                      >
+                        {reasonText}
                       </p>
+
+                      {/* News source + read more */}
+                      {hasNews && stock.newsSource && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Newspaper className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <span className="text-[10px] text-muted-foreground font-medium">{stock.newsSource}</span>
+                          {stock.newsUrl && (
+                            <a
+                              href={stock.newsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                              data-testid={`link-news-${stock.symbol}`}
+                            >
+                              {isJa ? "記事を読む" : isKo ? "기사 보기" : "Read"}
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col items-end shrink-0 gap-1">

@@ -37,7 +37,7 @@ export const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(20),
   password: z.string().min(6, "Password must be at least 6 characters"),
   email: z.string().email().optional(),
-  language: z.enum(["en", "ko"]).optional(),
+  language: z.enum(["en", "ko", "ja"]).optional(),
   level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
 });
 

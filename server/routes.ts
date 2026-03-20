@@ -208,7 +208,7 @@ export async function registerRoutes(
     
     const settingsSchema = z.object({
       nickname: z.string().min(1).max(30).optional(),
-      themeColor: z.enum(["green", "blue", "pink"]).optional(),
+      themeColor: z.enum(["green", "blue", "pink", "dark"]).optional(),
     });
     const parsed = settingsSchema.safeParse(req.body);
     if (!parsed.success) {
