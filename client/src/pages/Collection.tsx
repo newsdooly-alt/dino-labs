@@ -282,7 +282,7 @@ export default function Collection() {
   const [hatchedDino, setHatchedDino] = useState<Dino | null>(null);
   const [showStarterMsg, setShowStarterMsg] = useState(false);
 
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang] as Record<string, string>;
 
   const incubatingEggs = eggs.filter(e => e.status === "incubating");

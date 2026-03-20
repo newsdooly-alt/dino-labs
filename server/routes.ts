@@ -141,7 +141,7 @@ export async function registerRoutes(
     let profile = await storage.getUserProfile(userId);
     if (!profile) {
       // Get language and skill level from session (set during registration/guest login)
-      const sessionLanguage = req.user?.language || "en";
+      const sessionLanguage = req.user?.language || "ko";
       const sessionLevel = req.user?.level || "beginner";
       
       // Auto-create profile for new users (use upsert to handle race conditions)
@@ -422,7 +422,7 @@ export async function registerRoutes(
       profile = await storage.upsertUserProfile({
         id: userId,
         nickname: req.user?.claims?.first_name || "Player",
-        language: "en",
+        language: "ko",
         favoriteStocks: []
       });
     }
@@ -771,7 +771,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/market/mood", async (req, res) => {
-    const lang = (req.query.lang as string) || "en";
+    const lang = (req.query.lang as string) || "ko";
     const isKorean = lang === "ko";
 
     // Check cache first
@@ -1218,7 +1218,7 @@ export async function registerRoutes(
   // === Stock Info (detailed company information) ===
   app.get("/api/stocks/info/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
-    const lang = (req.query.lang as string) || "en";
+    const lang = (req.query.lang as string) || "ko";
     
     try {
       const info = await getStockInfo(symbol);
@@ -1281,7 +1281,7 @@ export async function registerRoutes(
   // Stock-specific news
   app.get("/api/stocks/news/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
-    const lang = (req.query.lang as string) || "en";
+    const lang = (req.query.lang as string) || "ko";
     
     try {
       const news = await getStockNews(symbol);
@@ -2061,7 +2061,7 @@ Return EXACTLY this JSON:
   ];
 
   app.get("/api/news/quiz", async (req, res) => {
-    const lang = (req.query.lang as string) || "en";
+    const lang = (req.query.lang as string) || "ko";
     const isKorean = lang === "ko";
     const level = (req.query.level as string) || "beginner";
     const sessionKey = `${req.ip || 'default'}-${lang}`;

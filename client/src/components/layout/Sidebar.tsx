@@ -9,7 +9,7 @@ export function Sidebar() {
   const [location] = useLocation();
   const { data: user } = useUser();
   const { logout, isLoggingOut } = useAuth();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
 
   const navItems = [

@@ -56,7 +56,7 @@ import { useCurrency, type CurrencyType } from "@/contexts/CurrencyContext";
 import { useThemeColor } from "@/contexts/ThemeColorContext";
 import { useTimezone, TZ_OPTIONS, type TimezoneKey } from "@/contexts/TimezoneContext";
 
-type ThemeColor = "green" | "blue" | "pink";
+type ThemeColor = "green" | "blue" | "pink" | "dark";
 type RefreshInterval = "manual" | "1min" | "5min";
 type SkillLevel = "beginner" | "intermediate" | "advanced";
 
@@ -80,8 +80,9 @@ const defaultSettings: AppSettings = {
 
 const THEME_COLORS: { value: ThemeColor; colorClass: string }[] = [
   { value: "green", colorClass: "bg-green-500" },
-  { value: "blue", colorClass: "bg-blue-500" },
-  { value: "pink", colorClass: "bg-pink-500" },
+  { value: "blue",  colorClass: "bg-blue-500"  },
+  { value: "pink",  colorClass: "bg-pink-500"  },
+  { value: "dark",  colorClass: "bg-slate-800" },
 ];
 
 export default function Settings() {
@@ -92,7 +93,7 @@ export default function Settings() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
   const { currency: activeCurrency, setCurrency: setGlobalCurrency, exchangeRate, exchangeRateJPY } = useCurrency();
   const { timezone, setTimezone } = useTimezone();
@@ -159,7 +160,7 @@ export default function Settings() {
     });
   };
 
-  const handleLanguageChange = (newLang: "en" | "ko") => {
+  const handleLanguageChange = (newLang: "en" | "ko" | "ja") => {
     updateLanguage.mutate(newLang);
   };
 
@@ -234,9 +235,17 @@ export default function Settings() {
   const colorLabel = (color: ThemeColor) => {
     switch (color) {
       case "green": return t.color_green;
-      case "blue": return t.color_blue;
-      case "pink": return t.color_pink;
+      case "blue":  return t.color_blue;
+      case "pink":  return t.color_pink;
+      case "dark":  return t.color_dark;
     }
+  };
+
+  const langDisplayName = () => {
+    const l = user?.language;
+    if (l === "ko") return "한국어";
+    if (l === "ja") return "日本語";
+    return "English";
   };
 
   return (
@@ -246,8 +255,8 @@ export default function Settings() {
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-8"
       >
-        <div className="w-16 h-16 mx-auto mb-4 bg-green-600/10 rounded-2xl flex items-center justify-center">
-          <SettingsIcon className="w-8 h-8 text-green-600" />
+        <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-2xl flex items-center justify-center">
+          <SettingsIcon className="w-8 h-8 text-primary" />
         </div>
         <h1 className="text-3xl font-display font-bold" data-testid="text-settings-title">{t.settings_title}</h1>
         <p className="text-muted-foreground mt-2" data-testid="text-settings-subtitle">{t.settings_subtitle}</p>
@@ -260,7 +269,7 @@ export default function Settings() {
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
         <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-profile-avatar">
-          <User className="w-5 h-5 text-green-600" />
+          <User className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">{t.profile_avatar}</h2>
         </div>
         <div className="p-4 space-y-4">
@@ -308,7 +317,7 @@ export default function Settings() {
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
         <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-app-preferences">
-          <Palette className="w-5 h-5 text-green-600" />
+          <Palette className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">{t.app_preferences}</h2>
         </div>
         <div className="divide-y divide-border">
@@ -335,10 +344,19 @@ export default function Settings() {
               <Globe className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="font-medium" data-testid="label-language">{t.language}</p>
-                <p className="text-sm text-muted-foreground" data-testid="text-language-value">{user?.language === "ko" ? "한국어" : "English"}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-language-value">{langDisplayName()}</p>
               </div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
+              <Button
+                variant={user?.language === "ko" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleLanguageChange("ko")}
+                className="h-9"
+                data-testid="button-lang-ko"
+              >
+                KR
+              </Button>
               <Button
                 variant={user?.language === "en" ? "default" : "outline"}
                 size="sm"
@@ -349,13 +367,13 @@ export default function Settings() {
                 EN
               </Button>
               <Button
-                variant={user?.language === "ko" ? "default" : "outline"}
+                variant={user?.language === "ja" ? "default" : "outline"}
                 size="sm"
-                onClick={() => handleLanguageChange("ko")}
+                onClick={() => handleLanguageChange("ja")}
                 className="h-9"
-                data-testid="button-lang-ko"
+                data-testid="button-lang-ja"
               >
-                한국어
+                JP
               </Button>
             </div>
           </div>
@@ -369,7 +387,7 @@ export default function Settings() {
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
         <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-stock-data">
-          <RefreshCw className="w-5 h-5 text-green-600" />
+          <RefreshCw className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">{t.stock_data_management}</h2>
         </div>
         <div className="divide-y divide-border">
@@ -467,7 +485,7 @@ export default function Settings() {
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
         <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-skill-level">
-          <GraduationCap className="w-5 h-5 text-green-600" />
+          <GraduationCap className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">{t.skill_level}</h2>
         </div>
         <div className="p-4 space-y-3">
@@ -569,7 +587,7 @@ export default function Settings() {
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
         <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-learning-notifications">
-          <Target className="w-5 h-5 text-green-600" />
+          <Target className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">{t.learning_notifications}</h2>
         </div>
         <div className="divide-y divide-border">
@@ -579,7 +597,7 @@ export default function Settings() {
                 <Target className="w-5 h-5 text-muted-foreground" />
                 <p className="font-medium" data-testid="label-daily-goal">{t.daily_goal}</p>
               </div>
-              <span className="text-lg font-bold text-green-600" data-testid="text-daily-goal">{settings.dailyGoal} XP</span>
+              <span className="text-lg font-bold text-primary" data-testid="text-daily-goal">{settings.dailyGoal} XP</span>
             </div>
             <Slider
               value={[settings.dailyGoal]}
@@ -620,7 +638,7 @@ export default function Settings() {
         className="bg-card border border-border rounded-2xl overflow-hidden"
       >
         <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-account">
-          <User className="w-5 h-5 text-green-600" />
+          <User className="w-5 h-5 text-primary" />
           <h2 className="font-semibold">{t.account_actions}</h2>
         </div>
         <div className="divide-y divide-border">

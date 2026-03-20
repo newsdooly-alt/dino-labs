@@ -336,7 +336,7 @@ export default function AdvancedDashboard() {
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap, currency, setCurrency, currencySymbol, isKoreanStock, isJapaneseStock } = useCurrency();
   const { data: user } = useUser();
-  const lang = (user?.language || "en") as string;
+  const lang = (user?.language || "ko") as string;
   const t = translations[lang as keyof typeof translations];
 
   const isDark = theme === "dark";

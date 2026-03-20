@@ -197,7 +197,7 @@ export default function StockDetail() {
       return res.json();
     },
   });
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
 
   const { data: quote, isLoading: isQuoteLoading, refetch: refetchQuote } = useQuery<StockQuote>({

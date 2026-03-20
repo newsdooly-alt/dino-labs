@@ -27,7 +27,7 @@ const menuItems = [
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const [location] = useLocation();
   const { data: user } = useUser();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
 
   const handleNavigation = () => {

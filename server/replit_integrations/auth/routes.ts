@@ -136,7 +136,7 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const { language, level } = req.body;
       const guestId = `guest_${randomUUID()}`;
-      const guestLang = language || "en";
+      const guestLang = language || "ko";
       const guestLevel = level || "beginner";
       const guestName = guestLang === "ko" ? "게스트" : "Guest";
 

@@ -195,7 +195,7 @@ function VixGauge({ price }: { price: number }) {
 
 export function GlobalMacroDashboard() {
   const { data: user } = useUser();
-  const lang = user?.language || "en";
+  const lang = user?.language || "ko";
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery<MacroDashboardData>({
     queryKey: ["/api/macro/dashboard"],

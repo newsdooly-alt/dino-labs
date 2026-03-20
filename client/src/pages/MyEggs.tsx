@@ -224,7 +224,7 @@ export default function MyEggs() {
   const { eggs, collection, hatchEgg, canHatch, totalEggsHatched } = useEggs();
   const [hatchedDino, setHatchedDino] = useState<Dino | null>(null);
   
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang] as Record<string, string>;
   
   const incubatingEggs = eggs.filter(e => e.status === "incubating");

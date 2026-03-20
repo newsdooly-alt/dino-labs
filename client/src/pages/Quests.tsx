@@ -95,7 +95,7 @@ export default function Quests() {
   const { addEgg, addXpToEggs, hasActiveEgg } = useEggs();
   const { toast } = useToast();
 
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang] as Record<string, string>;
 
   useEffect(() => {

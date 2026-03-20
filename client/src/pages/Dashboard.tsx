@@ -55,7 +55,7 @@ export default function Dashboard() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: quests, isLoading: isQuestsLoading } = useQuests();
   const [, navigate] = useLocation();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
   const isKo = lang === "ko";
   const { formatPrice, isKoreanStock } = useCurrency();

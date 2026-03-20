@@ -20,7 +20,7 @@ interface NewsItem {
 
 export function MarketHeadlines() {
   const { data: user } = useUser();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
 
   // Client-side fallback news for when API completely fails

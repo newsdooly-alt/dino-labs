@@ -583,7 +583,7 @@ function SectorTop10({
 // ─── Main Component ────────────────────────────────────────────────────────────
 export function RRGChart() {
   const { data: user } = useUser();
-  const lang = user?.language || "en";
+  const lang = user?.language || "ko";
   const [country, setCountry] = useState<Country>("us");
   const [selected, setSelected] = useState<RRGSector | null>(null);
   const [showInfo, setShowInfo] = useState(false);

@@ -16,7 +16,7 @@ interface LeaderboardEntry {
 
 export default function Leaderboard() {
   const { data: user } = useUser();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const isKo = lang === "ko";
 
   const { data: leaderboard, isLoading } = useQuery<LeaderboardEntry[]>({

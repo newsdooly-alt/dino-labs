@@ -116,7 +116,7 @@ export function QuestCard({ quest, questNumber }: QuestCardProps) {
   const completeQuest = useCompleteQuest();
   const { data: user } = useUser();
   const { addXpToEggs } = useEggs();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
 
   const diffKey = getQuestDifficulty(quest.xpReward);

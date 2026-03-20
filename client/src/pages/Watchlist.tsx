@@ -34,7 +34,7 @@ interface WatchlistItem {
 
 export default function Watchlist() {
   const { data: user } = useUser();
-  const lang = user?.language || "en";
+  const lang = user?.language || "ko";
   const t = translations[lang as keyof typeof translations];
   const { toast } = useToast();
   const { isKoreanStock } = useCurrency();

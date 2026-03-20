@@ -22,7 +22,7 @@ export function useUser() {
 export function useUpdateLanguage() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (language: 'en' | 'ko') => {
+    mutationFn: async (language: 'en' | 'ko' | 'ja') => {
       const res = await fetch("/api/profiles/language", {
         method: "PATCH",
         headers: { 'Content-Type': 'application/json' },

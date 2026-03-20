@@ -85,7 +85,7 @@ function getMarketBadge(stock: RecommendedStock): { label: string; className: st
 export default function Recommended() {
   const { data: user } = useUser();
   const [, navigate] = useLocation();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
   const isKo = lang === "ko";
   const { formatPrice } = useCurrency();

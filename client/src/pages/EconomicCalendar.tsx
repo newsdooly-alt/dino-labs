@@ -549,7 +549,7 @@ type CountryFilter = "ALL" | typeof ALL_COUNTRIES[number];
 
 export default function EconomicCalendar() {
   const { data: user } = useUser();
-  const lang = user?.language || "en";
+  const lang = user?.language || "ko";
 
   useEffect(() => {
     localStorage.setItem("dinolingo_calendar_visited", "true");

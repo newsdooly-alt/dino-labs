@@ -7,7 +7,7 @@ import { RRGChart } from "@/components/RRGChart";
 
 export default function MarketTrends() {
   const { data: user } = useUser();
-  const lang = user?.language || "en";
+  const lang = user?.language || "ko";
   const t = translations[lang as keyof typeof translations];
 
   return (

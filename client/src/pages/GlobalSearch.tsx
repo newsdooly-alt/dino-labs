@@ -85,7 +85,7 @@ export default function GlobalSearch() {
   const [filter, setFilter]         = useState<ExchangeFilter>("all");
   const [, navigate]                = useLocation();
   const { data: user }              = useUser();
-  const lang  = (user?.language || "en") as keyof typeof translations;
+  const lang  = (user?.language || "ko") as keyof typeof translations;
   const t     = translations[lang];
   const isKo  = lang === "ko";
   const { formatPrice } = useCurrency();

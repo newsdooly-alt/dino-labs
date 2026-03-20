@@ -28,7 +28,7 @@ export function PracticeMode() {
   const [questCount, setQuestCount] = useState(0);
   const [totalXpEarned, setTotalXpEarned] = useState(0);
   
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
 
   const { data: quest, isLoading, refetch } = useQuery<PracticeQuest>({

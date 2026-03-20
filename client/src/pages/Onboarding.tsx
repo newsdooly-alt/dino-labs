@@ -79,7 +79,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [current, setCurrent] = useState(0);
   const [isExiting, setIsExiting] = useState(false);
   const { data: user } = useUser();
-  const lang = (user?.language || "en") as "en" | "ko";
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const cards = cardsData[lang] || cardsData.en;
 
   const handleNext = () => {

@@ -52,7 +52,7 @@ export function DailyNews() {
   const { addXpToEggs } = useEggs();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang] as Record<string, string>;
 
   const [showCelebration, setShowCelebration] = useState(false);

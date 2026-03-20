@@ -72,7 +72,7 @@ export function BreakingNewsQuiz() {
 
   const { data: user } = useUser();
   const { addXpToEggs } = useEggs();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const level = user?.skillLevel || "beginner";
   const t = translations[lang];
 

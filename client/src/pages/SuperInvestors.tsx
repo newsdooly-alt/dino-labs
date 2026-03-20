@@ -146,7 +146,7 @@ function formatValueUSD(usd: number, lang: string, krwRate: number, jpyRate = 15
 
 export default function SuperInvestors() {
   const { data: user } = useUser();
-  const lang = (user?.language || "en") as keyof typeof translations;
+  const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
