@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Award, Calendar, Briefcase, Search, Zap } from "lucide-react";
+import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Award, Calendar, Briefcase, Search, Zap, Newspaper } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -16,8 +16,9 @@ const menuItems = [
   { path: "/market-trends",icon: TrendingUp,translationKey: "mobile_menu_trends" as const },
   { path: "/search",       icon: Search,   translationKey: "mobile_menu_search" as const },
   { path: "/watchlist",    icon: Star,     translationKey: "mobile_menu_watchlist" as const },
-  { path: "/recommended",  icon: Sparkles, translationKey: "mobile_menu_recommended" as const },
-  { path: "/calendar",     icon: Calendar, translationKey: "mobile_menu_calendar" as const },
+  { path: "/recommended",  icon: Sparkles,  translationKey: "mobile_menu_recommended" as const },
+  { path: "/hot-issues",   icon: Newspaper, translationKey: "mobile_menu_hot_issues" as const },
+  { path: "/calendar",     icon: Calendar,  translationKey: "mobile_menu_calendar" as const },
   { path: "/investors",    icon: Briefcase,translationKey: "mobile_menu_investors" as const },
   { path: "/leaderboard",  icon: Award,    translationKey: "leaderboard" as const },
   { path: "/pro",          icon: Zap,      translationKey: "mobile_menu_pro" as const },

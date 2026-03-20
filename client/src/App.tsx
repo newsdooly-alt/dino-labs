@@ -27,6 +27,7 @@ import EconomicCalendar from "@/pages/EconomicCalendar";
 import SuperInvestors from "@/pages/SuperInvestors";
 import GlobalSearch from "@/pages/GlobalSearch";
 import AdvancedDashboard from "@/pages/AdvancedDashboard";
+import HotIssues from "@/pages/HotIssues";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect, useMemo } from "react";
 
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/search" component={GlobalSearch} />
       <Route path="/stock/:symbol" component={StockDetail} />
       <Route path="/pro" component={AdvancedDashboard} />
+      <Route path="/hot-issues" component={HotIssues} />
       <Route component={NotFound} />
     </Switch>
   );

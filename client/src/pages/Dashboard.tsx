@@ -249,7 +249,7 @@ export default function Dashboard() {
         </button>
       </motion.div>
 
-      {/* ── Section: 오늘의 이슈 / Today's Hot Issues ── */}
+      {/* ── Section: 오늘의 이슈 Preview ── */}
       {(isHotLoading || (hotIssuesData && hotIssuesData.issues.length > 0)) && (
         <motion.section
           initial={{ opacity: 0, y: 16 }}
@@ -259,62 +259,50 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-3">
             <Zap className="w-4 h-4 text-primary fill-primary" />
             <h2 className="text-base font-bold text-foreground">
-              {isKo ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Hot Issues"}
+              {isKo ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues"}
             </h2>
-            <span className="text-xs text-muted-foreground ml-auto">
-              {isKo ? "AI 요약" : lang === "ja" ? "AI要約" : "AI Summary"}
-            </span>
+            <Link
+              href="/hot-issues"
+              className="ml-auto flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+              data-testid="link-hot-issues-all"
+            >
+              {isKo ? "전체 보기" : lang === "ja" ? "すべて見る" : "See all"}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           {isHotLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />
+                <div key={i} className="h-16 rounded-2xl bg-muted animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="space-y-2.5">
-              {(hotIssuesData?.issues || []).map((issue, idx) => (
+            <div className="space-y-2">
+              {(hotIssuesData?.issues || []).slice(0, 3).map((issue, idx) => (
                 <a
                   key={idx}
                   href={issue.link || "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
-                    "block rounded-2xl p-4 border transition-all hover:shadow-md active:scale-[0.99] cursor-pointer group",
+                    "flex items-center gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
                     issue.isHot
-                      ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10"
-                      : "border-border bg-muted/40 hover:border-border/80 hover:bg-muted/60"
+                      ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
+                      : "border-border bg-muted/40 hover:bg-muted/70"
                   )}
                   data-testid={`card-hot-issue-${idx}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        {issue.isHot && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
-                            <Flame className="w-2.5 h-2.5" />
-                            HOT
-                          </span>
-                        )}
-                        <span className="text-[11px] font-semibold text-primary/80 shrink-0">
-                          {issue.symbol}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          {timeAgo(issue.publishedAt, lang)}
-                        </span>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground leading-snug mb-1 line-clamp-2">
-                        {issue.title}
-                      </p>
-                      {issue.summary && (
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                          {issue.summary}
-                        </p>
-                      )}
-                    </div>
-                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
+                  {issue.isHot && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
+                      <Flame className="w-2.5 h-2.5" />
+                      HOT
+                    </span>
+                  )}
+                  <p className="text-sm font-semibold text-foreground leading-snug flex-1 line-clamp-1 group-hover:text-primary transition-colors">
+                    {issue.title}
+                  </p>
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               ))}
             </div>

@@ -1559,9 +1559,9 @@ export async function registerRoutes(
       }
 
       // Fetch news for multiple symbols in parallel
-      const newsPromises = HOT_SYMBOLS.slice(0, 6).map(async (sym) => {
+      const newsPromises = HOT_SYMBOLS.slice(0, 8).map(async (sym) => {
         try {
-          const r = await fetch(`http://127.0.0.1:5001/news/${sym}?limit=3`, {
+          const r = await fetch(`http://127.0.0.1:5001/news/${sym}?limit=5`, {
             signal: AbortSignal.timeout(8000),
           });
           if (!r.ok) return [];
@@ -1593,9 +1593,9 @@ export async function registerRoutes(
         return { ...item, matchCount, isHot };
       });
 
-      // Sort by score desc, take top 7
+      // Sort by score desc, take top 10
       scored.sort((a, b) => b.matchCount - a.matchCount || b.publishedAt - a.publishedAt);
-      const topItems = scored.slice(0, 7);
+      const topItems = scored.slice(0, 10);
 
       if (topItems.length === 0) {
         const empty = { issues: [], count: 0, fetchedAt: now };
