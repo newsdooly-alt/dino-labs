@@ -826,12 +826,12 @@ export function RRGChart() {
               .filter(s => s.quadrant === key)
               .map(s => {
                 const lbl = cfg.sectorLabels?.[s.symbol];
-                return lbl ? (lang === "ko" ? lbl.ko : lbl.en) : s.symbol;
+                return lbl ? (lang === "ko" ? lbl.ko : lang === "ja" ? lbl.ja : lbl.en) : s.symbol;
               });
             if (!names.length) return null;
             return (
               <div key={key} className="text-[9px]">
-                <span className="font-semibold" style={{ color: q.color }}>{lang === "ko" ? q.labelKo : q.label}: </span>
+                <span className="font-semibold" style={{ color: q.color }}>{lang === "ko" ? q.labelKo : lang === "ja" ? q.labelJa : q.label}: </span>
                 <span className="text-muted-foreground">{names.join(", ")}</span>
               </div>
             );
@@ -987,7 +987,6 @@ export function RRGChart() {
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
               <span className="font-semibold">{label ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en) : shortId}</span>
-              <span className="text-muted-foreground text-[10px] font-mono">({s.symbol.includes(".") ? s.symbol.split(".")[0] : shortId})</span>
               <span className="font-bold" style={{ color: q.color }}>·</span>
             </button>
           );

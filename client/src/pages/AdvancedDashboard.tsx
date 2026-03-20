@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { translations } from "@/lib/translations";
+import { PeerComparison } from "@/components/PeerComparison";
 
 // ── Exchange flag helper ─────────────────────────────────────────────
 function exchangeFlag(sym: string): string {
@@ -276,6 +277,20 @@ const QUADRANT_POS: Record<string, { x: number; y: number }> = {
   XLP:  { x: 96,  y: 101 },
 };
 
+const US_SECTOR_LABELS: Record<string, { en: string; ko: string; ja: string }> = {
+  XLK:  { en: "Technology",    ko: "기술",       ja: "テクノロジー" },
+  XLF:  { en: "Financials",    ko: "금융",       ja: "金融" },
+  XLV:  { en: "Healthcare",    ko: "헬스케어",   ja: "ヘルスケア" },
+  XLE:  { en: "Energy",        ko: "에너지",     ja: "エネルギー" },
+  XLY:  { en: "Cons. Disc.",   ko: "임의소비재", ja: "一般消費財" },
+  XLP:  { en: "Cons. Stpls",   ko: "필수소비재", ja: "生活必需品" },
+  XLI:  { en: "Industrials",   ko: "산업재",     ja: "資本財" },
+  XLB:  { en: "Materials",     ko: "소재",       ja: "素材" },
+  XLRE: { en: "Real Estate",   ko: "리츠",       ja: "不動産" },
+  XLU:  { en: "Utilities",     ko: "유틸리티",   ja: "公益事業" },
+  XLC:  { en: "Comm. Svcs",    ko: "통신",       ja: "通信サービス" },
+};
+
 function getPatternTag(rs: number, lang: string): { label: string; color: string } {
   if (rs > 4)   return { label: lang === "ko" ? "급등 🚀" : "Breakout 🚀", color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30" };
   if (rs > 1.5) return { label: lang === "ko" ? "강세 ▲" : "Strong ▲",    color: "text-green-400 bg-green-500/10 border-green-500/25" };
@@ -500,9 +515,12 @@ export default function AdvancedDashboard() {
       const nameMap = isKr ? KR_SECTOR_SHORT : isJp ? JP_SECTOR_SHORT : null;
       return liveRrgData.sectors.map((s: any) => {
         const names = nameMap?.[s.symbol];
+        const usSectorLbl = !isKr && !isJp ? US_SECTOR_LABELS[s.symbol] : null;
         const shortLabel = names
           ? (lang === "ko" ? names.ko : names.en)
-          : s.symbol.replace(".KS","").replace(".KQ","").replace(".T","").replace("XL","");
+          : usSectorLbl
+            ? (lang === "ko" ? usSectorLbl.ko : lang === "ja" ? usSectorLbl.ja : usSectorLbl.en)
+            : s.symbol.replace(".KS","").replace(".KQ","").replace(".T","").replace("XL","");
         return {
           label: shortLabel,
           fullSymbol: s.symbol,
@@ -513,14 +531,22 @@ export default function AdvancedDashboard() {
         };
       });
     }
-    return SECTOR_QUADRANTS.map(s => ({
-      label: lang === "ko" ? s.labelKo : s.label.replace("XL",""),
-      fullSymbol: s.label,
-      x: QUADRANT_POS[s.label]?.x ?? 100,
-      y: QUADRANT_POS[s.label]?.y ?? 100,
-      q: s.q,
-      color: s.color,
-    }));
+    return SECTOR_QUADRANTS.map(s => {
+      const usSectorLbl = US_SECTOR_LABELS[s.label];
+      const label = lang === "ko"
+        ? s.labelKo
+        : lang === "ja"
+          ? (usSectorLbl?.ja ?? s.label.replace("XL",""))
+          : (usSectorLbl?.en ?? s.label.replace("XL",""));
+      return {
+        label,
+        fullSymbol: s.label,
+        x: QUADRANT_POS[s.label]?.x ?? 100,
+        y: QUADRANT_POS[s.label]?.y ?? 100,
+        q: s.q,
+        color: s.color,
+      };
+    });
   }, [liveRrgData, isKr, isJp, lang]);
 
   // Dynamic axis domain from data
@@ -1296,15 +1322,19 @@ export default function AdvancedDashboard() {
     </div>
   );
 
-  // ── Right Panel (PC) = Earnings + RRG stacked ──────────────────────
+  // ── Right Panel (PC) = Earnings + Peer Analysis + RRG stacked ──────
   const RightPanel = () => (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Earnings — top half, scrollable */}
+      {/* Earnings + Peer Analysis — top half, scrollable */}
       <div className="flex-1 min-h-0 overflow-y-auto border-b border-border/50">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1">
           {lang === "ko" ? "📅 실적 & 어닝스" : "📅 Earnings & Data"}
         </p>
         {EarningsPanel()}
+        {/* Sector Peer Analysis */}
+        <div className="px-3 pb-3 mt-1">
+          <PeerComparison symbol={selectedSymbol} lang={lang} />
+        </div>
       </div>
       {/* RRG — bottom, collapsible */}
       <div className={cn("flex-shrink-0 overflow-y-auto transition-all duration-300", rrgFocused ? "h-[520px]" : "h-[340px]")}>
@@ -1415,8 +1445,13 @@ export default function AdvancedDashboard() {
         </div>
 
         {/* Super Investors — full list with scroll toggle */}
-        <div className="w-full border-t border-border/30 pb-6">
+        <div className="w-full border-t border-border/30">
           {InsightsPanel()}
+        </div>
+
+        {/* Sector Peer Analysis (mobile) */}
+        <div className="w-full border-t border-border/30 px-3 py-3 pb-6">
+          <PeerComparison symbol={selectedSymbol} lang={lang} />
         </div>
       </div>
 
