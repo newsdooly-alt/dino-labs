@@ -3,7 +3,7 @@ import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Newspaper, Clock, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -19,6 +19,43 @@ interface MarketMoodData {
   label: string;
   dinoAdvice: string;
 }
+
+interface NewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: number;
+  thumbnail: string | null;
+  koreanSummary?: string | null;
+  japaneseSummary?: string | null;
+}
+
+interface NewsResponse {
+  news: NewsItem[];
+  count: number;
+  total: number;
+  page: number;
+  hasMore: boolean;
+  source: string;
+}
+
+function timeAgo(timestamp: number, lang: string): string {
+  const now = Date.now();
+  const diff = Math.floor((now - timestamp * 1000) / 1000);
+  if (diff < 60) return lang === "ko" ? "방금" : lang === "ja" ? "たった今" : "just now";
+  if (diff < 3600) {
+    const m = Math.floor(diff / 60);
+    return lang === "ko" ? `${m}분 전` : lang === "ja" ? `${m}分前` : `${m}m ago`;
+  }
+  if (diff < 86400) {
+    const h = Math.floor(diff / 3600);
+    return lang === "ko" ? `${h}시간 전` : lang === "ja" ? `${h}時間前` : `${h}h ago`;
+  }
+  const d = Math.floor(diff / 86400);
+  return lang === "ko" ? `${d}일 전` : lang === "ja" ? `${d}日前` : `${d}d ago`;
+}
+
+const NEWS_EMOJI_FALLBACKS = ["📈", "💹", "📊", "🏦", "💰", "🌐", "📉", "🔔", "💡", "🏛️"];
 
 interface LiveStockQuote {
   symbol: string;
@@ -71,6 +108,18 @@ export default function Dashboard() {
       return res.json();
     },
     staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: newsData, isLoading: isNewsLoading } = useQuery<NewsResponse>({
+    queryKey: ["/api/news", lang, "dashboard"],
+    queryFn: async () => {
+      const res = await fetch(`/api/news?lang=${lang}&limit=10&page=1`);
+      if (!res.ok) throw new Error("Failed to fetch news");
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+    retry: 1,
   });
 
   const watchlistSymbols = ["NVDA", "TSLA", "AAPL"];
@@ -198,6 +247,93 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+      </motion.section>
+
+      {/* ── Top Headlines Horizontal Carousel ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        data-testid="section-top-headlines"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Newspaper className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground" data-testid="label-top-headlines">
+              {lang === "ko" ? "주요 헤드라인" : lang === "ja" ? "主要ニュース" : "Top Headlines"}
+            </h2>
+          </div>
+          <a href="https://finance.yahoo.com/news/" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs font-bold text-primary"
+            data-testid="link-all-news"
+          >
+            {lang === "ko" ? "더보기" : lang === "ja" ? "もっと見る" : "More"}
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+
+        {isNewsLoading ? (
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex-shrink-0 w-52 h-40 bg-muted rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        ) : newsData && newsData.news.length > 0 ? (
+          <div
+            className="flex gap-3 overflow-x-auto pb-3 -mx-5 px-5 scrollbar-hide snap-x snap-mandatory"
+            data-testid="carousel-news"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {newsData.news.map((item, idx) => {
+              const headline = lang === "ko" && item.koreanSummary
+                ? item.koreanSummary
+                : lang === "ja" && item.japaneseSummary
+                ? item.japaneseSummary
+                : item.title;
+              const fallbackEmoji = NEWS_EMOJI_FALLBACKS[idx % NEWS_EMOJI_FALLBACKS.length];
+
+              return (
+                <a
+                  key={idx}
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-52 snap-start rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-md transition-all overflow-hidden group"
+                  data-testid={`news-card-${idx}`}
+                >
+                  {item.thumbnail ? (
+                    <div className="w-full h-24 overflow-hidden bg-muted">
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-24 bg-primary/5 flex items-center justify-center border-b border-border">
+                      <span className="text-4xl">{fallbackEmoji}</span>
+                    </div>
+                  )}
+                  <div className="p-3 space-y-2">
+                    <p className="text-xs font-semibold leading-snug line-clamp-3 text-foreground" data-testid={`news-headline-${idx}`}>
+                      {headline}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[80px]">
+                        {item.publisher}
+                      </span>
+                      <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+                        <Clock className="w-2.5 h-2.5" />
+                        {timeAgo(item.publishedAt, lang)}
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        ) : null}
       </motion.section>
 
       {/* ── Section 2: Quick Watchlist ── */}

@@ -444,6 +444,59 @@ export default function StockDetail() {
         </CardContent>
       </Card>
 
+      {/* ── Korean Domestic News Links ── */}
+      {lang === "ko" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Newspaper className="w-5 h-5 text-primary" />
+              국내 증권 뉴스 보기
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              {info?.name || quote?.name || symbol} 관련 국내 뉴스를 확인하세요.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={`https://search.naver.com/search.naver?where=news&query=${encodeURIComponent((info?.name || quote?.name || symbol) + ' 주가')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#03C75A]/10 border border-[#03C75A]/30 text-[#03C75A] text-xs font-medium hover:bg-[#03C75A]/20 transition-colors"
+                data-testid="link-naver-news"
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/>
+                </svg>
+                네이버 뉴스
+              </a>
+              <a
+                href={`https://finance.naver.com/search/searchNews.naver?query=${encodeURIComponent(info?.name || quote?.name || symbol)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#03C75A]/10 border border-[#03C75A]/30 text-[#03C75A] text-xs font-medium hover:bg-[#03C75A]/20 transition-colors"
+                data-testid="link-naver-finance"
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/>
+                </svg>
+                네이버 금융 뉴스
+              </a>
+              <a
+                href={`https://search.daum.net/search?w=news&q=${encodeURIComponent((info?.name || quote?.name || symbol) + ' 주가 뉴스')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAE100]/10 border border-[#FAE100]/40 text-yellow-600 dark:text-yellow-400 text-xs font-medium hover:bg-[#FAE100]/20 transition-colors"
+                data-testid="link-daum-news"
+              >
+                <span className="font-bold text-[10px]">D</span>
+                카카오 다음 뉴스
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── About ── */}
       {info?.description && (
         <Card>

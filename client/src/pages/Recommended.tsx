@@ -113,9 +113,9 @@ export default function Recommended() {
   const { formatPrice } = useCurrency();
 
   const { data, isLoading, refetch, isRefetching } = useQuery<RecommendedResponse>({
-    queryKey: ["/api/stocks/recommended"],
+    queryKey: ["/api/stocks/recommended", lang],
     queryFn: async () => {
-      const res = await fetch("/api/stocks/recommended");
+      const res = await fetch(`/api/stocks/recommended?lang=${lang}`);
       if (!res.ok) throw new Error("Failed to fetch recommendations");
       return res.json();
     },

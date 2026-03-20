@@ -867,9 +867,39 @@ export async function registerRoutes(
   
   app.get("/api/stocks/recommended", async (req, res) => {
     try {
+      const lang = (req.query.lang as string) || "ko";
       const pythonRes = await fetch("http://127.0.0.1:5001/recommended");
       if (!pythonRes.ok) throw new Error("Python service error");
       const data = await pythonRes.json();
+
+      if ((lang === "ko" || lang === "ja") && data.recommended?.length > 0) {
+        const systemPrompt = lang === "ko"
+          ? "You are a Korean financial news translator. Translate the English stock news headline to natural Korean. Use proper financial terminology (e.g., 강세 for bullish, 약세 for bearish, 실적 for earnings). Return ONLY the translated headline, nothing else. Max 1 sentence."
+          : "You are a Japanese financial news translator. Translate the English stock news headline to natural Japanese. Use proper financial terminology (e.g., 強気 for bullish, 弱気 for bearish). Return ONLY the translated headline, nothing else. Max 1 sentence.";
+
+        const stocksWithHeadlines = data.recommended.filter((s: any) => s.newsHeadline);
+        const stocksWithoutHeadlines = data.recommended.filter((s: any) => !s.newsHeadline);
+
+        const translated = await Promise.all(
+          stocksWithHeadlines.map(async (stock: any) => {
+            try {
+              const aiRes = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: stock.newsHeadline }
+                ],
+                max_tokens: 150,
+              });
+              return { ...stock, newsHeadline: aiRes.choices[0]?.message?.content?.trim() || stock.newsHeadline };
+            } catch {
+              return stock;
+            }
+          })
+        );
+        return res.json({ ...data, recommended: [...translated, ...stocksWithoutHeadlines] });
+      }
+
       res.json(data);
     } catch (error: any) {
       console.error("[Recommended] Error:", error.message);
@@ -1420,25 +1450,31 @@ export async function registerRoutes(
       const pageItems = allNews.slice(startIdx, startIdx + limit);
       const hasMore = startIdx + limit < total;
       
-      if (lang === 'ko' && pageItems.length > 0) {
+      if ((lang === 'ko' || lang === 'ja') && pageItems.length > 0) {
+        const isJa = lang === 'ja';
+        const summaryKey = isJa ? 'japaneseSummary' : 'koreanSummary';
+        const systemMsg = isJa
+          ? "You are a Japanese financial news translator. Translate the English headline to concise natural Japanese (1 sentence). Use proper financial terms (強気=bullish, 弱気=bearish, 実績=earnings). Return ONLY the translation."
+          : "You are a financial news translator. Provide a concise 1-sentence Korean summary of the given English headline. Keep it simple and educational.";
+
         const newsWithSummaries = await Promise.all(
-          pageItems.map(async (item) => {
-            if (item.koreanSummary) return item;
+          pageItems.map(async (item: any) => {
+            if (item[summaryKey]) return item;
             try {
               const summaryResponse = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [
-                  { role: "system", content: "You are a financial news translator. Provide a concise 1-sentence Korean summary of the given English headline. Keep it simple and educational." },
+                  { role: "system", content: systemMsg },
                   { role: "user", content: `Headline: ${item.title}` }
                 ],
-                max_tokens: 100,
+                max_tokens: 120,
               });
               return {
                 ...item,
-                koreanSummary: summaryResponse.choices[0]?.message?.content || item.title
+                [summaryKey]: summaryResponse.choices[0]?.message?.content?.trim() || item.title
               };
             } catch (summaryError) {
-              return { ...item, koreanSummary: item.title };
+              return { ...item, [summaryKey]: item.title };
             }
           })
         );
