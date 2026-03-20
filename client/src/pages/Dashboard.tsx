@@ -4,7 +4,7 @@ import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Newspaper, Clock, ExternalLink, ChevronLeft } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Newspaper, Clock, ExternalLink, ChevronLeft, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -78,6 +78,23 @@ interface LiveStockResponse {
   source?: string;
 }
 
+interface HotIssueItem {
+  title: string;
+  summary: string;
+  link: string;
+  publisher: string;
+  publishedAt: number;
+  thumbnail: string | null;
+  isHot: boolean;
+  symbol: string;
+}
+
+interface HotIssuesResponse {
+  issues: HotIssueItem[];
+  count: number;
+  fetchedAt: number;
+}
+
 function getNickname(fallback: string): string {
   try {
     const saved = localStorage.getItem("dinolingo_settings");
@@ -140,6 +157,18 @@ export default function Dashboard() {
     },
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 30,
+    retry: 1,
+  });
+
+  const { data: hotIssuesData, isLoading: isHotLoading } = useQuery<HotIssuesResponse>({
+    queryKey: ["/api/news/hot-issues"],
+    queryFn: async () => {
+      const res = await fetch("/api/news/hot-issues");
+      if (!res.ok) throw new Error("Failed to fetch hot issues");
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 15,
+    refetchInterval: 1000 * 60 * 20,
     retry: 1,
   });
 
@@ -219,6 +248,79 @@ export default function Dashboard() {
           </span>
         </button>
       </motion.div>
+
+      {/* ── Section: 오늘의 이슈 / Today's Hot Issues ── */}
+      {(isHotLoading || (hotIssuesData && hotIssuesData.issues.length > 0)) && (
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="w-4 h-4 text-primary fill-primary" />
+            <h2 className="text-base font-bold text-foreground">
+              {isKo ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Hot Issues"}
+            </h2>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {isKo ? "AI 요약" : lang === "ja" ? "AI要約" : "AI Summary"}
+            </span>
+          </div>
+
+          {isHotLoading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {(hotIssuesData?.issues || []).map((issue, idx) => (
+                <a
+                  key={idx}
+                  href={issue.link || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "block rounded-2xl p-4 border transition-all hover:shadow-md active:scale-[0.99] cursor-pointer group",
+                    issue.isHot
+                      ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10"
+                      : "border-border bg-muted/40 hover:border-border/80 hover:bg-muted/60"
+                  )}
+                  data-testid={`card-hot-issue-${idx}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {issue.isHot && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
+                            <Flame className="w-2.5 h-2.5" />
+                            HOT
+                          </span>
+                        )}
+                        <span className="text-[11px] font-semibold text-primary/80 shrink-0">
+                          {issue.symbol}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {timeAgo(issue.publishedAt, lang)}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground leading-snug mb-1 line-clamp-2">
+                        {issue.title}
+                      </p>
+                      {issue.summary && (
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                          {issue.summary}
+                        </p>
+                      )}
+                    </div>
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </motion.section>
+      )}
 
       {/* ── Section 1: Market Temperature ── */}
       <motion.section

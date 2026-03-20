@@ -615,7 +615,7 @@ export default function EconomicCalendar() {
     const overrides = actualsData?.actuals || {};
     return (event: EconomicEvent): EconomicEvent => {
       const fetched = overrides[event.id];
-      if (fetched != null && event.actual == null) {
+      if (fetched != null) {
         return { ...event, actual: fetched };
       }
       return event;

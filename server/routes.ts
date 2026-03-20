@@ -1533,6 +1533,137 @@ export async function registerRoutes(
     res.json({ count: getUserNewsCount(userId) });
   });
 
+  // ── Today's Hot Issues ──────────────────────────────────────────────────
+  let hotIssuesCache: any = null;
+  let hotIssuesCacheTime = 0;
+  const HOT_ISSUES_CACHE_DURATION = 20 * 60 * 1000; // 20 min
+
+  const HOT_KEYWORDS = [
+    "contract", "deal", "acquisition", "merger", "m&a", "buyout",
+    "launch", "release", "unveil", "announce", "breakthrough",
+    "earnings", "profit", "revenue", "record", "surge", "beat",
+    "partnership", "billion", "trillion", "invest", "expansion",
+    "lawsuit", "settlement", "recall", "warning", "layoff", "cut",
+  ];
+
+  const HOT_SYMBOLS = [
+    "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "META", "GOOGL",
+    "005930.KS", "000660.KS", "035420.KS", "7203.T", "6758.T",
+  ];
+
+  app.get("/api/news/hot-issues", async (req, res) => {
+    try {
+      const now = Date.now();
+      if (hotIssuesCache && (now - hotIssuesCacheTime) < HOT_ISSUES_CACHE_DURATION) {
+        return res.json(hotIssuesCache);
+      }
+
+      // Fetch news for multiple symbols in parallel
+      const newsPromises = HOT_SYMBOLS.slice(0, 6).map(async (sym) => {
+        try {
+          const r = await fetch(`http://127.0.0.1:5001/news/${sym}?limit=3`, {
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!r.ok) return [];
+          const d = await r.json();
+          return (d.news || []).map((n: any) => ({ ...n, symbol: sym }));
+        } catch { return []; }
+      });
+
+      const allNewsArrays = await Promise.all(newsPromises);
+      const allNews: any[] = allNewsArrays.flat();
+
+      // Deduplicate by title similarity and filter by time (last 24h)
+      const cutoff = (now / 1000) - 86400;
+      const seen = new Set<string>();
+      const recentNews = allNews
+        .filter((n) => n.publishedAt && n.publishedAt > cutoff)
+        .filter((n) => {
+          const key = n.title?.slice(0, 40)?.toLowerCase() || "";
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+      // Score each item by keyword matches
+      const scored = recentNews.map((item) => {
+        const text = (item.title || "").toLowerCase();
+        const matchCount = HOT_KEYWORDS.filter((kw) => text.includes(kw)).length;
+        const isHot = matchCount >= 2;
+        return { ...item, matchCount, isHot };
+      });
+
+      // Sort by score desc, take top 7
+      scored.sort((a, b) => b.matchCount - a.matchCount || b.publishedAt - a.publishedAt);
+      const topItems = scored.slice(0, 7);
+
+      if (topItems.length === 0) {
+        const empty = { issues: [], count: 0, fetchedAt: now };
+        hotIssuesCache = empty;
+        hotIssuesCacheTime = now;
+        return res.json(empty);
+      }
+
+      // Use GPT to generate Korean title + summary for each
+      const systemPrompt = `You are a Korean financial news editor. For each stock news headline provided, generate:
+1. A catchy Korean title (max 20 characters, exciting style like "엔비디아 신형 칩 공개")
+2. A 1-2 sentence Korean summary explaining why it matters to investors
+
+Respond in this exact JSON format for each item:
+{"title": "한국어 제목", "summary": "한국어 1-2문장 요약"}
+
+Use financial Korean naturally (e.g., 계약, 인수합병, 실적, 발표, 협력, 급등).`;
+
+      const processed = await Promise.all(
+        topItems.map(async (item) => {
+          try {
+            const aiRes = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: item.title || "" },
+              ],
+              max_tokens: 200,
+              response_format: { type: "json_object" },
+            });
+            const content = aiRes.choices[0]?.message?.content?.trim() || "{}";
+            const parsed = JSON.parse(content);
+            return {
+              title: parsed.title || item.title,
+              summary: parsed.summary || "",
+              link: item.link || "",
+              publisher: item.publisher || "",
+              publishedAt: item.publishedAt,
+              thumbnail: item.thumbnail || null,
+              isHot: item.isHot,
+              symbol: item.symbol,
+            };
+          } catch {
+            return {
+              title: item.title,
+              summary: "",
+              link: item.link || "",
+              publisher: item.publisher || "",
+              publishedAt: item.publishedAt,
+              thumbnail: item.thumbnail || null,
+              isHot: item.isHot,
+              symbol: item.symbol,
+            };
+          }
+        })
+      );
+
+      const result = { issues: processed, count: processed.length, fetchedAt: now };
+      hotIssuesCache = result;
+      hotIssuesCacheTime = now;
+      console.log(`[Hot Issues] Generated ${processed.length} issues`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[Hot Issues] Error:", error.message);
+      res.json({ issues: [], count: 0, fetchedAt: Date.now() });
+    }
+  });
+
   // === Breaking News Quiz Engine (v4 - 20 Sources, 100+ Categories, Market-Aware) ===
   type QuizCategory = 'valuation' | 'impact' | 'technical' | 'movement';
 

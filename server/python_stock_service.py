@@ -10,6 +10,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import pytz
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
 
 app = Flask(__name__)
 # CORS only needed if accessed from browser directly - we're proxying through Node
