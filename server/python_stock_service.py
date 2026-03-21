@@ -2028,7 +2028,7 @@ def _fetch_single_peer(sym: str) -> dict:
             "price": price,
             "peRatio": info.get("trailingPE"),
             "pbRatio": info.get("priceToBook"),
-            "dividendYield": info.get("dividendYield"),
+            "dividendYield": _normalize_dividend_yield(info),
             "marketCap": info.get("marketCap"),
             "profitMargin": info.get("profitMargins"),
             "operatingMargin": info.get("operatingMargins"),

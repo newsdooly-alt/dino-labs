@@ -194,7 +194,6 @@ const SCREENER_STOCKS = [
 const SCREENER_SYMS = SCREENER_STOCKS.map(s => s.symbol);
 const ALL_SYMS_WITH_SPY = ["SPY", ...SCREENER_SYMS].join(",");
 
-// History period used for Stage Analysis SMA calculations only
 const HISTORY_PERIOD = { period: "1mo", interval: "1d" };
 
 // ── Symbol → Sector ETF mapping for contextual RRG analysis ─────────
@@ -1210,23 +1209,12 @@ export default function AdvancedDashboard() {
     );
   };
 
-  // ── Insights Panel (Stage Analysis + Market Breadth + Super Investor Tips) ─────
+  // ── Insights Panel (Peer Comparison + Market Breadth + Super Investor Tips) ─────
   const InsightsPanel = () => (
     <div className="space-y-3 p-3">
-      {/* Stage Analysis */}
-      <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-          {lang === "ko" ? "📊 스테이지 분석" : "📊 Stage Analysis"}
-        </p>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full shrink-0" style={{ background: stageInfo.color }} />
-          <span className="text-sm font-bold" style={{ color: stageInfo.color }}>{stageInfo.stage}</span>
-          <span className="text-[10px] text-muted-foreground">{stageInfo.desc}</span>
-        </div>
-        <div className="flex gap-4 text-[10px] mt-1">
-          {lastSMA50  != null && <p className="text-amber-500 font-mono">SMA50: {formatPrice(lastSMA50,  { nativeCurrency, compact: true })}</p>}
-          {lastSMA200 != null && <p className="text-rose-400 font-mono">SMA200: {formatPrice(lastSMA200, { nativeCurrency, compact: true })}</p>}
-        </div>
+      {/* Sector Peer Comparison — primary analysis tool */}
+      <div>
+        <PeerComparison symbol={selectedSymbol} lang={lang} />
       </div>
 
       {/* Market Breadth */}
@@ -1444,14 +1432,9 @@ export default function AdvancedDashboard() {
           {EarningsPanel()}
         </div>
 
-        {/* Super Investors — full list with scroll toggle */}
-        <div className="w-full border-t border-border/30">
+        {/* Insights: Peer Comparison → Market Breadth → Super Investors */}
+        <div className="w-full border-t border-border/30 pb-6">
           {InsightsPanel()}
-        </div>
-
-        {/* Sector Peer Analysis (mobile) */}
-        <div className="w-full border-t border-border/30 px-3 py-3 pb-6">
-          <PeerComparison symbol={selectedSymbol} lang={lang} />
         </div>
       </div>
 
