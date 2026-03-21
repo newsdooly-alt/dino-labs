@@ -1609,9 +1609,9 @@ export async function registerRoutes(
         return { ...item, matchCount, isHot };
       });
 
-      // Sort by score desc, take top 10
+      // Sort by score desc, take top 20
       scored.sort((a, b) => b.matchCount - a.matchCount || b.publishedAt - a.publishedAt);
-      const topItems = scored.slice(0, 10);
+      const topItems = scored.slice(0, 20);
 
       if (topItems.length === 0) {
         const empty = { issues: [], count: 0, fetchedAt: now };

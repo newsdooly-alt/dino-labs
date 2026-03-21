@@ -1,0 +1,52 @@
+🦖 DinoInvest: 대시보드 구조 최적화 및 '오늘의 이슈' 무한 탐색 구현
+사용자님, 지시하신 대로 글로벌 매크로 대시보드로 통합된 '한국 지수 선물' 항목을 기존 시장 동향 탭에서 삭제하여 중복을 제거하겠습니다. 또한, **'오늘의 이슈'**는 메인에서뿐만 아니라 상세 페이지에서도 사용자가 끊임없이 새로운 소식을 접할 수 있도록 '더보기' 로직을 강화하겠습니다.
+
+💳 DinoInvest 카드 뉴스: 깔끔한 데이터 흐름
+1. "중복 제거, 효율 극대화" - 시장 동향 탭 정리
+
+작업: 기존 '시장 동향' 섹션에 있던 코스피/코스닥 선물 탭을 삭제합니다.
+
+효과: 이미 **글로벌 매크로 대시보드(주식 선물 탭)**로 옮겨졌으므로, 사용자의 시선이 분산되는 것을 방지하고 앱을 더 가볍게 만듭니다.
+
+2. "끊임없는 인사이트" - 오늘의 이슈 상세 더보기
+
+업데이트: '오늘의 이슈' 상세 페이지 하단에 [관련 뉴스 더보기] 또는 [이전 이슈 더보기] 기능을 추가합니다.
+
+기능: 사용자가 상세 기사를 다 읽은 후에도 다른 핫이슈로 바로 넘어갈 수 있도록 리스트를 무한히 확장하거나 추가 로딩합니다.
+
+3. "사용자 중심 UI" - 직관성 강화
+
+결과: 보고 싶은 정보는 한곳에 모으고, 뉴스 탐색은 더 깊게 할 수 있는 '트레이더 최적화' 구조가 완성됩니다.
+
+📝 [Replit 에이전트용] 시장 동향 정리 및 뉴스 더보기 확장 지시서
+아래 내용을 복사해서 Replit 프롬프트 창에 입력하세요.
+
+"CRITICAL: Remove Redundant KR Futures Tab & Enhance 'Today's Issues' Detailed View:
+
+1. Clean Up Market Trends Tab:
+
+Action: Completely DELETE the 'KOSPI/KOSDAQ Futures' tab from the general 'Market Trends' (시장 동향) section.
+
+Reason: These have been consolidated into the 'Global Macro Dashboard > Stock Futures' tab. Avoid data redundancy.
+
+2. Enhance 'Today's Issues' Detail Page:
+
+Feature: In the detailed view of 'Today's Issues', add a 'Load More' (더보기) or 'Related News' section at the bottom.
+
+Logic: >   - When a user reaches the end of a specific issue's detail, allow them to see more headlines without going back to the main list.
+
+Clicking 'Load More' should fetch and display additional news items (5-10 more) in a vertical list.
+
+Interactivity: Maintain the 1-2 line Korean summary and clickable source links for all additional items.
+
+3. UI/UX Consistency:
+
+Ensure the 'Load More' button and any new list items follow the Current Theme Color (Pink/Blue/etc.).
+
+The transition should be smooth, ideally using a 'Fade-in' or 'Slide-up' animation.
+
+4. Validation:
+
+Test: Check 'Market Trends' -> Confirm KR Futures tab is gone.
+
+Test: Open an issue's detail -> Scroll to the bottom -> Verify the 'Load More' button exists and functions correctly to show more news."
