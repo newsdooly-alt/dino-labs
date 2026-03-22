@@ -1356,11 +1356,13 @@ COUNTRY_RRG_DEFAULTS = {
     },
     'kr': {
         'benchmark': '^KS11',
-        'sectors': '005930.KS,000660.KS,005380.KS,068270.KS,105560.KS,051910.KS,035420.KS,003670.KS,017670.KS,373220.KS',
+        # All constituent stocks for all 8 sectors (grouped by aggregateSectors on frontend)
+        'sectors': '005930.KS,000660.KS,066570.KS,006400.KS,005380.KS,000270.KS,012330.KS,068270.KS,207940.KS,128940.KS,105560.KS,055550.KS,086790.KS,051910.KS,373220.KS,247540.KS,035420.KS,035720.KS,003670.KS,004020.KS,010120.KS,017670.KS,030200.KS,032640.KS',
     },
     'jp': {
         'benchmark': '^N225',
-        'sectors': '7203.T,6758.T,8306.T,4502.T,9984.T,6501.T,3382.T,8802.T,9501.T,4661.T',
+        # All constituent stocks for all 8 sectors (grouped by aggregateSectors on frontend)
+        'sectors': '7203.T,7267.T,7270.T,7201.T,6758.T,6501.T,6752.T,7751.T,6701.T,8306.T,8316.T,8411.T,4502.T,4503.T,4568.T,9984.T,4689.T,3659.T,3382.T,8267.T,8028.T,8802.T,8801.T,8804.T,9501.T,9502.T,9503.T,4661.T',
     },
     'eu': {
         'benchmark': 'VGK',
@@ -1481,6 +1483,98 @@ def get_rrg_data():
         return jsonify(response)
     except Exception as e:
         print(f"[RRG] Fatal error: {e}")
+        return jsonify({"error": str(e), "sectors": []}), 500
+
+
+# ─── Sector Returns: 1-day weighted-average % change per sector ───────────────
+_sector_returns_cache: dict = {}
+SECTOR_RETURNS_CACHE_DURATION = 120  # 2 minutes
+
+# Constituent stocks per sector per country (mirrors frontend sectorGroups)
+SECTOR_CONSTITUENTS = {
+    'us':  [(s, [s]) for s in ['XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLB','XLRE','XLU','XLC']],
+    'eu':  [(s, [s]) for s in ['EWG','EWQ','EWI','EWP','EWN','EWL','EWU','EWD','EWO','ENOR']],
+    'kr': [
+        ('KR_SEMI',  ['005930.KS','000660.KS','066570.KS','006400.KS']),
+        ('KR_AUTO',  ['005380.KS','000270.KS','012330.KS']),
+        ('KR_BIO',   ['068270.KS','207940.KS','128940.KS']),
+        ('KR_FIN',   ['105560.KS','055550.KS','086790.KS']),
+        ('KR_CHEM',  ['051910.KS','373220.KS','247540.KS']),
+        ('KR_NET',   ['035420.KS','035720.KS']),
+        ('KR_STEEL', ['003670.KS','004020.KS','010120.KS']),
+        ('KR_TELE',  ['017670.KS','030200.KS','032640.KS']),
+    ],
+    'jp': [
+        ('JP_AUTO',   ['7203.T','7267.T','7270.T','7201.T']),
+        ('JP_ELEC',   ['6758.T','6501.T','6752.T','7751.T','6701.T']),
+        ('JP_FIN',    ['8306.T','8316.T','8411.T']),
+        ('JP_PHARM',  ['4502.T','4503.T','4568.T']),
+        ('JP_IT',     ['9984.T','4689.T','3659.T']),
+        ('JP_RETAIL', ['3382.T','8267.T','8028.T']),
+        ('JP_RE',     ['8802.T','8801.T','8804.T']),
+        ('JP_UTIL',   ['9501.T','9502.T','9503.T','4661.T']),
+    ],
+}
+
+@app.route('/sector-returns', methods=['GET'])
+def get_sector_returns():
+    """Compute equal-weighted 1-day % change for each sector."""
+    import time
+    now = time.time()
+
+    country = request.args.get('country', 'us').lower()
+    cache_key = country
+    if cache_key in _sector_returns_cache:
+        entry = _sector_returns_cache[cache_key]
+        if entry.get("data") and (now - entry["timestamp"]) < SECTOR_RETURNS_CACHE_DURATION:
+            return jsonify(entry["data"])
+
+    constituents = SECTOR_CONSTITUENTS.get(country, SECTOR_CONSTITUENTS['us'])
+    all_syms = list(set(sym for _, members in constituents for sym in members))
+
+    try:
+        raw = yf.download(all_syms, period='5d', interval='1d', progress=False, auto_adjust=True)
+        if raw.empty:
+            return jsonify({"error": "No data", "sectors": []}), 500
+
+        closes = raw['Close'] if 'Close' in raw.columns else raw
+        closes = closes.dropna(how='all')
+
+        results = []
+        for sector_id, members in constituents:
+            pct_changes = []
+            for sym in members:
+                col = closes.get(sym) if hasattr(closes, 'get') else (closes[sym] if sym in closes.columns else None)
+                if col is None:
+                    continue
+                col = col.dropna()
+                if len(col) < 2:
+                    continue
+                prev = float(col.iloc[-2])
+                curr = float(col.iloc[-1])
+                if prev != 0:
+                    pct_changes.append((curr - prev) / prev * 100.0)
+            if not pct_changes:
+                continue
+            avg_change = sum(pct_changes) / len(pct_changes)
+            results.append({
+                'symbol': sector_id,
+                'changePercent': round(avg_change, 2),
+                'constituents': len(pct_changes),
+            })
+
+        # Sort by % change descending
+        results.sort(key=lambda x: x['changePercent'], reverse=True)
+        response = {
+            'country': country,
+            'sectors': results,
+            'fetchedAt': datetime.now(US_EASTERN).strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        _sector_returns_cache[cache_key] = {"data": response, "timestamp": now}
+        print(f"[SectorReturns] {country}: {len(results)} sectors computed")
+        return jsonify(response)
+    except Exception as e:
+        print(f"[SectorReturns] Error for {country}: {e}")
         return jsonify({"error": str(e), "sectors": []}), 500
 
 

@@ -212,8 +212,7 @@ export function NewsDetailModal({ item, onClose }: Props) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: "60%" }}
             transition={{ type: "spring", damping: 30, stiffness: 320 }}
-            className="fixed inset-x-0 bottom-0 md:inset-auto md:top-[50%] md:left-[50%] md:-translate-x-1/2 md:-translate-y-1/2 md:w-[640px] md:max-h-[88vh] z-50 flex flex-col bg-background rounded-t-[28px] md:rounded-2xl shadow-2xl overflow-hidden"
-            style={{ maxHeight: "calc(100dvh - 48px)" }}
+            className="fixed inset-x-0 bottom-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[640px] max-h-[calc(100dvh-48px)] md:max-h-[90vh] z-50 flex flex-col bg-background rounded-t-[28px] md:rounded-2xl shadow-2xl overflow-hidden"
             data-testid="news-detail-modal"
           >
             {/* Drag pill (mobile) */}

@@ -1273,6 +1273,26 @@ export async function registerRoutes(
     }
   });
 
+  // === Sector Returns (1-day % change per sector, equal-weighted) ===
+  app.get("/api/sector-returns", async (req, res) => {
+    try {
+      const country = (req.query.country as string) || 'us';
+      const response = await fetch(
+        `${MACRO_PYTHON_URL}/sector-returns?country=${country}`,
+        { signal: AbortSignal.timeout(30000) }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        return res.status(500).json({ error: err.error || 'Sector returns failed', sectors: [] });
+      }
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[SectorReturns] Error:", error.message);
+      res.status(500).json({ error: "Sector returns unavailable", sectors: [] });
+    }
+  });
+
   // === Stock History for Charts ===
   app.get("/api/stocks/history/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();

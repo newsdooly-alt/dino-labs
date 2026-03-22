@@ -134,14 +134,14 @@ const COUNTRY_CONFIGS: Record<Country, {
     descKo: "8개 코스피 섹터 vs 코스피 지수 — 섹터 순환",
     descJa: "8セクター vs KOSPIインデックス — セクターローテーション",
     sectorGroups: [
-      { id: "KR_SEMI",  members: ["005930.KS","000660.KS"] },
-      { id: "KR_AUTO",  members: ["005380.KS"] },
-      { id: "KR_BIO",   members: ["068270.KS"] },
-      { id: "KR_FIN",   members: ["105560.KS"] },
-      { id: "KR_CHEM",  members: ["051910.KS","373220.KS"] },
-      { id: "KR_NET",   members: ["035420.KS"] },
-      { id: "KR_STEEL", members: ["003670.KS"] },
-      { id: "KR_TELE",  members: ["017670.KS"] },
+      { id: "KR_SEMI",  members: ["005930.KS","000660.KS","066570.KS","006400.KS"] },
+      { id: "KR_AUTO",  members: ["005380.KS","000270.KS","012330.KS"] },
+      { id: "KR_BIO",   members: ["068270.KS","207940.KS","128940.KS"] },
+      { id: "KR_FIN",   members: ["105560.KS","055550.KS","086790.KS"] },
+      { id: "KR_CHEM",  members: ["051910.KS","373220.KS","247540.KS"] },
+      { id: "KR_NET",   members: ["035420.KS","035720.KS"] },
+      { id: "KR_STEEL", members: ["003670.KS","004020.KS","010120.KS"] },
+      { id: "KR_TELE",  members: ["017670.KS","030200.KS","032640.KS"] },
     ],
     sectorLabels: {
       KR_SEMI:  { en: "Semiconductors",  ko: "반도체",     ja: "半導体" },
@@ -175,14 +175,14 @@ const COUNTRY_CONFIGS: Record<Country, {
     descKo: "8개 닛케이 섹터 vs N225 지수 — 섹터 순환",
     descJa: "8セクター vs 日経225ベンチマーク — セクターローテーション",
     sectorGroups: [
-      { id: "JP_AUTO",   members: ["7203.T"] },
-      { id: "JP_ELEC",   members: ["6758.T","6501.T"] },
-      { id: "JP_FIN",    members: ["8306.T"] },
-      { id: "JP_PHARM",  members: ["4502.T"] },
-      { id: "JP_IT",     members: ["9984.T"] },
-      { id: "JP_RETAIL", members: ["3382.T"] },
-      { id: "JP_RE",     members: ["8802.T"] },
-      { id: "JP_UTIL",   members: ["9501.T","4661.T"] },
+      { id: "JP_AUTO",   members: ["7203.T","7267.T","7270.T","7201.T"] },
+      { id: "JP_ELEC",   members: ["6758.T","6501.T","6752.T","7751.T","6701.T"] },
+      { id: "JP_FIN",    members: ["8306.T","8316.T","8411.T"] },
+      { id: "JP_PHARM",  members: ["4502.T","4503.T","4568.T"] },
+      { id: "JP_IT",     members: ["9984.T","4689.T","3659.T"] },
+      { id: "JP_RETAIL", members: ["3382.T","8267.T","8028.T"] },
+      { id: "JP_RE",     members: ["8802.T","8801.T","8804.T"] },
+      { id: "JP_UTIL",   members: ["9501.T","9502.T","9503.T","4661.T"] },
     ],
     sectorLabels: {
       JP_AUTO:   { en: "Automotive",     ko: "자동차",  ja: "自動車" },
@@ -634,6 +634,21 @@ export function RRGChart() {
     retry: 2,
   });
 
+  const sectorReturnsQuery = useQuery<{
+    country: string;
+    sectors: Array<{ symbol: string; changePercent: number; constituents: number }>;
+  }>({
+    queryKey: ["/api/sector-returns", country],
+    queryFn: async () => {
+      const res = await fetch(`/api/sector-returns?country=${country}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Sector returns fetch failed");
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60 * 5,
+    retry: 2,
+  });
+
   const handleCountryChange = useCallback((c: Country) => {
     setCountry(c);
     setSelected(null);
@@ -839,8 +854,68 @@ export function RRGChart() {
         </div>
       </div>
 
-      {/* Chart with Zoom/Pan */}
-      <div className="relative" style={{ height: 420 }}>
+      {/* Dual view: Sector Returns sidebar + Chart canvas */}
+      <div className="xl:flex xl:items-stretch">
+
+        {/* Sector Returns sidebar — right column on xl, below stats on mobile/tablet */}
+        <div
+          className="xl:w-[196px] xl:shrink-0 xl:border-l xl:order-last border-t xl:border-t-0 border-border/40 bg-muted/5 p-3 xl:overflow-y-auto"
+          style={{ maxHeight: 420 }}
+          data-testid="sector-returns-panel"
+        >
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
+            {L("섹터 등락률 (1일)", "Sector Returns (1D)", "セクターリターン (1D)")}
+          </p>
+          {sectorReturnsQuery.isLoading ? (
+            <div className="space-y-1.5">
+              {[1,2,3,4,5,6,7,8].map(i => (
+                <div key={i} className="h-7 bg-muted rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : (sectorReturnsQuery.data?.sectors ?? []).map(s => {
+            const label = cfg.sectorLabels[s.symbol];
+            const name = label
+              ? (lang === "ko" ? label.ko : lang === "ja" ? label.ja : label.en)
+              : s.symbol.replace(/^(KR|JP)_/, "");
+            const color = cfg.sectorColors[s.symbol] || "#6366f1";
+            const isPos = s.changePercent >= 0;
+            const isSelected = selected?.symbol === s.symbol;
+            return (
+              <div
+                key={s.symbol}
+                className={cn(
+                  "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg mb-1 cursor-pointer transition-all text-xs",
+                  isSelected
+                    ? "ring-1 ring-primary/50 bg-primary/5"
+                    : "hover:bg-muted/60"
+                )}
+                onClick={() => {
+                  const sec = displaySectors.find(d => d.symbol === s.symbol);
+                  if (sec) setSelected(sec);
+                }}
+                data-testid={`sector-return-${s.symbol}`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                  <span className="font-medium text-foreground/80 truncate">{name}</span>
+                </div>
+                <span className={cn("font-bold tabular-nums shrink-0 text-[11px]", isPos ? "text-emerald-500" : "text-red-500")}>
+                  {isPos ? "+" : ""}{s.changePercent.toFixed(2)}%
+                </span>
+              </div>
+            );
+          })}
+          {!sectorReturnsQuery.isLoading && (sectorReturnsQuery.data?.sectors ?? []).length === 0 && (
+            <p className="text-[10px] text-muted-foreground text-center py-4">
+              {L("데이터 없음", "No data", "データなし")}
+            </p>
+          )}
+        </div>
+
+        {/* Chart + detail panel — left, takes remaining space */}
+        <div className="flex-1 min-w-0">
+        {/* Chart with Zoom/Pan */}
+        <div className="relative" style={{ height: 420 }}>
         <TransformWrapper
           initialScale={1}
           minScale={0.6}
@@ -1094,6 +1169,8 @@ export function RRGChart() {
           </div>
         );
       })()}
+        </div>{/* closes chart+detail column */}
+      </div>{/* closes xl:flex container */}
     </div>
   );
 }
