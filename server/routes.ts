@@ -1043,10 +1043,10 @@ export async function registerRoutes(
   // === Global Macro Dashboard ===
   const MACRO_SYMBOLS = [
     "ES=F", "NQ=F", "YM=F", "^N225", "^KS11", "^KQ11", "^KS200",
-    "GC=F", "CL=F", "HG=F",
-    "DX-Y.NYB", "USDKRW=X",
-    "^TNX", "^IRX",
-    "^VIX", "BTC-USD"
+    "GC=F", "CL=F", "BZ=F", "SI=F", "HG=F",
+    "DX-Y.NYB", "USDKRW=X", "USDJPY=X",
+    "^TNX", "^IRX", "^TYX",
+    "^VIX", "BTC-USD", "ETH-USD"
   ];
 
   const MACRO_PYTHON_URL = 'http://localhost:5001';
@@ -1082,6 +1082,45 @@ export async function registerRoutes(
       const tnxQuote = quoteMap['^TNX'];
       const vixQuote = quoteMap['^VIX'];
 
+      // ── Compute JPY/KRW from USDJPY + USDKRW ─────────────────────────────
+      const usdJpyQ  = quoteMap['USDJPY=X'];
+      const usdKrwQ  = quoteMap['USDKRW=X'];
+      if (usdJpyQ?.price > 0 && usdKrwQ?.price > 0) {
+        const jpyKrwPrice = (usdKrwQ.price / usdJpyQ.price) * 100; // ¥100 → ₩
+        const jpyKrwChange = jpyKrwPrice - ((usdKrwQ.price - usdKrwQ.change) / ((usdJpyQ.price - usdJpyQ.change) || 1)) * 100;
+        const jpyKrwChangePct = jpyKrwChange / (jpyKrwPrice - jpyKrwChange || 1) * 100;
+        quoteMap['JPYKRW'] = {
+          symbol: 'JPYKRW',
+          name: 'JPY/KRW',
+          price: Math.round(jpyKrwPrice * 100) / 100,
+          change: Math.round(jpyKrwChange * 100) / 100,
+          changePercent: Math.round(jpyKrwChangePct * 100) / 100,
+          isMarketOpen: usdJpyQ.isMarketOpen,
+          isStale: usdJpyQ.isStale || usdKrwQ.isStale,
+          lastUpdated: usdJpyQ.lastUpdated,
+        };
+      }
+
+      // ── Fetch Crypto Fear & Greed from alternative.me ──────────────────────
+      let cryptoFearGreed: { score: number; rating: string } | null = null;
+      try {
+        const fgRes = await fetch('https://api.alternative.me/fng/?limit=1', {
+          signal: AbortSignal.timeout(6000),
+        });
+        if (fgRes.ok) {
+          const fgData = await fgRes.json();
+          const entry = fgData?.data?.[0];
+          if (entry) {
+            cryptoFearGreed = {
+              score: parseInt(entry.value, 10),
+              rating: entry.value_classification,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('[Macro] Crypto F&G fetch failed:', (e as any).message);
+      }
+
       const correlationSignals: Record<string, { label: string; direction: 'pressure' | 'support' | 'fear' | 'neutral' }[]> = {};
 
       if (tnxQuote && tnxQuote.changePercent > 0.5) {
@@ -1107,13 +1146,21 @@ export async function registerRoutes(
       if (dxQuote && dxQuote.changePercent > 0.4) {
         correlationSignals['GC=F'] = correlationSignals['GC=F'] || [];
         correlationSignals['GC=F'].push({ label: 'Strong Dollar', direction: 'pressure' });
+        correlationSignals['SI=F'] = correlationSignals['SI=F'] || [];
+        correlationSignals['SI=F'].push({ label: 'Strong Dollar', direction: 'pressure' });
+        correlationSignals['BZ=F'] = correlationSignals['BZ=F'] || [];
+        correlationSignals['BZ=F'].push({ label: 'Strong Dollar', direction: 'pressure' });
       }
 
       const clQuote = quoteMap['CL=F'];
       if (clQuote && clQuote.changePercent > 2) {
         correlationSignals['ES=F'] = correlationSignals['ES=F'] || [];
         correlationSignals['ES=F'].push({ label: 'Oil Spike', direction: 'pressure' });
+        correlationSignals['BZ=F'] = correlationSignals['BZ=F'] || [];
+        correlationSignals['BZ=F'].push({ label: 'WTI Rising', direction: 'support' });
       }
+
+      const allAssetSymbols = [...MACRO_SYMBOLS, 'JPYKRW'];
 
       const categories = [
         {
@@ -1127,21 +1174,21 @@ export async function registerRoutes(
           id: 'commodities',
           label: 'Commodities',
           labelKo: '원자재',
-          symbols: ['GC=F', 'CL=F', 'HG=F'],
+          symbols: ['GC=F', 'CL=F', 'BZ=F', 'SI=F', 'HG=F'],
           icon: 'package',
         },
         {
           id: 'forex',
           label: 'Forex',
           labelKo: '외환',
-          symbols: ['DX-Y.NYB', 'USDKRW=X'],
+          symbols: ['DX-Y.NYB', 'USDKRW=X', 'USDJPY=X', 'JPYKRW'],
           icon: 'dollar-sign',
         },
         {
           id: 'bonds',
           label: 'Bonds & Rates',
           labelKo: '채권 & 금리',
-          symbols: ['^TNX', '^IRX'],
+          symbols: ['^IRX', '^TNX', '^TYX'],
           icon: 'percent',
           invertedSignal: true,
         },
@@ -1149,13 +1196,13 @@ export async function registerRoutes(
           id: 'sentiment',
           label: 'Sentiment & Crypto',
           labelKo: '심리 & 크립토',
-          symbols: ['^VIX', 'BTC-USD'],
+          symbols: ['^VIX', 'BTC-USD', 'ETH-USD'],
           icon: 'activity',
           invertedSignal: true,
         },
       ];
 
-      const assets = MACRO_SYMBOLS.map(symbol => {
+      const assets = allAssetSymbols.map(symbol => {
         const q = quoteMap[symbol] || {
           symbol,
           name: symbol,
@@ -1188,6 +1235,7 @@ export async function registerRoutes(
         categories,
         fetchedAt,
         correlationSignals,
+        cryptoFearGreed,
       });
     } catch (error: any) {
       console.error("[Macro Dashboard] Error:", error.message);

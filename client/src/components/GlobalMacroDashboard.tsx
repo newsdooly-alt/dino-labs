@@ -37,29 +37,41 @@ interface MacroCategory {
   invertedSignal?: boolean;
 }
 
+interface CryptoFearGreed {
+  score: number;
+  rating: string;
+}
+
 interface MacroDashboardData {
   assets: MacroAsset[];
   categories: MacroCategory[];
   fetchedAt: string;
+  cryptoFearGreed: CryptoFearGreed | null;
 }
 
 const DISPLAY_NAMES: Record<string, { en: string; ko: string; ja?: string; flag?: string }> = {
-  "ES=F":      { en: "S&P 500 Futures",   ko: "S&P500 선물",      flag: "🇺🇸" },
-  "NQ=F":      { en: "Nasdaq Futures",     ko: "나스닥 선물",       flag: "🇺🇸" },
-  "YM=F":      { en: "Dow Futures",        ko: "다우 선물",         flag: "🇺🇸" },
-  "^N225":     { en: "Nikkei 225",         ko: "닛케이 225",        flag: "🇯🇵" },
-  "^KS11":     { en: "KOSPI",              ko: "코스피",            flag: "🇰🇷" },
-  "^KQ11":     { en: "KOSDAQ",             ko: "코스닥",            flag: "🇰🇷" },
-  "^KS200":    { en: "KOSPI 200",          ko: "코스피 200",        flag: "🇰🇷" },
-  "GC=F":      { en: "Gold",               ko: "금" },
-  "CL=F":      { en: "Crude Oil (WTI)",    ko: "원유 (WTI)" },
-  "HG=F":      { en: "Copper (Dr. Cu)",    ko: "구리 (닥터 구리)" },
-  "DX-Y.NYB":  { en: "US Dollar Index",    ko: "달러 인덱스" },
-  "USDKRW=X":  { en: "USD/KRW",            ko: "달러/원화" },
-  "^TNX":      { en: "US 10Y Yield",       ko: "미국 10년 국채" },
-  "^IRX":      { en: "US 13W T-Bill",      ko: "미국 13주 단기채" },
-  "^VIX":      { en: "VIX Fear Index",     ko: "공포 지수 (VIX)" },
-  "BTC-USD":   { en: "Bitcoin",            ko: "비트코인" },
+  "ES=F":      { en: "S&P 500 Futures",   ko: "S&P500 선물",        flag: "🇺🇸" },
+  "NQ=F":      { en: "Nasdaq Futures",     ko: "나스닥 선물",         flag: "🇺🇸" },
+  "YM=F":      { en: "Dow Futures",        ko: "다우 선물",           flag: "🇺🇸" },
+  "^N225":     { en: "Nikkei 225",         ko: "닛케이 225",          flag: "🇯🇵" },
+  "^KS11":     { en: "KOSPI",              ko: "코스피",              flag: "🇰🇷" },
+  "^KQ11":     { en: "KOSDAQ",             ko: "코스닥",              flag: "🇰🇷" },
+  "^KS200":    { en: "KOSPI 200",          ko: "코스피 200",          flag: "🇰🇷" },
+  "GC=F":      { en: "Gold",               ko: "금",                  flag: "🥇" },
+  "CL=F":      { en: "Crude Oil (WTI)",    ko: "원유 (WTI)",          flag: "🛢️" },
+  "BZ=F":      { en: "Brent Crude",        ko: "브렌트 원유",          flag: "🛢️" },
+  "SI=F":      { en: "Silver",             ko: "은",                  flag: "🥈" },
+  "HG=F":      { en: "Copper (Dr. Cu)",    ko: "구리 (닥터 구리)",     flag: "🔶" },
+  "DX-Y.NYB":  { en: "US Dollar Index",    ko: "달러 인덱스",          flag: "💵" },
+  "USDKRW=X":  { en: "USD/KRW",            ko: "달러/원화",            flag: "🇺🇸" },
+  "USDJPY=X":  { en: "USD/JPY",            ko: "달러/엔화",            flag: "🇺🇸" },
+  "JPYKRW":    { en: "JPY/KRW (¥100)",     ko: "엔/원화 (¥100)",      flag: "🇯🇵" },
+  "^IRX":      { en: "US 2Y (Short-term)", ko: "미국 단기 금리 (2년)", flag: "📊" },
+  "^TNX":      { en: "US 10Y Yield",       ko: "미국 10년 국채",       flag: "📊" },
+  "^TYX":      { en: "US 30Y Yield",       ko: "미국 30년 국채",       flag: "📊" },
+  "^VIX":      { en: "VIX Fear Index",     ko: "공포 지수 (VIX)",      flag: "📉" },
+  "BTC-USD":   { en: "Bitcoin",            ko: "비트코인",             flag: "₿" },
+  "ETH-USD":   { en: "Ethereum",           ko: "이더리움",             flag: "Ξ" },
 };
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -162,17 +174,29 @@ function CorrelationBadge({ label, direction }: { label: string; direction: stri
 
 function formatMacroPrice(symbol: string, price: number): string {
   if (price === 0) return "—";
-  if (symbol === "USDKRW=X") {
+  if (symbol === "USDKRW=X" || symbol === "JPYKRW") {
     return price.toLocaleString("en-US", { maximumFractionDigits: 2 });
   }
-  if (symbol === "BTC-USD") {
-    return price.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (symbol === "USDJPY=X") {
+    return price.toFixed(2);
   }
-  if (symbol === "^TNX" || symbol === "^IRX") {
+  if (symbol === "BTC-USD" || symbol === "ETH-USD") {
+    return "$" + price.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+  if (symbol === "^TNX" || symbol === "^IRX" || symbol === "^TYX" || symbol === "^FVX") {
     return price.toFixed(3) + "%";
   }
   if (symbol === "^VIX") {
     return price.toFixed(2);
+  }
+  if (symbol === "GC=F") {
+    return "$" + price.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+  if (symbol === "SI=F") {
+    return "$" + price.toFixed(3);
+  }
+  if (symbol === "CL=F" || symbol === "BZ=F") {
+    return "$" + price.toFixed(2);
   }
   if (["ES=F", "NQ=F", "YM=F", "NK=F", "^N225"].includes(symbol)) {
     return price.toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -196,6 +220,63 @@ function VixGauge({ price }: { price: number }) {
     <span className={cn("text-[10px] font-bold ml-1", colorClass)} data-testid="vix-gauge-label">
       {label}
     </span>
+  );
+}
+
+function CryptoFearGreedGauge({ fg, lang }: { fg: { score: number; rating: string }; lang: string }) {
+  const score = fg.score;
+  let colorClass: string;
+  let bgClass: string;
+  let borderClass: string;
+  let emoji: string;
+
+  if (score <= 24)       { colorClass = "text-red-600 dark:text-red-400";     bgClass = "bg-red-500/10";     borderClass = "border-red-500/30";     emoji = "😱"; }
+  else if (score <= 44)  { colorClass = "text-orange-500";                    bgClass = "bg-orange-500/10";  borderClass = "border-orange-500/30";  emoji = "😨"; }
+  else if (score <= 54)  { colorClass = "text-yellow-500";                    bgClass = "bg-yellow-500/10";  borderClass = "border-yellow-500/30";  emoji = "😐"; }
+  else if (score <= 74)  { colorClass = "text-lime-500";                      bgClass = "bg-lime-500/10";    borderClass = "border-lime-500/30";    emoji = "😊"; }
+  else                   { colorClass = "text-green-600 dark:text-green-400"; bgClass = "bg-green-500/10";   borderClass = "border-green-500/30";   emoji = "🤑"; }
+
+  const labelKo =
+    score <= 24 ? "극도 공포" :
+    score <= 44 ? "공포" :
+    score <= 54 ? "중립" :
+    score <= 74 ? "탐욕" : "극도 탐욕";
+
+  const label = lang === "ko" ? labelKo : fg.rating;
+
+  const barWidth = `${score}%`;
+
+  return (
+    <div
+      className={cn("mx-4 my-2 rounded-xl border p-3 space-y-2", bgClass, borderClass)}
+      data-testid="crypto-fear-greed-gauge"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground">
+          {lang === "ko" ? "크립토 공포·탐욕 지수" : "Crypto Fear & Greed"}
+        </span>
+        <span className="text-[11px] text-muted-foreground">alternative.me</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">{emoji}</span>
+        <div className="flex-1 space-y-1">
+          <div className="flex items-baseline gap-2">
+            <span className={cn("text-2xl font-black tabular-nums", colorClass)}>{score}</span>
+            <span className={cn("text-sm font-bold", colorClass)}>{label}</span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("h-2 rounded-full transition-all", colorClass.includes("red") ? "bg-red-500" : colorClass.includes("orange") ? "bg-orange-500" : colorClass.includes("yellow") ? "bg-yellow-500" : colorClass.includes("lime") ? "bg-lime-500" : "bg-green-500")}
+              style={{ width: barWidth }}
+            />
+          </div>
+          <div className="flex justify-between text-[9px] text-muted-foreground">
+            <span>{lang === "ko" ? "극도 공포" : "Extreme Fear"}</span>
+            <span>{lang === "ko" ? "극도 탐욕" : "Extreme Greed"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -296,6 +377,11 @@ export function GlobalMacroDashboard() {
               {lang === "ko" ? category.labelKo : category.label}
             </div>
 
+            {/* Crypto Fear & Greed shown at top of sentiment section */}
+            {category.id === "sentiment" && data.cryptoFearGreed && (
+              <CryptoFearGreedGauge fg={data.cryptoFearGreed} lang={lang} />
+            )}
+
             <div className="divide-y divide-border/40">
               {categoryAssets.map(asset => {
                 const displayName = DISPLAY_NAMES[asset.symbol];
@@ -379,8 +465,8 @@ export function GlobalMacroDashboard() {
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
               {lang === "ko"
-                ? "채권 금리 상승 → 나스닥 하락 압력 (성장주 할인율↑). VIX > 25 → 시장 공포 신호. 달러 강세 → 금 하락 압력. 구리 가격 상승은 글로벌 경기 회복 신호 ('닥터 구리'). 색깔은 표준 주식 기준: VIX와 채권은 역방향 적용."
-                : "Rising bond yields → downward pressure on Nasdaq (growth stocks discounted more). VIX > 25 → market fear. Strong dollar → pressure on Gold. Copper rising signals global recovery ('Dr. Copper'). Colors for VIX & Bonds use inverted logic — red means rising yields/fear, which is negative for stocks."
+                ? "채권 금리 상승 → 나스닥 하락 압력 (성장주 할인율↑). VIX > 25 → 시장 공포 신호. 달러 강세 → 금·은·원유 하락 압력. WTI·브렌트 동시 상승 → 인플레이션 위험. 구리 상승은 글로벌 경기 회복 신호 ('닥터 구리'). 크립토 공포·탐욕 지수: 0=극도 공포, 100=극도 탐욕."
+                : "Rising bond yields → pressure on Nasdaq. VIX > 25 → market fear. Strong dollar → pressure on Gold, Silver & Oil. WTI + Brent rising together → inflation risk. Copper up = global recovery ('Dr. Copper'). Crypto F&G: 0 = Extreme Fear, 100 = Extreme Greed."
               }
             </p>
           </div>
