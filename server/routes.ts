@@ -1552,7 +1552,7 @@ export async function registerRoutes(
   // ── Today's Hot Issues ──────────────────────────────────────────────────
   let hotIssuesCache: any = null;
   let hotIssuesCacheTime = 0;
-  const HOT_ISSUES_CACHE_DURATION = 20 * 60 * 1000; // 20 min
+  const HOT_ISSUES_CACHE_DURATION = 10 * 60 * 1000; // 10 min
 
   const HOT_KEYWORDS = [
     "contract", "deal", "acquisition", "merger", "m&a", "buyout",

@@ -25,6 +25,7 @@ interface PeersResponse {
   symbol: string;
   peers: PeerData[];
   count: number;
+  isSectorFallback?: boolean;
 }
 
 interface PeerComparisonProps {
@@ -211,6 +212,7 @@ export function PeerComparison({ symbol, lang }: PeerComparisonProps) {
   const peers = data?.peers ?? [];
   if (peers.length === 0) return null;
 
+  const isSectorFallback = data?.isSectorFallback ?? false;
   const mainStock  = peers.find((p) => p.symbol === symbol);
   const otherPeers = peers.filter((p) => p.symbol !== symbol);
 
@@ -269,7 +271,13 @@ export function PeerComparison({ symbol, lang }: PeerComparisonProps) {
           <Users className="w-5 h-5 text-primary" />
           {t("title", lang)}
         </CardTitle>
-        <p className="text-xs text-muted-foreground -mt-1">{t("subtitle", lang)}</p>
+        <p className="text-xs text-muted-foreground -mt-1">
+          {isSectorFallback
+            ? (lang === "ko" ? "섹터 평균 기준 비교 (직접 피어 없음)"
+               : lang === "ja" ? "セクター平均基準比較（直接ピアなし）"
+               : "Sector average comparison (no direct peers found)")
+            : t("subtitle", lang)}
+        </p>
       </CardHeader>
       <CardContent className="space-y-6 px-3 md:px-6">
 
@@ -330,11 +338,17 @@ export function PeerComparison({ symbol, lang }: PeerComparisonProps) {
               </table>
             </div>
             <p className="text-[10px] text-muted-foreground mt-1.5 px-1">
-              {lang === "ko"
-                ? `* 섹터 평균은 ${otherPeers.length}개 동종 기업 기준`
-                : lang === "ja"
-                ? `* セクター平均は${otherPeers.length}社の同業他社ベース`
-                : `* Sector average based on ${otherPeers.length} peer companies`}
+              {isSectorFallback
+                ? (lang === "ko"
+                    ? `* 섹터 대표 ${otherPeers.length}개 기업 평균 (소형주 섹터 비교)`
+                    : lang === "ja"
+                    ? `* セクター代表${otherPeers.length}社平均（小型株セクター比較）`
+                    : `* Sector representative avg (${otherPeers.length} companies, small-cap fallback)`)
+                : (lang === "ko"
+                    ? `* 섹터 평균은 ${otherPeers.length}개 동종 기업 기준`
+                    : lang === "ja"
+                    ? `* セクター平均は${otherPeers.length}社の同業他社ベース`
+                    : `* Sector average based on ${otherPeers.length} peer companies`)}
             </p>
           </div>
         )}

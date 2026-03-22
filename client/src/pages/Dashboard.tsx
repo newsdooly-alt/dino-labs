@@ -113,8 +113,9 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to fetch hot issues");
       return res.json();
     },
-    staleTime: 1000 * 60 * 15,
-    refetchInterval: 1000 * 60 * 20,
+    staleTime: 1000 * 60 * 5,
+    refetchInterval: 1000 * 60 * 10,
+    refetchOnMount: true,
     retry: 1,
   });
 
@@ -232,11 +233,16 @@ export default function Dashboard() {
                   data-testid={`card-hot-issue-${idx}`}
                 >
                   <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {issue.isHot && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
                           <Flame className="w-2.5 h-2.5" />
                           HOT
+                        </span>
+                      )}
+                      {issue.publishedAt && (Date.now() / 1000 - issue.publishedAt) < 1800 && (
+                        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0" data-testid={`badge-new-${idx}`}>
+                          NEW
                         </span>
                       )}
                       <p className="text-sm font-semibold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
@@ -246,6 +252,11 @@ export default function Dashboard() {
                     {issue.summary && (
                       <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
                         {issue.summary}
+                      </p>
+                    )}
+                    {issue.publishedAt && (
+                      <p className="text-[10px] text-muted-foreground/70 pt-0.5" data-testid={`text-time-${idx}`}>
+                        {timeAgo(issue.publishedAt, lang)}
                       </p>
                     )}
                   </div>

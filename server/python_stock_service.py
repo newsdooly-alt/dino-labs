@@ -1967,48 +1967,304 @@ def screener_actives():
 
 # ===== PEER COMPARISON =====
 PEER_MAP: dict[str, list[str]] = {
-    # US Technology
+    # ── US Big Tech ──
     "AAPL":      ["MSFT", "GOOGL", "META", "AMZN", "SONY"],
     "MSFT":      ["AAPL", "GOOGL", "ORCL", "SAP",  "CRM"],
     "GOOGL":     ["META", "MSFT",  "NFLX", "SNAP", "AAPL"],
     "GOOG":      ["META", "MSFT",  "NFLX", "SNAP", "AAPL"],
-    "META":      ["GOOGL","SNAP",  "PINS", "NFLX", "TWTR"],
-    "AMZN":      ["MSFT", "GOOGL", "AAPL", "WMT",  "EBAY"],
-    "NVDA":      ["AMD",  "INTC",  "QCOM", "AVGO", "TSM"],
+    "META":      ["GOOGL","SNAP",  "PINS", "NFLX", "MSFT"],
+    "AMZN":      ["MSFT", "GOOGL", "AAPL", "WMT",  "SHOP"],
+    "TSLA":      ["GM",   "F",     "NIO",  "RIVN", "LCID"],
+    "NFLX":      ["DIS",  "PARA",  "WBD",  "AMZN", "SPOT"],
+    # ── US Semiconductor ──
+    "NVDA":      ["AMD",  "INTC",  "QCOM", "AVGO", "AMAT"],
     "AMD":       ["NVDA", "INTC",  "QCOM", "AVGO", "MRVL"],
     "INTC":      ["NVDA", "AMD",   "QCOM", "TSM",  "AVGO"],
-    "QCOM":      ["NVDA", "AMD",   "AVGO", "MRVL", "NXPI"],
+    "QCOM":      ["NVDA", "AMD",   "AVGO", "MRVL", "ON"],
     "AVGO":      ["NVDA", "QCOM",  "AMD",  "MRVL", "TXN"],
-    "TSM":       ["INTC", "NVDA",  "UMC",  "AVGO", "STM"],
-    "TSLA":      ["GM",   "F",     "NIO",  "RIVN", "STLA"],
-    "NFLX":      ["DIS",  "PARA",  "WBD",  "AMZN", "AAPL"],
+    "TSM":       ["INTC", "NVDA",  "UMC",  "AVGO", "AMAT"],
+    "AMAT":      ["LRCX", "KLAC",  "NVDA", "ASML", "TER"],
+    "LRCX":      ["AMAT", "KLAC",  "TER",  "NVDA", "ASML"],
+    "KLAC":      ["AMAT", "LRCX",  "TER",  "NVDA", "ASML"],
+    "MU":        ["NVDA", "AMD",   "WDC",  "STX",  "INTC"],
+    "MRVL":      ["NVDA", "AMD",   "AVGO", "QCOM", "ON"],
+    "ON":        ["QCOM", "MRVL",  "SWKS", "TXN",  "NVDA"],
+    "TXN":       ["AVGO", "QCOM",  "ON",   "MRVL", "ADI"],
+    "COHR":      ["IIVI", "II",    "AAON", "LLTC", "OCLR"],
+    "SMCI":      ["DELL", "HPE",   "NTAP", "PSTG", "PURE"],
+    "ASML":      ["AMAT", "LRCX",  "KLAC", "TER",  "NVDA"],
+    "ARM":       ["NVDA", "QCOM",  "AMD",  "INTC", "AVGO"],
+    "WDC":       ["STX",  "MU",    "NVDA", "INTC", "NTAP"],
+    "STX":       ["WDC",  "MU",    "NTAP", "PSTG", "DELL"],
+    # ── US Software / Cloud ──
     "ORCL":      ["MSFT", "SAP",   "CRM",  "IBM",  "NOW"],
     "CRM":       ["ORCL", "SAP",   "MSFT", "NOW",  "WDAY"],
     "IBM":       ["MSFT", "ORCL",  "HPE",  "DELL", "ACN"],
+    "NOW":       ["CRM",  "WDAY",  "ORCL", "MSFT", "SAP"],
+    "WDAY":      ["CRM",  "NOW",   "ORCL", "SAP",  "ADBE"],
+    "ADBE":      ["MSFT", "CRM",   "FIGM", "CANV", "WDAY"],
+    "SNOW":      ["DDOG", "MDB",   "PLTR", "NET",  "ZS"],
+    "PLTR":      ["AI",   "BBAI",  "SNOW", "DDOG", "MDB"],
+    "NET":       ["ZS",   "PANW",  "CRWD", "FTNT", "OKTA"],
+    "DDOG":      ["SNOW", "MDB",   "NET",  "ZS",   "SPLK"],
+    "ZS":        ["NET",  "PANW",  "CRWD", "FTNT", "OKTA"],
+    "CRWD":      ["PANW", "NET",   "ZS",   "FTNT", "OKTA"],
+    "PANW":      ["CRWD", "NET",   "ZS",   "FTNT", "OKTA"],
+    "FTNT":      ["PANW", "CRWD",  "NET",  "ZS",   "OKTA"],
+    "OKTA":      ["CRWD", "PANW",  "ZS",   "NET",  "FTNT"],
+    "SHOP":      ["AMZN", "MELI",  "UBER", "BKNG", "WMT"],
+    "UBER":      ["LYFT", "DIDI",  "GRAB", "SHOP", "AMZN"],
+    "SPOT":      ["NFLX", "DIS",   "AAPL", "AMZN", "PARA"],
+    "RBLX":      ["EA",   "TTWO",  "ATVI", "MSFT", "NFLX"],
+    "MSTR":      ["COIN", "MARA",  "RIOT", "CLSK", "BTBT"],
+    "APP":       ["TTD",  "META",  "GOOGL","SNAP", "PINS"],
+    "TTD":       ["APP",  "META",  "GOOGL","AMZN", "ROKU"],
+    # ── US Financials ──
     "JPM":       ["BAC",  "WFC",   "GS",   "MS",   "C"],
     "BAC":       ["JPM",  "WFC",   "GS",   "MS",   "C"],
     "GS":        ["MS",   "JPM",   "BAC",  "BX",   "KKR"],
-    "XOM":       ["CVX",  "COP",   "BP",   "SHEL", "TTE"],
-    "CVX":       ["XOM",  "COP",   "BP",   "SHEL", "TTE"],
+    "MS":        ["GS",   "JPM",   "BAC",  "SCHW", "BX"],
+    "WFC":       ["JPM",  "BAC",   "USB",  "PNC",  "C"],
+    "V":         ["MA",   "AXP",   "PYPL", "AFRM", "SOFI"],
+    "MA":        ["V",    "AXP",   "PYPL", "AFRM", "SOFI"],
+    "AXP":       ["V",    "MA",    "DFS",  "COF",  "SYF"],
+    "PYPL":      ["V",    "MA",    "SQ",   "AFRM", "SOFI"],
+    "COIN":      ["MARA", "RIOT",  "HOOD", "SOFI", "CLSK"],
+    "BLK":       ["SCHW", "MS",    "IVZ",  "TROW", "BEN"],
+    "SCHW":      ["MS",   "BLK",   "ETFC", "AMTD", "HOOD"],
+    "AFRM":      ["PYPL", "V",     "MA",   "SQ",   "UPST"],
+    "MCO":       ["SPGI", "MSCI",  "FDS",  "ICE",  "CME"],
+    "SPGI":      ["MCO",  "MSCI",  "ICE",  "CME",  "FDS"],
+    # ── US Healthcare ──
     "JNJ":       ["PFE",  "MRK",   "ABBV", "LLY",  "BMY"],
     "PFE":       ["JNJ",  "MRK",   "ABBV", "LLY",  "AMGN"],
-    "LLY":       ["PFE",  "JNJ",   "MRK",  "ABBV", "AMGN"],
-    "WMT":       ["AMZN", "TGT",   "COST", "EBAY", "HD"],
+    "LLY":       ["PFE",  "JNJ",   "MRK",  "ABBV", "NVO"],
+    "MRK":       ["PFE",  "JNJ",   "ABBV", "LLY",  "BMY"],
+    "ABBV":      ["JNJ",  "PFE",   "MRK",  "LLY",  "BMY"],
+    "BMY":       ["PFE",  "JNJ",   "ABBV", "MRK",  "AMGN"],
+    "AMGN":      ["GILD", "REGN",  "VRTX", "BIIB", "PFE"],
+    "GILD":      ["AMGN", "REGN",  "VRTX", "BIIB", "ABBV"],
+    "REGN":      ["AMGN", "GILD",  "VRTX", "BIIB", "SGEN"],
+    "VRTX":      ["REGN", "AMGN",  "GILD", "BIIB", "MRNA"],
+    "MRNA":      ["BNTX", "PFE",   "NVAX", "VRTX", "REGN"],
+    "ISRG":      ["MDT",  "SYK",   "BSX",  "ZBH",  "ABMD"],
+    "UNH":       ["CVS",  "CI",    "HUM",  "CNC",  "MOH"],
+    "NVO":       ["LLY",  "PFE",   "AZN",  "SNY",  "NVS"],
+    "AZN":       ["NVO",  "PFE",   "JNJ",  "NVS",  "SNY"],
+    "ILMN":      ["PACB", "BNTX",  "CRSP", "BEAM", "EDIT"],
+    "CRSP":      ["EDIT", "BEAM",  "NTLA", "ILMN", "MRNA"],
+    # ── US Consumer / Retail ──
+    "WMT":       ["AMZN", "TGT",   "COST", "HD",   "LOW"],
     "COST":      ["WMT",  "TGT",   "HD",   "LOW",  "AMZN"],
-    # Korea
-    "005930.KS": ["000660.KS","034220.KS","009150.KS","051910.KS","035420.KS"],
-    "000660.KS": ["005930.KS","034220.KS","009150.KS","004000.KS","058470.KS"],
-    "035420.KS": ["035720.KS","259960.KS","112040.KS","047050.KS","030200.KS"],
-    "005380.KS": ["000270.KS","012330.KS","006400.KS","010950.KS","004020.KS"],
-    "000270.KS": ["005380.KS","012330.KS","010950.KS","004020.KS","011210.KS"],
-    "068270.KS": ["091990.KS","207940.KS","051200.KS","086900.KS","145020.KS"],
-    "051910.KS": ["009150.KS","011170.KS","004170.KS","010060.KS","006120.KS"],
-    # Japan
+    "HD":        ["LOW",  "WMT",   "COST", "TGT",  "AMZN"],
+    "TGT":       ["WMT",  "COST",  "HD",   "LOW",  "AMZN"],
+    "MCD":       ["SBUX", "CMG",   "YUM",  "QSR",  "DPZ"],
+    "SBUX":      ["MCD",  "CMG",   "YUM",  "QSR",  "DNKN"],
+    "CMG":       ["MCD",  "SBUX",  "YUM",  "QSR",  "DPZ"],
+    "NKE":       ["ADDYY","UAA",   "SKX",  "LULU", "VFC"],
+    "LULU":      ["NKE",  "UAA",   "PVH",  "RL",   "VFC"],
+    "KO":        ["PEP",  "KDP",   "MNST", "CELH", "PG"],
+    "PEP":       ["KO",   "KDP",   "MNST", "CELH", "PG"],
+    "BKNG":      ["EXPE", "ABNB",  "TRIP", "UBER", "LYFT"],
+    "ABNB":      ["BKNG", "EXPE",  "TRIP", "VRBO", "HLT"],
+    # ── US Energy ──
+    "XOM":       ["CVX",  "COP",   "BP",   "SHEL", "TTE"],
+    "CVX":       ["XOM",  "COP",   "BP",   "SHEL", "TTE"],
+    "COP":       ["XOM",  "CVX",   "OXY",  "DVN",  "EOG"],
+    "OXY":       ["COP",  "DVN",   "EOG",  "XOM",  "CVX"],
+    "ENPH":      ["FSLR", "SEDG",  "RUN",  "SPWR", "ARRY"],
+    "FSLR":      ["ENPH", "SEDG",  "RUN",  "CSIQ", "JKS"],
+    "PLUG":      ["BLDP",  "FCEL",  "BE",   "HTOO", "HYLN"],
+    # ── US Industrial / Defense ──
+    "BA":        ["RTX",  "LMT",   "NOC",  "GD",   "HII"],
+    "RTX":       ["BA",   "LMT",   "NOC",  "GD",   "HII"],
+    "LMT":       ["RTX",  "BA",    "NOC",  "GD",   "HII"],
+    "GE":        ["HON",  "RTX",   "MMM",  "EMR",  "ROK"],
+    "CAT":       ["DE",   "CNH",   "HON",  "EMR",  "ROK"],
+    "DE":        ["CAT",  "CNH",   "HON",  "EMR",  "AGCO"],
+    "HON":       ["MMM",  "GE",    "EMR",  "ROK",  "CAT"],
+    "UPS":       ["FDX",  "XPO",   "SAIA", "ODFL", "CHRW"],
+    "FDX":       ["UPS",  "XPO",   "SAIA", "ODFL", "CHRW"],
+    # ── US EV / Auto ──
+    "GM":        ["F",    "TSLA",  "RIVN", "LCID", "STLA"],
+    "F":         ["GM",   "TSLA",  "RIVN", "LCID", "STLA"],
+    "RIVN":      ["LCID", "NIO",   "TSLA", "GM",   "F"],
+    "LCID":      ["RIVN", "NIO",   "TSLA", "GM",   "F"],
+    "NIO":       ["XPEV", "LI",    "TSLA", "RIVN", "LCID"],
+    "XPEV":      ["NIO",  "LI",    "TSLA", "RIVN", "GM"],
+    "LI":        ["NIO",  "XPEV",  "TSLA", "RIVN", "BYD"],
+    # ── US Media ──
+    "DIS":       ["NFLX", "PARA",  "WBD",  "CMCSA","SPOT"],
+    "PARA":      ["DIS",  "WBD",   "NFLX", "AMZN", "CMCSA"],
+    "WBD":       ["PARA", "DIS",   "NFLX", "AMZN", "CMCSA"],
+    "EA":        ["TTWO", "ATVI",  "MSFT", "RBLX", "NCOFT"],
+    "TTWO":      ["EA",   "ATVI",  "MSFT", "RBLX", "NTES"],
+    # ── Chinese ADR ──
+    "BABA":      ["JD",   "PDD",   "SE",   "BIDU", "TCEHY"],
+    "BIDU":      ["BABA", "JD",    "PDD",  "NTES", "TCEHY"],
+    "JD":        ["BABA", "PDD",   "SE",   "BIDU", "NTES"],
+    "PDD":       ["BABA", "JD",    "SE",   "BIDU", "NTES"],
+
+    # ── Korea KOSPI — Samsung Group ──
+    "005930.KS": ["000660.KS","009150.KS","034220.KS","051910.KS","035420.KS"],
+    "005935.KS": ["005930.KS","000660.KS","009150.KS","034220.KS","051910.KS"],
+    "006400.KS": ["051910.KS","373220.KS","003670.KS","247540.KQ","086520.KQ"],
+    "009150.KS": ["005930.KS","011070.KS","034220.KS","000660.KS","006400.KS"],
+    "018260.KS": ["035420.KS","035720.KS","030200.KS","032640.KS","036570.KS"],
+    "207940.KS": ["068270.KS","091990.KS","196170.KQ","145020.KQ","086900.KQ"],
+    "016360.KS": ["105560.KS","055550.KS","086790.KS","071050.KS","039490.KS"],
+    "032830.KS": ["000810.KS","088350.KS","082640.KS","138040.KS","105560.KS"],
+    "000810.KS": ["032830.KS","088350.KS","082640.KS","138040.KS","105560.KS"],
+    "010140.KS": ["329180.KS","047810.KS","012450.KS","064350.KS","010620.KS"],
+    "028260.KS": ["139480.KS","004170.KS","069960.KS","023530.KS","282330.KS"],
+    "028050.KS": ["000720.KS","034730.KS","096770.KS","009830.KS","078930.KS"],
+    "029780.KS": ["105560.KS","055550.KS","071050.KS","016360.KS","039490.KS"],
+    # ── Korea KOSPI — Hyundai Group ──
+    "005380.KS": ["000270.KS","012330.KS","086280.KS","011210.KS","204320.KS"],
+    "000270.KS": ["005380.KS","012330.KS","086280.KS","204320.KS","018880.KS"],
+    "012330.KS": ["005380.KS","000270.KS","204320.KS","011210.KS","018880.KS"],
+    "086280.KS": ["000120.KS","051500.KS","097500.KS","069260.KS","002150.KS"],
+    "000720.KS": ["028050.KS","009830.KS","047050.KS","096760.KS","000140.KS"],
+    "004020.KS": ["005490.KS","001230.KS","010130.KS","020000.KS","064960.KS"],
+    "329180.KS": ["010140.KS","023160.KS","009540.KS","047810.KS","064350.KS"],
+    "267250.KS": ["034730.KS","003550.KS","001040.KS","000880.KS","078930.KS"],
+    "011210.KS": ["204320.KS","018880.KS","012330.KS","000270.KS","005380.KS"],
+    "064350.KS": ["047810.KS","012450.KS","079550.KS","272210.KS","329180.KS"],
+    "307950.KS": ["018260.KS","035420.KS","035720.KS","030200.KS","036570.KS"],
+    "204320.KS": ["012330.KS","018880.KS","011210.KS","000270.KS","005380.KS"],
+    # ── Korea KOSPI — LG Group ──
+    "003550.KS": ["034730.KS","001040.KS","000880.KS","267250.KS","078930.KS"],
+    "066570.KS": ["005930.KS","009150.KS","006400.KS","034220.KS","011070.KS"],
+    "051910.KS": ["006400.KS","373220.KS","003670.KS","247540.KQ","086520.KQ"],
+    "373220.KS": ["006400.KS","051910.KS","003670.KS","247540.KQ","086520.KQ"],
+    "034220.KS": ["005930.KS","066570.KS","009150.KS","011070.KS","000660.KS"],
+    "011070.KS": ["009150.KS","034220.KS","066570.KS","005930.KS","006400.KS"],
+    "032640.KS": ["017670.KS","030200.KS","035420.KS","035720.KS","323410.KS"],
+    "051900.KS": ["007310.KS","004370.KS","280360.KS","005300.KS","033780.KS"],
+    # ── Korea KOSPI — SK Group ──
+    "034730.KS": ["003550.KS","001040.KS","000880.KS","267250.KS","078930.KS"],
+    "000660.KS": ["005930.KS","009150.KS","034220.KS","051910.KS","000990.KS"],
+    "096770.KS": ["078930.KS","010950.KS","009830.KS","285130.KS","011070.KS"],
+    "017670.KS": ["030200.KS","032640.KS","035420.KS","035720.KS","323410.KS"],
+    "285130.KS": ["051910.KS","009830.KS","004000.KS","096770.KS","003670.KS"],
+    "302440.KS": ["068270.KS","207940.KS","091990.KS","196170.KQ","145020.KQ"],
+    "326030.KS": ["068270.KS","207940.KS","128940.KS","069620.KS","086900.KQ"],
+    "402340.KS": ["034730.KS","018260.KS","035420.KS","035720.KS","030200.KS"],
+    # ── Korea KOSPI — Financials ──
+    "105560.KS": ["055550.KS","086790.KS","316140.KS","138040.KS","016360.KS"],
+    "055550.KS": ["105560.KS","086790.KS","316140.KS","138040.KS","016360.KS"],
+    "086790.KS": ["105560.KS","055550.KS","316140.KS","138040.KS","016360.KS"],
+    "316140.KS": ["105560.KS","055550.KS","086790.KS","138040.KS","016360.KS"],
+    "138040.KS": ["105560.KS","055550.KS","086790.KS","316140.KS","016360.KS"],
+    "039490.KS": ["016360.KS","006800.KS","005940.KS","071050.KS","003540.KS"],
+    "006800.KS": ["039490.KS","005940.KS","016360.KS","071050.KS","003540.KS"],
+    "005940.KS": ["006800.KS","039490.KS","016360.KS","071050.KS","003540.KS"],
+    "071050.KS": ["105560.KS","055550.KS","086790.KS","138040.KS","316140.KS"],
+    # ── Korea KOSPI — Telecom & Internet ──
+    "035420.KS": ["035720.KS","323410.KS","017670.KS","030200.KS","036570.KS"],
+    "035720.KS": ["035420.KS","323410.KS","030200.KS","017670.KS","259960.KS"],
+    "323410.KS": ["035420.KS","035720.KS","017670.KS","030200.KS","032640.KS"],
+    "030200.KS": ["017670.KS","032640.KS","035420.KS","035720.KS","018260.KS"],
+    # ── Korea KOSPI — Healthcare / Pharma ──
+    "068270.KS": ["207940.KS","091990.KS","196170.KQ","145020.KQ","086900.KQ"],
+    "000100.KS": ["006280.KS","001630.KS","128940.KS","069620.KS","003850.KS"],
+    "006280.KS": ["000100.KS","001630.KS","128940.KS","069620.KS","185750.KS"],
+    "001630.KS": ["000100.KS","006280.KS","128940.KS","069620.KS","003850.KS"],
+    "128940.KS": ["000100.KS","006280.KS","001630.KS","069620.KS","086900.KQ"],
+    "069620.KS": ["000100.KS","006280.KS","128940.KS","003850.KS","185750.KS"],
+    # ── Korea KOSPI — Energy / Steel ──
+    "005490.KS": ["004020.KS","001230.KS","003670.KS","010130.KS","020000.KS"],
+    "003670.KS": ["006400.KS","051910.KS","373220.KS","247540.KQ","086520.KQ"],
+    "015760.KS": ["036460.KS","010950.KS","078930.KS","096770.KS","052690.KS"],
+    "036460.KS": ["015760.KS","010950.KS","078930.KS","052690.KS","096770.KS"],
+    "010950.KS": ["096770.KS","078930.KS","036460.KS","015760.KS","285130.KS"],
+    # ── Korea KOSPI — Consumer / Retail ──
+    "139480.KS": ["004170.KS","069960.KS","023530.KS","282330.KS","007070.KS"],
+    "004170.KS": ["139480.KS","069960.KS","023530.KS","007310.KS","051900.KS"],
+    "069960.KS": ["139480.KS","004170.KS","023530.KS","282330.KS","007070.KS"],
+    "033780.KS": ["007310.KS","004370.KS","280360.KS","005300.KS","051900.KS"],
+    "007310.KS": ["004370.KS","005300.KS","033780.KS","280360.KS","051900.KS"],
+    # ── Korea KOSPI — Entertainment ──
+    "352820.KS": ["041510.KQ","950170.KQ","122870.KQ","036570.KS","251270.KS"],
+    "036570.KS": ["259960.KS","251270.KS","293490.KS","112040.KQ","263750.KQ"],
+    "259960.KS": ["036570.KS","251270.KS","293490.KS","112040.KQ","263750.KQ"],
+    "251270.KS": ["036570.KS","259960.KS","293490.KS","112040.KQ","263750.KQ"],
+    "293490.KS": ["036570.KS","251270.KS","259960.KS","112040.KQ","263750.KQ"],
+    # ── Korea KOSDAQ ──
+    "247540.KQ": ["086520.KQ","006400.KS","051910.KS","373220.KS","003670.KS"],
+    "086520.KQ": ["247540.KQ","006400.KS","051910.KS","373220.KS","003670.KS"],
+    "091990.KQ": ["068270.KS","207940.KS","196170.KQ","145020.KQ","086900.KQ"],
+    "028300.KQ": ["068270.KS","207940.KS","091990.KQ","128940.KS","196170.KQ"],
+    "086900.KQ": ["145020.KQ","214150.KQ","068270.KS","207940.KS","091990.KQ"],
+    "145020.KQ": ["086900.KQ","214150.KQ","068270.KS","207940.KS","091990.KQ"],
+    "214150.KQ": ["086900.KQ","145020.KQ","048260.KQ","068270.KS","091990.KQ"],
+    "048260.KQ": ["214150.KQ","086900.KQ","145020.KQ","068270.KS","096530.KQ"],
+    "096530.KQ": ["048260.KQ","064550.KQ","028300.KQ","091990.KQ","145020.KQ"],
+    "196170.KQ": ["068270.KS","207940.KS","091990.KQ","145020.KQ","086900.KQ"],
+    "041510.KQ": ["950170.KQ","122870.KQ","352820.KS","035760.KS","036570.KS"],
+    "950170.KQ": ["041510.KQ","122870.KQ","352820.KS","035760.KS","036570.KS"],
+    "122870.KQ": ["041510.KQ","950170.KQ","352820.KS","035760.KS","036570.KS"],
+    "263750.KQ": ["036570.KS","251270.KS","259960.KS","293490.KS","112040.KQ"],
+    "112040.KQ": ["036570.KS","251270.KS","259960.KS","293490.KS","263750.KQ"],
+    "078340.KQ": ["095660.KQ","192080.KQ","036570.KS","259960.KS","112040.KQ"],
+    "095660.KQ": ["078340.KQ","192080.KQ","036570.KS","259960.KS","263750.KQ"],
+    # ── Japan TSE ──
     "7203.T":    ["7267.T","7201.T","7261.T","7270.T","7269.T"],
+    "7267.T":    ["7203.T","7201.T","7261.T","7270.T","7269.T"],
+    "7201.T":    ["7203.T","7267.T","7261.T","7270.T","3038.T"],
     "6758.T":    ["6501.T","6752.T","6971.T","6702.T","7974.T"],
+    "6501.T":    ["6758.T","6752.T","6971.T","6702.T","6954.T"],
     "9984.T":    ["6702.T","6501.T","8306.T","6981.T","6367.T"],
     "8306.T":    ["8316.T","8411.T","8604.T","8591.T","8766.T"],
+    "8316.T":    ["8306.T","8411.T","8604.T","8591.T","8766.T"],
+    "8411.T":    ["8306.T","8316.T","8604.T","8591.T","8766.T"],
     "7974.T":    ["6758.T","9684.T","3765.T","7832.T","2432.T"],
+    "9983.T":    ["2651.T","3382.T","8267.T","9843.T","3086.T"],
+    "6861.T":    ["6954.T","6981.T","6367.T","7751.T","6762.T"],
+    "6954.T":    ["6861.T","6981.T","6367.T","7751.T","6762.T"],
+    "4568.T":    ["4523.T","4519.T","4540.T","4506.T","4507.T"],
+}
+
+# ── Sector-based fallback benchmarks for unlisted stocks ─────────────────────
+# When a ticker is NOT in PEER_MAP, we fetch its sector from yfinance
+# and compare against these sector representative stocks.
+SECTOR_BENCHMARKS: dict[str, list[str]] = {
+    "Technology":             ["NVDA", "AMD", "INTC", "QCOM", "AVGO"],
+    "Financial Services":     ["JPM",  "BAC", "GS",   "MS",   "WFC"],
+    "Healthcare":             ["JNJ",  "PFE", "LLY",  "ABBV", "MRK"],
+    "Consumer Cyclical":      ["AMZN", "WMT", "COST", "HD",   "NKE"],
+    "Consumer Defensive":     ["WMT",  "KO",  "PEP",  "PG",   "COST"],
+    "Energy":                 ["XOM",  "CVX", "COP",  "OXY",  "SLB"],
+    "Industrials":            ["CAT",  "HON", "GE",   "MMM",  "DE"],
+    "Communication Services": ["META", "GOOGL","DIS",  "NFLX", "CMCSA"],
+    "Basic Materials":        ["LIN",  "APD", "NEM",  "FCX",  "NUE"],
+    "Real Estate":            ["AMT",  "PLD", "CCI",  "EQIX", "SPG"],
+    "Utilities":              ["NEE",  "DUK", "SO",   "AEP",  "D"],
+}
+
+# Korean sector fallback benchmarks
+KR_SECTOR_BENCHMARKS: dict[str, list[str]] = {
+    "Semiconductors":   ["005930.KS","000660.KS","009150.KS","034220.KS","000990.KS"],
+    "Battery":          ["006400.KS","051910.KS","373220.KS","003670.KS","247540.KQ"],
+    "Biotechnology":    ["068270.KS","207940.KS","091990.KQ","196170.KQ","145020.KQ"],
+    "Automobiles":      ["005380.KS","000270.KS","012330.KS","204320.KS","018880.KS"],
+    "Banks":            ["105560.KS","055550.KS","086790.KS","316140.KS","138040.KS"],
+    "Internet":         ["035420.KS","035720.KS","323410.KS","017670.KS","030200.KS"],
+    "Steel":            ["005490.KS","004020.KS","001230.KS","010130.KS","020000.KS"],
+    "Pharmaceuticals":  ["000100.KS","006280.KS","001630.KS","128940.KS","069620.KS"],
+    "Games":            ["036570.KS","259960.KS","251270.KS","293490.KS","263750.KQ"],
+    "Entertainment":    ["352820.KS","041510.KQ","950170.KQ","122870.KQ","035760.KS"],
+    "_default":         ["005930.KS","000660.KS","035420.KS","005380.KS","051910.KS"],
+}
+
+# Japan sector fallback benchmarks
+JP_SECTOR_BENCHMARKS: dict[str, list[str]] = {
+    "Automobiles":      ["7203.T","7267.T","7201.T","7261.T","7270.T"],
+    "Electronics":      ["6758.T","6501.T","6752.T","6971.T","6702.T"],
+    "Banks":            ["8306.T","8316.T","8411.T","8604.T","8591.T"],
+    "Pharmaceuticals":  ["4568.T","4523.T","4519.T","4506.T","4507.T"],
+    "Technology":       ["6861.T","6954.T","6981.T","9984.T","9983.T"],
+    "_default":         ["7203.T","6758.T","8306.T","9984.T","6861.T"],
 }
 
 _peers_cache: dict = {}
@@ -2039,6 +2295,71 @@ def _fetch_single_peer(sym: str) -> dict:
     except Exception as e:
         return {"symbol": sym, "name": sym, "price": None, "error": str(e)}
 
+def _get_sector_peers(sym: str) -> list[str]:
+    """Sector-based fallback: fetch stock info to get sector, then return sector benchmarks."""
+    import time as _t
+    is_kr = sym.endswith(".KS") or sym.endswith(".KQ")
+    is_jp = sym.endswith(".T")
+    try:
+        info = yf.Ticker(sym).info
+        sector = info.get("sector") or info.get("industry") or ""
+        industry = info.get("industry") or ""
+        print(f"[peers-fallback] {sym}: sector={sector}, industry={industry}")
+
+        if is_kr:
+            # Map yfinance sector/industry to Korean benchmark group
+            kr_map = {
+                "Semiconductor": "Semiconductors",
+                "Electronic Components": "Semiconductors",
+                "Auto Parts": "Automobiles",
+                "Auto Manufacturers": "Automobiles",
+                "Drug Manufacturers": "Pharmaceuticals",
+                "Biotechnology": "Biotechnology",
+                "Banks": "Banks",
+                "Insurance": "Banks",
+                "Internet Content": "Internet",
+                "Entertainment": "Entertainment",
+                "Electronic Gaming": "Games",
+                "Steel": "Steel",
+                "Chemicals": "Battery",
+            }
+            matched = None
+            for kw, group in kr_map.items():
+                if kw.lower() in sector.lower() or kw.lower() in industry.lower():
+                    matched = group
+                    break
+            benchmarks = KR_SECTOR_BENCHMARKS.get(matched or "_default", KR_SECTOR_BENCHMARKS["_default"])
+            return [s for s in benchmarks if s != sym][:4]
+
+        elif is_jp:
+            jp_map = {
+                "Auto": "Automobiles",
+                "Electronic": "Electronics",
+                "Bank": "Banks",
+                "Pharmaceutical": "Pharmaceuticals",
+                "Technology": "Technology",
+            }
+            matched = None
+            for kw, group in jp_map.items():
+                if kw.lower() in sector.lower() or kw.lower() in industry.lower():
+                    matched = group
+                    break
+            benchmarks = JP_SECTOR_BENCHMARKS.get(matched or "_default", JP_SECTOR_BENCHMARKS["_default"])
+            return [s for s in benchmarks if s != sym][:4]
+
+        else:
+            # US stock: map yfinance sector directly
+            benchmarks = SECTOR_BENCHMARKS.get(sector, SECTOR_BENCHMARKS.get("Technology", []))
+            return [s for s in benchmarks if s != sym][:4]
+    except Exception as e:
+        print(f"[peers-fallback] {sym}: sector fetch failed: {e}")
+        if is_kr:
+            return [s for s in KR_SECTOR_BENCHMARKS["_default"] if s != sym][:4]
+        if is_jp:
+            return [s for s in JP_SECTOR_BENCHMARKS["_default"] if s != sym][:4]
+        return ["NVDA", "AMD", "INTC", "QCOM"]  # US tech default
+
+
 @app.route('/peers/<symbol>', methods=['GET'])
 def get_peers(symbol):
     import time as _t
@@ -2049,15 +2370,29 @@ def get_peers(symbol):
         return jsonify(_peers_cache[sym_upper])
 
     peer_list = PEER_MAP.get(sym_upper, [])
+
+    # ── Sector fallback: if no explicit peer list, derive from sector ──────────
+    if not peer_list:
+        print(f"[peers] {sym_upper}: not in PEER_MAP — using sector fallback")
+        peer_list = _get_sector_peers(sym_upper)
+
     all_syms = [sym_upper] + peer_list[:4]  # main + up to 4 peers
 
     with ThreadPoolExecutor(max_workers=5) as ex:
         results = list(ex.map(_fetch_single_peer, all_syms))
 
-    payload = {"symbol": sym_upper, "peers": results, "count": len(results)}
+    # Attach fallback source flag so frontend can show it
+    is_fallback = sym_upper not in PEER_MAP
+    payload = {
+        "symbol": sym_upper,
+        "peers": results,
+        "count": len(results),
+        "isSectorFallback": is_fallback,
+    }
     _peers_cache[sym_upper] = payload
     _peers_cache_ts[sym_upper] = now
-    print(f"[peers] {sym_upper}: fetched {len(results)} peers")
+    src = "sector-fallback" if is_fallback else "peer-map"
+    print(f"[peers] {sym_upper}: fetched {len(results)} peers ({src})")
     return jsonify(payload)
 
 

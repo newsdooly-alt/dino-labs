@@ -90,6 +90,11 @@ function IssueCard({ issue, idx, lang }: { issue: HotIssueItem; idx: number; lan
             HOT
           </span>
         )}
+        {issue.publishedAt && (Date.now() / 1000 - issue.publishedAt) < 1800 && (
+          <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+            NEW
+          </span>
+        )}
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-foreground/80">
           {SYMBOL_FLAGS[issue.symbol] || "🌐"}{" "}
           {SYMBOL_NAMES[issue.symbol] || issue.symbol}
@@ -140,8 +145,9 @@ export default function HotIssues() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    staleTime: 1000 * 60 * 15,
-    refetchInterval: 1000 * 60 * 20,
+    staleTime: 1000 * 60 * 5,
+    refetchInterval: 1000 * 60 * 10,
+    refetchOnMount: true,
     retry: 1,
   });
 
