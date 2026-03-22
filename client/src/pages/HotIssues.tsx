@@ -4,7 +4,7 @@ import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Flame, RefreshCw, Clock, Filter, ChevronRight, ChevronDown } from "lucide-react";
+import { Zap, Flame, RefreshCw, Clock, Filter, ChevronRight, ChevronDown, Globe2 } from "lucide-react";
 import { NewsDetailModal, NewsItem } from "@/components/NewsDetailModal";
 
 interface HotIssueItem extends NewsItem {
@@ -35,6 +35,8 @@ const SYMBOL_FLAGS: Record<string, string> = {
   "051910.KS": "🇰🇷", "005380.KS": "🇰🇷",
   // JP
   "7203.T": "🇯🇵", "6758.T": "🇯🇵", "9984.T": "🇯🇵", "7751.T": "🇯🇵", "4502.T": "🇯🇵",
+  // Macro assets
+  "CL=F": "🛢️", "GC=F": "🥇", "^TNX": "🏛️", "SPY": "📊", "TLT": "📉",
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
@@ -58,6 +60,9 @@ const SYMBOL_NAMES: Record<string, string> = {
   // JP
   "7203.T": "도요타", "6758.T": "소니", "9984.T": "소프트뱅크",
   "7751.T": "캐논", "4502.T": "다케다제약",
+  // Macro assets
+  "CL=F": "WTI 원유", "GC=F": "금 (Gold)", "^TNX": "미국채 10년",
+  "SPY": "S&P 500 ETF", "TLT": "미국장기채 ETF",
 };
 
 const INITIAL_COUNT = 10;
@@ -100,14 +105,22 @@ function IssueCard({
       onClick={onClick}
       className={cn(
         "group block rounded-2xl border p-5 transition-all duration-200 hover:shadow-lg active:scale-[0.99] cursor-pointer",
-        issue.isHot
-          ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10 hover:shadow-primary/10"
-          : "border-border bg-card hover:border-border/80 hover:bg-muted/30"
+        issue.isMarketImpact
+          ? "border-orange-400/40 bg-orange-500/5 hover:border-orange-400/70 hover:bg-orange-500/10 hover:shadow-orange-500/10"
+          : issue.isHot
+            ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10 hover:shadow-primary/10"
+            : "border-border bg-card hover:border-border/80 hover:bg-muted/30"
       )}
       data-testid={`card-issue-${idx}`}
     >
       <div className="flex items-center gap-2 mb-2.5 flex-wrap">
-        {issue.isHot && (
+        {issue.isMarketImpact && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white">
+            <Globe2 className="w-2.5 h-2.5" />
+            {isKo ? "시장 영향" : isJa ? "市場影響" : "Market Impact"}
+          </span>
+        )}
+        {issue.isHot && !issue.isMarketImpact && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
             <Flame className="w-2.5 h-2.5" />
             HOT

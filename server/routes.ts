@@ -1611,6 +1611,38 @@ export async function registerRoutes(
     "upgrade", "downgrade", "target", "guidance", "dividend", "buyback",
   ];
 
+  // Macro/Geopolitical keywords — any match → Market Impact tag
+  const MACRO_KEYWORDS = [
+    "federal reserve", "fed ", "fomc", "rate hike", "rate cut", "interest rate",
+    "inflation", " cpi", " pce", "deflation", "stagflation", "consumer price",
+    "war", "conflict", "sanction", "military", "nato", "ceasefire", "escalat",
+    "oil price", "crude oil", "opec", "energy crisis", "energy war",
+    "tariff", "trade war", "trade policy", "trade deal",
+    "recession", " gdp", "unemployment", "jobs report", "nonfarm payroll",
+    "treasury yield", "10-year", "bond yield", "debt ceiling",
+    "dollar index", "currency crisis", "geopolit",
+    // Commodity macro signals
+    "gold price", "gold rises", "gold falls", "gold rally", "safe haven",
+    "precious metal", "crude price", "oil rally", "oil falls", "oil surge",
+    "trump", "tariff", "powell", "yellen",
+  ];
+
+  // Macro news sources — fetch alongside corporate symbols
+  const HOT_MACRO_SYMBOLS = [
+    "CL=F",  // WTI Crude Oil — geopolitical / energy
+    "GC=F",  // Gold — safe haven / inflation
+    "^TNX",  // 10-Year Treasury — Fed / rates
+    "SPY",   // S&P 500 — broad market macro
+  ];
+
+  // Macro symbol display + sector routing
+  const MACRO_SYMBOL_MAP: Record<string, { sector: string; relatedSymbols: string[] }> = {
+    "CL=F": { sector: "macro_energy",    relatedSymbols: ["XOM", "CVX", "CL=F"] },
+    "GC=F": { sector: "macro_commodity", relatedSymbols: ["GC=F", "SPY"] },
+    "^TNX": { sector: "macro_rates",     relatedSymbols: ["JPM", "TLT", "^TNX"] },
+    "SPY":  { sector: "macro_index",     relatedSymbols: ["SPY", "QQQ"] },
+  };
+
   // Diversified symbol list covering multiple sectors — 3 items max per sector
   const HOT_SYMBOLS = [
     // US Tech
@@ -1668,15 +1700,18 @@ export async function registerRoutes(
         return res.json(hotIssuesCache);
       }
 
-      // Fetch news for all symbols in parallel (limit 3 per symbol to reduce clustering)
-      const newsPromises = HOT_SYMBOLS.map(async (sym) => {
+      // Fetch news for all symbols + macro sources in parallel
+      const allSymbols = [...HOT_SYMBOLS, ...HOT_MACRO_SYMBOLS];
+      const newsPromises = allSymbols.map(async (sym) => {
         try {
-          const r = await fetch(`http://127.0.0.1:5001/news/${sym}?limit=3`, {
+          const encodedSym = encodeURIComponent(sym);
+          const r = await fetch(`http://127.0.0.1:5001/news/${encodedSym}?limit=3`, {
             signal: AbortSignal.timeout(8000),
           });
           if (!r.ok) return [];
           const d = await r.json();
-          return (d.news || []).map((n: any) => ({ ...n, symbol: sym }));
+          const isMacroSource = HOT_MACRO_SYMBOLS.includes(sym);
+          return (d.news || []).map((n: any) => ({ ...n, symbol: sym, _isMacroSource: isMacroSource }));
         } catch { return []; }
       });
 
@@ -1695,29 +1730,54 @@ export async function registerRoutes(
           return true;
         });
 
-      // Score each item: keyword matches + recency bonus
+      // Score each item: keyword matches + recency bonus + macro boost
       const scored = recentNews.map((item) => {
-        const text = (item.title || "").toLowerCase();
+        const text = " " + (item.title || "").toLowerCase() + " ";
         const matchCount = HOT_KEYWORDS.filter((kw) => text.includes(kw)).length;
+        const macroMatchCount = MACRO_KEYWORDS.filter((kw) => text.includes(kw)).length;
         const ageHours = (now / 1000 - (item.publishedAt || 0)) / 3600;
         const recencyBonus = ageHours < 3 ? 2 : ageHours < 12 ? 1 : 0;
-        const score = matchCount + recencyBonus;
-        // Hot = large-cap AND meaningful keyword match (prevents penny stock HOT badges)
+        // Market impact: macro source WITH keyword match, OR 2+ macro keywords in any article
+        const isMarketImpact = (item._isMacroSource && macroMatchCount >= 1) || macroMatchCount >= 2;
+        const macroBoost = isMarketImpact ? 6 : 0;
+        const score = matchCount + recencyBonus + macroBoost;
+        // HOT = large-cap corporate news with keyword match (not macro items)
         const isMajorCap = MAJOR_CAP_SYMBOLS.has(item.symbol);
-        const isHot = isMajorCap && matchCount >= 2;
-        return { ...item, matchCount, score, isHot };
+        const isHot = isMajorCap && matchCount >= 2 && !isMarketImpact;
+        return { ...item, matchCount, macroMatchCount, score, isHot, isMarketImpact };
       });
 
-      // Sort by composite score descending
-      scored.sort((a, b) => b.score - a.score || b.publishedAt - a.publishedAt);
+      // Sort: market impact first, then by composite score
+      scored.sort((a, b) => {
+        if (a.isMarketImpact && !b.isMarketImpact) return -1;
+        if (!a.isMarketImpact && b.isMarketImpact) return 1;
+        return b.score - a.score || b.publishedAt - a.publishedAt;
+      });
 
-      // Apply diversity filters: max 2 per company, max 3 per sector → take top 12
+      // Apply diversity filters:
+      // — Macro: max 1 per macro sector type, max 3 macro total → fill top positions
+      // — Corporate: max 2 per company, max 3 per sector → up to 12 corporate items
+      const macroSectorCount: Record<string, number> = {};
       const companyCount: Record<string, number> = {};
       const sectorCount: Record<string, number> = {};
       const diverse: typeof scored = [];
 
+      // Pass 1: macro/market-impact items (max 3 total, 1 per macro sector)
       for (const item of scored) {
-        if (diverse.length >= 12) break;
+        if (!item.isMarketImpact) continue;
+        const macroSector = MACRO_SYMBOL_MAP[item.symbol]?.sector || "macro_other";
+        const used = macroSectorCount[macroSector] || 0;
+        if (used >= 1) continue;
+        const totalMacro = Object.values(macroSectorCount).reduce((a, b) => a + b, 0);
+        if (totalMacro >= 3) break;
+        macroSectorCount[macroSector] = used + 1;
+        diverse.push(item);
+      }
+
+      // Pass 2: corporate news (max 12 total, max 2 per company, max 3 per sector)
+      for (const item of scored) {
+        if (diverse.length >= 15) break;
+        if (item.isMarketImpact) continue;
         const sym = item.symbol as string;
         const sector = SYMBOL_SECTOR[sym] || "other";
         const companyUsed = companyCount[sym] || 0;
@@ -1738,28 +1798,33 @@ export async function registerRoutes(
         return res.json(empty);
       }
 
-      // Use GPT to generate Korean title + summary + accurate ticker for each
+      // GPT prompts — corporate vs. macro/market-impact
       const knownTickers = Array.from(MAJOR_CAP_SYMBOLS).join(", ");
-      const systemPrompt = `You are a Korean financial news editor. For each stock news headline and its source ticker, generate:
-1. A concise Korean title (max 22 characters, e.g. "엔비디아 신형 칩 공개", "JP모건 실적 서프라이즈")
-2. A 1-2 sentence Korean summary explaining why it matters to investors
-3. The single most relevant ticker symbol from this list that the news is ACTUALLY about: ${knownTickers}
-   - Use the SOURCE ticker if it is accurate
-   - Only change it if the news is clearly about a different company
 
-Respond ONLY with this JSON:
-{"title": "한국어 제목", "summary": "한국어 1-2문장 요약", "ticker": "TICKER_SYMBOL"}
+      const corpPrompt = `You are a Korean financial news editor. For each stock news headline, generate a JSON object with:
+1. "title": A concise Korean title (max 22 characters, e.g. "엔비디아 신형 칩 공개", "JP모건 실적 서프라이즈")
+2. "summary": A 1-2 sentence Korean summary explaining why it matters to investors
+3. "ticker": The single most relevant ticker from this list: ${knownTickers}
+   - Keep the SOURCE ticker unless the news is clearly about a different company
 
-Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, 어닝서프라이즈, 목표가, 배당, 자사주매입.`;
+Return ONLY valid JSON: {"title": "한국어 제목", "summary": "한국어 1-2문장 요약", "ticker": "TICKER"}`;
+
+      const macroPrompt = `You are a Korean macro financial news editor. For this global/geopolitical/macro headline, generate a JSON object with:
+1. "title": A concise Korean title (max 22 characters) identifying the macro event (e.g. "연준 금리 동결 결정", "러시아 긴장 고조", "유가 급등")
+2. "summary": A 1-2 sentence Korean summary explaining how this event impacts stock markets and which sectors/assets are affected
+3. "ticker": Keep the SOURCE ticker as-is (it is a macro asset like CL=F, ^TNX, SPY, GC=F)
+
+Return ONLY valid JSON: {"title": "한국어 제목", "summary": "시장 영향 중심 1-2문장 요약", "ticker": "SOURCE_TICKER"}`;
 
       const processed = await Promise.all(
         topItems.map(async (item) => {
           try {
+            const prompt = item.isMarketImpact ? macroPrompt : corpPrompt;
             const userMsg = `Headline: "${item.title || ""}"\nSource ticker: ${item.symbol}`;
             const aiRes = await openai.chat.completions.create({
               model: "gpt-4o-mini",
               messages: [
-                { role: "system", content: systemPrompt },
+                { role: "system", content: prompt },
                 { role: "user", content: userMsg },
               ],
               max_tokens: 250,
@@ -1768,11 +1833,16 @@ Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, �
             const content = aiRes.choices[0]?.message?.content?.trim() || "{}";
             const parsed = JSON.parse(content);
 
-            // Validate extracted ticker — fall back to source if not in known list
-            const extractedTicker = (parsed.ticker || "").trim().toUpperCase();
-            const validTicker = MAJOR_CAP_SYMBOLS.has(extractedTicker)
-              ? extractedTicker
-              : (item.symbol as string);
+            // For macro: keep source macro ticker; for corporate: validate against known list
+            let validTicker: string;
+            if (item.isMarketImpact) {
+              validTicker = item.symbol as string;
+            } else {
+              const extractedTicker = (parsed.ticker || "").trim().toUpperCase();
+              validTicker = MAJOR_CAP_SYMBOLS.has(extractedTicker)
+                ? extractedTicker
+                : (item.symbol as string);
+            }
 
             return {
               title: parsed.title || item.title,
@@ -1782,9 +1852,11 @@ Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, �
               publishedAt: item.publishedAt,
               thumbnail: item.thumbnail || null,
               isHot: item.isHot,
+              isMarketImpact: item.isMarketImpact || false,
               symbol: validTicker,
             };
-          } catch {
+          } catch (err: any) {
+            console.error("[Hot Issues GPT] Failed for", item.symbol, ":", err?.message || err);
             return {
               title: item.title,
               summary: "",
@@ -1793,6 +1865,7 @@ Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, �
               publishedAt: item.publishedAt,
               thumbnail: item.thumbnail || null,
               isHot: item.isHot,
+              isMarketImpact: item.isMarketImpact || false,
               symbol: item.symbol,
             };
           }
@@ -1802,8 +1875,9 @@ Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, �
       const result = { issues: processed, count: processed.length, fetchedAt: now };
       hotIssuesCache = result;
       hotIssuesCacheTime = now;
+      const macroCount2 = processed.filter((p: any) => p.isMarketImpact).length;
       const sectorBreakdown = Object.entries(sectorCount).map(([s, c]) => `${s}:${c}`).join(", ");
-      console.log(`[Hot Issues] Generated ${processed.length} issues — sectors: ${sectorBreakdown}`);
+      console.log(`[Hot Issues] Generated ${processed.length} issues (${macroCount2} macro) — sectors: ${sectorBreakdown}`);
       res.json(result);
     } catch (error: any) {
       console.error("[Hot Issues] Error:", error.message);
@@ -1814,8 +1888,8 @@ Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, �
   // === In-App News Detail: AI Summary + Trilingual Analysis ===
   app.post("/api/news/detail", async (req, res) => {
     try {
-      const { title, summary, publisher, symbol } = req.body as {
-        title: string; summary?: string; publisher?: string; symbol?: string;
+      const { title, summary, publisher, symbol, isMarketImpact } = req.body as {
+        title: string; summary?: string; publisher?: string; symbol?: string; isMarketImpact?: boolean;
       };
       if (!title) return res.status(400).json({ error: "title required" });
 
@@ -1823,10 +1897,21 @@ Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, �
         `Headline: ${title}`,
         summary ? `Summary: ${summary}` : "",
         publisher ? `Source: ${publisher}` : "",
-        symbol ? `Stock: ${symbol}` : "",
+        symbol ? `Asset: ${symbol}` : "",
       ].filter(Boolean).join("\n");
 
-      const systemPrompt = `You are a trilingual financial news analyst (Korean, English, Japanese).
+      const systemPrompt = isMarketImpact
+        ? `You are a trilingual macro financial analyst (Korean, English, Japanese).
+Given a macro/geopolitical/economic headline, explain how this global event impacts financial markets.
+Produce a JSON with EXACTLY these keys:
+- "bullets_ko": array of 3 Korean bullet points — focus on market impact: which sectors rise/fall, what assets are safe haven, what investors should watch
+- "bullets_en": array of 3 English bullet points — same market-impact focus
+- "bullets_ja": array of 3 Japanese bullet points — same market-impact focus
+- "ko": 2-3 paragraph Korean analysis: (1) what happened, (2) direct market impact by sector (방산/에너지/금융/채권 등), (3) investment strategy for Korean retail investors
+- "en": 2-3 paragraph English analysis: (1) event summary, (2) sector/asset impact (defense/energy/bonds/safe havens), (3) investor takeaway
+- "ja": 2-3 paragraph Japanese analysis with sector impact focus for Japanese retail investors
+Do NOT include markdown. Return only the JSON object.`
+        : `You are a trilingual financial news analyst (Korean, English, Japanese).
 Given a stock/finance news headline and optional summary, produce a JSON object with EXACTLY these keys:
 - "bullets_ko": array of 3 Korean bullet point strings (key facts, concise, no prefix symbols)
 - "bullets_en": array of 3 English bullet point strings (key facts, concise, no prefix symbols)

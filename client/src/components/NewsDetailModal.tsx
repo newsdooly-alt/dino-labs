@@ -12,6 +12,7 @@ export interface NewsItem {
   publishedAt: number;
   symbol: string;
   isHot: boolean;
+  isMarketImpact?: boolean;
 }
 
 interface NewsDetail {
@@ -38,18 +39,33 @@ const LANG_TABS: TabDef[] = [
 ];
 
 const SYMBOL_NAMES: Record<string, { ko: string; en: string; ja: string }> = {
-  "NVDA":      { ko: "엔비디아",    en: "NVIDIA",           ja: "エヌビディア" },
-  "AAPL":      { ko: "애플",       en: "Apple",            ja: "アップル" },
-  "TSLA":      { ko: "테슬라",     en: "Tesla",            ja: "テスラ" },
-  "MSFT":      { ko: "마이크로소프트",en: "Microsoft",       ja: "マイクロソフト" },
-  "AMZN":      { ko: "아마존",     en: "Amazon",           ja: "アマゾン" },
-  "META":      { ko: "메타",       en: "Meta",             ja: "メタ" },
-  "GOOGL":     { ko: "구글",       en: "Google",           ja: "グーグル" },
-  "005930.KS": { ko: "삼성전자",   en: "Samsung Electronics", ja: "サムスン電子" },
-  "000660.KS": { ko: "SK하이닉스", en: "SK Hynix",         ja: "SKハイニックス" },
-  "035420.KS": { ko: "네이버",     en: "NAVER",            ja: "ネイバー" },
-  "7203.T":    { ko: "도요타",     en: "Toyota",           ja: "トヨタ" },
-  "6758.T":    { ko: "소니",       en: "Sony",             ja: "ソニー" },
+  "NVDA":      { ko: "엔비디아",        en: "NVIDIA",              ja: "エヌビディア" },
+  "AAPL":      { ko: "애플",           en: "Apple",               ja: "アップル" },
+  "TSLA":      { ko: "테슬라",         en: "Tesla",               ja: "テスラ" },
+  "MSFT":      { ko: "마이크로소프트",   en: "Microsoft",           ja: "マイクロソフト" },
+  "AMZN":      { ko: "아마존",         en: "Amazon",              ja: "アマゾン" },
+  "META":      { ko: "메타",           en: "Meta",                ja: "メタ" },
+  "GOOGL":     { ko: "구글",           en: "Google",              ja: "グーグル" },
+  "JPM":       { ko: "JP모건",         en: "JPMorgan",            ja: "JPモルガン" },
+  "GS":        { ko: "골드만삭스",      en: "Goldman Sachs",       ja: "ゴールドマン・サックス" },
+  "V":         { ko: "비자",           en: "Visa",                ja: "ビザ" },
+  "XOM":       { ko: "엑슨모빌",       en: "ExxonMobil",          ja: "エクソンモービル" },
+  "CVX":       { ko: "쉐브론",         en: "Chevron",             ja: "シェブロン" },
+  "JNJ":       { ko: "존슨앤존슨",      en: "Johnson & Johnson",   ja: "ジョンソン・エンド・ジョンソン" },
+  "UNH":       { ko: "유나이티드헬스",   en: "UnitedHealth",        ja: "ユナイテッドヘルス" },
+  "WMT":       { ko: "월마트",         en: "Walmart",             ja: "ウォルマート" },
+  "BA":        { ko: "보잉",           en: "Boeing",              ja: "ボーイング" },
+  "005930.KS": { ko: "삼성전자",        en: "Samsung Electronics", ja: "サムスン電子" },
+  "000660.KS": { ko: "SK하이닉스",     en: "SK Hynix",            ja: "SKハイニックス" },
+  "035420.KS": { ko: "네이버",         en: "NAVER",               ja: "ネイバー" },
+  "7203.T":    { ko: "도요타",         en: "Toyota",              ja: "トヨタ" },
+  "6758.T":    { ko: "소니",           en: "Sony",                ja: "ソニー" },
+  // Macro assets
+  "CL=F":      { ko: "WTI 원유",       en: "WTI Crude Oil",       ja: "WTI原油" },
+  "GC=F":      { ko: "금 (Gold)",      en: "Gold Futures",        ja: "金先物" },
+  "^TNX":      { ko: "미국채 10년",     en: "10-Yr Treasury Yield",ja: "米国債10年" },
+  "SPY":       { ko: "S&P 500 ETF",   en: "S&P 500 ETF",         ja: "S&P500 ETF" },
+  "TLT":       { ko: "미국장기채 ETF",  en: "US Long Bond ETF",    ja: "米国長期債ETF" },
 };
 
 const PUBLISHER_COLORS: Record<string, string> = {
@@ -117,6 +133,7 @@ export function NewsDetailModal({ item, onClose }: Props) {
         summary: item.summary,
         publisher: item.publisher,
         symbol: item.symbol,
+        isMarketImpact: item.isMarketImpact || false,
       }),
     })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
@@ -148,9 +165,9 @@ export function NewsDetailModal({ item, onClose }: Props) {
     ko: "원문 보기", en: "View original", ja: "原文を見る",
   }[activeLang];
 
-  const aiSummaryLabel = {
-    ko: "AI 요약", en: "AI Summary", ja: "AI要約",
-  }[activeLang];
+  const aiSummaryLabel = item?.isMarketImpact
+    ? ({ ko: "AI 시장 영향 분석", en: "AI Market Impact Analysis", ja: "AI市場影響分析" }[activeLang])
+    : ({ ko: "AI 요약", en: "AI Summary", ja: "AI要約" }[activeLang]);
 
   const readingLabel = {
     ko: "읽는 중", en: "Reading", ja: "閲覧中",
@@ -236,7 +253,13 @@ export function NewsDetailModal({ item, onClose }: Props) {
                   {item.publisher}
                 </span>
               )}
-              {item.isHot && (
+              {item.isMarketImpact && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white flex items-center gap-0.5">
+                  <Globe2 className="w-2.5 h-2.5" />
+                  {activeLang === "ko" ? "시장 영향" : activeLang === "ja" ? "市場影響" : "Market Impact"}
+                </span>
+              )}
+              {item.isHot && !item.isMarketImpact && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
                   HOT
                 </span>

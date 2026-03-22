@@ -5,7 +5,7 @@ import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
 import { NewsDetailModal } from "@/components/NewsDetailModal";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Zap } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Zap, Globe2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -66,6 +66,7 @@ interface HotIssueItem {
   publishedAt: number;
   thumbnail: string | null;
   isHot: boolean;
+  isMarketImpact?: boolean;
   symbol: string;
 }
 
@@ -228,15 +229,23 @@ export default function Dashboard() {
                   onClick={() => setSelectedIssue(issue)}
                   className={cn(
                     "flex items-start gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
-                    issue.isHot
-                      ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
-                      : "border-border bg-muted/40 hover:bg-muted/70"
+                    issue.isMarketImpact
+                      ? "border-orange-400/35 bg-orange-500/5 hover:border-orange-400/60 hover:bg-orange-500/10"
+                      : issue.isHot
+                        ? "border-primary/35 bg-primary/5 hover:border-primary/60 hover:bg-primary/10"
+                        : "border-border bg-muted/40 hover:bg-muted/70"
                   )}
                   data-testid={`card-hot-issue-${idx}`}
                 >
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {issue.isHot && (
+                      {issue.isMarketImpact && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white shrink-0">
+                          <Globe2 className="w-2.5 h-2.5" />
+                          {isKo ? "시장 영향" : lang === "ja" ? "市場影響" : "Market Impact"}
+                        </span>
+                      )}
+                      {issue.isHot && !issue.isMarketImpact && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
                           <Flame className="w-2.5 h-2.5" />
                           HOT
