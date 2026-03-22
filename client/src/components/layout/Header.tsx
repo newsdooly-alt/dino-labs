@@ -20,7 +20,7 @@ export function Header() {
         <div className="md:hidden flex items-center gap-3">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="w-10 h-10 rounded-xl bg-green-600/10 border border-green-600/20 flex items-center justify-center text-green-600 hover:bg-green-600/20 transition-colors"
+            className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
             aria-label={t.menu}
             data-testid="button-hamburger-menu"
           >

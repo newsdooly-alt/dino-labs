@@ -4,7 +4,7 @@ import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useUser } from "@/hooks/use-user";
-import { getLocalizedCompanyName, getNameByTicker } from "@/lib/stockNames";
+import { getLocalizedCompanyName, getNameByTicker, containsKorean, searchByKoreanAlias } from "@/lib/stockNames";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { calculateSMA } from "@/lib/technicalAnalysis";
 import { cn } from "@/lib/utils";
@@ -60,11 +60,28 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
     if (q.trim().length < 1) { setResults([]); setOpen(false); return; }
     setLoading(true);
     try {
-      const res = await fetch(`/api/stocks/search?query=${encodeURIComponent(q.trim())}`);
-      if (res.ok) {
-        const data: SearchResult[] = await res.json();
-        setResults(data.slice(0, 8));
-        setOpen(true);
+      if (containsKorean(q.trim())) {
+        const aliases = searchByKoreanAlias(q.trim());
+        const converted: SearchResult[] = aliases.map(a => ({
+          symbol: a.ticker,
+          name: a.en,
+          type: "EQUITY",
+          region: a.ticker.endsWith(".KS") || a.ticker.endsWith(".KQ") ? "South Korea"
+                : a.ticker.endsWith(".T") ? "Japan" : "United States",
+          currency: a.ticker.endsWith(".KS") || a.ticker.endsWith(".KQ") ? "KRW"
+                  : a.ticker.endsWith(".T") ? "JPY" : "USD",
+          isKorean: a.ticker.endsWith(".KS") || a.ticker.endsWith(".KQ"),
+          koName: a.ko,
+        } as SearchResult & { koName: string }));
+        setResults(converted.slice(0, 8));
+        setOpen(converted.length > 0);
+      } else {
+        const res = await fetch(`/api/stocks/search?query=${encodeURIComponent(q.trim())}`);
+        if (res.ok) {
+          const data: SearchResult[] = await res.json();
+          setResults(data.slice(0, 8));
+          setOpen(true);
+        }
       }
     } catch {
       setResults([]);
@@ -143,26 +160,36 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
           {!loading && results.length === 0 && query.trim().length > 0 && (
             <div className="px-3 py-2 text-[11px] text-muted-foreground">{lang === "ko" ? "결과 없음" : "No results"}</div>
           )}
-          {results.map((r) => (
-            <button
-              key={r.symbol}
-              data-testid={`result-symbol-${r.symbol}`}
-              onMouseDown={(e) => { e.preventDefault(); handleSelect(r.symbol); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-muted/60 transition-colors border-b border-border/30 last:border-0"
-            >
-              <span className="text-base shrink-0">{exchangeFlag(r.symbol)}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-semibold text-foreground font-mono">{r.symbol}</span>
-                  <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{r.type}</span>
+          {results.map((r) => {
+            const koName = (r as any).koName as string | undefined ?? getNameByTicker(r.symbol, "ko") ?? null;
+            const showKorean = lang === "ko" && !!koName;
+            return (
+              <button
+                key={r.symbol}
+                data-testid={`result-symbol-${r.symbol}`}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(r.symbol); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-muted/60 transition-colors border-b border-border/30 last:border-0"
+              >
+                <span className="text-base shrink-0">{exchangeFlag(r.symbol)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] font-semibold text-foreground">
+                      {showKorean ? koName : r.symbol}
+                    </span>
+                    {!showKorean && (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{r.type}</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {showKorean
+                      ? `${r.symbol} · ${getLocalizedCompanyName(r.name, lang)}`
+                      : (getNameByTicker(r.symbol, lang) ?? getLocalizedCompanyName(r.name, lang))}
+                  </div>
                 </div>
-                <div className="text-[10px] text-muted-foreground truncate">
-                  {getNameByTicker(r.symbol, lang) ?? getLocalizedCompanyName(r.name, lang)}
-                </div>
-              </div>
-              <span className="text-[9px] text-muted-foreground/60 shrink-0">{r.currency || ""}</span>
-            </button>
-          ))}
+                <span className="text-[9px] text-muted-foreground/60 shrink-0">{r.currency || ""}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

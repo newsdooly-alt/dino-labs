@@ -595,6 +595,110 @@ export const KOREAN_STOCK_ALIASES: KoreanStockAlias[] = [
   { ticker: "ADDYY",   en: "Adidas",         ko: "아디다스",     aliases: ["아디다스"] },
   { ticker: "LIN",     en: "Linde",          ko: "린데",         aliases: ["린데"] },
   { ticker: "STLA",    en: "Stellantis",     ko: "스텔란티스",   aliases: ["스텔란티스"] },
+
+  // ── US Semiconductor & Hardware ──
+  { ticker: "AMAT",  en: "Applied Materials", ko: "어플라이드 머티리얼즈", aliases: ["어플라이드머티리얼즈", "어플라이드", "AMAT"] },
+  { ticker: "LRCX",  en: "Lam Research",      ko: "램 리서치",             aliases: ["램리서치", "램 리서치"] },
+  { ticker: "KLAC",  en: "KLA Corporation",   ko: "KLA 코퍼레이션",        aliases: ["KLA", "케이엘에이"] },
+  { ticker: "COHR",  en: "Coherent Corp",     ko: "코히런트",              aliases: ["코히런트", "코히런트 코퍼레이션"] },
+  { ticker: "SMCI",  en: "Super Micro",       ko: "슈퍼마이크로",          aliases: ["슈퍼마이크로", "SMCI"] },
+  { ticker: "MRVL",  en: "Marvell Technology",ko: "마벨 테크놀로지",       aliases: ["마벨", "마벨테크놀로지"] },
+  { ticker: "ON",    en: "ON Semiconductor",  ko: "온 세미컨덕터",         aliases: ["온세미", "온세미컨덕터"] },
+  { ticker: "WOLF",  en: "Wolfspeed",         ko: "울프스피드",            aliases: ["울프스피드"] },
+  { ticker: "SWKS",  en: "Skyworks Solutions",ko: "스카이웍스",            aliases: ["스카이웍스"] },
+  { ticker: "QRVO",  en: "Qorvo",            ko: "코르보",                aliases: ["코르보"] },
+
+  // ── US Enterprise Software & Cloud ──
+  { ticker: "ORCL",  en: "Oracle",           ko: "오라클",                aliases: ["오라클"] },
+  { ticker: "NET",   en: "Cloudflare",       ko: "클라우드플레어",         aliases: ["클라우드플레어", "클라우드플레어"] },
+  { ticker: "DDOG",  en: "Datadog",          ko: "데이터독",              aliases: ["데이터독"] },
+  { ticker: "ZS",    en: "Zscaler",          ko: "지스케일러",            aliases: ["지스케일러"] },
+  { ticker: "MDB",   en: "MongoDB",          ko: "몽고DB",               aliases: ["몽고DB", "몽고디비"] },
+  { ticker: "TEAM",  en: "Atlassian",        ko: "아틀라시안",            aliases: ["아틀라시안"] },
+  { ticker: "OKTA",  en: "Okta",             ko: "옥타",                  aliases: ["옥타"] },
+  { ticker: "FTNT",  en: "Fortinet",         ko: "포티넷",                aliases: ["포티넷"] },
+  { ticker: "HUBS",  en: "HubSpot",          ko: "허브스팟",              aliases: ["허브스팟"] },
+  { ticker: "ZI",    en: "ZoomInfo",         ko: "줌인포",                aliases: ["줌인포"] },
+  { ticker: "DOCN",  en: "DigitalOcean",     ko: "디지털오션",            aliases: ["디지털오션"] },
+  { ticker: "PATH",  en: "UiPath",           ko: "유아이패스",            aliases: ["유아이패스"] },
+  { ticker: "GTLB",  en: "GitLab",           ko: "깃랩",                  aliases: ["깃랩"] },
+
+  // ── US Hardware & Infrastructure ──
+  { ticker: "DELL",  en: "Dell Technologies",ko: "델 테크놀로지스",        aliases: ["델", "델테크놀로지스"] },
+  { ticker: "HPE",   en: "HP Enterprise",    ko: "HP 엔터프라이즈",        aliases: ["HP엔터프라이즈", "HPE", "에이치피"] },
+  { ticker: "HPQ",   en: "HP Inc.",          ko: "HP",                    aliases: ["HP", "에이치피"] },
+  { ticker: "WDC",   en: "Western Digital",  ko: "웨스턴 디지털",          aliases: ["웨스턴디지털", "웨디"] },
+  { ticker: "STX",   en: "Seagate",          ko: "시게이트",              aliases: ["시게이트"] },
+  { ticker: "PSTG",  en: "Pure Storage",     ko: "퓨어스토리지",          aliases: ["퓨어스토리지"] },
+
+  // ── US EV & Clean Energy ──
+  { ticker: "RIVN",  en: "Rivian",           ko: "리비안",                aliases: ["리비안"] },
+  { ticker: "LCID",  en: "Lucid Motors",     ko: "루시드",                aliases: ["루시드", "루시드모터스"] },
+  { ticker: "F",     en: "Ford Motor",       ko: "포드",                  aliases: ["포드"] },
+  { ticker: "GM",    en: "General Motors",   ko: "GM",                   aliases: ["GM", "제너럴모터스"] },
+  { ticker: "PLUG",  en: "Plug Power",       ko: "플러그파워",            aliases: ["플러그파워"] },
+  { ticker: "ENPH",  en: "Enphase Energy",   ko: "엔페이즈",              aliases: ["엔페이즈"] },
+  { ticker: "FSLR",  en: "First Solar",      ko: "퍼스트솔라",            aliases: ["퍼스트솔라"] },
+
+  // ── US Biotech & Pharma ──
+  { ticker: "GILD",  en: "Gilead Sciences",  ko: "길리어드 사이언스",      aliases: ["길리어드"] },
+  { ticker: "REGN",  en: "Regeneron",        ko: "리제네론",              aliases: ["리제네론"] },
+  { ticker: "VRTX",  en: "Vertex Pharma",    ko: "버텍스 제약",           aliases: ["버텍스"] },
+  { ticker: "ILMN",  en: "Illumina",         ko: "일루미나",              aliases: ["일루미나"] },
+  { ticker: "NTLA",  en: "Intellia Therapeutics", ko: "인텔리아",         aliases: ["인텔리아"] },
+  { ticker: "BEAM",  en: "Beam Therapeutics",ko: "빔 테라퓨틱스",         aliases: ["빔테라퓨틱스"] },
+  { ticker: "CRSP",  en: "CRISPR Therapeutics",ko: "CRISPR 테라퓨틱스",  aliases: ["크리스퍼", "CRISPR"] },
+
+  // ── US Finance & Fintech ──
+  { ticker: "SCHW",  en: "Charles Schwab",   ko: "찰스 슈왑",             aliases: ["찰스슈왑", "슈왑"] },
+  { ticker: "HOOD",  en: "Robinhood",        ko: "로빈후드",              aliases: ["로빈후드"] },
+  { ticker: "SOFI",  en: "SoFi Technologies",ko: "소파이",                aliases: ["소파이"] },
+  { ticker: "AFRM",  en: "Affirm",           ko: "어펌",                  aliases: ["어펌"] },
+  { ticker: "UPST",  en: "Upstart",          ko: "업스타트",              aliases: ["업스타트"] },
+
+  // ── US Media & Entertainment ──
+  { ticker: "PARA",  en: "Paramount",        ko: "파라마운트",            aliases: ["파라마운트"] },
+  { ticker: "WBD",   en: "Warner Bros. Discovery", ko: "워너 브라더스",   aliases: ["워너브라더스", "워너"] },
+  { ticker: "RBLX",  en: "Roblox",           ko: "로블록스",              aliases: ["로블록스"] },
+  { ticker: "EA",    en: "Electronic Arts",  ko: "일렉트로닉 아츠",        aliases: ["일렉트로닉아츠", "EA"] },
+  { ticker: "TTWO",  en: "Take-Two Interactive", ko: "테이크투",          aliases: ["테이크투"] },
+  { ticker: "NTES",  en: "NetEase",          ko: "넷이즈",                aliases: ["넷이즈"] },
+
+  // ── Chinese ADRs ──
+  { ticker: "BABA",  en: "Alibaba",          ko: "알리바바",              aliases: ["알리바바"] },
+  { ticker: "BIDU",  en: "Baidu",            ko: "바이두",                aliases: ["바이두"] },
+  { ticker: "PDD",   en: "PDD Holdings",     ko: "PDD 홀딩스",            aliases: ["PDD홀딩스", "핀둬둬", "테무"] },
+  { ticker: "JD",    en: "JD.com",           ko: "JD닷컴",               aliases: ["JD닷컴", "JD"] },
+  { ticker: "NIO",   en: "NIO",              ko: "니오",                  aliases: ["니오"] },
+  { ticker: "XPEV",  en: "XPeng",            ko: "샤오펑",                aliases: ["샤오펑"] },
+  { ticker: "LI",    en: "Li Auto",          ko: "리오토",                aliases: ["리오토"] },
+  { ticker: "BILI",  en: "Bilibili",         ko: "빌리빌리",              aliases: ["빌리빌리"] },
+
+  // ── US AI / Emerging Tech ──
+  { ticker: "SOUN",  en: "SoundHound AI",    ko: "사운드하운드",          aliases: ["사운드하운드"] },
+  { ticker: "AI",    en: "C3.ai",            ko: "C3.ai",                aliases: ["C3ai", "씨쓰리ai"] },
+  { ticker: "BBAI",  en: "BigBear.ai",       ko: "빅베어 ai",             aliases: ["빅베어"] },
+  { ticker: "MSTR",  en: "MicroStrategy",    ko: "마이크로스트래티지",     aliases: ["마이크로스트래티지", "MSTR"] },
+  { ticker: "APP",   en: "AppLovin",         ko: "앱러빈",                aliases: ["앱러빈"] },
+  { ticker: "TTD",   en: "The Trade Desk",   ko: "더 트레이드 데스크",     aliases: ["트레이드데스크"] },
+
+  // ── US Retail / Consumer ──
+  { ticker: "TGT",   en: "Target",           ko: "타겟",                  aliases: ["타겟"] },
+  { ticker: "LULU",  en: "Lululemon",        ko: "룰루레몬",              aliases: ["룰루레몬"] },
+  { ticker: "RH",    en: "RH (Restoration Hardware)", ko: "RH",           aliases: ["RH", "레스토레이션하드웨어"] },
+  { ticker: "PTON",  en: "Peloton",          ko: "펠로톤",                aliases: ["펠로톤"] },
+
+  // ── US Industrial / Defense ──
+  { ticker: "BA",    en: "Boeing",           ko: "보잉",                  aliases: ["보잉"] },
+  { ticker: "RTX",   en: "RTX (Raytheon)",   ko: "레이시온",              aliases: ["레이시온", "레이데온"] },
+  { ticker: "LMT",   en: "Lockheed Martin",  ko: "록히드 마틴",           aliases: ["록히드마틴", "록히드"] },
+  { ticker: "GE",    en: "GE Aerospace",     ko: "GE 에어로스페이스",      aliases: ["GE", "제너럴일렉트릭"] },
+  { ticker: "CAT",   en: "Caterpillar",      ko: "캐터필러",              aliases: ["캐터필러"] },
+  { ticker: "DE",    en: "John Deere",       ko: "존 디어",               aliases: ["존디어", "디어"] },
+  { ticker: "MMM",   en: "3M",              ko: "3M",                    aliases: ["3M", "쓰리엠"] },
+  { ticker: "HON",   en: "Honeywell",        ko: "허니웰",                aliases: ["허니웰"] },
+  { ticker: "UPS",   en: "UPS",             ko: "UPS",                   aliases: ["UPS", "유피에스"] },
+  { ticker: "FDX",   en: "FedEx",           ko: "페덱스",                aliases: ["페덱스"] },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
