@@ -1744,13 +1744,14 @@ Use financial Korean naturally (e.g., 계약, 인수합병, 실적, 발표, 협�
       ].filter(Boolean).join("\n");
 
       const systemPrompt = `You are a trilingual financial news analyst (Korean, English, Japanese).
-Given a stock/finance news headline and optional summary, produce a JSON object with:
-- "bullets_ko": array of 3-4 Korean bullet points (key facts, max 30 chars each, use ▸ prefix NOT included)
-- "bullets_en": array of 3-4 English bullet points (key facts, max 50 chars each)
-- "ko": 2-3 paragraph Korean analysis for Korean retail investors (natural financial Korean)
-- "en": 2-3 paragraph English analysis for English-speaking investors
-- "ja": 2-3 paragraph Japanese analysis (natural financial Japanese)
-Keep each language culturally appropriate. Focus on investment implications.`;
+Given a stock/finance news headline and optional summary, produce a JSON object with EXACTLY these keys:
+- "bullets_ko": array of 3 Korean bullet point strings (key facts, concise, no prefix symbols)
+- "bullets_en": array of 3 English bullet point strings (key facts, concise, no prefix symbols)
+- "bullets_ja": array of 3 Japanese bullet point strings (key facts, concise, no prefix symbols)
+- "ko": 2-3 paragraph Korean analysis for Korean retail investors (natural financial Korean, focus on investment implications)
+- "en": 2-3 paragraph English analysis for international investors (focus on investment implications)
+- "ja": 2-3 paragraph Japanese analysis for Japanese retail investors (natural financial Japanese, focus on investment implications)
+Keep each language culturally appropriate. Do NOT include markdown. Return only the JSON object.`;
 
       const aiRes = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -1758,15 +1759,16 @@ Keep each language culturally appropriate. Focus on investment implications.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: context },
         ],
-        max_tokens: 1200,
+        max_tokens: 1800,
         response_format: { type: "json_object" },
       });
 
       const raw = aiRes.choices[0]?.message?.content?.trim() || "{}";
       const parsed = JSON.parse(raw);
       res.json({
-        bullets_ko: parsed.bullets_ko || [],
-        bullets_en: parsed.bullets_en || [],
+        bullets_ko: (parsed.bullets_ko || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
+        bullets_en: (parsed.bullets_en || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
+        bullets_ja: (parsed.bullets_ja || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
         ko: parsed.ko || "",
         en: parsed.en || "",
         ja: parsed.ja || "",

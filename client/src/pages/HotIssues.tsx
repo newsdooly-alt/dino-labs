@@ -5,17 +5,10 @@ import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Flame, RefreshCw, Clock, Filter, ChevronRight, ChevronDown } from "lucide-react";
-import { NewsDetailModal } from "@/components/NewsDetailModal";
+import { NewsDetailModal, NewsItem } from "@/components/NewsDetailModal";
 
-interface HotIssueItem {
-  title: string;
-  summary: string;
-  link: string;
-  publisher: string;
-  publishedAt: number;
+interface HotIssueItem extends NewsItem {
   thumbnail: string | null;
-  isHot: boolean;
-  symbol: string;
 }
 
 interface HotIssuesResponse {
