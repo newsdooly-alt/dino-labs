@@ -1611,6 +1611,25 @@ export async function registerRoutes(
     "upgrade", "downgrade", "target", "guidance", "dividend", "buyback",
   ];
 
+  // Factor C: premium publishers get a HOT score bonus
+  const PREMIUM_PUBLISHERS = [
+    "reuters", "bloomberg", "wsj", "wall street journal", "financial times",
+    "cnbc", "ap news", "associated press", "nikkei", "ft.com",
+  ];
+
+  // Company name hints for ghost-mapping prevention: maps ticker → known English name fragments
+  const TICKER_NAME_HINTS: Record<string, string[]> = {
+    "AAPL": ["apple"], "MSFT": ["microsoft"], "GOOGL": ["google", "alphabet"],
+    "AMZN": ["amazon"], "NVDA": ["nvidia"], "META": ["meta", "facebook"],
+    "TSLA": ["tesla"], "JPM": ["jpmorgan", "jp morgan", "jp morgan"],
+    "V": ["visa"], "WMT": ["walmart", "wal-mart"],
+    "JNJ": ["johnson"], "UNH": ["unitedhealth", "united health"],
+    "XOM": ["exxon"], "CVX": ["chevron"], "GS": ["goldman sachs"],
+    "BA": ["boeing"], "005930.KS": ["samsung electronics", "samsung"],
+    "035420.KS": ["naver"], "000660.KS": ["sk hynix", "hynix"],
+    "6758.T": ["sony"], "7203.T": ["toyota"],
+  };
+
   // Macro/Geopolitical keywords — any match → Market Impact tag
   const MACRO_KEYWORDS = [
     "federal reserve", "fed ", "fomc", "rate hike", "rate cut", "interest rate",
@@ -1730,7 +1749,7 @@ export async function registerRoutes(
           return true;
         });
 
-      // Score each item: keyword matches + recency bonus + macro boost
+      // Score each item: keyword matches + recency bonus + macro boost + HOT multi-factor score
       const scored = recentNews.map((item) => {
         const text = " " + (item.title || "").toLowerCase() + " ";
         const matchCount = HOT_KEYWORDS.filter((kw) => text.includes(kw)).length;
@@ -1741,10 +1760,18 @@ export async function registerRoutes(
         const isMarketImpact = (item._isMacroSource && macroMatchCount >= 1) || macroMatchCount >= 2;
         const macroBoost = isMarketImpact ? 6 : 0;
         const score = matchCount + recencyBonus + macroBoost;
-        // HOT = large-cap corporate news with keyword match (not macro items)
+        // Multi-factor HOT score (used for quota enforcement after GPT):
+        // Factor A: confirmed major-cap company (+3)
+        // Factor B: strong keyword signal — needs ≥3 keyword matches (+matchCount, not flat)
+        // Factor C: premium publisher (+2)
         const isMajorCap = MAJOR_CAP_SYMBOLS.has(item.symbol);
-        const isHot = isMajorCap && matchCount >= 2 && !isMarketImpact;
-        return { ...item, matchCount, macroMatchCount, score, isHot, isMarketImpact };
+        const pubLower = (item.publisher || "").toLowerCase();
+        const isPremium = PREMIUM_PUBLISHERS.some((p) => pubLower.includes(p));
+        const hotScore = (isMajorCap ? 3 : 0) + matchCount + (isPremium ? 2 : 0);
+        // Pre-flag (will be capped to top-2 quota after diversity filtering)
+        // matchCount >= 2 required; hotScore >= 6 to actually get HOT (enforced in quota step)
+        const isHotCandidate = isMajorCap && matchCount >= 2 && !isMarketImpact;
+        return { ...item, matchCount, macroMatchCount, score, hotScore, isHotCandidate, isMarketImpact };
       });
 
       // Sort: market impact first, then by composite score
@@ -1778,7 +1805,19 @@ export async function registerRoutes(
       for (const item of scored) {
         if (diverse.length >= 15) break;
         if (item.isMarketImpact) continue;
+        // Block macro asset symbols from appearing as corporate news items
+        if (HOT_MACRO_SYMBOLS.includes(item.symbol as string)) continue;
+        // Block items from non-major-cap sources (penny stock / anti-noise filter)
+        if (!MAJOR_CAP_SYMBOLS.has(item.symbol as string)) continue;
         const sym = item.symbol as string;
+        // Company relevance pre-filter: if we know the company's name and it doesn't appear
+        // in the headline, this item is not truly about this company (ghost mapping prevention)
+        const nameHints = TICKER_NAME_HINTS[sym] || [];
+        if (nameHints.length > 0) {
+          const titleLower = (item.title || "").toLowerCase();
+          const companyMentioned = nameHints.some((n) => titleLower.includes(n));
+          if (!companyMentioned) continue;
+        }
         const sector = SYMBOL_SECTOR[sym] || "other";
         const companyUsed = companyCount[sym] || 0;
         const sectorUsed = sectorCount[sector] || 0;
@@ -1789,7 +1828,23 @@ export async function registerRoutes(
         diverse.push(item);
       }
 
-      const topItems = diverse;
+      // Enforce HOT quota: only top 2 candidates by multi-factor hotScore get isHot: true
+      // Minimum threshold: hotScore ≥ 5 (e.g., majorCap(3) + 3 keywords(3) - at least 3 factor points)
+      const HOT_QUOTA = 2;
+      // hotScore ≥ 6 means: majorCap(3) + premium(2) + 1keyword = 6, OR majorCap(3) + 3keywords = 6
+      // This ensures only premium-sourced OR keyword-rich articles qualify
+      const HOT_SCORE_MIN = 6;
+      const hotCandidates = diverse
+        .filter((i) => i.isHotCandidate && (i.hotScore || 0) >= HOT_SCORE_MIN)
+        .sort((a, b) => (b.hotScore || 0) - (a.hotScore || 0))
+        .slice(0, HOT_QUOTA)
+        .map((i) => i.title); // use title as identity key
+
+      const hotWinnerSet = new Set(hotCandidates);
+      const topItems = diverse.map((item) => ({
+        ...item,
+        isHot: hotWinnerSet.has(item.title) && !item.isMarketImpact,
+      }));
 
       if (topItems.length === 0) {
         const empty = { issues: [], count: 0, fetchedAt: now };
@@ -1803,11 +1858,14 @@ export async function registerRoutes(
 
       const corpPrompt = `You are a Korean financial news editor. For each stock news headline, generate a JSON object with:
 1. "title": A concise Korean title (max 22 characters, e.g. "엔비디아 신형 칩 공개", "JP모건 실적 서프라이즈")
-2. "summary": A 1-2 sentence Korean summary explaining why it matters to investors
-3. "ticker": The single most relevant ticker from this list: ${knownTickers}
-   - Keep the SOURCE ticker unless the news is clearly about a different company
+2. "summary": A 1-2 sentence Korean summary explaining why it matters to investors — mention the company name in Korean
+3. "ticker": STRICT RULE — return the SOURCE ticker UNLESS the headline explicitly names a DIFFERENT large-cap company from this list as the PRIMARY subject: ${knownTickers}
+   - "Primary subject" means: the company is explicitly named AND the entire story is about that company
+   - If the primary company is NOT in the ticker list → keep SOURCE ticker
+   - If the headline mentions a company only tangentially or as context → keep SOURCE ticker
+   - NEVER remap a story about a small/unknown company to a large-cap just because they share an industry
 
-Return ONLY valid JSON: {"title": "한국어 제목", "summary": "한국어 1-2문장 요약", "ticker": "TICKER"}`;
+Return ONLY valid JSON: {"title": "한국어 제목", "summary": "회사명 포함 한국어 1-2문장 요약", "ticker": "TICKER"}`;
 
       const macroPrompt = `You are a Korean macro financial news editor. For this global/geopolitical/macro headline, generate a JSON object with:
 1. "title": A concise Korean title (max 22 characters) identifying the macro event (e.g. "연준 금리 동결 결정", "러시아 긴장 고조", "유가 급등")
@@ -1833,15 +1891,34 @@ Return ONLY valid JSON: {"title": "한국어 제목", "summary": "시장 영향 
             const content = aiRes.choices[0]?.message?.content?.trim() || "{}";
             const parsed = JSON.parse(content);
 
-            // For macro: keep source macro ticker; for corporate: validate against known list
+            // For macro: always keep source macro ticker
+            // For corporate: validate ticker, then run verification loop
             let validTicker: string;
             if (item.isMarketImpact) {
               validTicker = item.symbol as string;
             } else {
               const extractedTicker = (parsed.ticker || "").trim().toUpperCase();
-              validTicker = MAJOR_CAP_SYMBOLS.has(extractedTicker)
+              const candidateTicker = MAJOR_CAP_SYMBOLS.has(extractedTicker)
                 ? extractedTicker
                 : (item.symbol as string);
+
+              // Verification loop: if the mapped ticker's company name doesn't appear
+              // in the generated title or summary, revert to source ticker (ghost-mapping protection)
+              if (candidateTicker !== item.symbol) {
+                const nameHints = TICKER_NAME_HINTS[candidateTicker] || [];
+                const aiText = ((parsed.title || "") + " " + (parsed.summary || "")).toLowerCase();
+                const titleText = (item.title || "").toLowerCase();
+                const nameFoundInAI = nameHints.some((n) => aiText.includes(n));
+                const nameFoundInOriginal = nameHints.some((n) => titleText.includes(n));
+                if (!nameFoundInAI && !nameFoundInOriginal) {
+                  // Ghost mapping detected — company not mentioned in content, revert
+                  validTicker = item.symbol as string;
+                } else {
+                  validTicker = candidateTicker;
+                }
+              } else {
+                validTicker = candidateTicker;
+              }
             }
 
             return {
@@ -1876,8 +1953,10 @@ Return ONLY valid JSON: {"title": "한국어 제목", "summary": "시장 영향 
       hotIssuesCache = result;
       hotIssuesCacheTime = now;
       const macroCount2 = processed.filter((p: any) => p.isMarketImpact).length;
+      const hotCount = processed.filter((p: any) => p.isHot).length;
       const sectorBreakdown = Object.entries(sectorCount).map(([s, c]) => `${s}:${c}`).join(", ");
-      console.log(`[Hot Issues] Generated ${processed.length} issues (${macroCount2} macro) — sectors: ${sectorBreakdown}`);
+      const hotSymbols = processed.filter((p: any) => p.isHot).map((p: any) => p.symbol).join(", ");
+      console.log(`[Hot Issues] Generated ${processed.length} issues (${macroCount2} macro, ${hotCount} HOT) — HOT: [${hotSymbols}] — sectors: ${sectorBreakdown}`);
       res.json(result);
     } catch (error: any) {
       console.error("[Hot Issues] Error:", error.message);
