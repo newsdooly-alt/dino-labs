@@ -1608,12 +1608,58 @@ export async function registerRoutes(
     "earnings", "profit", "revenue", "record", "surge", "beat",
     "partnership", "billion", "trillion", "invest", "expansion",
     "lawsuit", "settlement", "recall", "warning", "layoff", "cut",
+    "upgrade", "downgrade", "target", "guidance", "dividend", "buyback",
   ];
 
+  // Diversified symbol list covering multiple sectors — 3 items max per sector
   const HOT_SYMBOLS = [
-    "NVDA", "AAPL", "TSLA", "MSFT", "AMZN", "META", "GOOGL",
-    "005930.KS", "000660.KS", "035420.KS", "7203.T", "6758.T",
+    // US Tech
+    "NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN",
+    // US Auto/EV
+    "TSLA",
+    // US Finance
+    "JPM", "GS", "V",
+    // US Energy
+    "XOM", "CVX",
+    // US Healthcare
+    "JNJ", "UNH",
+    // US Consumer/Industrial
+    "WMT", "BA",
+    // KR
+    "005930.KS", "000660.KS", "035420.KS",
+    // JP
+    "7203.T", "6758.T",
   ];
+
+  // Confirmed large-cap symbols (market cap > $1B) — ONLY these get the 'Hot' badge
+  const MAJOR_CAP_SYMBOLS = new Set([
+    "NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "TSLA", "NFLX",
+    "JPM", "GS", "BAC", "V", "MA", "WFC",
+    "XOM", "CVX", "COP",
+    "JNJ", "UNH", "PFE", "ABBV", "MRK",
+    "WMT", "HD", "COST", "MCD", "NKE",
+    "BA", "CAT", "GE", "HON",
+    "005930.KS", "000660.KS", "035420.KS", "051910.KS", "005380.KS",
+    "7203.T", "6758.T", "9984.T", "7751.T", "4502.T",
+  ]);
+
+  // Symbol → sector mapping for diversity enforcement
+  const SYMBOL_SECTOR: Record<string, string> = {
+    "NVDA": "tech", "AAPL": "tech", "MSFT": "tech", "GOOGL": "tech",
+    "META": "tech", "AMZN": "tech", "NFLX": "tech",
+    "TSLA": "auto",
+    "JPM": "finance", "GS": "finance", "BAC": "finance", "V": "finance",
+    "MA": "finance", "WFC": "finance",
+    "XOM": "energy", "CVX": "energy", "COP": "energy",
+    "JNJ": "healthcare", "UNH": "healthcare", "PFE": "healthcare",
+    "ABBV": "healthcare", "MRK": "healthcare",
+    "WMT": "consumer", "HD": "consumer", "COST": "consumer",
+    "MCD": "consumer", "NKE": "consumer",
+    "BA": "industrial", "CAT": "industrial", "GE": "industrial",
+    "005930.KS": "tech", "000660.KS": "tech", "035420.KS": "tech",
+    "7203.T": "auto", "6758.T": "tech", "9984.T": "tech",
+  };
+
 
   app.get("/api/news/hot-issues", async (req, res) => {
     try {
@@ -1622,10 +1668,10 @@ export async function registerRoutes(
         return res.json(hotIssuesCache);
       }
 
-      // Fetch news for multiple symbols in parallel
-      const newsPromises = HOT_SYMBOLS.slice(0, 8).map(async (sym) => {
+      // Fetch news for all symbols in parallel (limit 3 per symbol to reduce clustering)
+      const newsPromises = HOT_SYMBOLS.map(async (sym) => {
         try {
-          const r = await fetch(`http://127.0.0.1:5001/news/${sym}?limit=5`, {
+          const r = await fetch(`http://127.0.0.1:5001/news/${sym}?limit=3`, {
             signal: AbortSignal.timeout(8000),
           });
           if (!r.ok) return [];
@@ -1637,29 +1683,53 @@ export async function registerRoutes(
       const allNewsArrays = await Promise.all(newsPromises);
       const allNews: any[] = allNewsArrays.flat();
 
-      // Deduplicate by title similarity and filter by time (last 24h)
-      const cutoff = (now / 1000) - 86400;
+      // Deduplicate by title (first 50 chars) and filter last 48h
+      const cutoff = (now / 1000) - 172800;
       const seen = new Set<string>();
       const recentNews = allNews
         .filter((n) => n.publishedAt && n.publishedAt > cutoff)
         .filter((n) => {
-          const key = n.title?.slice(0, 40)?.toLowerCase() || "";
+          const key = n.title?.slice(0, 50)?.toLowerCase().replace(/\s+/g, " ") || "";
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
         });
 
-      // Score each item by keyword matches
+      // Score each item: keyword matches + recency bonus
       const scored = recentNews.map((item) => {
         const text = (item.title || "").toLowerCase();
         const matchCount = HOT_KEYWORDS.filter((kw) => text.includes(kw)).length;
-        const isHot = matchCount >= 2;
-        return { ...item, matchCount, isHot };
+        const ageHours = (now / 1000 - (item.publishedAt || 0)) / 3600;
+        const recencyBonus = ageHours < 3 ? 2 : ageHours < 12 ? 1 : 0;
+        const score = matchCount + recencyBonus;
+        // Hot = large-cap AND meaningful keyword match (prevents penny stock HOT badges)
+        const isMajorCap = MAJOR_CAP_SYMBOLS.has(item.symbol);
+        const isHot = isMajorCap && matchCount >= 2;
+        return { ...item, matchCount, score, isHot };
       });
 
-      // Sort by score desc, take top 20
-      scored.sort((a, b) => b.matchCount - a.matchCount || b.publishedAt - a.publishedAt);
-      const topItems = scored.slice(0, 20);
+      // Sort by composite score descending
+      scored.sort((a, b) => b.score - a.score || b.publishedAt - a.publishedAt);
+
+      // Apply diversity filters: max 2 per company, max 3 per sector → take top 12
+      const companyCount: Record<string, number> = {};
+      const sectorCount: Record<string, number> = {};
+      const diverse: typeof scored = [];
+
+      for (const item of scored) {
+        if (diverse.length >= 12) break;
+        const sym = item.symbol as string;
+        const sector = SYMBOL_SECTOR[sym] || "other";
+        const companyUsed = companyCount[sym] || 0;
+        const sectorUsed = sectorCount[sector] || 0;
+        if (companyUsed >= 2) continue;
+        if (sectorUsed >= 3) continue;
+        companyCount[sym] = companyUsed + 1;
+        sectorCount[sector] = sectorUsed + 1;
+        diverse.push(item);
+      }
+
+      const topItems = diverse;
 
       if (topItems.length === 0) {
         const empty = { issues: [], count: 0, fetchedAt: now };
@@ -1668,30 +1738,42 @@ export async function registerRoutes(
         return res.json(empty);
       }
 
-      // Use GPT to generate Korean title + summary for each
-      const systemPrompt = `You are a Korean financial news editor. For each stock news headline provided, generate:
-1. A catchy Korean title (max 20 characters, exciting style like "엔비디아 신형 칩 공개")
+      // Use GPT to generate Korean title + summary + accurate ticker for each
+      const knownTickers = Array.from(MAJOR_CAP_SYMBOLS).join(", ");
+      const systemPrompt = `You are a Korean financial news editor. For each stock news headline and its source ticker, generate:
+1. A concise Korean title (max 22 characters, e.g. "엔비디아 신형 칩 공개", "JP모건 실적 서프라이즈")
 2. A 1-2 sentence Korean summary explaining why it matters to investors
+3. The single most relevant ticker symbol from this list that the news is ACTUALLY about: ${knownTickers}
+   - Use the SOURCE ticker if it is accurate
+   - Only change it if the news is clearly about a different company
 
-Respond in this exact JSON format for each item:
-{"title": "한국어 제목", "summary": "한국어 1-2문장 요약"}
+Respond ONLY with this JSON:
+{"title": "한국어 제목", "summary": "한국어 1-2문장 요약", "ticker": "TICKER_SYMBOL"}
 
-Use financial Korean naturally (e.g., 계약, 인수합병, 실적, 발표, 협력, 급등).`;
+Financial Korean terms: 계약, 인수합병, 실적, 발표, 협력, 급등, 어닝서프라이즈, 목표가, 배당, 자사주매입.`;
 
       const processed = await Promise.all(
         topItems.map(async (item) => {
           try {
+            const userMsg = `Headline: "${item.title || ""}"\nSource ticker: ${item.symbol}`;
             const aiRes = await openai.chat.completions.create({
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: item.title || "" },
+                { role: "user", content: userMsg },
               ],
-              max_tokens: 200,
+              max_tokens: 250,
               response_format: { type: "json_object" },
             });
             const content = aiRes.choices[0]?.message?.content?.trim() || "{}";
             const parsed = JSON.parse(content);
+
+            // Validate extracted ticker — fall back to source if not in known list
+            const extractedTicker = (parsed.ticker || "").trim().toUpperCase();
+            const validTicker = MAJOR_CAP_SYMBOLS.has(extractedTicker)
+              ? extractedTicker
+              : (item.symbol as string);
+
             return {
               title: parsed.title || item.title,
               summary: parsed.summary || "",
@@ -1700,7 +1782,7 @@ Use financial Korean naturally (e.g., 계약, 인수합병, 실적, 발표, 협�
               publishedAt: item.publishedAt,
               thumbnail: item.thumbnail || null,
               isHot: item.isHot,
-              symbol: item.symbol,
+              symbol: validTicker,
             };
           } catch {
             return {
@@ -1720,7 +1802,8 @@ Use financial Korean naturally (e.g., 계약, 인수합병, 실적, 발표, 협�
       const result = { issues: processed, count: processed.length, fetchedAt: now };
       hotIssuesCache = result;
       hotIssuesCacheTime = now;
-      console.log(`[Hot Issues] Generated ${processed.length} issues`);
+      const sectorBreakdown = Object.entries(sectorCount).map(([s, c]) => `${s}:${c}`).join(", ");
+      console.log(`[Hot Issues] Generated ${processed.length} issues — sectors: ${sectorBreakdown}`);
       res.json(result);
     } catch (error: any) {
       console.error("[Hot Issues] Error:", error.message);

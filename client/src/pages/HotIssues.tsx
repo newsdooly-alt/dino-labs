@@ -18,17 +18,46 @@ interface HotIssuesResponse {
 }
 
 const SYMBOL_FLAGS: Record<string, string> = {
+  // US Tech
   "NVDA": "🇺🇸", "AAPL": "🇺🇸", "TSLA": "🇺🇸", "MSFT": "🇺🇸",
-  "AMZN": "🇺🇸", "META": "🇺🇸", "GOOGL": "🇺🇸",
+  "AMZN": "🇺🇸", "META": "🇺🇸", "GOOGL": "🇺🇸", "NFLX": "🇺🇸",
+  // US Finance
+  "JPM": "🇺🇸", "GS": "🇺🇸", "V": "🇺🇸", "MA": "🇺🇸", "BAC": "🇺🇸", "WFC": "🇺🇸",
+  // US Energy
+  "XOM": "🇺🇸", "CVX": "🇺🇸", "COP": "🇺🇸",
+  // US Healthcare
+  "JNJ": "🇺🇸", "UNH": "🇺🇸", "PFE": "🇺🇸", "ABBV": "🇺🇸", "MRK": "🇺🇸",
+  // US Consumer / Industrial
+  "WMT": "🇺🇸", "HD": "🇺🇸", "COST": "🇺🇸", "MCD": "🇺🇸", "NKE": "🇺🇸",
+  "BA": "🇺🇸", "CAT": "🇺🇸", "GE": "🇺🇸", "HON": "🇺🇸",
+  // KR
   "005930.KS": "🇰🇷", "000660.KS": "🇰🇷", "035420.KS": "🇰🇷",
-  "7203.T": "🇯🇵", "6758.T": "🇯🇵",
+  "051910.KS": "🇰🇷", "005380.KS": "🇰🇷",
+  // JP
+  "7203.T": "🇯🇵", "6758.T": "🇯🇵", "9984.T": "🇯🇵", "7751.T": "🇯🇵", "4502.T": "🇯🇵",
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
+  // US Tech
   "NVDA": "엔비디아", "AAPL": "애플", "TSLA": "테슬라", "MSFT": "마이크로소프트",
-  "AMZN": "아마존", "META": "메타", "GOOGL": "구글",
+  "AMZN": "아마존", "META": "메타", "GOOGL": "구글", "NFLX": "넷플릭스",
+  // US Finance
+  "JPM": "JP모건", "GS": "골드만삭스", "V": "비자", "MA": "마스터카드",
+  "BAC": "뱅크오브아메리카", "WFC": "웰스파고",
+  // US Energy
+  "XOM": "엑슨모빌", "CVX": "쉐브론", "COP": "코노코필립스",
+  // US Healthcare
+  "JNJ": "존슨앤존슨", "UNH": "유나이티드헬스", "PFE": "화이자",
+  "ABBV": "애브비", "MRK": "머크",
+  // US Consumer / Industrial
+  "WMT": "월마트", "HD": "홈디포", "COST": "코스트코", "MCD": "맥도날드", "NKE": "나이키",
+  "BA": "보잉", "CAT": "캐터필러", "GE": "GE에어로스페이스", "HON": "허니웰",
+  // KR
   "005930.KS": "삼성전자", "000660.KS": "SK하이닉스", "035420.KS": "네이버",
-  "7203.T": "도요타", "6758.T": "소니",
+  "051910.KS": "LG화학", "005380.KS": "현대자동차",
+  // JP
+  "7203.T": "도요타", "6758.T": "소니", "9984.T": "소프트뱅크",
+  "7751.T": "캐논", "4502.T": "다케다제약",
 };
 
 const INITIAL_COUNT = 10;
