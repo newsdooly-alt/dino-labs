@@ -10,11 +10,15 @@ import { translations } from "@/lib/translations";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   containsLocalized,
-  searchByLocalizedAlias,
   getLocalizedCompanyName,
   JP_ADR_MAP,
-  type KoreanStockAlias,
 } from "@/lib/stockNames";
+import {
+  searchStockDatabase,
+  getExchangeLabel,
+  getDisplayTicker,
+  type StockEntry,
+} from "@/lib/stockDatabase";
 
 function getUSPriority(symbol: string): number {
   const filter = getExchangeFilter(symbol);
@@ -132,39 +136,41 @@ export default function GlobalSearch() {
     staleTime: 30_000,
   });
 
-  // ── Localized alias matches (Korean + Japanese) ────────────────────────────
-  const localizedAliasMatches: KoreanStockAlias[] = isLocalizedQuery && debouncedQuery.length >= 1
-    ? searchByLocalizedAlias(debouncedQuery)
+  // ── Database search (Korean / Japanese / English partial match) ────────────
+  const dbMatches: StockEntry[] = isLocalizedQuery && debouncedQuery.length >= 1
+    ? searchStockDatabase(debouncedQuery, 20)
     : [];
 
-  const localizedTickers = localizedAliasMatches.map(m => m.ticker);
+  const dbTickers = dbMatches.map(m => m.ticker);
 
   const { data: localizedPriceData, isLoading: isLocalizedLoading } = useQuery<{
     quotes: { symbol: string; name: string; price: number; change: number; changePercent: number }[];
   }>({
-    queryKey: ["/api/stocks/live", localizedTickers.join(",")],
+    queryKey: ["/api/stocks/live", dbTickers.join(",")],
     queryFn: async () => {
-      if (!localizedTickers.length) return { quotes: [] };
-      const res = await fetch(`/api/stocks/live?symbols=${localizedTickers.join(",")}`, {
+      if (!dbTickers.length) return { quotes: [] };
+      const res = await fetch(`/api/stocks/live?symbols=${dbTickers.join(",")}`, {
         credentials: "include",
       });
       if (!res.ok) return { quotes: [] };
       return res.json();
     },
-    enabled: localizedTickers.length > 0,
+    enabled: dbTickers.length > 0,
     staleTime: 30_000,
   });
 
-  // Merge localized alias results with live price data
-  const localizedResults: SearchResult[] = localizedAliasMatches.map(alias => {
-    const liveQuote = localizedPriceData?.quotes?.find(q => q.symbol === alias.ticker);
+  // Merge database results with live price data
+  const localizedResults: SearchResult[] = dbMatches.map(entry => {
+    const liveQuote = localizedPriceData?.quotes?.find(q => q.symbol === entry.ticker);
     return {
-      symbol:        alias.ticker,
-      name:          alias.en,
+      symbol:        entry.ticker,
+      name:          entry.en,
       price:         liveQuote?.price         ?? 0,
       change:        liveQuote?.change         ?? 0,
       changePercent: liveQuote?.changePercent  ?? 0,
-      currency:      getNativeCurrency(alias.ticker),
+      currency:      getNativeCurrency(entry.ticker),
+      exchange:      entry.exchange,
+      sector:        entry.sector,
     };
   });
 
@@ -330,10 +336,25 @@ export default function GlobalSearch() {
               const isUp   = result.changePercent >= 0;
               const flag   = getExchangeFlag(result.symbol);
 
-              // Find localized display name for this result (KR or JP)
-              const localAlias  = localizedAliasMatches.find(a => a.ticker === result.symbol);
-              const koName   = localAlias?.ko ?? getLocalizedCompanyName(result.name, lang);
+              // Resolve Korean name: prefer dbMatches entry → fallback localizedCompanyName
+              const dbEntry    = dbMatches.find(e => e.ticker === result.symbol);
+              const koName     = dbEntry?.ko ?? getLocalizedCompanyName(result.name, lang);
               const displayName = isKo ? koName : result.name;
+
+              // Exchange label: prefer result.exchange → derive from ticker
+              const exchangeLabel = result.exchange ?? getExchangeLabel(result.symbol);
+              const displayTicker = getDisplayTicker(result.symbol);
+
+              // Exchange badge color
+              const exchangeColors: Record<string, string> = {
+                KOSPI:  "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                KOSDAQ: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+                NASDAQ: "bg-primary/10 text-primary",
+                NYSE:   "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                AMEX:   "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+                TSE:    "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+              };
+              const exchangeColor = exchangeColors[exchangeLabel] ?? "bg-muted text-muted-foreground";
 
               return (
                 <motion.button
@@ -357,7 +378,11 @@ export default function GlobalSearch() {
                       {displayName}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      <span className="text-xs font-mono text-muted-foreground font-semibold">{result.symbol}</span>
+                      <span className="text-xs font-mono text-muted-foreground font-semibold">{displayTicker}</span>
+                      {/* Exchange label badge */}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${exchangeColor}`}>
+                        {exchangeLabel}
+                      </span>
                       {/* ADR badge for local JP tickers */}
                       {result.symbol.toUpperCase().endsWith(".T") && JP_ADR_MAP[result.symbol.toUpperCase()] && (
                         <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-semibold hidden sm:inline">
@@ -376,7 +401,7 @@ export default function GlobalSearch() {
                         </span>
                       )}
                     </div>
-                    {/* Show English name as subtitle when in Korean mode */}
+                    {/* Show English name as subtitle when in Korean mode and koName differs */}
                     {isKo && koName !== result.name && (
                       <p className="text-[11px] text-muted-foreground/50 truncate mt-0.5">{result.name}</p>
                     )}

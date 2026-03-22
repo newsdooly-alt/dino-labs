@@ -4,7 +4,8 @@ import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useUser } from "@/hooks/use-user";
-import { getLocalizedCompanyName, getNameByTicker, containsLocalized, searchByLocalizedAlias } from "@/lib/stockNames";
+import { getLocalizedCompanyName, getNameByTicker, containsLocalized } from "@/lib/stockNames";
+import { searchStockDatabase, getExchangeLabel, getDisplayTicker } from "@/lib/stockDatabase";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { calculateSMA } from "@/lib/technicalAnalysis";
 import { cn } from "@/lib/utils";
@@ -61,19 +62,21 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
     setLoading(true);
     try {
       if (containsLocalized(q.trim())) {
-        const aliases = searchByLocalizedAlias(q.trim());
-        const converted: SearchResult[] = aliases.map(a => ({
-          symbol: a.ticker,
-          name: a.en,
-          type: "EQUITY",
-          region: a.ticker.endsWith(".KS") || a.ticker.endsWith(".KQ") ? "South Korea"
-                : a.ticker.endsWith(".T") ? "Japan" : "United States",
-          currency: a.ticker.endsWith(".KS") || a.ticker.endsWith(".KQ") ? "KRW"
-                  : a.ticker.endsWith(".T") ? "JPY" : "USD",
-          isKorean: a.ticker.endsWith(".KS") || a.ticker.endsWith(".KQ"),
-          koName: a.ko,
-        } as SearchResult & { koName: string }));
-        setResults(converted.slice(0, 8));
+        const dbEntries = searchStockDatabase(q.trim(), 12);
+        const converted: SearchResult[] = dbEntries.map(e => ({
+          symbol:   e.ticker,
+          name:     e.en,
+          type:     "EQUITY",
+          region:   e.exchange === "KOSPI" || e.exchange === "KOSDAQ" ? "South Korea"
+                  : e.exchange === "TSE" ? "Japan" : "United States",
+          currency: e.ticker.endsWith(".KS") || e.ticker.endsWith(".KQ") ? "KRW"
+                  : e.ticker.endsWith(".T") ? "JPY" : "USD",
+          isKorean: e.ticker.endsWith(".KS") || e.ticker.endsWith(".KQ"),
+          exchange: e.exchange,
+          koName:   e.ko,
+          sector:   e.sector,
+        } as SearchResult & { koName: string; exchange: string; sector: string }));
+        setResults(converted.slice(0, 12));
         setOpen(converted.length > 0);
       } else {
         const res = await fetch(`/api/stocks/search?query=${encodeURIComponent(q.trim())}`);
@@ -161,32 +164,39 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
             <div className="px-3 py-2 text-[11px] text-muted-foreground">{lang === "ko" ? "결과 없음" : "No results"}</div>
           )}
           {results.map((r) => {
-            const koName = (r as any).koName as string | undefined ?? getNameByTicker(r.symbol, "ko") ?? null;
-            const showKorean = lang === "ko" && !!koName;
+            const koName       = (r as any).koName as string | undefined ?? getNameByTicker(r.symbol, "ko") ?? null;
+            const exchangeLbl  = (r as any).exchange as string | undefined ?? getExchangeLabel(r.symbol);
+            const dispTicker   = getDisplayTicker(r.symbol);
+            const showKorean   = lang === "ko" && !!koName;
+            const primaryName  = showKorean ? koName! : r.name;
+
+            const exColors: Record<string, string> = {
+              KOSPI:  "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+              KOSDAQ: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+              NASDAQ: "bg-primary/10 text-primary",
+              NYSE:   "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+              TSE:    "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+            };
+            const exColor = exColors[exchangeLbl] ?? "bg-muted text-muted-foreground";
+
             return (
               <button
                 key={r.symbol}
                 data-testid={`result-symbol-${r.symbol}`}
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(r.symbol); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-primary/10 transition-colors border-b border-border/30 last:border-0"
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-primary/10 transition-colors border-b border-border/30 last:border-0"
               >
                 <span className="text-base shrink-0">{exchangeFlag(r.symbol)}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] font-semibold text-foreground">
-                      {showKorean ? koName : r.symbol}
-                    </span>
-                    {!showKorean && (
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{r.type}</span>
-                    )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[12px] font-semibold text-foreground leading-tight">{primaryName}</span>
                   </div>
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {showKorean
-                      ? `${r.symbol} · ${getLocalizedCompanyName(r.name, lang)}`
-                      : (getNameByTicker(r.symbol, lang) ?? getLocalizedCompanyName(r.name, lang))}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[10px] font-mono text-muted-foreground">{dispTicker}</span>
+                    <span className="text-muted-foreground/40 text-[9px]">·</span>
+                    <span className={`text-[9px] px-1 py-0.5 rounded font-semibold ${exColor}`}>{exchangeLbl}</span>
                   </div>
                 </div>
-                <span className="text-[9px] text-muted-foreground/60 shrink-0">{r.currency || ""}</span>
               </button>
             );
           })}
