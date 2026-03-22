@@ -1384,18 +1384,25 @@ def get_rrg_data():
     tail_length = int(request.args.get('tail', '10'))
     sectors = [s.strip() for s in sectors_param.split(',') if s.strip()]
 
-    cache_key = f"{benchmark}|{sectors_param}"
+    rrg_period = request.args.get('period', '1m').lower()
+    _rrg_period_map = {
+        '1w': ('30d',  '1d'),
+        '1m': ('60d',  '1d'),
+        '3m': ('90d',  '1d'),
+        '6m': ('1y',   '1wk'),
+        '1y': ('2y',   '1wk'),
+    }
+    yf_period, interval = _rrg_period_map.get(rrg_period, ('60d', '1d'))
+
+    all_symbols = [benchmark] + sectors
+    cache_key = f"{benchmark}|{sectors_param}|{rrg_period}"
     if cache_key in _rrg_caches:
         entry = _rrg_caches[cache_key]
         if entry["data"] and (now - entry["timestamp"]) < RRG_CACHE_DURATION:
             return jsonify(entry["data"])
 
-    all_symbols = [benchmark] + sectors
-    period = '60d'
-    interval = '1d'
-
     try:
-        raw = yf.download(all_symbols, period=period, interval=interval, progress=False, auto_adjust=True)
+        raw = yf.download(all_symbols, period=yf_period, interval=interval, progress=False, auto_adjust=True)
         if raw.empty:
             return jsonify({"error": "No data", "sectors": []}), 500
 
@@ -1518,12 +1525,25 @@ SECTOR_CONSTITUENTS = {
 
 @app.route('/sector-returns', methods=['GET'])
 def get_sector_returns():
-    """Compute equal-weighted 1-day % change for each sector."""
+    """Compute equal-weighted % change for each sector over a given period."""
     import time
     now = time.time()
 
     country = request.args.get('country', 'us').lower()
-    cache_key = country
+    period_key = request.args.get('period', '1d').lower()
+
+    # Map UI period to (yfinance fetch period, number of trading days back)
+    _period_map = {
+        '1d':  ('10d',  1),
+        '1w':  ('30d',  5),
+        '1m':  ('90d',  21),
+        '3m':  ('180d', 63),
+        '6m':  ('1y',   126),
+        '1y':  ('2y',   252),
+    }
+    fetch_period, n_days = _period_map.get(period_key, ('10d', 1))
+
+    cache_key = f"{country}_{period_key}"
     if cache_key in _sector_returns_cache:
         entry = _sector_returns_cache[cache_key]
         if entry.get("data") and (now - entry["timestamp"]) < SECTOR_RETURNS_CACHE_DURATION:
@@ -1533,7 +1553,7 @@ def get_sector_returns():
     all_syms = list(set(sym for _, members in constituents for sym in members))
 
     try:
-        raw = yf.download(all_syms, period='5d', interval='1d', progress=False, auto_adjust=True)
+        raw = yf.download(all_syms, period=fetch_period, interval='1d', progress=False, auto_adjust=True)
         if raw.empty:
             return jsonify({"error": "No data", "sectors": []}), 500
 
@@ -1548,9 +1568,10 @@ def get_sector_returns():
                 if col is None:
                     continue
                 col = col.dropna()
-                if len(col) < 2:
+                needed = n_days + 1
+                if len(col) < needed:
                     continue
-                prev = float(col.iloc[-2])
+                prev = float(col.iloc[-needed])
                 curr = float(col.iloc[-1])
                 if prev != 0:
                     pct_changes.append((curr - prev) / prev * 100.0)
@@ -1567,14 +1588,15 @@ def get_sector_returns():
         results.sort(key=lambda x: x['changePercent'], reverse=True)
         response = {
             'country': country,
+            'period': period_key,
             'sectors': results,
             'fetchedAt': datetime.now(US_EASTERN).strftime('%Y-%m-%dT%H:%M:%S'),
         }
         _sector_returns_cache[cache_key] = {"data": response, "timestamp": now}
-        print(f"[SectorReturns] {country}: {len(results)} sectors computed")
+        print(f"[SectorReturns] {country}/{period_key}: {len(results)} sectors computed")
         return jsonify(response)
     except Exception as e:
-        print(f"[SectorReturns] Error for {country}: {e}")
+        print(f"[SectorReturns] Error for {country}/{period_key}: {e}")
         return jsonify({"error": str(e), "sectors": []}), 500
 
 

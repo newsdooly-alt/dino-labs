@@ -616,15 +616,28 @@ export function RRGChart() {
   const lang = user?.language || "ko";
   const L = (ko: string, en: string, ja?: string) =>
     lang === "ko" ? ko : lang === "ja" ? (ja ?? en) : en;
+  type RRGPeriod = "1w" | "1m" | "3m" | "6m" | "1y";
+  const PERIOD_OPTIONS: Array<{ id: RRGPeriod; en: string; ko: string; ja: string }> = [
+    { id: "1w", en: "1W", ko: "1주",   ja: "1週" },
+    { id: "1m", en: "1M", ko: "1개월", ja: "1ヶ月" },
+    { id: "3m", en: "3M", ko: "3개월", ja: "3ヶ月" },
+    { id: "6m", en: "6M", ko: "6개월", ja: "6ヶ月" },
+    { id: "1y", en: "1Y", ko: "1년",   ja: "1年" },
+  ];
+
   const [country, setCountry] = useState<Country>("us");
+  const [period, setPeriod] = useState<RRGPeriod>("1m");
   const [selected, setSelected] = useState<RRGSector | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [showTop10, setShowTop10] = useState(false);
 
+  // Map RRG period to sector-returns period key
+  const srPeriod = period === "1w" ? "1w" : period === "3m" ? "3m" : period === "6m" ? "6m" : period === "1y" ? "1y" : "1d";
+
   const { data, isLoading, error, refetch, isRefetching } = useQuery<RRGData>({
-    queryKey: ["/api/rrg/data", country],
+    queryKey: ["/api/rrg/data", country, period],
     queryFn: async () => {
-      const res = await fetch(`/api/rrg/data?country=${country}`, { credentials: "include" });
+      const res = await fetch(`/api/rrg/data?country=${country}&period=${period}`, { credentials: "include" });
       if (!res.ok) throw new Error("RRG fetch failed");
       return res.json();
     },
@@ -636,11 +649,12 @@ export function RRGChart() {
 
   const sectorReturnsQuery = useQuery<{
     country: string;
+    period?: string;
     sectors: Array<{ symbol: string; changePercent: number; constituents: number }>;
   }>({
-    queryKey: ["/api/sector-returns", country],
+    queryKey: ["/api/sector-returns", country, srPeriod],
     queryFn: async () => {
-      const res = await fetch(`/api/sector-returns?country=${country}`, { credentials: "include" });
+      const res = await fetch(`/api/sector-returns?country=${country}&period=${srPeriod}`, { credentials: "include" });
       if (!res.ok) throw new Error("Sector returns fetch failed");
       return res.json();
     },
@@ -680,8 +694,28 @@ export function RRGChart() {
   if (error || !data || data.sectors.length === 0) {
     return (
       <div className="bg-card border border-border rounded-3xl p-6" data-testid="rrg-error">
-        {/* Country tabs still visible on error */}
+        {/* Country tabs + period selector still visible on error */}
         <CountryTabs country={country} onChange={handleCountryChange} lang={lang} />
+        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mr-1">
+            {L("기간", "Period", "期間")}
+          </span>
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => { setPeriod(opt.id); setSelected(null); }}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150 border",
+                period === opt.id
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground bg-transparent"
+              )}
+              data-testid={`rrg-period-${opt.id}-error`}
+            >
+              {lang === "ko" ? opt.ko : lang === "ja" ? opt.ja : opt.en}
+            </button>
+          ))}
+        </div>
         <div className="text-center space-y-3 mt-6">
           <TrendingUp className="w-10 h-10 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground text-sm">
@@ -770,6 +804,28 @@ export function RRGChart() {
 
         {/* Country tabs */}
         <CountryTabs country={country} onChange={handleCountryChange} lang={lang} />
+
+        {/* Period selector */}
+        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mr-1">
+            {L("기간", "Period", "期間")}
+          </span>
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => { setPeriod(opt.id); setSelected(null); }}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150 border",
+                period === opt.id
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground bg-transparent"
+              )}
+              data-testid={`rrg-period-${opt.id}`}
+            >
+              {lang === "ko" ? opt.ko : lang === "ja" ? opt.ja : opt.en}
+            </button>
+          ))}
+        </div>
 
         {showInfo && (
           <div className="mt-3 bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground leading-relaxed">
@@ -864,7 +920,11 @@ export function RRGChart() {
           data-testid="sector-returns-panel"
         >
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
-            {L("섹터 등락률 (1일)", "Sector Returns (1D)", "セクターリターン (1D)")}
+            {(() => {
+              const pLabel = PERIOD_OPTIONS.find(p => p.id === period);
+              const pStr = pLabel ? (lang === "ko" ? pLabel.ko : lang === "ja" ? pLabel.ja : pLabel.en) : period.toUpperCase();
+              return L(`섹터 등락률 (${pStr})`, `Sector Returns (${pStr})`, `セクターリターン (${pStr})`);
+            })()}
           </p>
           {sectorReturnsQuery.isLoading ? (
             <div className="space-y-1.5">

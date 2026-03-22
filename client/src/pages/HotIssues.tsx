@@ -170,7 +170,7 @@ export default function HotIssues() {
   const isJa = lang === "ja";
 
   const [filterHot, setFilterHot] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [displayCount, setDisplayCount] = useState(INITIAL_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<HotIssueItem | null>(null);
 
@@ -190,9 +190,9 @@ export default function HotIssues() {
   const allIssues = (data?.issues || []).filter((i) => !filterHot || i.isHot);
   const hotCount = (data?.issues || []).filter((i) => i.isHot).length;
 
-  const initialIssues = allIssues.slice(0, INITIAL_COUNT);
-  const moreIssues = allIssues.slice(INITIAL_COUNT);
-  const hasMore = moreIssues.length > 0;
+  const visibleIssues = allIssues.slice(0, displayCount);
+  const hasMore = displayCount < allIssues.length;
+  const remaining = allIssues.length - displayCount;
 
   const pageTitle = isKo ? "오늘의 이슈" : isJa ? "今日のニュース" : "Today's Issues";
   const pageSubtitle = isKo
@@ -204,9 +204,9 @@ export default function HotIssues() {
   function handleLoadMore() {
     setIsLoadingMore(true);
     setTimeout(() => {
-      setShowMore(true);
+      setDisplayCount(prev => prev + 10);
       setIsLoadingMore(false);
-    }, 400);
+    }, 500);
   }
 
   return (
@@ -294,11 +294,11 @@ export default function HotIssues() {
         </motion.div>
       ) : (
         <div className="space-y-3">
-          {/* Initial items */}
+          {/* Visible items — animated entry */}
           <AnimatePresence mode="popLayout">
-            {initialIssues.map((issue, idx) => (
+            {visibleIssues.map((issue, idx) => (
               <IssueCard
-                key={`init-${idx}`}
+                key={`issue-${idx}`}
                 issue={issue}
                 idx={idx}
                 lang={lang}
@@ -307,75 +307,53 @@ export default function HotIssues() {
             ))}
           </AnimatePresence>
 
-          {/* More items (revealed on Load More) */}
-          <AnimatePresence>
-            {showMore && moreIssues.map((issue, idx) => (
-              <motion.div
-                key={`more-${idx}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: idx * 0.06, ease: "easeOut" }}
-              >
-                <IssueCard
-                  issue={issue}
-                  idx={INITIAL_COUNT + idx}
-                  lang={lang}
-                  onClick={() => setSelectedIssue(issue)}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          {/* Loading skeletons while fetching next batch */}
+          {isLoadingMore && (
+            <div className="space-y-3 pt-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-28 rounded-2xl bg-muted animate-pulse" />
+              ))}
+            </div>
+          )}
 
           {/* Load More button */}
-          {hasMore && !showMore && (
+          {hasMore && !isLoadingMore && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
               className="pt-2"
             >
               <button
                 onClick={handleLoadMore}
-                disabled={isLoadingMore}
                 className={cn(
                   "w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed transition-all duration-200 text-sm font-semibold",
-                  "border-primary/30 text-primary hover:border-primary hover:bg-primary/5 active:scale-[0.98]",
-                  isLoadingMore && "opacity-60 cursor-not-allowed"
+                  "border-primary/30 text-primary hover:border-primary hover:bg-primary/5 active:scale-[0.98]"
                 )}
                 data-testid="button-load-more-issues"
               >
-                {isLoadingMore ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    {isKo ? "불러오는 중..." : isJa ? "読み込み中..." : "Loading..."}
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4" />
-                    {isKo
-                      ? `관련 뉴스 더보기 (${moreIssues.length}건)`
-                      : isJa
-                      ? `関連ニュースをもっと見る（${moreIssues.length}件）`
-                      : `Load more news (${moreIssues.length} more)`}
-                  </>
-                )}
+                <ChevronDown className="w-4 h-4" />
+                {isKo
+                  ? `뉴스 더보기 (${Math.min(remaining, 10)}건)`
+                  : isJa
+                  ? `ニュースをもっと見る（${Math.min(remaining, 10)}件）`
+                  : `Load ${Math.min(remaining, 10)} more articles`}
               </button>
 
               <p className="text-center text-[11px] text-muted-foreground mt-2">
                 {isKo
-                  ? "최신순으로 추가 기사를 불러옵니다"
+                  ? `전체 ${allIssues.length}건 중 ${displayCount}건 표시`
                   : isJa
-                  ? "最新順に追加記事を読み込みます"
-                  : "Additional articles sorted by recency"}
+                  ? `全${allIssues.length}件中${displayCount}件を表示`
+                  : `Showing ${displayCount} of ${allIssues.length} articles`}
               </p>
             </motion.div>
           )}
 
-          {showMore && (
+          {!hasMore && displayCount > INITIAL_COUNT && (
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: moreIssues.length * 0.06 + 0.3 }}
               className="text-center text-[11px] text-muted-foreground pt-2"
             >
               {isKo ? "✓ 모든 이슈를 불러왔습니다" : isJa ? "✓ すべてのニュースを読み込みました" : "✓ All issues loaded"}

@@ -1250,8 +1250,9 @@ export async function registerRoutes(
       const benchmark = (req.query.benchmark as string) || '';
       const sectors = (req.query.sectors as string) || '';
       const tail = (req.query.tail as string) || '10';
+      const period = (req.query.period as string) || '1m';
 
-      const params = new URLSearchParams({ country, tail });
+      const params = new URLSearchParams({ country, tail, period });
       if (benchmark) params.set('benchmark', benchmark);
       if (sectors)   params.set('sectors', sectors);
 
@@ -1316,8 +1317,9 @@ export async function registerRoutes(
   app.get("/api/sector-returns", async (req, res) => {
     try {
       const country = (req.query.country as string) || 'us';
+      const period = (req.query.period as string) || '1d';
       const response = await fetch(
-        `${MACRO_PYTHON_URL}/sector-returns?country=${country}`,
+        `${MACRO_PYTHON_URL}/sector-returns?country=${country}&period=${period}`,
         { signal: AbortSignal.timeout(30000) }
       );
       if (!response.ok) {
@@ -1796,8 +1798,8 @@ export async function registerRoutes(
       const allNewsArrays = await Promise.all(newsPromises);
       const allNews: any[] = allNewsArrays.flat();
 
-      // Deduplicate by title (first 50 chars) and filter last 48h
-      const cutoff = (now / 1000) - 172800;
+      // Deduplicate by title (first 50 chars) and filter last 72h
+      const cutoff = (now / 1000) - 259200;
       const seen = new Set<string>();
       const recentNews = allNews
         .filter((n) => n.publishedAt && n.publishedAt > cutoff)
@@ -1860,9 +1862,9 @@ export async function registerRoutes(
         diverse.push(item);
       }
 
-      // Pass 2: corporate news (max 12 total, max 2 per company, max 3 per sector)
+      // Pass 2: corporate news (max 37 total, max 2 per company, max 4 per sector)
       for (const item of scored) {
-        if (diverse.length >= 15) break;
+        if (diverse.length >= 40) break;
         if (item.isMarketImpact) continue;
         // Block macro asset symbols from appearing as corporate news items
         if (HOT_MACRO_SYMBOLS.includes(item.symbol as string)) continue;
@@ -1881,7 +1883,7 @@ export async function registerRoutes(
         const companyUsed = companyCount[sym] || 0;
         const sectorUsed = sectorCount[sector] || 0;
         if (companyUsed >= 2) continue;
-        if (sectorUsed >= 3) continue;
+        if (sectorUsed >= 4) continue;
         companyCount[sym] = companyUsed + 1;
         sectorCount[sector] = sectorUsed + 1;
         diverse.push(item);
