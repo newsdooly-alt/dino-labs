@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { StockAnalysisModal } from "@/components/StockAnalysisModal";
+import { NewsDetailModal, NewsItem as ModalNewsItem } from "@/components/NewsDetailModal";
 import { PeerComparison } from "@/components/PeerComparison";
 
 interface StockQuote {
@@ -181,6 +182,7 @@ export default function StockDetail() {
   const [, params] = useRoute("/stock/:symbol");
   const symbol = params?.symbol?.toUpperCase() || "";
   const [showProModal, setShowProModal] = useState(false);
+  const [selectedNews, setSelectedNews] = useState<ModalNewsItem | null>(null);
   const { toast } = useToast();
   const { theme } = useTheme();
   const { formatPrice, formatMarketCap: formatMarketCapCurrency, isKoreanStock, isJapaneseStock } = useCurrency();
@@ -427,20 +429,19 @@ export default function StockDetail() {
             <div className="animate-pulse space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded-lg" />)}</div>
           ) : stockNews && stockNews.news.length > 0 ? (
             stockNews.news.slice(0, 5).map((item, idx) => (
-              <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="block p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors" data-testid={`news-item-${idx}`}>
+              <div key={idx} onClick={() => setSelectedNews({ title: item.title, summary: item.koreanSummary || item.title, link: item.link, publisher: item.publisher, publishedAt: item.publishedAt, symbol: item.relatedSymbol, isHot: false })} className="block p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer group" data-testid={`news-item-${idx}`}>
                 <div className="flex items-start gap-3">
                   {item.thumbnail && <img src={item.thumbnail} alt="" className="w-16 h-12 object-cover rounded flex-shrink-0" />}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium line-clamp-2 mb-1">{lang === "ko" && item.koreanSummary ? item.koreanSummary : item.title}</p>
+                    <p className="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">{lang === "ko" && item.koreanSummary ? item.koreanSummary : item.title}</p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{item.publisher}</span>
                       <span>•</span>
                       <span>{new Date(item.publishedAt * 1000).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}</span>
-                      <ExternalLink className="w-3 h-3" />
                     </div>
                   </div>
                 </div>
-              </a>
+              </div>
             ))
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">{lang === "en" ? "No recent news available" : "최근 뉴스가 없습니다"}</p>
@@ -540,6 +541,10 @@ export default function StockDetail() {
           onClose={() => setShowProModal(false)}
           lang={lang === "ko" ? "ko" : "en"}
         />
+      )}
+
+      {selectedNews && (
+        <NewsDetailModal item={selectedNews} onClose={() => setSelectedNews(null)} />
       )}
     </div>
   );

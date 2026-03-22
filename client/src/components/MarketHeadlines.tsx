@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Newspaper, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
+import { Newspaper, RefreshCw, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { motion } from "framer-motion";
+import { NewsDetailModal, NewsItem as ModalNewsItem } from "@/components/NewsDetailModal";
 
 interface NewsItem {
   title: string;
@@ -22,6 +24,7 @@ export function MarketHeadlines() {
   const { data: user } = useUser();
   const lang = (user?.language || "ko") as keyof typeof translations;
   const t = translations[lang];
+  const [selectedItem, setSelectedItem] = useState<ModalNewsItem | null>(null);
 
   // Client-side fallback news for when API completely fails
   const clientFallbackNews: NewsItem[] = [
@@ -97,9 +100,17 @@ export function MarketHeadlines() {
     }
   });
 
-  const handleReadArticle = (link: string) => {
+  const handleReadArticle = (item: NewsItem) => {
     markAsReadMutation.mutate();
-    window.open(link, "_blank", "noopener,noreferrer");
+    setSelectedItem({
+      title: item.title,
+      summary: item.koreanSummary || item.title,
+      link: item.link,
+      publisher: item.publisher,
+      publishedAt: item.publishedAt,
+      symbol: item.relatedSymbol,
+      isHot: false,
+    });
   };
 
   const formatTimeAgo = (timestamp: number) => {
@@ -123,6 +134,7 @@ export function MarketHeadlines() {
   const questComplete = newsReadProgress >= 3;
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold flex items-center gap-3">
@@ -192,7 +204,7 @@ export function MarketHeadlines() {
                       transition={{ delay: idx * 0.05 }}
                     >
                       <button
-                        onClick={() => handleReadArticle(item.link)}
+                        onClick={() => handleReadArticle(item)}
                         className="w-full text-left p-3 rounded-xl bg-background/50 hover:bg-muted/50 border border-border hover:border-primary/30 transition-all group"
                         data-testid={`news-item-${idx}`}
                       >
@@ -214,9 +226,8 @@ export function MarketHeadlines() {
                               </span>
                             </div>
                             
-                            <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors flex items-start gap-1">
+                            <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
                               {item.title}
-                              <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
                             </h3>
                             
                             {item.koreanSummary && lang === "ko" && (
@@ -236,5 +247,10 @@ export function MarketHeadlines() {
         </Card>
       </div>
     </div>
+
+    {selectedItem && (
+      <NewsDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+    )}
+    </>
   );
 }

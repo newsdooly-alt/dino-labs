@@ -6,11 +6,12 @@ import { translations } from "@/lib/translations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Newspaper, RefreshCw, CheckCircle2, Trophy, ArrowLeft, BookOpen, ChevronDown, Loader2 } from "lucide-react";
+import { Newspaper, RefreshCw, CheckCircle2, Trophy, ArrowLeft, BookOpen, ChevronDown, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import confetti from "canvas-confetti";
+import { NewsDetailModal, NewsItem as ModalNewsItem } from "@/components/NewsDetailModal";
 
 const DAILY_NEWS_GOAL = 3;
 const NEWS_COMPLETE_KEY = "dinolingo_news_complete_shown";
@@ -56,6 +57,7 @@ export function DailyNews() {
   const t = translations[lang] as Record<string, string>;
 
   const [showCelebration, setShowCelebration] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ModalNewsItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [allNews, setAllNews] = useState<NewsItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -115,12 +117,20 @@ export function DailyNews() {
     }
   }, [questComplete, addXpToEggs]);
 
-  const handleReadArticle = (link: string) => {
+  const handleReadArticle = (item: NewsItem) => {
     if (newsReadProgress < DAILY_NEWS_GOAL) {
       markAsReadMutation.mutate();
       addXpToEggs(5);
     }
-    window.open(link, "_blank", "noopener,noreferrer");
+    setSelectedItem({
+      title: item.title,
+      summary: item.koreanSummary || item.title,
+      link: item.link,
+      publisher: item.publisher,
+      publishedAt: item.publishedAt,
+      symbol: item.relatedSymbol,
+      isHot: false,
+    });
   };
 
   const handleLoadMore = async () => {
@@ -152,6 +162,7 @@ export function DailyNews() {
   };
 
   return (
+    <>
     <div className="space-y-6">
       <Card className="border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10">
         <CardContent className="py-4">
@@ -330,12 +341,11 @@ export function DailyNews() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleReadArticle(item.link)}
+                          onClick={() => handleReadArticle(item)}
                           className="text-primary gap-1"
                           data-testid={`button-read-${idx}`}
                         >
                           {t.read_article}
-                          <ExternalLink className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
@@ -375,5 +385,10 @@ export function DailyNews() {
         </Card>
       )}
     </div>
+
+    {selectedItem && (
+      <NewsDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+    )}
+    </>
   );
 }

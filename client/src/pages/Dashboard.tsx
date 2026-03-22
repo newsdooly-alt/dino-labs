@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useQuests } from "@/hooks/use-quests";
 import { BreakingNewsQuiz } from "@/components/BreakingNewsQuiz";
+import { NewsDetailModal } from "@/components/NewsDetailModal";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
-import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, ExternalLink, Zap } from "lucide-react";
+import { ArrowRight, Trophy, ChevronRight, Flame, BookOpen, Search, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
@@ -89,6 +91,7 @@ export default function Dashboard() {
   const { data: quests, isLoading: isQuestsLoading } = useQuests();
   const [, navigate] = useLocation();
   const lang = (user?.language || "ko") as keyof typeof translations;
+  const [selectedIssue, setSelectedIssue] = useState<HotIssueItem | null>(null);
   const t = translations[lang];
   const isKo = lang === "ko";
   const { formatPrice, isKoreanStock } = useCurrency();
@@ -172,6 +175,7 @@ export default function Dashboard() {
   const quotes = stockData?.quotes?.filter(q => q.price > 0) || [];
 
   return (
+    <>
     <div className="w-full max-w-lg mx-auto px-5 py-8 space-y-10">
 
       {/* ── Header + Search ── */}
@@ -219,11 +223,9 @@ export default function Dashboard() {
           <>
             <div className="space-y-2">
               {(hotIssuesData?.issues || []).slice(0, 3).map((issue, idx) => (
-                <a
+                <div
                   key={idx}
-                  href={issue.link || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => setSelectedIssue(issue)}
                   className={cn(
                     "flex items-start gap-3 rounded-2xl px-4 py-3 border transition-all hover:shadow-sm active:scale-[0.99] cursor-pointer group",
                     issue.isHot
@@ -260,8 +262,8 @@ export default function Dashboard() {
                       </p>
                     )}
                   </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
               ))}
             </div>
             <Link
@@ -490,5 +492,13 @@ export default function Dashboard() {
       </motion.section>
 
     </div>
+
+    {selectedIssue && (
+      <NewsDetailModal
+        item={selectedIssue}
+        onClose={() => setSelectedIssue(null)}
+      />
+    )}
+    </>
   );
 }
