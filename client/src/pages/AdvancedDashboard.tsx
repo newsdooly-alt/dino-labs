@@ -4,7 +4,7 @@ import { useLocation, useSearch } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useUser } from "@/hooks/use-user";
-import { getLocalizedCompanyName, getNameByTicker, containsKorean, searchByKoreanAlias } from "@/lib/stockNames";
+import { getLocalizedCompanyName, getNameByTicker, containsLocalized, searchByLocalizedAlias } from "@/lib/stockNames";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { calculateSMA } from "@/lib/technicalAnalysis";
 import { cn } from "@/lib/utils";
@@ -60,8 +60,8 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
     if (q.trim().length < 1) { setResults([]); setOpen(false); return; }
     setLoading(true);
     try {
-      if (containsKorean(q.trim())) {
-        const aliases = searchByKoreanAlias(q.trim());
+      if (containsLocalized(q.trim())) {
+        const aliases = searchByLocalizedAlias(q.trim());
         const converted: SearchResult[] = aliases.map(a => ({
           symbol: a.ticker,
           name: a.en,
@@ -168,7 +168,7 @@ function GlobalSymbolSearch({ lang, onSelectSymbol }: GlobalSymbolSearchProps) {
                 key={r.symbol}
                 data-testid={`result-symbol-${r.symbol}`}
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(r.symbol); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-muted/60 transition-colors border-b border-border/30 last:border-0"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-primary/10 transition-colors border-b border-border/30 last:border-0"
               >
                 <span className="text-base shrink-0">{exchangeFlag(r.symbol)}</span>
                 <div className="flex-1 min-w-0">

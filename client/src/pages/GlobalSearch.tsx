@@ -9,8 +9,8 @@ import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  containsKorean,
-  searchByKoreanAlias,
+  containsLocalized,
+  searchByLocalizedAlias,
   getLocalizedCompanyName,
   JP_ADR_MAP,
   type KoreanStockAlias,
@@ -115,8 +115,8 @@ export default function GlobalSearch() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // ── API search (English / ticker) ─────────────────────────────────────────
-  const isKoreanQuery = containsKorean(debouncedQuery);
+  // ── API search (English / ticker) — disabled for localized (KR/JP) queries ──
+  const isLocalizedQuery = containsLocalized(debouncedQuery);
 
   const { data: apiData, isLoading: isApiLoading } = useQuery<{ results: SearchResult[] }>({
     queryKey: ["/api/stocks/search", debouncedQuery],
@@ -128,36 +128,36 @@ export default function GlobalSearch() {
       if (!res.ok) throw new Error("Search failed");
       return res.json();
     },
-    enabled: debouncedQuery.length >= 2 && !isKoreanQuery,
+    enabled: debouncedQuery.length >= 2 && !isLocalizedQuery,
     staleTime: 30_000,
   });
 
-  // ── Korean alias matches ───────────────────────────────────────────────────
-  const koreanAliasMatches: KoreanStockAlias[] = isKoreanQuery && debouncedQuery.length >= 1
-    ? searchByKoreanAlias(debouncedQuery)
+  // ── Localized alias matches (Korean + Japanese) ────────────────────────────
+  const localizedAliasMatches: KoreanStockAlias[] = isLocalizedQuery && debouncedQuery.length >= 1
+    ? searchByLocalizedAlias(debouncedQuery)
     : [];
 
-  const koreanTickers = koreanAliasMatches.map(m => m.ticker);
+  const localizedTickers = localizedAliasMatches.map(m => m.ticker);
 
-  const { data: koreanPriceData, isLoading: isKoreanLoading } = useQuery<{
+  const { data: localizedPriceData, isLoading: isLocalizedLoading } = useQuery<{
     quotes: { symbol: string; name: string; price: number; change: number; changePercent: number }[];
   }>({
-    queryKey: ["/api/stocks/live", koreanTickers.join(",")],
+    queryKey: ["/api/stocks/live", localizedTickers.join(",")],
     queryFn: async () => {
-      if (!koreanTickers.length) return { quotes: [] };
-      const res = await fetch(`/api/stocks/live?symbols=${koreanTickers.join(",")}`, {
+      if (!localizedTickers.length) return { quotes: [] };
+      const res = await fetch(`/api/stocks/live?symbols=${localizedTickers.join(",")}`, {
         credentials: "include",
       });
       if (!res.ok) return { quotes: [] };
       return res.json();
     },
-    enabled: koreanTickers.length > 0,
+    enabled: localizedTickers.length > 0,
     staleTime: 30_000,
   });
 
-  // Merge Korean alias results with live price data
-  const koreanResults: SearchResult[] = koreanAliasMatches.map(alias => {
-    const liveQuote = koreanPriceData?.quotes?.find(q => q.symbol === alias.ticker);
+  // Merge localized alias results with live price data
+  const localizedResults: SearchResult[] = localizedAliasMatches.map(alias => {
+    const liveQuote = localizedPriceData?.quotes?.find(q => q.symbol === alias.ticker);
     return {
       symbol:        alias.ticker,
       name:          alias.en,
@@ -170,8 +170,8 @@ export default function GlobalSearch() {
 
   // ── Combined results ───────────────────────────────────────────────────────
   const apiResults: SearchResult[] = apiData?.results ?? (apiData as any) ?? [];
-  const allResults = isKoreanQuery ? koreanResults : apiResults;
-  const isLoading  = isKoreanQuery ? isKoreanLoading : isApiLoading;
+  const allResults = isLocalizedQuery ? localizedResults : apiResults;
+  const isLoading  = isLocalizedQuery ? isLocalizedLoading : isApiLoading;
 
   const filteredResults = sortResultsUSFirst(
     filter === "all"
@@ -235,9 +235,9 @@ export default function GlobalSearch() {
         />
       </motion.div>
 
-      {/* Korean mode hint */}
+      {/* Localized mode hint (KR / JP) */}
       <AnimatePresence>
-        {isKoreanQuery && debouncedQuery.length >= 1 && (
+        {isLocalizedQuery && debouncedQuery.length >= 1 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -330,9 +330,9 @@ export default function GlobalSearch() {
               const isUp   = result.changePercent >= 0;
               const flag   = getExchangeFlag(result.symbol);
 
-              // Find Korean display name for this result
-              const koAlias  = koreanAliasMatches.find(a => a.ticker === result.symbol);
-              const koName   = koAlias?.ko ?? getLocalizedCompanyName(result.name, lang);
+              // Find localized display name for this result (KR or JP)
+              const localAlias  = localizedAliasMatches.find(a => a.ticker === result.symbol);
+              const koName   = localAlias?.ko ?? getLocalizedCompanyName(result.name, lang);
               const displayName = isKo ? koName : result.name;
 
               return (
@@ -343,7 +343,7 @@ export default function GlobalSearch() {
                   transition={{ delay: idx * 0.03 }}
                   type="button"
                   onClick={() => navigate(`/stock/${result.symbol}`)}
-                  className="w-full flex items-center gap-4 p-4 bg-card border border-border rounded-2xl hover:bg-muted/50 hover:border-foreground/20 transition-all text-left group"
+                  className="w-full flex items-center gap-4 p-4 bg-card border border-border rounded-2xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group"
                   data-testid={`search-result-${result.symbol}`}
                 >
                   {/* Flag icon */}

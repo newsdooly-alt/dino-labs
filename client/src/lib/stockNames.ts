@@ -428,88 +428,90 @@ export const KO_SECTOR_NAMES: Record<string, string> = {
   "Other": "기타",
 };
 
-// ─── Korean search alias system ───────────────────────────────────────────────
-// Each entry maps a Korean name (and aliases) to the stock's ticker and English name
+// ─── Multilingual search alias system ─────────────────────────────────────────
+// Each entry maps Korean/Japanese names (and aliases) to the stock's ticker and English name
 export interface KoreanStockAlias {
   ticker: string;
   en: string;
   ko: string;
-  aliases: string[];
+  aliases: string[];           // Korean (Hangul) aliases
+  ja?: string;                 // Japanese primary name (katakana/kanji)
+  jaAliases?: string[];        // Japanese aliases (katakana/hiragana)
 }
 
 export const KOREAN_STOCK_ALIASES: KoreanStockAlias[] = [
   // ── US Big Tech ──
-  { ticker: "AAPL",  en: "Apple",     ko: "애플",         aliases: ["애플", "아이폰", "아이패드"] },
-  { ticker: "MSFT",  en: "Microsoft", ko: "마이크로소프트", aliases: ["마이크로소프트", "마소", "윈도우"] },
-  { ticker: "GOOGL", en: "Alphabet",  ko: "알파벳",        aliases: ["알파벳", "구글", "유튜브"] },
-  { ticker: "GOOG",  en: "Alphabet",  ko: "알파벳",        aliases: ["알파벳", "구글"] },
-  { ticker: "AMZN",  en: "Amazon",    ko: "아마존",        aliases: ["아마존", "아마존닷컴"] },
-  { ticker: "NVDA",  en: "NVIDIA",    ko: "엔비디아",      aliases: ["엔비디아", "엔비", "nvidia"] },
-  { ticker: "META",  en: "Meta",      ko: "메타",          aliases: ["메타", "페이스북", "인스타그램"] },
-  { ticker: "TSLA",  en: "Tesla",     ko: "테슬라",        aliases: ["테슬라", "전기차"] },
-  { ticker: "BRK.B", en: "Berkshire Hathaway", ko: "버크셔 해서웨이", aliases: ["버크셔", "버크셔해서웨이", "워런버핏"] },
+  { ticker: "AAPL",  en: "Apple",     ko: "애플",         aliases: ["애플", "아이폰", "아이패드"],         ja: "アップル",        jaAliases: ["アップル", "アイフォン"] },
+  { ticker: "MSFT",  en: "Microsoft", ko: "마이크로소프트", aliases: ["마이크로소프트", "마소", "윈도우"],    ja: "マイクロソフト",  jaAliases: ["マイクロソフト", "ウィンドウズ"] },
+  { ticker: "GOOGL", en: "Alphabet",  ko: "알파벳",        aliases: ["알파벳", "구글", "유튜브"],           ja: "アルファベット",  jaAliases: ["アルファベット", "グーグル", "ユーチューブ"] },
+  { ticker: "GOOG",  en: "Alphabet",  ko: "알파벳",        aliases: ["알파벳", "구글"],                    ja: "アルファベット",  jaAliases: ["アルファベット", "グーグル"] },
+  { ticker: "AMZN",  en: "Amazon",    ko: "아마존",        aliases: ["아마존", "아마존닷컴"],               ja: "アマゾン",        jaAliases: ["アマゾン", "アマゾンドットコム"] },
+  { ticker: "NVDA",  en: "NVIDIA",    ko: "엔비디아",      aliases: ["엔비디아", "엔비", "nvidia"],         ja: "エヌビディア",    jaAliases: ["エヌビディア", "エヌビ"] },
+  { ticker: "META",  en: "Meta",      ko: "메타",          aliases: ["메타", "페이스북", "인스타그램"],      ja: "メタ",            jaAliases: ["メタ", "フェイスブック", "インスタグラム"] },
+  { ticker: "TSLA",  en: "Tesla",     ko: "테슬라",        aliases: ["테슬라", "전기차"],                   ja: "テスラ",          jaAliases: ["テスラ"] },
+  { ticker: "BRK.B", en: "Berkshire Hathaway", ko: "버크셔 해서웨이", aliases: ["버크셔", "버크셔해서웨이", "워런버핏"], ja: "バークシャー・ハサウェイ", jaAliases: ["バークシャー"] },
 
   // ── US Financials ──
-  { ticker: "JPM",   en: "JPMorgan",        ko: "JP모건",          aliases: ["JP모건", "jp모건", "제이피모건"] },
-  { ticker: "V",     en: "Visa",            ko: "비자",            aliases: ["비자", "비자카드"] },
-  { ticker: "MA",    en: "Mastercard",      ko: "마스터카드",       aliases: ["마스터카드", "마스터"] },
-  { ticker: "BAC",   en: "Bank of America", ko: "뱅크오브아메리카", aliases: ["뱅크오브아메리카", "미국은행"] },
-  { ticker: "GS",    en: "Goldman Sachs",   ko: "골드만삭스",      aliases: ["골드만삭스", "골드만"] },
-  { ticker: "MS",    en: "Morgan Stanley",  ko: "모건스탠리",      aliases: ["모건스탠리", "모건"] },
-  { ticker: "BLK",   en: "BlackRock",       ko: "블랙록",          aliases: ["블랙록"] },
-  { ticker: "AXP",   en: "American Express", ko: "아메리칸 익스프레스", aliases: ["아메리칸익스프레스", "아멕스"] },
-  { ticker: "MCO",   en: "Moody's",         ko: "무디스",          aliases: ["무디스"] },
+  { ticker: "JPM",   en: "JPMorgan",        ko: "JP모건",          aliases: ["JP모건", "jp모건", "제이피모건"],       ja: "JPモルガン",      jaAliases: ["JPモルガン", "ジェイピーモルガン"] },
+  { ticker: "V",     en: "Visa",            ko: "비자",            aliases: ["비자", "비자카드"],                    ja: "ビザ",            jaAliases: ["ビザ", "ビザカード"] },
+  { ticker: "MA",    en: "Mastercard",      ko: "마스터카드",       aliases: ["마스터카드", "마스터"],                ja: "マスターカード",  jaAliases: ["マスターカード"] },
+  { ticker: "BAC",   en: "Bank of America", ko: "뱅크오브아메리카", aliases: ["뱅크오브아메리카", "미국은행"],         ja: "バンク・オブ・アメリカ", jaAliases: ["バンクオブアメリカ"] },
+  { ticker: "GS",    en: "Goldman Sachs",   ko: "골드만삭스",      aliases: ["골드만삭스", "골드만"],                ja: "ゴールドマン・サックス", jaAliases: ["ゴールドマンサックス", "ゴールドマン"] },
+  { ticker: "MS",    en: "Morgan Stanley",  ko: "모건스탠리",      aliases: ["모건스탠리", "모건"],                  ja: "モルガン・スタンレー", jaAliases: ["モルガンスタンレー"] },
+  { ticker: "BLK",   en: "BlackRock",       ko: "블랙록",          aliases: ["블랙록"],                             ja: "ブラックロック",  jaAliases: ["ブラックロック"] },
+  { ticker: "AXP",   en: "American Express", ko: "아메리칸 익스프레스", aliases: ["아메리칸익스프레스", "아멕스"],    ja: "アメリカン・エキスプレス", jaAliases: ["アメックス", "アメリカンエキスプレス"] },
+  { ticker: "MCO",   en: "Moody's",         ko: "무디스",          aliases: ["무디스"],                             ja: "ムーディーズ",    jaAliases: ["ムーディーズ"] },
   { ticker: "SPGI",  en: "S&P Global",      ko: "S&P 글로벌",      aliases: ["S&P글로벌", "에스앤피"] },
-  { ticker: "WFC",   en: "Wells Fargo",     ko: "웰스파고",        aliases: ["웰스파고"] },
+  { ticker: "WFC",   en: "Wells Fargo",     ko: "웰스파고",        aliases: ["웰스파고"],                           ja: "ウェルズ・ファーゴ", jaAliases: ["ウェルズファーゴ"] },
 
   // ── US Energy ──
-  { ticker: "CVX",   en: "Chevron",    ko: "셰브론",        aliases: ["셰브론"] },
-  { ticker: "XOM",   en: "ExxonMobil", ko: "엑슨모빌",     aliases: ["엑슨모빌", "엑슨"] },
+  { ticker: "CVX",   en: "Chevron",    ko: "셰브론",        aliases: ["셰브론"],                                    ja: "シェブロン",      jaAliases: ["シェブロン"] },
+  { ticker: "XOM",   en: "ExxonMobil", ko: "엑슨모빌",     aliases: ["엑슨모빌", "엑슨"],                          ja: "エクソンモービル", jaAliases: ["エクソンモービル", "エクソン"] },
   { ticker: "OXY",   en: "Occidental", ko: "옥시덴탈",     aliases: ["옥시덴탈", "옥시"] },
 
   // ── US Healthcare ──
-  { ticker: "LLY",   en: "Eli Lilly",       ko: "일라이 릴리",   aliases: ["일라이릴리", "일라이 릴리", "릴리"] },
-  { ticker: "JNJ",   en: "Johnson & Johnson", ko: "존슨앤드존슨", aliases: ["존슨앤드존슨", "존앤존", "존슨"] },
-  { ticker: "ABBV",  en: "AbbVie",          ko: "애브비",         aliases: ["애브비"] },
-  { ticker: "PFE",   en: "Pfizer",          ko: "화이자",         aliases: ["화이자"] },
-  { ticker: "MRK",   en: "Merck",           ko: "머크",           aliases: ["머크"] },
-  { ticker: "MRNA",  en: "Moderna",         ko: "모더나",         aliases: ["모더나"] },
-  { ticker: "UNH",   en: "UnitedHealth",    ko: "유나이티드헬스",  aliases: ["유나이티드헬스", "유나이티드"] },
+  { ticker: "LLY",   en: "Eli Lilly",       ko: "일라이 릴리",   aliases: ["일라이릴리", "일라이 릴리", "릴리"],      ja: "イーライ・リリー", jaAliases: ["イーライリリー", "リリー"] },
+  { ticker: "JNJ",   en: "Johnson & Johnson", ko: "존슨앤드존슨", aliases: ["존슨앤드존슨", "존앤존", "존슨"],        ja: "ジョンソン・エンド・ジョンソン", jaAliases: ["ジョンソンエンドジョンソン", "J&J"] },
+  { ticker: "ABBV",  en: "AbbVie",          ko: "애브비",         aliases: ["애브비"],                             ja: "アッヴィ",        jaAliases: ["アッヴィ"] },
+  { ticker: "PFE",   en: "Pfizer",          ko: "화이자",         aliases: ["화이자"],                             ja: "ファイザー",      jaAliases: ["ファイザー"] },
+  { ticker: "MRK",   en: "Merck",           ko: "머크",           aliases: ["머크"],                               ja: "メルク",          jaAliases: ["メルク"] },
+  { ticker: "MRNA",  en: "Moderna",         ko: "모더나",         aliases: ["모더나"],                             ja: "モデルナ",        jaAliases: ["モデルナ"] },
+  { ticker: "UNH",   en: "UnitedHealth",    ko: "유나이티드헬스",  aliases: ["유나이티드헬스", "유나이티드"],          ja: "ユナイテッドヘルス", jaAliases: ["ユナイテッドヘルス"] },
   { ticker: "BMY",   en: "Bristol-Myers",   ko: "브리스톨-마이어스", aliases: ["브리스톨마이어스", "BMY"] },
   { ticker: "ISRG",  en: "Intuitive Surgical", ko: "인튜이티브 서지컬", aliases: ["인튜이티브서지컬", "인튜이티브"] },
 
   // ── US Consumer / Retail ──
-  { ticker: "KO",    en: "Coca-Cola",  ko: "코카콜라",  aliases: ["코카콜라", "코크"] },
-  { ticker: "PEP",   en: "PepsiCo",   ko: "펩시코",    aliases: ["펩시코", "펩시"] },
-  { ticker: "WMT",   en: "Walmart",   ko: "월마트",    aliases: ["월마트"] },
-  { ticker: "COST",  en: "Costco",    ko: "코스트코",  aliases: ["코스트코"] },
-  { ticker: "HD",    en: "Home Depot", ko: "홈디포",   aliases: ["홈디포"] },
-  { ticker: "MCD",   en: "McDonald's", ko: "맥도날드", aliases: ["맥도날드", "맥날"] },
-  { ticker: "SBUX",  en: "Starbucks", ko: "스타벅스",  aliases: ["스타벅스"] },
-  { ticker: "NKE",   en: "Nike",      ko: "나이키",    aliases: ["나이키"] },
-  { ticker: "DIS",   en: "Disney",    ko: "디즈니",    aliases: ["디즈니", "월트디즈니"] },
-  { ticker: "NFLX",  en: "Netflix",   ko: "넷플릭스",  aliases: ["넷플릭스", "넷플"] },
+  { ticker: "KO",    en: "Coca-Cola",  ko: "코카콜라",  aliases: ["코카콜라", "코크"],                             ja: "コカ・コーラ",    jaAliases: ["コカコーラ", "コーラ"] },
+  { ticker: "PEP",   en: "PepsiCo",   ko: "펩시코",    aliases: ["펩시코", "펩시"],                               ja: "ペプシコ",        jaAliases: ["ペプシコ", "ペプシ"] },
+  { ticker: "WMT",   en: "Walmart",   ko: "월마트",    aliases: ["월마트"],                                       ja: "ウォルマート",    jaAliases: ["ウォルマート"] },
+  { ticker: "COST",  en: "Costco",    ko: "코스트코",  aliases: ["코스트코"],                                     ja: "コストコ",        jaAliases: ["コストコ"] },
+  { ticker: "HD",    en: "Home Depot", ko: "홈디포",   aliases: ["홈디포"],                                       ja: "ホームデポ",      jaAliases: ["ホームデポ"] },
+  { ticker: "MCD",   en: "McDonald's", ko: "맥도날드", aliases: ["맥도날드", "맥날"],                             ja: "マクドナルド",    jaAliases: ["マクドナルド", "マック"] },
+  { ticker: "SBUX",  en: "Starbucks", ko: "스타벅스",  aliases: ["스타벅스"],                                    ja: "スターバックス",  jaAliases: ["スターバックス", "スタバ"] },
+  { ticker: "NKE",   en: "Nike",      ko: "나이키",    aliases: ["나이키"],                                       ja: "ナイキ",          jaAliases: ["ナイキ"] },
+  { ticker: "DIS",   en: "Disney",    ko: "디즈니",    aliases: ["디즈니", "월트디즈니"],                          ja: "ディズニー",      jaAliases: ["ディズニー", "ウォルト・ディズニー"] },
+  { ticker: "NFLX",  en: "Netflix",   ko: "넷플릭스",  aliases: ["넷플릭스", "넷플"],                             ja: "ネットフリックス", jaAliases: ["ネットフリックス", "ネトフリ"] },
   { ticker: "BKNG",  en: "Booking Holdings", ko: "부킹홀딩스", aliases: ["부킹홀딩스", "부킹닷컴"] },
-  { ticker: "ABNB",  en: "Airbnb",    ko: "에어비앤비", aliases: ["에어비앤비", "에어비"] },
+  { ticker: "ABNB",  en: "Airbnb",    ko: "에어비앤비", aliases: ["에어비앤비", "에어비"],                         ja: "エアビーアンドビー", jaAliases: ["エアビー", "エアビーアンドビー"] },
   { ticker: "CMG",   en: "Chipotle",  ko: "치폴레",    aliases: ["치폴레"] },
 
   // ── US Technology ──
-  { ticker: "CRM",   en: "Salesforce", ko: "세일즈포스",  aliases: ["세일즈포스"] },
-  { ticker: "ADBE",  en: "Adobe",      ko: "어도비",      aliases: ["어도비"] },
-  { ticker: "INTC",  en: "Intel",      ko: "인텔",        aliases: ["인텔"] },
-  { ticker: "QCOM",  en: "Qualcomm",   ko: "퀄컴",        aliases: ["퀄컴"] },
-  { ticker: "AVGO",  en: "Broadcom",   ko: "브로드컴",    aliases: ["브로드컴"] },
-  { ticker: "PYPL",  en: "PayPal",     ko: "페이팔",      aliases: ["페이팔"] },
-  { ticker: "SHOP",  en: "Shopify",    ko: "쇼피파이",    aliases: ["쇼피파이"] },
-  { ticker: "UBER",  en: "Uber",       ko: "우버",        aliases: ["우버"] },
-  { ticker: "SPOT",  en: "Spotify",    ko: "스포티파이",  aliases: ["스포티파이"] },
-  { ticker: "PLTR",  en: "Palantir",   ko: "팔란티어",    aliases: ["팔란티어"] },
-  { ticker: "SNOW",  en: "Snowflake",  ko: "스노우플레이크", aliases: ["스노우플레이크"] },
-  { ticker: "CRWD",  en: "CrowdStrike", ko: "크라우드스트라이크", aliases: ["크라우드스트라이크"] },
-  { ticker: "PANW",  en: "Palo Alto Networks", ko: "팰로앨토", aliases: ["팰로앨토", "팔로알토"] },
-  { ticker: "NOW",   en: "ServiceNow", ko: "서비스나우",  aliases: ["서비스나우"] },
-  { ticker: "WDAY",  en: "Workday",    ko: "워크데이",    aliases: ["워크데이"] },
-  { ticker: "TXN",   en: "Texas Instruments", ko: "텍사스 인스트루먼트", aliases: ["텍사스인스트루먼트", "TI"] },
+  { ticker: "CRM",   en: "Salesforce", ko: "세일즈포스",  aliases: ["세일즈포스"],                                ja: "セールスフォース", jaAliases: ["セールスフォース"] },
+  { ticker: "ADBE",  en: "Adobe",      ko: "어도비",      aliases: ["어도비"],                                   ja: "アドビ",          jaAliases: ["アドビ"] },
+  { ticker: "INTC",  en: "Intel",      ko: "인텔",        aliases: ["인텔"],                                     ja: "インテル",        jaAliases: ["インテル"] },
+  { ticker: "QCOM",  en: "Qualcomm",   ko: "퀄컴",        aliases: ["퀄컴"],                                     ja: "クアルコム",      jaAliases: ["クアルコム"] },
+  { ticker: "AVGO",  en: "Broadcom",   ko: "브로드컴",    aliases: ["브로드컴"],                                  ja: "ブロードコム",    jaAliases: ["ブロードコム"] },
+  { ticker: "PYPL",  en: "PayPal",     ko: "페이팔",      aliases: ["페이팔"],                                   ja: "ペイパル",        jaAliases: ["ペイパル"] },
+  { ticker: "SHOP",  en: "Shopify",    ko: "쇼피파이",    aliases: ["쇼피파이"],                                  ja: "ショッピファイ",  jaAliases: ["ショッピファイ", "ショピファイ"] },
+  { ticker: "UBER",  en: "Uber",       ko: "우버",        aliases: ["우버"],                                     ja: "ウーバー",        jaAliases: ["ウーバー"] },
+  { ticker: "SPOT",  en: "Spotify",    ko: "스포티파이",  aliases: ["스포티파이"],                                ja: "スポティファイ",  jaAliases: ["スポティファイ"] },
+  { ticker: "PLTR",  en: "Palantir",   ko: "팔란티어",    aliases: ["팔란티어"],                                  ja: "パランティア",    jaAliases: ["パランティア"] },
+  { ticker: "SNOW",  en: "Snowflake",  ko: "스노우플레이크", aliases: ["스노우플레이크"],                          ja: "スノーフレーク",  jaAliases: ["スノーフレーク"] },
+  { ticker: "CRWD",  en: "CrowdStrike", ko: "크라우드스트라이크", aliases: ["크라우드스트라이크"],                  ja: "クラウドストライク", jaAliases: ["クラウドストライク"] },
+  { ticker: "PANW",  en: "Palo Alto Networks", ko: "팰로앨토", aliases: ["팰로앨토", "팔로알토"],                 ja: "パロアルトネットワークス", jaAliases: ["パロアルト", "パロアルトネットワークス"] },
+  { ticker: "NOW",   en: "ServiceNow", ko: "서비스나우",  aliases: ["서비스나우"],                                ja: "サービスナウ",    jaAliases: ["サービスナウ"] },
+  { ticker: "WDAY",  en: "Workday",    ko: "워크데이",    aliases: ["워크데이"],                                  ja: "ワークデイ",      jaAliases: ["ワークデイ"] },
+  { ticker: "TXN",   en: "Texas Instruments", ko: "텍사스 인스트루먼트", aliases: ["텍사스인스트루먼트", "TI"],      ja: "テキサス・インスツルメンツ", jaAliases: ["テキサスインスツルメンツ", "TI"] },
   { ticker: "MU",    en: "Micron",     ko: "마이크론",    aliases: ["마이크론"] },
   { ticker: "AMD",   en: "AMD",        ko: "AMD",         aliases: ["AMD", "에이엠디", "라이젠"] },
   { ticker: "ARM",   en: "Arm Holdings", ko: "ARM",       aliases: ["ARM", "에이알엠"] },
@@ -600,7 +602,7 @@ export const KOREAN_STOCK_ALIASES: KoreanStockAlias[] = [
   { ticker: "AMAT",  en: "Applied Materials", ko: "어플라이드 머티리얼즈", aliases: ["어플라이드머티리얼즈", "어플라이드", "AMAT"] },
   { ticker: "LRCX",  en: "Lam Research",      ko: "램 리서치",             aliases: ["램리서치", "램 리서치"] },
   { ticker: "KLAC",  en: "KLA Corporation",   ko: "KLA 코퍼레이션",        aliases: ["KLA", "케이엘에이"] },
-  { ticker: "COHR",  en: "Coherent Corp",     ko: "코히런트",              aliases: ["코히런트", "코히런트 코퍼레이션"] },
+  { ticker: "COHR",  en: "Coherent Corp",     ko: "코히런트",              aliases: ["코히런트", "코히런트 코퍼레이션"], ja: "コヒレント", jaAliases: ["コヒレント", "コヒレント・コーポレーション"] },
   { ticker: "SMCI",  en: "Super Micro",       ko: "슈퍼마이크로",          aliases: ["슈퍼마이크로", "SMCI"] },
   { ticker: "MRVL",  en: "Marvell Technology",ko: "마벨 테크놀로지",       aliases: ["마벨", "마벨테크놀로지"] },
   { ticker: "ON",    en: "ON Semiconductor",  ko: "온 세미컨덕터",         aliases: ["온세미", "온세미컨덕터"] },
@@ -708,6 +710,19 @@ export function containsKorean(text: string): boolean {
   return /[\u3131-\u318E\uAC00-\uD7A3]/.test(text);
 }
 
+/** Detect if a string contains Japanese (Hiragana, Katakana, or CJK Kanji) characters */
+export function containsJapanese(text: string): boolean {
+  return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
+}
+
+/**
+ * Detect if a string contains any localized (Korean or Japanese) characters.
+ * Use this to decide whether to bypass the English-only Yahoo Finance API search.
+ */
+export function containsLocalized(text: string): boolean {
+  return containsKorean(text) || containsJapanese(text);
+}
+
 /**
  * Get a localized company name. Falls back to the original if no mapping exists.
  * Tries exact match first, then a prefix/suffix partial match.
@@ -750,7 +765,9 @@ export function getNameByTicker(ticker: string, lang: string): string | null {
   if (!ticker) return null;
   const alias = KOREAN_STOCK_ALIASES.find(a => a.ticker === ticker);
   if (!alias) return null;
-  return lang === "ko" ? alias.ko : alias.en;
+  if (lang === "ja" && alias.ja) return alias.ja;
+  if (lang === "ko") return alias.ko;
+  return alias.en;
 }
 
 /**
@@ -778,4 +795,44 @@ export function searchByKoreanAlias(koreanQuery: string): KoreanStockAlias[] {
   }
 
   return results.slice(0, 15);
+}
+
+/**
+ * Search the Japanese alias list for stocks matching a Japanese query (katakana/hiragana/kanji).
+ * Normalizes whitespace for comparison.
+ */
+export function searchByJapaneseAlias(jaQuery: string): KoreanStockAlias[] {
+  const normalized = jaQuery.replace(/\s+/g, "");
+  if (!normalized) return [];
+
+  const seen = new Set<string>();
+  const results: KoreanStockAlias[] = [];
+
+  for (const stock of KOREAN_STOCK_ALIASES) {
+    if (!stock.jaAliases?.length) continue;
+    const alreadySeen = seen.has(stock.en);
+    const matches = stock.jaAliases.some(alias => {
+      const normAlias = alias.replace(/\s+/g, "");
+      return normAlias.includes(normalized) || normalized.includes(normAlias);
+    });
+
+    if (matches && !alreadySeen) {
+      seen.add(stock.en);
+      results.push(stock);
+    }
+  }
+
+  return results.slice(0, 15);
+}
+
+/**
+ * Unified multilingual alias search.
+ * Detects whether the query is Korean or Japanese and searches the appropriate alias fields.
+ * Returns at most 15 results, de-duplicated by English name.
+ */
+export function searchByLocalizedAlias(query: string): KoreanStockAlias[] {
+  if (!query.trim()) return [];
+  if (containsKorean(query))   return searchByKoreanAlias(query);
+  if (containsJapanese(query)) return searchByJapaneseAlias(query);
+  return [];
 }
