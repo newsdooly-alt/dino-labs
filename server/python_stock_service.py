@@ -1345,140 +1345,259 @@ def get_macro_quotes():
     return jsonify(response)
 
 
-# Per-country RRG caches: key = "benchmark|sectors" string
-_rrg_caches: dict = {}
-RRG_CACHE_DURATION = 300  # 5 minutes
+# ─── RRG: Per-country configuration ──────────────────────────────────────────
+# mode='etf'     → each symbol is a standalone sector/country ETF (US, EU)
+# mode='grouped' → constituent stocks grouped by sector; Python pre-aggregates (KR, JP)
+# This guarantees exactly 11 nodes for every country.
 
-COUNTRY_RRG_DEFAULTS = {
+RRG_COUNTRY_CONFIG = {
     'us': {
         'benchmark': 'SPY',
-        'sectors': 'XLK,XLF,XLV,XLE,XLY,XLP,XLI,XLB,XLRE,XLU,XLC',
-    },
-    'kr': {
-        'benchmark': '^KS11',
-        # All constituent stocks for all 8 sectors (grouped by aggregateSectors on frontend)
-        'sectors': '005930.KS,000660.KS,066570.KS,006400.KS,005380.KS,000270.KS,012330.KS,068270.KS,207940.KS,128940.KS,105560.KS,055550.KS,086790.KS,051910.KS,373220.KS,247540.KS,035420.KS,035720.KS,003670.KS,004020.KS,010120.KS,017670.KS,030200.KS,032640.KS',
-    },
-    'jp': {
-        'benchmark': '^N225',
-        # All constituent stocks for all 8 sectors (grouped by aggregateSectors on frontend)
-        'sectors': '7203.T,7267.T,7270.T,7201.T,6758.T,6501.T,6752.T,7751.T,6701.T,8306.T,8316.T,8411.T,4502.T,4503.T,4568.T,9984.T,4689.T,3659.T,3382.T,8267.T,8028.T,8802.T,8801.T,8804.T,9501.T,9502.T,9503.T,4661.T',
+        'mode': 'etf',
+        'sectors': ['XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLB','XLRE','XLU','XLC'],
     },
     'eu': {
         'benchmark': 'VGK',
-        'sectors': 'EWG,EWQ,EWI,EWP,EWN,EWL,EWU,EWD,EWO,ENOR',
+        'mode': 'etf',
+        # 11 iShares country ETFs for European country rotation (EWQ delisted 2024 → EDEN)
+        'sectors': ['EWG','EDEN','EWI','EWP','EWN','EWL','EWU','EWD','EWO','ENOR','EWK'],
+    },
+    'kr': {
+        'benchmark': '^KS11',
+        'mode': 'grouped',
+        # 11 GICS-aligned sectors; Python pre-aggregates constituent stocks → 11 nodes guaranteed
+        'sector_groups': {
+            'KR_SEMI':    ['005930.KS','000660.KS','066570.KS','006400.KS'],
+            'KR_AUTO':    ['005380.KS','000270.KS','012330.KS'],
+            'KR_BIO':     ['068270.KS','207940.KS','128940.KS'],
+            'KR_FIN':     ['105560.KS','055550.KS','086790.KS'],
+            'KR_CHEM':    ['051910.KS','373220.KS','247540.KS'],
+            'KR_NET':     ['035420.KS','035720.KS','259960.KS'],
+            'KR_STEEL':   ['003670.KS','004020.KS','010120.KS'],
+            'KR_TELE':    ['017670.KS','030200.KS','032640.KS'],
+            'KR_CONDISC': ['069960.KS','023530.KS','139480.KS','004170.KS'],
+            'KR_UTIL':    ['015760.KS','036460.KS','018670.KS'],
+            'KR_RE':      ['012630.KS','000720.KS','006360.KS','000210.KS'],
+        },
+    },
+    'jp': {
+        'benchmark': '^N225',
+        'mode': 'grouped',
+        # 11 GICS-aligned sectors for Japan
+        'sector_groups': {
+            'JP_AUTO':     ['7203.T','7267.T','7270.T','7201.T'],
+            'JP_ELEC':     ['6758.T','6501.T','6752.T','7751.T','6701.T'],
+            'JP_FIN':      ['8306.T','8316.T','8411.T'],
+            'JP_PHARM':    ['4502.T','4503.T','4568.T'],
+            'JP_IT':       ['9984.T','4689.T','3659.T'],
+            'JP_RETAIL':   ['3382.T','8267.T','8028.T'],
+            'JP_RE':       ['8802.T','8801.T','8804.T'],
+            'JP_UTIL':     ['9501.T','9502.T','9503.T','4661.T'],
+            'JP_CHEM':     ['4063.T','4005.T','3402.T','3407.T'],
+            'JP_STEEL':    ['5401.T','5411.T','5406.T'],
+            'JP_CONSTAPLE':['2503.T','2502.T','2802.T','2269.T'],
+        },
     },
 }
 
+_rrg_caches: dict = {}
+RRG_CACHE_DURATION = 300  # 5 minutes
+
+
+def _build_rrg_result(symbol, rs_ratio_series, rs_momentum_series, tail_length):
+    """Build an RRG sector dict from pre-computed RS-Ratio and RS-Momentum pandas Series."""
+    points = []
+    n = min(tail_length, len(rs_ratio_series))
+    for i in range(n):
+        idx = -(n - i)
+        try:
+            rr = float(rs_ratio_series.iloc[idx])
+            rm = float(rs_momentum_series.iloc[idx])
+            if pd.isna(rr) or pd.isna(rm):
+                continue
+            points.append({"rsRatio": round(rr, 3), "rsMomentum": round(rm, 3)})
+        except Exception:
+            continue
+    if not points:
+        return None
+    current = points[-1]
+    rr_val, rm_val = current["rsRatio"], current["rsMomentum"]
+    quadrant = ("leading"   if rr_val >= 100 and rm_val >= 100 else
+                "weakening" if rr_val >= 100 else
+                "improving" if rm_val >= 100 else "lagging")
+    return {"symbol": symbol, "quadrant": quadrant, "rsRatio": rr_val,
+            "rsMomentum": rm_val, "tail": points}
+
+
+def _compute_rrg_for_sym(sym_col, bm_prices, ratio_span, mom_span):
+    """Compute RS-Ratio / RS-Momentum series for a single price column vs benchmark."""
+    sec = sym_col.dropna()
+    bm = bm_prices.reindex(sec.index).dropna()
+    sec = sec.reindex(bm.index).dropna()
+    if len(sec) < 15:
+        return None, None
+    rs_raw = (sec / bm) * 100.0
+    ema_r = rs_raw.ewm(span=ratio_span, adjust=False).mean()
+    rs_ratio = (rs_raw / ema_r) * 100.0
+    ema_m = rs_ratio.ewm(span=mom_span, adjust=False).mean()
+    rs_momentum = (rs_ratio / ema_m) * 100.0
+    return rs_ratio, rs_momentum
+
+
+def _normalize_rrg_coords(sectors):
+    """Normalize RRG coordinates so all 11 nodes fit around center=100 with ~3-unit std dev.
+
+    Uses ALL tail points (not just current values) so the historical path is
+    consistently scaled — no jumps when switching between periods.
+    """
+    if len(sectors) < 2:
+        return sectors
+
+    all_rr, all_rm = [], []
+    for s in sectors:
+        all_rr.append(s['rsRatio'])
+        all_rm.append(s['rsMomentum'])
+        for p in s.get('tail', []):
+            all_rr.append(p['rsRatio'])
+            all_rm.append(p['rsMomentum'])
+
+    rr_mean = sum(all_rr) / len(all_rr)
+    rm_mean = sum(all_rm) / len(all_rm)
+    rr_std = (sum((x - rr_mean) ** 2 for x in all_rr) / len(all_rr)) ** 0.5 or 0.01
+    rm_std = (sum((x - rm_mean) ** 2 for x in all_rm) / len(all_rm)) ** 0.5 or 0.01
+
+    TARGET_STD = 3.0            # normalize spread to ~3 units
+    rr_scale = min(TARGET_STD / rr_std, 10.0)
+    rm_scale = min(TARGET_STD / rm_std, 10.0)
+
+    for s in sectors:
+        norm_rr = 100.0 + (s['rsRatio']    - rr_mean) * rr_scale
+        norm_rm = 100.0 + (s['rsMomentum'] - rm_mean) * rm_scale
+        s['rsRatio']    = round(norm_rr, 3)
+        s['rsMomentum'] = round(norm_rm, 3)
+        s['tail'] = [
+            {'rsRatio':    round(100.0 + (p['rsRatio']    - rr_mean) * rr_scale, 3),
+             'rsMomentum': round(100.0 + (p['rsMomentum'] - rm_mean) * rm_scale, 3)}
+            for p in s.get('tail', [])
+        ]
+        s['quadrant'] = ("leading"   if norm_rr >= 100 and norm_rm >= 100 else
+                         "weakening" if norm_rr >= 100 else
+                         "improving" if norm_rm >= 100 else "lagging")
+    return sectors
+
+
 @app.route('/rrg/data', methods=['GET'])
 def get_rrg_data():
-    """Compute RRG data for any country's sectors vs benchmark."""
+    """Compute RRG data for any country's sectors vs benchmark.
+
+    Guarantees exactly 11 sector nodes per country.
+    KR/JP: pre-aggregates constituent stocks in Python to avoid missing-stock distortion.
+    US/EU: uses liquid ETFs directly.
+    Applies adaptive EMA spans + post-normalization for all timeframes.
+    """
     import time
     now = time.time()
 
     country = request.args.get('country', 'us').lower()
-    country_defaults = COUNTRY_RRG_DEFAULTS.get(country, COUNTRY_RRG_DEFAULTS['us'])
-
-    benchmark = request.args.get('benchmark', country_defaults['benchmark'])
-    sectors_param = request.args.get('sectors', country_defaults['sectors'])
+    cfg = RRG_COUNTRY_CONFIG.get(country, RRG_COUNTRY_CONFIG['us'])
+    benchmark = request.args.get('benchmark', cfg['benchmark'])
     tail_length = int(request.args.get('tail', '10'))
-    sectors = [s.strip() for s in sectors_param.split(',') if s.strip()]
 
     rrg_period = request.args.get('period', '1m').lower()
-    _rrg_period_map = {
+    _period_map = {
         '1w': ('30d',  '1d'),
         '1m': ('60d',  '1d'),
         '3m': ('90d',  '1d'),
         '6m': ('1y',   '1wk'),
         '1y': ('2y',   '1wk'),
     }
-    yf_period, interval = _rrg_period_map.get(rrg_period, ('60d', '1d'))
+    yf_period, interval = _period_map.get(rrg_period, ('60d', '1d'))
 
-    all_symbols = [benchmark] + sectors
-    cache_key = f"{benchmark}|{sectors_param}|{rrg_period}"
+    cache_key = f"{country}|{benchmark}|{rrg_period}"
     if cache_key in _rrg_caches:
         entry = _rrg_caches[cache_key]
-        if entry["data"] and (now - entry["timestamp"]) < RRG_CACHE_DURATION:
+        if entry.get("data") and (now - entry["timestamp"]) < RRG_CACHE_DURATION:
             return jsonify(entry["data"])
 
     try:
-        raw = yf.download(all_symbols, period=yf_period, interval=interval, progress=False, auto_adjust=True)
-        if raw.empty:
-            return jsonify({"error": "No data", "sectors": []}), 500
-
-        closes = raw['Close'] if 'Close' in raw.columns else raw
-        closes = closes.dropna(how='all')
-
-        if benchmark not in closes.columns:
-            return jsonify({"error": f"Benchmark {benchmark} not found", "sectors": []}), 500
-
-        spy = closes[benchmark]
+        mode = cfg['mode']
         rrg_sectors = []
 
-        for sector in sectors:
-            if sector not in closes.columns:
-                print(f"[RRG] {sector} not found in data")
-                continue
-            try:
-                sec_prices = closes[sector].dropna()
-                spy_aligned = spy.reindex(sec_prices.index).dropna()
-                sec_aligned = sec_prices.reindex(spy_aligned.index).dropna()
+        if mode == 'etf':
+            sectors_list = cfg['sectors']
+            all_symbols = [benchmark] + sectors_list
+            raw = yf.download(all_symbols, period=yf_period, interval=interval,
+                              progress=False, auto_adjust=True)
+            if raw.empty:
+                return jsonify({"error": "No data", "sectors": []}), 500
+            closes = (raw['Close'] if 'Close' in raw.columns else raw).dropna(how='all')
+            if benchmark not in closes.columns:
+                return jsonify({"error": f"Benchmark {benchmark} not found", "sectors": []}), 500
+            bm = closes[benchmark]
+            n_pts = int(bm.dropna().count())
+            ratio_span = max(5, min(n_pts // 4, 40))
+            mom_span   = max(3, ratio_span // 2)
 
-                if len(sec_aligned) < 20:
-                    print(f"[RRG] {sector} insufficient data: {len(sec_aligned)} rows")
+            for sym in sectors_list:
+                col = closes[sym] if sym in closes.columns else None
+                if col is None:
+                    print(f"[RRG] ETF {sym} missing from download")
                     continue
-
-                rs_raw = (sec_aligned / spy_aligned) * 100.0
-
-                # RS-Ratio: 10-period EMA of RS relative to its own 10-period EMA
-                ema10 = rs_raw.ewm(span=10, adjust=False).mean()
-                rs_ratio = (rs_raw / ema10) * 100.0
-
-                # RS-Momentum: 5-period EMA of RS-Ratio relative to its own EMA
-                ema5 = rs_ratio.ewm(span=5, adjust=False).mean()
-                rs_momentum = (rs_ratio / ema5) * 100.0
-
-                # Take last `tail_length` valid points
-                points = []
-                n = min(tail_length, len(rs_ratio))
-                for i in range(n):
-                    idx = -(n - i)
-                    try:
-                        rr = float(rs_ratio.iloc[idx])
-                        rm = float(rs_momentum.iloc[idx])
-                        if pd.isna(rr) or pd.isna(rm):
-                            continue
-                        points.append({"rsRatio": round(rr, 3), "rsMomentum": round(rm, 3)})
-                    except Exception:
+                try:
+                    rs_ratio, rs_momentum = _compute_rrg_for_sym(col, bm, ratio_span, mom_span)
+                    if rs_ratio is None:
                         continue
+                    result = _build_rrg_result(sym, rs_ratio, rs_momentum, tail_length)
+                    if result:
+                        rrg_sectors.append(result)
+                except Exception as e:
+                    print(f"[RRG] ETF {sym}: {e}")
 
-                if not points:
+        else:  # grouped — pre-aggregate in Python
+            sector_groups = cfg['sector_groups']
+            all_members = list(set(m for ms in sector_groups.values() for m in ms))
+            all_symbols = [benchmark] + all_members
+            raw = yf.download(all_symbols, period=yf_period, interval=interval,
+                              progress=False, auto_adjust=True)
+            if raw.empty:
+                return jsonify({"error": "No data", "sectors": []}), 500
+            closes = (raw['Close'] if 'Close' in raw.columns else raw).dropna(how='all')
+            if benchmark not in closes.columns:
+                return jsonify({"error": f"Benchmark {benchmark} not found", "sectors": []}), 500
+            bm = closes[benchmark]
+            n_pts = int(bm.dropna().count())
+            ratio_span = max(5, min(n_pts // 4, 40))
+            mom_span   = max(3, ratio_span // 2)
+
+            for sector_id, members in sector_groups.items():
+                rr_list, rm_list = [], []
+                for sym in members:
+                    if sym not in closes.columns:
+                        continue
+                    try:
+                        rs_ratio, rs_momentum = _compute_rrg_for_sym(
+                            closes[sym], bm, ratio_span, mom_span)
+                        if rs_ratio is not None:
+                            rr_list.append(rs_ratio)
+                            rm_list.append(rs_momentum)
+                    except Exception as e:
+                        print(f"[RRG] {sector_id}/{sym}: {e}")
+
+                if not rr_list:
+                    print(f"[RRG] Sector {sector_id}: no members with data — skipping")
                     continue
+                # Average aligned series across all available members
+                rr_avg = pd.concat(rr_list, axis=1).mean(axis=1)
+                rm_avg = pd.concat(rm_list, axis=1).mean(axis=1)
+                result = _build_rrg_result(sector_id, rr_avg, rm_avg, tail_length)
+                if result:
+                    result['constituents'] = len(rr_list)
+                    rrg_sectors.append(result)
 
-                current = points[-1]
-                rr_val = current["rsRatio"]
-                rm_val = current["rsMomentum"]
+        # ── Post-processing: normalize all 11 nodes into a consistent viewport ──
+        rrg_sectors = _normalize_rrg_coords(rrg_sectors)
 
-                if rr_val >= 100 and rm_val >= 100:
-                    quadrant = "leading"
-                elif rr_val >= 100 and rm_val < 100:
-                    quadrant = "weakening"
-                elif rr_val < 100 and rm_val >= 100:
-                    quadrant = "improving"
-                else:
-                    quadrant = "lagging"
-
-                rrg_sectors.append({
-                    "symbol": sector,
-                    "quadrant": quadrant,
-                    "rsRatio": rr_val,
-                    "rsMomentum": rm_val,
-                    "tail": points,
-                })
-            except Exception as e:
-                print(f"[RRG] Error computing {sector}: {e}")
-                continue
-
+        print(f"[RRG] {country}/{rrg_period}: {len(rrg_sectors)} sectors")
         response = {
             "benchmark": benchmark,
             "country": country,
@@ -1488,8 +1607,10 @@ def get_rrg_data():
         }
         _rrg_caches[cache_key] = {"data": response, "timestamp": now}
         return jsonify(response)
+
     except Exception as e:
         print(f"[RRG] Fatal error: {e}")
+        import traceback; traceback.print_exc()
         return jsonify({"error": str(e), "sectors": []}), 500
 
 
@@ -1500,26 +1621,32 @@ SECTOR_RETURNS_CACHE_DURATION = 120  # 2 minutes
 # Constituent stocks per sector per country (mirrors frontend sectorGroups)
 SECTOR_CONSTITUENTS = {
     'us':  [(s, [s]) for s in ['XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLB','XLRE','XLU','XLC']],
-    'eu':  [(s, [s]) for s in ['EWG','EWQ','EWI','EWP','EWN','EWL','EWU','EWD','EWO','ENOR']],
+    'eu':  [(s, [s]) for s in ['EWG','EDEN','EWI','EWP','EWN','EWL','EWU','EWD','EWO','ENOR','EWK']],
     'kr': [
-        ('KR_SEMI',  ['005930.KS','000660.KS','066570.KS','006400.KS']),
-        ('KR_AUTO',  ['005380.KS','000270.KS','012330.KS']),
-        ('KR_BIO',   ['068270.KS','207940.KS','128940.KS']),
-        ('KR_FIN',   ['105560.KS','055550.KS','086790.KS']),
-        ('KR_CHEM',  ['051910.KS','373220.KS','247540.KS']),
-        ('KR_NET',   ['035420.KS','035720.KS']),
-        ('KR_STEEL', ['003670.KS','004020.KS','010120.KS']),
-        ('KR_TELE',  ['017670.KS','030200.KS','032640.KS']),
+        ('KR_SEMI',    ['005930.KS','000660.KS','066570.KS','006400.KS']),
+        ('KR_AUTO',    ['005380.KS','000270.KS','012330.KS']),
+        ('KR_BIO',     ['068270.KS','207940.KS','128940.KS']),
+        ('KR_FIN',     ['105560.KS','055550.KS','086790.KS']),
+        ('KR_CHEM',    ['051910.KS','373220.KS','247540.KS']),
+        ('KR_NET',     ['035420.KS','035720.KS','259960.KS']),
+        ('KR_STEEL',   ['003670.KS','004020.KS','010120.KS']),
+        ('KR_TELE',    ['017670.KS','030200.KS','032640.KS']),
+        ('KR_CONDISC', ['069960.KS','023530.KS','139480.KS','004170.KS']),
+        ('KR_UTIL',    ['015760.KS','036460.KS','018670.KS']),
+        ('KR_RE',      ['012630.KS','000720.KS','006360.KS','000210.KS']),
     ],
     'jp': [
-        ('JP_AUTO',   ['7203.T','7267.T','7270.T','7201.T']),
-        ('JP_ELEC',   ['6758.T','6501.T','6752.T','7751.T','6701.T']),
-        ('JP_FIN',    ['8306.T','8316.T','8411.T']),
-        ('JP_PHARM',  ['4502.T','4503.T','4568.T']),
-        ('JP_IT',     ['9984.T','4689.T','3659.T']),
-        ('JP_RETAIL', ['3382.T','8267.T','8028.T']),
-        ('JP_RE',     ['8802.T','8801.T','8804.T']),
-        ('JP_UTIL',   ['9501.T','9502.T','9503.T','4661.T']),
+        ('JP_AUTO',     ['7203.T','7267.T','7270.T','7201.T']),
+        ('JP_ELEC',     ['6758.T','6501.T','6752.T','7751.T','6701.T']),
+        ('JP_FIN',      ['8306.T','8316.T','8411.T']),
+        ('JP_PHARM',    ['4502.T','4503.T','4568.T']),
+        ('JP_IT',       ['9984.T','4689.T','3659.T']),
+        ('JP_RETAIL',   ['3382.T','8267.T','8028.T']),
+        ('JP_RE',       ['8802.T','8801.T','8804.T']),
+        ('JP_UTIL',     ['9501.T','9502.T','9503.T','4661.T']),
+        ('JP_CHEM',     ['4063.T','4005.T','3402.T','3407.T']),
+        ('JP_STEEL',    ['5401.T','5411.T','5406.T']),
+        ('JP_CONSTAPLE',['2503.T','2502.T','2802.T','2269.T']),
     ],
 }
 
