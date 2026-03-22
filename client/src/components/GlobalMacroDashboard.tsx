@@ -223,57 +223,44 @@ function VixGauge({ price }: { price: number }) {
   );
 }
 
-function CryptoFearGreedGauge({ fg, lang }: { fg: { score: number; rating: string }; lang: string }) {
+function CryptoFearGreedRow({ fg, lang }: { fg: { score: number; rating: string }; lang: string }) {
   const score = fg.score;
   let colorClass: string;
-  let bgClass: string;
-  let borderClass: string;
   let emoji: string;
+  let labelKo: string;
 
-  if (score <= 24)       { colorClass = "text-red-600 dark:text-red-400";     bgClass = "bg-red-500/10";     borderClass = "border-red-500/30";     emoji = "😱"; }
-  else if (score <= 44)  { colorClass = "text-orange-500";                    bgClass = "bg-orange-500/10";  borderClass = "border-orange-500/30";  emoji = "😨"; }
-  else if (score <= 54)  { colorClass = "text-yellow-500";                    bgClass = "bg-yellow-500/10";  borderClass = "border-yellow-500/30";  emoji = "😐"; }
-  else if (score <= 74)  { colorClass = "text-lime-500";                      bgClass = "bg-lime-500/10";    borderClass = "border-lime-500/30";    emoji = "😊"; }
-  else                   { colorClass = "text-green-600 dark:text-green-400"; bgClass = "bg-green-500/10";   borderClass = "border-green-500/30";   emoji = "🤑"; }
-
-  const labelKo =
-    score <= 24 ? "극도 공포" :
-    score <= 44 ? "공포" :
-    score <= 54 ? "중립" :
-    score <= 74 ? "탐욕" : "극도 탐욕";
+  if (score <= 24)      { colorClass = "text-red-600 dark:text-red-400";     emoji = "😱"; labelKo = "극도 공포"; }
+  else if (score <= 44) { colorClass = "text-orange-500";                    emoji = "😨"; labelKo = "공포"; }
+  else if (score <= 54) { colorClass = "text-yellow-500";                    emoji = "😐"; labelKo = "중립"; }
+  else if (score <= 74) { colorClass = "text-lime-500";                      emoji = "😊"; labelKo = "탐욕"; }
+  else                  { colorClass = "text-green-600 dark:text-green-400"; emoji = "🤑"; labelKo = "극도 탐욕"; }
 
   const label = lang === "ko" ? labelKo : fg.rating;
 
-  const barWidth = `${score}%`;
-
   return (
     <div
-      className={cn("mx-4 my-2 rounded-xl border p-3 space-y-2", bgClass, borderClass)}
-      data-testid="crypto-fear-greed-gauge"
+      className="flex items-center gap-3 px-4 py-3 border-t border-border/40"
+      data-testid="crypto-fear-greed-row"
     >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-foreground">
-          {lang === "ko" ? "크립토 공포·탐욕 지수" : "Crypto Fear & Greed"}
-        </span>
-        <span className="text-[11px] text-muted-foreground">alternative.me</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm shrink-0">🧠</span>
+          <span className="font-semibold text-sm truncate">
+            {lang === "ko" ? "크립토 공포·탐욕" : "Crypto Fear & Greed"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[11px] text-muted-foreground font-mono">alternative.me</span>
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">{emoji}</span>
-        <div className="flex-1 space-y-1">
-          <div className="flex items-baseline gap-2">
-            <span className={cn("text-2xl font-black tabular-nums", colorClass)}>{score}</span>
-            <span className={cn("text-sm font-bold", colorClass)}>{label}</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className={cn("h-2 rounded-full transition-all", colorClass.includes("red") ? "bg-red-500" : colorClass.includes("orange") ? "bg-orange-500" : colorClass.includes("yellow") ? "bg-yellow-500" : colorClass.includes("lime") ? "bg-lime-500" : "bg-green-500")}
-              style={{ width: barWidth }}
-            />
-          </div>
-          <div className="flex justify-between text-[9px] text-muted-foreground">
-            <span>{lang === "ko" ? "극도 공포" : "Extreme Fear"}</span>
-            <span>{lang === "ko" ? "극도 탐욕" : "Extreme Greed"}</span>
-          </div>
+
+      <div className="text-right shrink-0">
+        <div className={cn("font-mono font-semibold text-sm tabular-nums flex items-center gap-1.5 justify-end", colorClass)}>
+          <span>{emoji}</span>
+          <span>{score} / 100</span>
+        </div>
+        <div className={cn("text-xs font-bold tabular-nums", colorClass)}>
+          {label}
         </div>
       </div>
     </div>
@@ -377,10 +364,7 @@ export function GlobalMacroDashboard() {
               {lang === "ko" ? category.labelKo : category.label}
             </div>
 
-            {/* Crypto Fear & Greed shown at top of sentiment section */}
-            {category.id === "sentiment" && data.cryptoFearGreed && (
-              <CryptoFearGreedGauge fg={data.cryptoFearGreed} lang={lang} />
-            )}
+            {/* Crypto Fear & Greed shown at bottom of sentiment section as a clean row */}
 
             <div className="divide-y divide-border/40">
               {categoryAssets.map(asset => {
@@ -450,6 +434,10 @@ export function GlobalMacroDashboard() {
                 );
               })}
             </div>
+
+            {category.id === "sentiment" && data.cryptoFearGreed && (
+              <CryptoFearGreedRow fg={data.cryptoFearGreed} lang={lang} />
+            )}
           </div>
         );
       })}

@@ -1728,6 +1728,55 @@ Use financial Korean naturally (e.g., 계약, 인수합병, 실적, 발표, 협�
     }
   });
 
+  // === In-App News Detail: AI Summary + Trilingual Analysis ===
+  app.post("/api/news/detail", async (req, res) => {
+    try {
+      const { title, summary, publisher, symbol } = req.body as {
+        title: string; summary?: string; publisher?: string; symbol?: string;
+      };
+      if (!title) return res.status(400).json({ error: "title required" });
+
+      const context = [
+        `Headline: ${title}`,
+        summary ? `Summary: ${summary}` : "",
+        publisher ? `Source: ${publisher}` : "",
+        symbol ? `Stock: ${symbol}` : "",
+      ].filter(Boolean).join("\n");
+
+      const systemPrompt = `You are a trilingual financial news analyst (Korean, English, Japanese).
+Given a stock/finance news headline and optional summary, produce a JSON object with:
+- "bullets_ko": array of 3-4 Korean bullet points (key facts, max 30 chars each, use ▸ prefix NOT included)
+- "bullets_en": array of 3-4 English bullet points (key facts, max 50 chars each)
+- "ko": 2-3 paragraph Korean analysis for Korean retail investors (natural financial Korean)
+- "en": 2-3 paragraph English analysis for English-speaking investors
+- "ja": 2-3 paragraph Japanese analysis (natural financial Japanese)
+Keep each language culturally appropriate. Focus on investment implications.`;
+
+      const aiRes = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: context },
+        ],
+        max_tokens: 1200,
+        response_format: { type: "json_object" },
+      });
+
+      const raw = aiRes.choices[0]?.message?.content?.trim() || "{}";
+      const parsed = JSON.parse(raw);
+      res.json({
+        bullets_ko: parsed.bullets_ko || [],
+        bullets_en: parsed.bullets_en || [],
+        ko: parsed.ko || "",
+        en: parsed.en || "",
+        ja: parsed.ja || "",
+      });
+    } catch (error: any) {
+      console.error("[News Detail]", error.message);
+      res.status(500).json({ error: "Failed to generate analysis" });
+    }
+  });
+
   // === Breaking News Quiz Engine (v4 - 20 Sources, 100+ Categories, Market-Aware) ===
   type QuizCategory = 'valuation' | 'impact' | 'technical' | 'movement';
 

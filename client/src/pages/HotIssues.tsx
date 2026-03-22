@@ -4,7 +4,8 @@ import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Flame, ExternalLink, RefreshCw, Clock, Filter, ChevronRight, ChevronDown } from "lucide-react";
+import { Zap, Flame, RefreshCw, Clock, Filter, ChevronRight, ChevronDown } from "lucide-react";
+import { NewsDetailModal } from "@/components/NewsDetailModal";
 
 interface HotIssueItem {
   title: string;
@@ -63,18 +64,18 @@ function formatFetchTime(ts: number, lang: string): string {
   return `as of ${hh}:${mm}`;
 }
 
-function IssueCard({ issue, idx, lang }: { issue: HotIssueItem; idx: number; lang: string }) {
+function IssueCard({
+  issue, idx, lang, onClick,
+}: { issue: HotIssueItem; idx: number; lang: string; onClick: () => void }) {
   const isKo = lang === "ko";
   const isJa = lang === "ja";
   return (
-    <motion.a
+    <motion.div
       key={`${issue.symbol}-${idx}`}
-      href={issue.link || "#"}
-      target="_blank"
-      rel="noopener noreferrer"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: idx * 0.04 }}
+      onClick={onClick}
       className={cn(
         "group block rounded-2xl border p-5 transition-all duration-200 hover:shadow-lg active:scale-[0.99] cursor-pointer",
         issue.isHot
@@ -115,16 +116,15 @@ function IssueCard({ issue, idx, lang }: { issue: HotIssueItem; idx: number; lan
       )}
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-          <ExternalLink className="w-3 h-3 shrink-0" />
+        <span className="text-[11px] text-muted-foreground truncate">
           {issue.publisher}
         </span>
         <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary shrink-0 group-hover:gap-2 transition-all">
-          {isKo ? "자세히 보기" : isJa ? "詳細を見る" : "Read more"}
+          {isKo ? "AI 분석 보기" : isJa ? "AI分析を見る" : "View AI Analysis"}
           <ChevronRight className="w-3.5 h-3.5" />
         </span>
       </div>
-    </motion.a>
+    </motion.div>
   );
 }
 
@@ -137,6 +137,7 @@ export default function HotIssues() {
   const [filterHot, setFilterHot] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<HotIssueItem | null>(null);
 
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery<HotIssuesResponse>({
     queryKey: ["/api/news/hot-issues"],
@@ -261,7 +262,13 @@ export default function HotIssues() {
           {/* Initial items */}
           <AnimatePresence mode="popLayout">
             {initialIssues.map((issue, idx) => (
-              <IssueCard key={`init-${idx}`} issue={issue} idx={idx} lang={lang} />
+              <IssueCard
+                key={`init-${idx}`}
+                issue={issue}
+                idx={idx}
+                lang={lang}
+                onClick={() => setSelectedIssue(issue)}
+              />
             ))}
           </AnimatePresence>
 
@@ -274,7 +281,12 @@ export default function HotIssues() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: idx * 0.06, ease: "easeOut" }}
               >
-                <IssueCard issue={issue} idx={INITIAL_COUNT + idx} lang={lang} />
+                <IssueCard
+                  issue={issue}
+                  idx={INITIAL_COUNT + idx}
+                  lang={lang}
+                  onClick={() => setSelectedIssue(issue)}
+                />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -314,7 +326,6 @@ export default function HotIssues() {
                 )}
               </button>
 
-              {/* Divider label */}
               <p className="text-center text-[11px] text-muted-foreground mt-2">
                 {isKo
                   ? "최신순으로 추가 기사를 불러옵니다"
@@ -325,7 +336,6 @@ export default function HotIssues() {
             </motion.div>
           )}
 
-          {/* "All loaded" message */}
           {showMore && (
             <motion.p
               initial={{ opacity: 0 }}
@@ -343,12 +353,18 @@ export default function HotIssues() {
       {!isLoading && allIssues.length > 0 && (
         <p className="text-center text-xs text-muted-foreground mt-8">
           {isKo
-            ? "* AI가 영문 뉴스를 한국어로 번역 요약합니다. 20분마다 자동 갱신됩니다."
+            ? "* 뉴스 카드를 클릭하면 AI가 한국어·영어·일본어로 분석해 드립니다."
             : isJa
-            ? "* AIが英文ニュースを日本語に翻訳・要約します。20分ごとに自動更新されます。"
-            : "* AI translates and summarizes news. Auto-refreshes every 20 min."}
+            ? "* ニュースカードをクリックするとAIが3言語で分析します。"
+            : "* Click any card for AI-powered trilingual analysis."}
         </p>
       )}
+
+      {/* In-app news detail modal */}
+      <NewsDetailModal
+        item={selectedIssue}
+        onClose={() => setSelectedIssue(null)}
+      />
     </div>
   );
 }

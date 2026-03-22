@@ -15,7 +15,6 @@ import { useAuth } from "@/hooks/use-auth";
 import Dashboard from "@/pages/Dashboard";
 import Quests from "@/pages/Quests";
 import Watchlist from "@/pages/Watchlist";
-import Leaderboard from "@/pages/Leaderboard";
 import MarketTrends from "@/pages/MarketTrends";
 import StockDetail from "@/pages/StockDetail";
 import Recommended from "@/pages/Recommended";
@@ -40,7 +39,6 @@ function Router() {
       <Route path="/market-trends" component={MarketTrends} />
       <Route path="/calendar" component={EconomicCalendar} />
       <Route path="/investors" component={SuperInvestors} />
-      <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/settings" component={Settings} />
       <Route path="/eggs" component={Collection} />
       <Route path="/collection" component={Collection} />
