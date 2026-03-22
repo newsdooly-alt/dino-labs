@@ -1273,6 +1273,45 @@ export async function registerRoutes(
     }
   });
 
+  // === Sector Performance (1D / 1W / 1M returns per sector) ===
+  app.get("/api/sector-performance", async (req, res) => {
+    try {
+      const country = (req.query.country as string) || 'us';
+      const response = await fetch(
+        `${MACRO_PYTHON_URL}/sector-performance?country=${country}`,
+        { signal: AbortSignal.timeout(45000) }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        return res.status(500).json({ error: err.error || 'Sector performance failed', sectors: [] });
+      }
+      res.json(await response.json());
+    } catch (error: any) {
+      console.error("[SectorPerf] Error:", error.message);
+      res.status(500).json({ error: "Sector performance unavailable", sectors: [] });
+    }
+  });
+
+  // === Ownership: insider trades, institutional holders, fund holders ===
+  app.get("/api/ownership", async (req, res) => {
+    try {
+      const ticker = (req.query.ticker as string) || 'NVDA';
+      const type   = (req.query.type   as string) || 'insiders';
+      const response = await fetch(
+        `${MACRO_PYTHON_URL}/ownership?ticker=${encodeURIComponent(ticker)}&type=${type}`,
+        { signal: AbortSignal.timeout(30000) }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        return res.status(500).json({ error: err.error || 'Ownership fetch failed', trades: [], holders: [] });
+      }
+      res.json(await response.json());
+    } catch (error: any) {
+      console.error("[Ownership] Error:", error.message);
+      res.status(500).json({ error: "Ownership data unavailable", trades: [], holders: [] });
+    }
+  });
+
   // === Sector Returns (1-day % change per sector, equal-weighted) ===
   app.get("/api/sector-returns", async (req, res) => {
     try {

@@ -1578,6 +1578,205 @@ def get_sector_returns():
         return jsonify({"error": str(e), "sectors": []}), 500
 
 
+# ─── Sector Performance: 1D / 1W / 1M returns per sector ─────────────────────
+_sector_perf_cache: dict = {}
+SECTOR_PERF_CACHE_DURATION = 300  # 5 minutes
+
+@app.route('/sector-performance', methods=['GET'])
+def get_sector_performance():
+    """Compute 1D, 1W, 1M cumulative returns for each sector."""
+    import time
+    now = time.time()
+
+    country = request.args.get('country', 'us').lower()
+    cache_key = country
+    if cache_key in _sector_perf_cache:
+        entry = _sector_perf_cache[cache_key]
+        if entry.get("data") and (now - entry["timestamp"]) < SECTOR_PERF_CACHE_DURATION:
+            return jsonify(entry["data"])
+
+    constituents = SECTOR_CONSTITUENTS.get(country, SECTOR_CONSTITUENTS['us'])
+    all_syms = list(set(sym for _, members in constituents for sym in members))
+
+    try:
+        raw = yf.download(all_syms, period='3mo', interval='1d', progress=False, auto_adjust=True)
+        if raw.empty:
+            return jsonify({"error": "No data", "sectors": []}), 500
+
+        closes = raw['Close'] if 'Close' in raw.columns else raw
+        closes = closes.dropna(how='all')
+
+        def avg_return(members, n_days):
+            changes = []
+            for sym in members:
+                col = closes.get(sym) if hasattr(closes, 'get') else (closes[sym] if sym in closes.columns else None)
+                if col is None:
+                    continue
+                col = col.dropna()
+                if len(col) < n_days + 1:
+                    continue
+                curr = float(col.iloc[-1])
+                prev = float(col.iloc[-(n_days + 1)])
+                if prev != 0:
+                    changes.append((curr - prev) / prev * 100.0)
+            if not changes:
+                return None
+            return round(sum(changes) / len(changes), 2)
+
+        results = []
+        for sector_id, members in constituents:
+            r1d = avg_return(members, 1)
+            r1w = avg_return(members, 5)
+            r1m = avg_return(members, 22)
+            if r1d is None and r1w is None and r1m is None:
+                continue
+            results.append({'symbol': sector_id, '1d': r1d, '1w': r1w, '1m': r1m})
+
+        response = {
+            'country': country,
+            'sectors': results,
+            'fetchedAt': datetime.now(US_EASTERN).strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        _sector_perf_cache[cache_key] = {"data": response, "timestamp": now}
+        print(f"[SectorPerf] {country}: {len(results)} sectors")
+        return jsonify(response)
+    except Exception as e:
+        print(f"[SectorPerf] Error for {country}: {e}")
+        return jsonify({"error": str(e), "sectors": []}), 500
+
+
+# ─── Ownership: insider trades + institutional/fund holders via yfinance ───────
+_ownership_cache: dict = {}
+OWNERSHIP_CACHE_DURATION = 3600  # 1 hour
+
+@app.route('/ownership', methods=['GET'])
+def get_ownership():
+    """Get insider trades (Form 4), institutional holders, or fund holders."""
+    import time
+    now = time.time()
+
+    ticker = request.args.get('ticker', 'NVDA').upper()
+    type_  = request.args.get('type', 'insiders')
+
+    cache_key = f"{ticker}:{type_}"
+    if cache_key in _ownership_cache:
+        entry = _ownership_cache[cache_key]
+        if entry.get("data") and (now - entry["timestamp"]) < OWNERSHIP_CACHE_DURATION:
+            return jsonify(entry["data"])
+
+    try:
+        stock = yf.Ticker(ticker)
+
+        def safe_float(v, default=0.0):
+            try:
+                f = float(v)
+                return default if (f != f) else f  # NaN check
+            except:
+                return default
+
+        def safe_int(v, default=0):
+            try:
+                f = float(v)
+                if f != f: return default
+                return int(abs(f))
+            except:
+                return default
+
+        def safe_str(v):
+            s = str(v)
+            return "" if s in ("nan", "None", "NaT", "<NA>") else s
+
+        if type_ == 'insiders':
+            df = stock.insider_transactions
+            if df is None or (hasattr(df, 'empty') and df.empty):
+                return jsonify({"ticker": ticker, "trades": []})
+
+            import re as _re
+            trades = []
+            for _, row in df.iterrows():
+                try:
+                    owner    = safe_str(row.get('Insider', row.get('Name', '')))
+                    position = safe_str(row.get('Position', row.get('Relationship', '')))
+                    shares   = safe_int(row.get('Shares', 0))
+                    value    = safe_int(row.get('Value', 0))
+                    url      = safe_str(row.get('URL', row.get('Url', '')))
+
+                    # Date: yfinance uses 'Start Date' (pandas Timestamp)
+                    d_raw = row.get('Start Date', row.get('Date', ''))
+                    if hasattr(d_raw, 'strftime'):
+                        date_val = d_raw.strftime('%Y-%m-%d')
+                    else:
+                        date_val = safe_str(d_raw)[:10]
+
+                    # Transaction type: from 'Text' description since 'Transaction' is often empty
+                    text  = safe_str(row.get('Text', row.get('Transaction', '')))
+                    txn_raw = safe_str(row.get('Transaction', ''))
+                    combined = (text + ' ' + txn_raw).lower()
+                    if _re.search(r'\bpurchase\b|\bbuy\b|\baquired\b', combined):
+                        txn_type = 'Buy'
+                    elif _re.search(r'\bsale\b|\bsell\b|\bsold\b|\bdispos', combined):
+                        txn_type = 'Sale'
+                    elif _re.search(r'option|exercise', combined):
+                        txn_type = 'Option Exercise'
+                    elif _re.search(r'award|grant', combined):
+                        txn_type = 'Grant'
+                    else:
+                        txn_type = txn_raw or 'Other'
+
+                    # Price: extract from Text "at price X.XX" or compute from value/shares
+                    price = 0.0
+                    m = _re.search(r'price ([\d,]+\.?\d*)', text, _re.I)
+                    if m:
+                        price = float(m.group(1).replace(',', ''))
+                    elif shares > 0 and value > 0:
+                        price = round(value / shares, 2)
+
+                    trades.append({
+                        'ticker': ticker, 'owner': owner, 'relationship': position,
+                        'date': date_val, 'transactionType': txn_type,
+                        'shares': shares, 'price': price, 'value': value, 'filingUrl': url,
+                    })
+                except Exception as e2:
+                    print(f"[Ownership] Row error: {e2}")
+
+            response = {"ticker": ticker, "trades": trades}
+            _ownership_cache[cache_key] = {"data": response, "timestamp": now}
+            print(f"[Ownership] {ticker}/insiders: {len(trades)} trades")
+            return jsonify(response)
+
+        elif type_ in ('managers', 'funds'):
+            df = stock.institutional_holders if type_ == 'managers' else stock.mutualfund_holders
+            if df is None or (hasattr(df, 'empty') and df.empty):
+                return jsonify({"ticker": ticker, "holders": []})
+
+            holders = []
+            for _, row in df.iterrows():
+                try:
+                    pct_raw = safe_float(row.get('% Out', row.get('pctHeld', 0)))
+                    # yfinance returns pct as fraction (0.05 = 5%) or already in %
+                    pct = round(pct_raw * 100, 2) if pct_raw < 1.0 else round(pct_raw, 2)
+                    holders.append({
+                        'holder':       safe_str(row.get('Holder', '')),
+                        'shares':       safe_int(row.get('Shares', 0)),
+                        'dateReported': safe_str(row.get('Date Reported', row.get('dateReported', ''))),
+                        'pctHeld':      pct,
+                        'value':        safe_int(row.get('Value', 0)),
+                    })
+                except Exception as e2:
+                    print(f"[Ownership] Holder row error: {e2}")
+
+            response = {"ticker": ticker, "holders": holders}
+            _ownership_cache[cache_key] = {"data": response, "timestamp": now}
+            print(f"[Ownership] {ticker}/{type_}: {len(holders)} holders")
+            return jsonify(response)
+
+        return jsonify({"error": "Invalid type. Use insiders|managers|funds"}), 400
+
+    except Exception as e:
+        print(f"[Ownership] Error for {ticker}/{type_}: {e}")
+        return jsonify({"error": str(e), "trades": [], "holders": []}), 500
+
+
 _macro_sparklines_cache = {"data": None, "timestamp": 0, "symbols": ""}
 MACRO_SPARKLINES_CACHE_DURATION = 60
 

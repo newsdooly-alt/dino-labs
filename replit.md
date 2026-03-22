@@ -22,7 +22,7 @@ The core experience centers around:
 - Dynamic theme color system (Green/Blue/Pink) with real-time CSS variable swapping via ThemeColorContext
 - Mathematical leveling formula: nextLevelXP = 100 * level^1.2 (shared utility in shared/leveling.ts)
 - Functional leaderboard with real user rankings and 8 seeded bot users
-- Multi-language support (English and Korean)
+- Multi-language support (English, Korean, Japanese)
 - Live USD/KRW currency conversion with real-time exchange rates (CurrencyContext provider)
 - Skill level-based quest difficulty (beginner/intermediate/advanced) with 24+ fallback quests per language
 - Quest difficulty badge on QuestCard reflects xpReward (≥25→🦖Advanced, ≥20→🦕Intermediate, else 🥚Beginner) — independent of user's skill level

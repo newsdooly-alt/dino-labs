@@ -4,6 +4,7 @@ import { translations } from "@/lib/translations";
 import { LiveStockCard } from "@/components/LiveStockCard";
 import { GlobalMacroDashboard } from "@/components/GlobalMacroDashboard";
 import { RRGChart } from "@/components/RRGChart";
+import { SectorPerformanceChart } from "@/components/SectorPerformanceChart";
 
 export default function MarketTrends() {
   const { data: user } = useUser();
@@ -30,6 +31,11 @@ export default function MarketTrends() {
           }
         </p>
         <RRGChart />
+      </section>
+
+      {/* Multi-Period Sector Performance Chart */}
+      <section className="mb-10">
+        <SectorPerformanceChart />
       </section>
 
       {/* US Indices + Trending */}
