@@ -5,6 +5,7 @@ import { Users, TrendingUp, BarChart2, ArrowUp, ArrowDown, Minus } from "lucide-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cleanCompanyName } from "@/lib/stockUtils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface PeerData {
   symbol: string;
@@ -34,19 +35,6 @@ interface PeerComparisonProps {
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
-function fmtCap(v: number | null, lang: string): string {
-  if (v == null) return "--";
-  if (lang === "ko") {
-    if (v >= 1e12) return `${(v / 1e12).toFixed(1)}조`;
-    if (v >= 1e8)  return `${(v / 1e8).toFixed(0)}억`;
-    return `${v.toLocaleString()}`;
-  }
-  if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
-  if (v >= 1e9)  return `$${(v / 1e9).toFixed(1)}B`;
-  if (v >= 1e6)  return `$${(v / 1e6).toFixed(0)}M`;
-  return `$${v.toLocaleString()}`;
-}
-
 function fmtNum(v: number | null, decimals = 1): string {
   if (v == null || !isFinite(v)) return "--";
   return v.toFixed(decimals);
@@ -55,15 +43,6 @@ function fmtNum(v: number | null, decimals = 1): string {
 function fmtPct(v: number | null): string {
   if (v == null || !isFinite(v)) return "--";
   return `${(v * 100).toFixed(2)}%`;
-}
-
-function fmtPrice(v: number | null, sym: string): string {
-  if (v == null || v === 0) return "--";
-  const isKr = sym.endsWith(".KS") || sym.endsWith(".KQ");
-  const isJp = sym.endsWith(".T");
-  if (isKr) return `₩${v.toLocaleString("ko-KR")}`;
-  if (isJp) return `¥${v.toLocaleString("ja-JP")}`;
-  return `$${v.toFixed(2)}`;
 }
 
 function shortName(name: string, lang: string): string {
@@ -177,6 +156,7 @@ function CustomTooltip({ active, payload }: any) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export function PeerComparison({ symbol, lang }: PeerComparisonProps) {
+  const { formatPrice, formatMarketCap, nativeCurrencyOf } = useCurrency();
   const { data, isLoading } = useQuery<PeersResponse>({
     queryKey: ["/api/stocks/peers", symbol],
     queryFn: async () => {
@@ -421,7 +401,7 @@ export function PeerComparison({ symbol, lang }: PeerComparisonProps) {
                       "text-right py-2.5 px-3 font-mono text-xs tabular-nums",
                       isMain ? "font-bold text-foreground" : "text-foreground/80"
                     )}>
-                      {fmtPrice(peer.price, peer.symbol)}
+                      {formatPrice(peer.price, { nativeCurrency: nativeCurrencyOf(peer.symbol) })}
                     </td>
                     <td className="text-right py-2.5 px-3 text-xs tabular-nums text-foreground/80">
                       {fmtNum(peer.peRatio)}
@@ -433,7 +413,7 @@ export function PeerComparison({ symbol, lang }: PeerComparisonProps) {
                       {fmtPct(peer.dividendYield)}
                     </td>
                     <td className="text-right py-2.5 px-3 text-xs tabular-nums text-foreground/80">
-                      {fmtCap(peer.marketCap, lang)}
+                      {formatMarketCap(peer.marketCap, { nativeCurrency: nativeCurrencyOf(peer.symbol) })}
                     </td>
                   </tr>
                 );

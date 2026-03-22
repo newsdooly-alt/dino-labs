@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Building2, TrendingUp, ExternalLink, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 type OwnerTab = "insiders" | "managers" | "funds";
 
@@ -26,16 +27,7 @@ interface Holder {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function fmtNum(n: number, compact = false): string {
-  if (!n || isNaN(n)) return "—";
-  if (compact) {
-    if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-    if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-    if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-    return `$${n.toFixed(0)}`;
-  }
-  return n.toLocaleString();
-}
+type FmtFn = (value: number | null | undefined, opts?: any) => string;
 
 function fmtDate(d: string): string {
   if (!d || d === "nan" || d === "None") return "—";
@@ -114,7 +106,12 @@ function TableSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 // ── Insider table ─────────────────────────────────────────────────────────────
-function InsiderTable({ trades, lang }: { trades: InsiderTrade[]; lang: string }) {
+function InsiderTable({ trades, lang, fmtPrice, fmtVal }: {
+  trades: InsiderTrade[];
+  lang: string;
+  fmtPrice: FmtFn;
+  fmtVal: FmtFn;
+}) {
   if (!trades.length) return <EmptyState lang={lang} />;
   return (
     <div className="overflow-x-auto">
@@ -142,8 +139,12 @@ function InsiderTable({ trades, lang }: { trades: InsiderTrade[]; lang: string }
                   </span>
                 </td>
                 <td className="px-3 py-2 tabular-nums text-right">{t.shares ? t.shares.toLocaleString() : "—"}</td>
-                <td className="px-3 py-2 tabular-nums text-right">{t.price ? `$${t.price.toFixed(2)}` : "—"}</td>
-                <td className="px-3 py-2 tabular-nums text-right font-medium">{fmtNum(t.value, true)}</td>
+                <td className="px-3 py-2 tabular-nums text-right">
+                  {t.price > 0 ? fmtPrice(t.price, { nativeCurrency: "USD" }) : "—"}
+                </td>
+                <td className="px-3 py-2 tabular-nums text-right font-medium">
+                  {t.value > 0 ? fmtVal(t.value, { nativeCurrency: "USD" }) : "—"}
+                </td>
                 <td className="px-3 py-2">
                   {t.filingUrl && t.filingUrl !== "nan" && t.filingUrl !== "None" && (
                     <a
@@ -168,7 +169,7 @@ function InsiderTable({ trades, lang }: { trades: InsiderTrade[]; lang: string }
 }
 
 // ── Holders table (Managers & Funds) ─────────────────────────────────────────
-function HoldersTable({ holders, lang }: { holders: Holder[]; lang: string }) {
+function HoldersTable({ holders, lang, fmtVal }: { holders: Holder[]; lang: string; fmtVal: FmtFn }) {
   if (!holders.length) return <EmptyState lang={lang} />;
   return (
     <div className="overflow-x-auto">
@@ -192,7 +193,9 @@ function HoldersTable({ holders, lang }: { holders: Holder[]; lang: string }) {
                   {h.pctHeld ? `${h.pctHeld.toFixed(2)}%` : "—"}
                 </span>
               </td>
-              <td className="px-3 py-2 tabular-nums text-right">{fmtNum(h.value, true)}</td>
+              <td className="px-3 py-2 tabular-nums text-right">
+                {h.value > 0 ? fmtVal(h.value, { nativeCurrency: "USD" }) : "—"}
+              </td>
               <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(h.dateReported)}</td>
             </tr>
           ))}
@@ -204,6 +207,7 @@ function HoldersTable({ holders, lang }: { holders: Holder[]; lang: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function OwnershipPanel({ symbol, lang }: { symbol: string; lang: string }) {
+  const { formatPrice, formatMarketCap } = useCurrency();
   const [tab, setTab] = useState<OwnerTab>("insiders");
   const L = (ko: string, en: string, ja?: string) =>
     lang === "ko" ? ko : lang === "ja" ? (ja ?? en) : en;
@@ -300,11 +304,16 @@ export function OwnershipPanel({ symbol, lang }: { symbol: string; lang: string 
         {currentQuery.isLoading ? (
           <TableSkeleton />
         ) : tab === "insiders" ? (
-          <InsiderTable trades={insidersQuery.data?.trades ?? []} lang={lang} />
+          <InsiderTable
+            trades={insidersQuery.data?.trades ?? []}
+            lang={lang}
+            fmtPrice={formatPrice}
+            fmtVal={formatMarketCap}
+          />
         ) : tab === "managers" ? (
-          <HoldersTable holders={managersQuery.data?.holders ?? []} lang={lang} />
+          <HoldersTable holders={managersQuery.data?.holders ?? []} lang={lang} fmtVal={formatMarketCap} />
         ) : (
-          <HoldersTable holders={fundsQuery.data?.holders ?? []} lang={lang} />
+          <HoldersTable holders={fundsQuery.data?.holders ?? []} lang={lang} fmtVal={formatMarketCap} />
         )}
       </div>
 

@@ -25,9 +25,13 @@ interface CurrencyContextType {
   isLoadingRate: boolean;
   formatPrice: (value: number | null | undefined, opts?: FormatOptions) => string;
   formatMarketCap: (value: number | null | undefined, opts?: { nativeCurrency?: string }) => string;
+  /** Unified entry point: auto-picks compact large-value (≥1M) or per-share formatting */
+  formatValue: (value: number | null | undefined, nativeCurrency?: string) => string;
   currencySymbol: string;
   isKoreanStock: (symbol: string) => boolean;
   isJapaneseStock: (symbol: string) => boolean;
+  /** Returns "KRW" | "JPY" | "USD" based on stock suffix */
+  nativeCurrencyOf: (symbol: string) => string;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | null>(null);
@@ -70,6 +74,13 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const isJapaneseStock = useCallback((symbol: string) => {
     const s = symbol.toUpperCase();
     return s.endsWith('.T');
+  }, []);
+
+  const nativeCurrencyOf = useCallback((symbol: string): string => {
+    const s = symbol.toUpperCase();
+    if (s.endsWith('.KS') || s.endsWith('.KQ')) return 'KRW';
+    if (s.endsWith('.T')) return 'JPY';
+    return 'USD';
   }, []);
 
   const formatKrw = useCallback((krwValue: number, compact?: boolean) => {
@@ -159,10 +170,19 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     return formatUSD(value);
   }, [currency, exchangeRate, exchangeRateJPY]);
 
+  // ── Unified formatter: large values (≥ 1 000 000) → compact, else → price ──
+  const formatValue = useCallback((value: number | null | undefined, nativeCurrency?: string): string => {
+    if (value == null) return "--";
+    const abs = Math.abs(value);
+    if (abs >= 1_000_000) return formatMarketCap(value, { nativeCurrency });
+    return formatPrice(value, { nativeCurrency, decimals: 2 });
+  }, [formatMarketCap, formatPrice]);
+
   return (
     <CurrencyContext.Provider value={{
       currency, setCurrency, exchangeRate, exchangeRateJPY, isLoadingRate,
-      formatPrice, formatMarketCap, currencySymbol, isKoreanStock, isJapaneseStock
+      formatPrice, formatMarketCap, formatValue, currencySymbol,
+      isKoreanStock, isJapaneseStock, nativeCurrencyOf
     }}>
       {children}
     </CurrencyContext.Provider>
