@@ -299,8 +299,11 @@ export function OwnershipPanel({ symbol, lang }: { symbol: string; lang: string 
         </div>
       )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Content — scrollable, touch-friendly */}
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         {currentQuery.isLoading ? (
           <TableSkeleton />
         ) : tab === "insiders" ? (

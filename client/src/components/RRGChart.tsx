@@ -614,8 +614,9 @@ export function RRGChart() {
   const lang = user?.language || "ko";
   const L = (ko: string, en: string, ja?: string) =>
     lang === "ko" ? ko : lang === "ja" ? (ja ?? en) : en;
-  type RRGPeriod = "1w" | "1m" | "3m" | "6m" | "1y";
+  type RRGPeriod = "1d" | "1w" | "1m" | "3m" | "6m" | "1y";
   const PERIOD_OPTIONS: Array<{ id: RRGPeriod; en: string; ko: string; ja: string }> = [
+    { id: "1d", en: "1D", ko: "1일",   ja: "1日" },
     { id: "1w", en: "1W", ko: "1주",   ja: "1週" },
     { id: "1m", en: "1M", ko: "1개월", ja: "1ヶ月" },
     { id: "3m", en: "3M", ko: "3개월", ja: "3ヶ月" },
@@ -630,7 +631,7 @@ export function RRGChart() {
   const [showTop10, setShowTop10] = useState(false);
 
   // Map RRG period to sector-returns period key
-  const srPeriod = period === "1w" ? "1w" : period === "3m" ? "3m" : period === "6m" ? "6m" : period === "1y" ? "1y" : "1d";
+  const srPeriod = period === "1d" ? "1d" : period === "1w" ? "1w" : period === "3m" ? "3m" : period === "6m" ? "6m" : period === "1y" ? "1y" : "1d";
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery<RRGData>({
     queryKey: ["/api/rrg/data", country, period],

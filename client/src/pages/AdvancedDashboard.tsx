@@ -425,7 +425,6 @@ export default function AdvancedDashboard() {
   const [showAllInvestors, setShowAllInvestors] = useState(true);
   const [rankTab, setRankTab] = useState<"actives" | "gainers" | "losers">("actives");
   const [leftTab, setLeftTab] = useState<"screener" | "actives" | "gainers" | "losers">("screener");
-  const [rightPanelTab, setRightPanelTab] = useState<"earnings" | "ownership">("earnings");
 
   const isKr = isKoreanStock(selectedSymbol);
   const isJp = isJapaneseStock(selectedSymbol);
@@ -1256,6 +1255,19 @@ export default function AdvancedDashboard() {
         <PeerComparison symbol={selectedSymbol} lang={lang} />
       </div>
 
+      {/* Insider / Institutional Trading — directly below Peer Comparison */}
+      <div>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
+          {lang === "ko" ? "👥 내부자 & 기관 매매" : "👥 Insider & Institutional"}
+        </p>
+        <div
+          className="rounded-xl border border-border/40 bg-card overflow-hidden"
+          style={{ height: 420 }}
+        >
+          <OwnershipPanel symbol={selectedSymbol} lang={lang} />
+        </div>
+      </div>
+
       {/* Market Breadth */}
       <div className="bg-muted/40 rounded-xl p-3 border border-border/30">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
@@ -1349,54 +1361,39 @@ export default function AdvancedDashboard() {
     </div>
   );
 
-  // ── Right Panel (PC) = Earnings | Ownership tab + RRG bottom ──────
+  // ── Right Panel (PC) = Earnings → Peer Comparison → Insider Trading → RRG ──
   const RightPanel = () => (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Tab bar */}
-      <div className="flex shrink-0 border-b border-border/50 bg-muted/20">
-        {([
-          ["earnings",  lang === "ko" ? "📅 실적/피어" : "📅 Earnings"],
-          ["ownership", lang === "ko" ? "👥 내부자"   : "👥 Ownership"],
-        ] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setRightPanelTab(key)}
-            className={cn(
-              "flex-1 text-[11px] font-bold py-2 px-2 border-b-2 transition-colors whitespace-nowrap",
-              rightPanelTab === key
-                ? "border-primary text-primary bg-primary/5"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-            data-testid={`right-panel-tab-${key}`}
+      {/* Scrollable top section: Earnings + Peer + Insider/Institutional */}
+      <div className="flex-1 min-h-0 overflow-y-auto border-b border-border/50">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1">
+          {lang === "ko" ? "📅 실적 & 어닝스" : "📅 Earnings & Data"}
+        </p>
+        {EarningsPanel()}
+
+        {/* Sector Peer Comparison */}
+        <div className="px-3 pb-2 mt-1">
+          <PeerComparison symbol={selectedSymbol} lang={lang} />
+        </div>
+
+        {/* Insider / Institutional Trading — directly below Peer Comparison */}
+        <div className="px-3 pb-3">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
+            {lang === "ko" ? "👥 내부자 & 기관 매매" : "👥 Insider & Institutional"}
+          </p>
+          <div
+            className="rounded-xl border border-border/40 overflow-hidden"
+            style={{ height: 400 }}
           >
-            {label}
-          </button>
-        ))}
+            <OwnershipPanel symbol={selectedSymbol} lang={lang} />
+          </div>
+        </div>
       </div>
 
-      {rightPanelTab === "earnings" ? (
-        <>
-          {/* Earnings + Peer Analysis — top half, scrollable */}
-          <div className="flex-1 min-h-0 overflow-y-auto border-b border-border/50">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide px-3 pt-3 pb-1">
-              {lang === "ko" ? "📅 실적 & 어닝스" : "📅 Earnings & Data"}
-            </p>
-            {EarningsPanel()}
-            {/* Sector Peer Analysis */}
-            <div className="px-3 pb-3 mt-1">
-              <PeerComparison symbol={selectedSymbol} lang={lang} />
-            </div>
-          </div>
-          {/* RRG — bottom, collapsible */}
-          <div className={cn("flex-shrink-0 overflow-y-auto transition-all duration-300", rrgFocused ? "h-[520px]" : "h-[340px]")}>
-            {RRGChartPanel({ compact: true })}
-          </div>
-        </>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <OwnershipPanel symbol={selectedSymbol} lang={lang} />
-        </div>
-      )}
+      {/* RRG — bottom, collapsible */}
+      <div className={cn("flex-shrink-0 overflow-y-auto transition-all duration-300", rrgFocused ? "h-[520px]" : "h-[340px]")}>
+        {RRGChartPanel({ compact: true })}
+      </div>
     </div>
   );
 
@@ -1506,17 +1503,6 @@ export default function AdvancedDashboard() {
           {InsightsPanel()}
         </div>
 
-        {/* Ownership/Trading — insider trades, institutional & fund holders */}
-        <div className="w-full border-t border-border/30 pb-6">
-          <div className="px-3 pt-3 pb-1">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-              {lang === "ko" ? "👥 내부자 & 기관 보유" : "👥 Insider & Institutional Ownership"}
-            </p>
-          </div>
-          <div className="min-h-[320px] bg-card border border-border/50 rounded-2xl mx-3 overflow-hidden mb-3">
-            <OwnershipPanel symbol={selectedSymbol} lang={lang} />
-          </div>
-        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════

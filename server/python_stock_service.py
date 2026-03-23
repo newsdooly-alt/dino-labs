@@ -1434,7 +1434,7 @@ def _compute_rrg_for_sym(sym_col, bm_prices, ratio_span, mom_span):
     sec = sym_col.dropna()
     bm = bm_prices.reindex(sec.index).dropna()
     sec = sec.reindex(bm.index).dropna()
-    if len(sec) < 15:
+    if len(sec) < max(3, ratio_span):
         return None, None
     rs_raw = (sec / bm) * 100.0
     ema_r = rs_raw.ewm(span=ratio_span, adjust=False).mean()
@@ -1505,6 +1505,7 @@ def get_rrg_data():
 
     rrg_period = request.args.get('period', '1m').lower()
     _period_map = {
+        '1d': ('5d',   '1d'),
         '1w': ('30d',  '1d'),
         '1m': ('60d',  '1d'),
         '3m': ('90d',  '1d'),
