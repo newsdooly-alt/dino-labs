@@ -2776,6 +2776,71 @@ Return EXACTLY this JSON:
     }
   });
 
+  // === Earnings Live ===
+  app.get("/api/earnings/upcoming", isAuthenticated, async (_req, res) => {
+    try {
+      const data = await fetch("http://127.0.0.1:5001/earnings_upcoming", {
+        signal: AbortSignal.timeout(50000),
+      }).then((r) => r.json());
+      res.json(data);
+    } catch {
+      res.json({ upcoming: [] });
+    }
+  });
+
+  app.post("/api/earnings/analyze", isAuthenticated, async (req, res) => {
+    const { symbol, name, epsActual, epsEstimate, surprisePct, revenueActual, revenueEstimate, quarter, lang } = req.body;
+    try {
+      const langInstr =
+        lang === "ko"
+          ? "모든 텍스트를 한국어로 작성하세요. 전문적인 금융 한국어를 사용하세요."
+          : lang === "ja"
+          ? "すべてのテキストを日本語で記述してください。専門的な金融用語を使用してください。"
+          : "Write all text in English. Use professional financial language.";
+
+      const revActStr = revenueActual
+        ? `Revenue Actual: $${(revenueActual / 1e9).toFixed(2)}B`
+        : "";
+      const revEstStr = revenueEstimate
+        ? `Revenue Estimate: $${(revenueEstimate / 1e9).toFixed(2)}B`
+        : "";
+
+      const prompt = `You are a senior equity research analyst. Analyze this earnings report concisely.
+
+Company: ${name || symbol} (${symbol})
+Quarter: ${quarter || "Most Recent Quarter"}
+EPS Actual: ${epsActual ?? "N/A"} | EPS Estimate: ${epsEstimate ?? "N/A"}${surprisePct != null ? ` | Surprise: ${surprisePct > 0 ? "+" : ""}${Number(surprisePct).toFixed(1)}%` : ""}
+${revActStr}
+${revEstStr}
+
+${langInstr}
+
+Respond ONLY with valid JSON (no markdown fences, no extra text):
+{
+  "verdict": "BEAT" or "MISS" or "IN-LINE",
+  "verdictDetail": "one sentence explaining the verdict with specific numbers",
+  "keyTakeaways": ["takeaway 1", "takeaway 2", "takeaway 3"],
+  "sentiment": "Positive" or "Neutral" or "Negative",
+  "sentimentScore": integer 1-10,
+  "guidanceOutlook": "one sentence on forward guidance or what to watch next quarter"
+}`;
+
+      const aiRes = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 600,
+        response_format: { type: "json_object" },
+      });
+
+      const content = aiRes.choices[0].message.content || "{}";
+      const parsed = JSON.parse(content);
+      res.json({ analysis: parsed, symbol, analyzedAt: Date.now() });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // === Economic Calendar ===
   app.get("/api/economic-calendar", isAuthenticated, (req, res) => {
     try {

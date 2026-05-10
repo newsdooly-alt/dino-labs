@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Target, LineChart, Settings, LogOut, TrendingUp, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper } from "lucide-react";
+import { LayoutDashboard, Target, LineChart, Settings, LogOut, TrendingUp, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
@@ -22,6 +22,7 @@ export function Sidebar() {
     { href: "/hot-issues", label: lang === "ko" ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues", icon: Newspaper },
     { href: "/calendar", label: lang === "ko" ? "경제 캘린더" : "Economic Calendar", icon: Calendar },
     { href: "/investors", label: lang === "ko" ? "슈퍼 투자자" : t.super_investors, icon: Briefcase },
+    { href: "/earnings", label: lang === "ko" ? "실적 Live" : lang === "ja" ? "決算ライブ" : "Earnings Live", icon: BarChart2 },
     { href: "/pro", label: lang === "ko" ? "프로 대시보드" : "Pro Dashboard", icon: Zap },
   ];
 

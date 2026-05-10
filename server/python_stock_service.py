@@ -861,9 +861,126 @@ def get_earnings(symbol):
             except Exception:
                 pass
 
+        # Revenue history from quarterly_income_stmt
+        try:
+            import pandas as _pd2
+            qs = ticker.quarterly_income_stmt
+            if qs is not None and not qs.empty:
+                rev_index = None
+                for candidate in ["Total Revenue", "Revenue", "Net Revenue", "Operating Revenue"]:
+                    if candidate in qs.index:
+                        rev_index = candidate
+                        break
+                if rev_index:
+                    rev_row = qs.loc[rev_index]
+                    rev_history = []
+                    for col in rev_row.index:
+                        val = rev_row[col]
+                        if val is not None and _pd2.notna(val):
+                            rev_history.append({
+                                "date": str(col.date()) if hasattr(col, "date") else str(col),
+                                "revenue": float(val),
+                            })
+                    rev_history.sort(key=lambda x: x["date"], reverse=True)
+                    result["revenueHistory"] = rev_history[:8]
+        except Exception:
+            pass
+
+        # Revenue estimate for next quarter from analyst data
+        try:
+            result["nextRevEstimate"] = info.get("revenueEstimatesAvg") or None
+        except Exception:
+            pass
+
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e), "nextEarningsDate": None, "lastEpsActual": None, "history": []}), 200
+
+
+# ── Upcoming Earnings ─────────────────────────────────────────────────────
+_upcoming_earnings_cache: dict = {"data": None, "ts": 0.0}
+_UPCOMING_EARNINGS_TTL = 1800  # 30 minutes
+
+UPCOMING_WATCHLIST = [
+    # US Large-Cap
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA",
+    "AMD", "NFLX", "AVGO", "JPM", "BAC", "GS", "V", "WMT",
+    "COST", "HD", "JNJ", "UNH", "CRM",
+    # Korean ADR / KRX
+    "005930.KS", "000660.KS", "035420.KS", "005380.KS",
+]
+
+@app.route('/earnings_upcoming', methods=['GET'])
+def get_earnings_upcoming():
+    """Return upcoming earnings dates for a curated watchlist. Cached 30 min."""
+    import time as _t
+    global _upcoming_earnings_cache
+
+    now = _t.time()
+    if _upcoming_earnings_cache["data"] and (now - _upcoming_earnings_cache["ts"]) < _UPCOMING_EARNINGS_TTL:
+        return jsonify(_upcoming_earnings_cache["data"])
+
+    results = []
+    import threading
+    lock = threading.Lock()
+
+    def fetch_one(symbol):
+        try:
+            ticker = yf.Ticker(symbol)
+            cal = ticker.calendar
+            if not cal or not isinstance(cal, dict):
+                return
+            dates = cal.get("Earnings Date")
+            if not dates or len(dates) == 0:
+                return
+            next_date = str(dates[0])[:10]
+            # Skip dates more than 90 days out
+            from datetime import datetime as _dt
+            try:
+                if (_dt.strptime(next_date, "%Y-%m-%d") - _dt.now()).days > 90:
+                    return
+            except Exception:
+                return
+            avg_eps = cal.get("Earnings Average")
+            info = ticker.fast_info
+            name = ""
+            try:
+                info_full = ticker.info
+                name = (info_full.get("shortName") or info_full.get("longName") or symbol)[:45]
+                price = info_full.get("currentPrice") or info_full.get("regularMarketPrice")
+                change_pct = info_full.get("regularMarketChangePercent")
+                sector = info_full.get("sector")
+                mkt_cap = info_full.get("marketCap")
+            except Exception:
+                name = symbol
+                price = None
+                change_pct = None
+                sector = None
+                mkt_cap = None
+            entry = {
+                "symbol": symbol,
+                "name": name,
+                "nextEarningsDate": next_date,
+                "epsEstimate": float(avg_eps) if avg_eps is not None else None,
+                "sector": sector,
+                "currentPrice": price,
+                "changePercent": change_pct,
+                "marketCap": mkt_cap,
+            }
+            with lock:
+                results.append(entry)
+        except Exception:
+            pass
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        list(executor.map(fetch_one, UPCOMING_WATCHLIST))
+
+    results.sort(key=lambda x: x["nextEarningsDate"])
+    data = {"upcoming": results, "fetchedAt": int(now)}
+    _upcoming_earnings_cache["data"] = data
+    _upcoming_earnings_cache["ts"] = now
+    print(f"[earnings_upcoming] {len(results)} stocks with upcoming earnings")
+    return jsonify(data)
 
 
 @app.route('/dividends/<path:symbol>', methods=['GET'])
