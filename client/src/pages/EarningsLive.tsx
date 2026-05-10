@@ -237,13 +237,42 @@ function saveAiCache(cache: Record<string, { analysis: AIAnalysis; analyzedAt: n
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function VerdictBadge({ verdict, size = "md" }: { verdict: "BEAT" | "MISS" | "IN-LINE"; size?: "sm" | "md" | "lg" }) {
+function VerdictBadge({ verdict, size = "md", lang = "en" }: { verdict: "BEAT" | "MISS" | "IN-LINE"; size?: "sm" | "md" | "lg"; lang?: string }) {
   const sz = size === "lg" ? "text-lg px-5 py-2" : size === "sm" ? "text-xs px-2 py-0.5" : "text-sm px-3 py-1";
+  const sub = (
+    beat: string, miss: string, inline: string,
+    beatKo: string, missKo: string, inlineKo: string,
+    beatJa: string, missJa: string, inlineJa: string
+  ) => {
+    if (lang === "ko") return verdict === "BEAT" ? beatKo : verdict === "MISS" ? missKo : inlineKo;
+    if (lang === "ja") return verdict === "BEAT" ? beatJa : verdict === "MISS" ? missJa : inlineJa;
+    return verdict === "BEAT" ? beat : verdict === "MISS" ? miss : inline;
+  };
+  const subLabel = sub(
+    "Earnings Beat", "Earnings Miss", "In-Line",
+    "어닝 서프라이즈", "어닝 쇼크", "예상치 부합",
+    "予想を上回る", "予想を下回る", "予想通り"
+  );
   if (verdict === "BEAT")
-    return <span className={cn("inline-flex items-center gap-1.5 font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40", sz)}><TrendingUp className="w-4 h-4" />BEAT</span>;
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className={cn("inline-flex items-center gap-1.5 font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40", sz)}><TrendingUp className="w-4 h-4" />BEAT</span>
+        <span className="text-[10px] text-emerald-400/80">{subLabel}</span>
+      </div>
+    );
   if (verdict === "MISS")
-    return <span className={cn("inline-flex items-center gap-1.5 font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40", sz)}><TrendingDown className="w-4 h-4" />MISS</span>;
-  return <span className={cn("inline-flex items-center gap-1.5 font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40", sz)}><Minus className="w-4 h-4" />IN-LINE</span>;
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className={cn("inline-flex items-center gap-1.5 font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40", sz)}><TrendingDown className="w-4 h-4" />MISS</span>
+        <span className="text-[10px] text-rose-400/80">{subLabel}</span>
+      </div>
+    );
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className={cn("inline-flex items-center gap-1.5 font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40", sz)}><Minus className="w-4 h-4" />IN-LINE</span>
+      <span className="text-[10px] text-amber-400/80">{subLabel}</span>
+    </div>
+  );
 }
 
 function SurpriseCell({ v }: { v: number | null }) {
@@ -252,21 +281,29 @@ function SurpriseCell({ v }: { v: number | null }) {
   return <span className={cn("font-semibold", n > 0 ? "text-emerald-400" : n < 0 ? "text-rose-400" : "text-muted-foreground")}>{formatSurprise(n)}</span>;
 }
 
-function SentimentMeter({ score, sentiment }: { score: number; sentiment: string }) {
+function SentimentMeter({ score, sentiment, lang = "en" }: { score: number; sentiment: string; lang?: string }) {
   const pct = Math.min(100, Math.max(0, ((score - 1) / 9) * 100));
   const color = sentiment === "Positive" ? "bg-emerald-500" : sentiment === "Negative" ? "bg-rose-500" : "bg-amber-500";
-  const lbl = sentiment === "Positive" ? "🟢 긍정적 / Positive" : sentiment === "Negative" ? "🔴 부정적 / Negative" : "🟡 중립 / Neutral";
+  const labels = lang === "ko"
+    ? { title: "감정 지수", bearish: "약세", bullish: "강세",
+        pos: "🟢 긍정적", neg: "🔴 부정적", neu: "🟡 중립" }
+    : lang === "ja"
+    ? { title: "センチメント", bearish: "弱気", bullish: "強気",
+        pos: "🟢 ポジティブ", neg: "🔴 ネガティブ", neu: "🟡 中立" }
+    : { title: "Sentiment", bearish: "Bearish", bullish: "Bullish",
+        pos: "🟢 Positive", neg: "🔴 Negative", neu: "🟡 Neutral" };
+  const lbl = sentiment === "Positive" ? labels.pos : sentiment === "Negative" ? labels.neg : labels.neu;
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">Sentiment</span>
+        <span className="text-muted-foreground">{labels.title}</span>
         <span className="font-semibold">{lbl}</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div className={cn("h-full rounded-full transition-all duration-700", color)} style={{ width: `${pct}%` }} />
       </div>
       <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>Bearish</span><span className="font-mono">{score}/10</span><span>Bullish</span>
+        <span>{labels.bearish}</span><span className="font-mono">{score}/10</span><span>{labels.bullish}</span>
       </div>
     </div>
   );
@@ -334,6 +371,8 @@ export default function EarningsLive() {
   const [calMonth, setCalMonth]             = useState(() => new Date());
   const [aiCache, setAiCache]               = useState(() => loadAiCache());
   const [now, setNow]                       = useState(() => Date.now());
+  // When true the AI panel shows the cached English version as a "See Original" view
+  const [showOriginalEn, setShowOriginalEn] = useState(false);
   const analyzeTriggeredRef                 = useRef<Set<string>>(new Set());
 
   // Clock tick every 60s so LIVE badges stay current
@@ -386,24 +425,30 @@ export default function EarningsLive() {
   const priceSym   = currencySymbol(currency);
 
   // ── AI mutation ────────────────────────────────────────────────────────────
+  // Cache key includes lang so switching language automatically triggers a fresh
+  // analysis in the new language.
+  const aiCacheKey = (sym: string, l: string) => `${sym}_${l}`;
+
   const analyzeMutation = useMutation({
     mutationFn: async (payload: object) => {
       const res = await apiRequest("POST", "/api/earnings/analyze", payload);
-      return res.json() as Promise<{ analysis: AIAnalysis; symbol: string; analyzedAt: number }>;
+      return res.json() as Promise<{ analysis: AIAnalysis; symbol: string; analyzedAt: number; analyzedLang: string }>;
     },
     onSuccess: (data) => {
-      const newCache = { ...aiCache, [data.symbol]: { analysis: data.analysis, analyzedAt: data.analyzedAt } };
+      const key = aiCacheKey(data.symbol, data.analyzedLang || "en");
+      const newCache = { ...aiCache, [key]: { analysis: data.analysis, analyzedAt: data.analyzedAt } };
       setAiCache(newCache);
       saveAiCache(newCache);
     },
   });
 
-  // Auto-trigger AI analysis
+  // Auto-trigger AI analysis (language-keyed — re-runs when lang changes)
   useEffect(() => {
     if (!selectedSymbol || !earningsData) return;
     const lastQ = earningsData.history?.find(h => h.epsActual != null);
-    if (!lastQ || aiCache[selectedSymbol] || analyzeTriggeredRef.current.has(selectedSymbol)) return;
-    analyzeTriggeredRef.current.add(selectedSymbol);
+    const key = aiCacheKey(selectedSymbol, lang);
+    if (!lastQ || aiCache[key] || analyzeTriggeredRef.current.has(key)) return;
+    analyzeTriggeredRef.current.add(key);
     const item = upcomingData?.upcoming?.find(u => u.symbol === selectedSymbol);
     analyzeMutation.mutate({
       symbol: selectedSymbol,
@@ -417,10 +462,17 @@ export default function EarningsLive() {
       quarter: quarterLabel(lastQ.date),
       lang,
     });
-  }, [selectedSymbol, earningsData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSymbol, earningsData, lang]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const aiResult = aiCache[selectedSymbol]?.analysis ?? null;
+  // When "showOriginalEn" is toggled, resolve the English-language cached version.
+  const aiResultKey = showOriginalEn && lang !== "en"
+    ? aiCacheKey(selectedSymbol, "en")
+    : aiCacheKey(selectedSymbol, lang);
+  const aiResult = aiCache[aiResultKey]?.analysis ?? null;
+  // The lang the displayed result was generated in (for VerdictBadge / SentimentMeter labels)
+  const aiResultLang = showOriginalEn && lang !== "en" ? "en" : lang;
 
   const filteredUpcoming = useMemo(() => {
     const list = upcomingData?.upcoming || [];
@@ -461,6 +513,9 @@ export default function EarningsLive() {
     return map;
   }, [upcomingData]);
 
+  // Reset "See Original" toggle whenever symbol or lang changes
+  useEffect(() => { setShowOriginalEn(false); }, [selectedSymbol, lang]);
+
   const handleSelectSymbol = useCallback((sym: string) => {
     setSelectedSymbol(sym.toUpperCase());
     setMobileTab("detail");
@@ -475,10 +530,12 @@ export default function EarningsLive() {
   const handleReAnalyze = () => {
     const lastQ = earningsData?.history?.find(h => h.epsActual != null);
     if (!lastQ) return;
-    analyzeTriggeredRef.current.delete(selectedSymbol);
-    const newCache = { ...aiCache }; delete newCache[selectedSymbol];
+    const key = aiCacheKey(selectedSymbol, lang);
+    analyzeTriggeredRef.current.delete(key);
+    const newCache = { ...aiCache }; delete newCache[key];
     setAiCache(newCache); saveAiCache(newCache);
-    analyzeTriggeredRef.current.add(selectedSymbol);
+    setShowOriginalEn(false);
+    analyzeTriggeredRef.current.add(key);
     const item = upcomingData?.upcoming?.find(u => u.symbol === selectedSymbol);
     analyzeMutation.mutate({
       symbol: selectedSymbol,
@@ -531,10 +588,18 @@ export default function EarningsLive() {
     last_earn:   lang === "ko" ? "최근 실적 발표" : "Last Earnings",
     tz_note:     lang === "ko" ? `현지 시간 (${tzAbbr})` : `Local time (${tzAbbr})`,
     no_upcoming: lang === "ko" ? "예정 실적 없음" : "No upcoming earnings",
-    analyzing:   lang === "ko" ? "AI 분석 중..." : "Analyzing...",
-    ai_waiting:  lang === "ko" ? "최근 실적 데이터가 있으면 자동 분석됩니다." : "AI auto-triggers when earnings data loads.",
-    eps_chart:   lang === "ko" ? "분기별 EPS 비교" : "Quarterly EPS",
-    rev_chart:   lang === "ko" ? `분기별 매출 (${revUnit.label})` : `Quarterly Revenue (${revUnit.label})`,
+    analyzing:        lang === "ko" ? "AI 분석 중..." : lang === "ja" ? "AI分析中..." : "Analyzing...",
+    ai_waiting:       lang === "ko" ? "최근 실적 데이터가 있으면 자동 분석됩니다." : lang === "ja" ? "決算データが読み込まれると自動分析が開始されます。" : "AI auto-triggers when earnings data loads.",
+    eps_chart:        lang === "ko" ? "분기별 EPS 비교" : lang === "ja" ? "四半期EPS比較" : "Quarterly EPS",
+    rev_chart:        lang === "ko" ? `분기별 매출 (${revUnit.label})` : lang === "ja" ? `四半期売上高 (${revUnit.label})` : `Quarterly Revenue (${revUnit.label})`,
+    // AI language toggle
+    see_original:     lang === "ko" ? "원문 보기 (English)" : lang === "ja" ? "原文を見る (English)" : "See Original",
+    see_translated:   lang === "ko" ? "한국어 분석 보기" : lang === "ja" ? "日本語分析を見る" : "See Translated",
+    analyzed_in:      lang === "ko" ? "분석 언어:" : lang === "ja" ? "分析言語:" : "Analyzed in:",
+    lang_ko:          "한국어",
+    lang_ja:          "日本語",
+    lang_en:          "English",
+    loading_original: lang === "ko" ? "영어 원문 불러오는 중..." : "Loading English version...",
   };
 
   // ── Calendar Panel ─────────────────────────────────────────────────────────
@@ -1220,21 +1285,72 @@ export default function EarningsLive() {
 
   // ── AI + Links Panel ───────────────────────────────────────────────────────
   const AiPanel = () => {
-    const irLinks    = getIRLinks(selectedSymbol);
-    const isAnalyzing = analyzeMutation.isPending;
-    const lastQ      = earningsData?.history?.find(h => h.epsActual != null);
-    const isKR       = currency === "KRW";
+    const isAnalyzing   = analyzeMutation.isPending;
+    const lastQ         = earningsData?.history?.find(h => h.epsActual != null);
+
+    // "See Original (English)" feature — fetch EN version lazily when toggled
+    const enCacheKey    = aiCacheKey(selectedSymbol, "en");
+    const enCached      = !!aiCache[enCacheKey];
+    const isEnFetching  = analyzeMutation.isPending && showOriginalEn;
+
+    const handleToggleOriginal = () => {
+      if (!lastQ) return;
+      const next = !showOriginalEn;
+      setShowOriginalEn(next);
+      // If switching to English but we don't have it cached yet, fetch in background
+      if (next && lang !== "en" && !enCached && !analyzeTriggeredRef.current.has(enCacheKey)) {
+        analyzeTriggeredRef.current.add(enCacheKey);
+        const item = upcomingData?.upcoming?.find(u => u.symbol === selectedSymbol);
+        analyzeMutation.mutate({
+          symbol: selectedSymbol,
+          name: item?.name || selectedSymbol,
+          sector: item?.sector || null,
+          currency,
+          epsActual: lastQ.epsActual,
+          epsEstimate: lastQ.epsEstimate,
+          surprisePct: lastQ.surprisePct,
+          revenueActual: earningsData?.revenueHistory?.[0]?.revenue ?? null,
+          quarter: quarterLabel(lastQ.date),
+          lang: "en",
+        });
+      }
+    };
+
+    // Current display language for sub-components (en when toggled to original)
+    const displayLang   = aiResultLang;
+    const langLabel     = displayLang === "ko" ? L.lang_ko : displayLang === "ja" ? L.lang_ja : L.lang_en;
+    const langColor     = displayLang === "ko" ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
+                        : displayLang === "ja" ? "text-violet-400 bg-violet-500/10 border-violet-500/30"
+                        : "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
 
     return (
       <div className="space-y-4">
         <div className="bg-card rounded-2xl border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-primary" />
+          {/* Header row */}
+          <div className="flex items-start justify-between mb-3 gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Brain className="w-4 h-4 text-primary shrink-0" />
               <h3 className="font-bold text-sm">{L.ai}</h3>
+              {/* Language badge — shows what language the AI result is in */}
+              {aiResult && (
+                <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border", langColor)}
+                  data-testid="badge-ai-lang">
+                  {langLabel}
+                </span>
+              )}
+              {/* "See Original" / "See Translated" toggle — only shown for non-English users */}
+              {lang !== "en" && aiCache[aiCacheKey(selectedSymbol, lang)] && (
+                <button
+                  onClick={handleToggleOriginal}
+                  disabled={isAnalyzing}
+                  data-testid="button-toggle-original"
+                  className="text-[10px] text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors disabled:opacity-50">
+                  {showOriginalEn ? L.see_translated : L.see_original}
+                </button>
+              )}
             </div>
             {lastQ?.epsActual != null && (
-              <Button size="sm" variant="outline" className="h-7 text-xs px-2.5"
+              <Button size="sm" variant="outline" className="h-7 text-xs px-2.5 shrink-0"
                 onClick={handleReAnalyze} disabled={isAnalyzing} data-testid="button-reanalyze">
                 {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                 <span className="ml-1">{L.reanalyze}</span>
@@ -1242,13 +1358,23 @@ export default function EarningsLive() {
             )}
           </div>
 
-          {isAnalyzing && (
+          {/* Analyzing spinner */}
+          {isAnalyzing && !aiResult && (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
               <p className="text-xs text-muted-foreground">{L.analyzing}</p>
             </div>
           )}
 
+          {/* Loading English original */}
+          {isEnFetching && showOriginalEn && !enCached && (
+            <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-muted/30 border border-border mb-3">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">{L.loading_original}</p>
+            </div>
+          )}
+
+          {/* Empty state */}
           {!isAnalyzing && !aiResult && (
             <div className="py-6 text-center">
               <Brain className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -1256,14 +1382,28 @@ export default function EarningsLive() {
             </div>
           )}
 
-          {!isAnalyzing && aiResult && (
+          {/* Result */}
+          {aiResult && (
             <div className="space-y-4">
+              {/* "Viewing original English" banner when toggled */}
+              {showOriginalEn && lang !== "en" && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400">
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {lang === "ko" ? "원문(영어) 분석을 보고 있습니다. " : "Viewing original English analysis. "}
+                    <button onClick={handleToggleOriginal} className="underline hover:text-amber-300 transition-colors">
+                      {L.see_translated}
+                    </button>
+                  </span>
+                </div>
+              )}
+
               <div className="flex flex-col items-center gap-2 py-3 border border-border rounded-xl bg-muted/20">
-                <VerdictBadge verdict={aiResult.verdict} size="lg" />
+                <VerdictBadge verdict={aiResult.verdict} size="lg" lang={displayLang} />
                 <p className="text-xs text-muted-foreground text-center px-3 leading-relaxed">{aiResult.verdictDetail}</p>
               </div>
 
-              <SentimentMeter score={aiResult.sentimentScore} sentiment={aiResult.sentiment} />
+              <SentimentMeter score={aiResult.sentimentScore} sentiment={aiResult.sentiment} lang={displayLang} />
 
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">{L.key_points}</h4>
@@ -1277,7 +1417,6 @@ export default function EarningsLive() {
                 </ul>
               </div>
 
-              {/* Market Context — new field */}
               {aiResult.marketContext && (
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
                   <h4 className="text-[10px] font-semibold text-blue-400 mb-1 uppercase tracking-wide">{L.mkt_context}</h4>

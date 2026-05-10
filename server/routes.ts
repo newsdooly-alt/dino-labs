@@ -2794,10 +2794,45 @@ Return EXACTLY this JSON:
     try {
       const langInstr =
         lang === "ko"
-          ? "모든 텍스트를 한국어로 작성하세요. 전문적인 금융 한국어를 사용하세요."
+          ? `모든 분석 텍스트(verdictDetail, keyTakeaways, guidanceOutlook, marketContext)를 한국어로 작성하세요.
+전문 금융 한국어를 사용하며 아래 표준 용어를 정확히 적용하세요:
+• Gross Margin → 매출총이익률
+• Operating Margin → 영업이익률
+• Guidance → 가이던스 (또는 전망치)
+• Inventory Turnover → 재고회전율
+• Revenue → 매출
+• Operating Income → 영업이익
+• Net Income → 당기순이익
+• EPS (Earnings Per Share) → 주당순이익(EPS)
+• Earnings Beat → 어닝 서프라이즈 (예상치 상회)
+• Earnings Miss → 어닝 쇼크 (예상치 하회)
+• Market Cap → 시가총액
+• Forward P/E → 선행 PER
+• Free Cash Flow → 잉여현금흐름(FCF)
+• EBITDA → EBITDA(에비타)
+• Dividend Yield → 배당수익률
+• Share Buyback → 자사주 매입
+• Supply Chain → 공급망
+• Valuation → 밸류에이션
+• Momentum → 모멘텀
+• Semiconductor Cycle → 반도체 사이클
+⚠️ verdict 값("BEAT"/"MISS"/"IN-LINE")과 sentiment 값("Positive"/"Neutral"/"Negative")은 반드시 영어 그대로 유지하세요.`
           : lang === "ja"
-          ? "すべてのテキストを日本語で記述してください。専門的な金融用語を使用してください。"
-          : "Write all text in English. Use professional financial language.";
+          ? `すべての分析テキスト(verdictDetail, keyTakeaways, guidanceOutlook, marketContext)を日本語で記述してください。
+専門的な金融用語を正確に使用してください:
+• Gross Margin → 売上総利益率
+• Operating Margin → 営業利益率
+• Guidance → ガイダンス（業績見通し）
+• Inventory Turnover → 在庫回転率
+• Revenue → 売上高
+• Operating Income → 営業利益
+• EPS → 1株当たり純利益（EPS）
+• Earnings Beat → 市場予想を上回る
+• Market Cap → 時価総額
+• Free Cash Flow → フリーキャッシュフロー（FCF）
+• Valuation → バリュエーション
+⚠️ verdictの値("BEAT"/"MISS"/"IN-LINE")とsentimentの値("Positive"/"Neutral"/"Negative")は必ず英語のままにしてください。`
+          : "Write all text in English. Use professional financial language and precise financial terminology.";
 
       // Currency-aware revenue formatting
       const isKRW = currency === "KRW";
@@ -2885,7 +2920,7 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
 
       const content = aiRes.choices[0].message.content || "{}";
       const parsed = JSON.parse(content);
-      res.json({ analysis: parsed, symbol, analyzedAt: Date.now() });
+      res.json({ analysis: parsed, symbol, analyzedAt: Date.now(), analyzedLang: lang || "en" });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
