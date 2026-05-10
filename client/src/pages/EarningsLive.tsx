@@ -1287,6 +1287,8 @@ export default function EarningsLive() {
   const AiPanel = () => {
     const isAnalyzing   = analyzeMutation.isPending;
     const lastQ         = earningsData?.history?.find(h => h.epsActual != null);
+    const irLinks       = getIRLinks(selectedSymbol);
+    const isKR          = currency === "KRW";
 
     // "See Original (English)" feature — fetch EN version lazily when toggled
     const enCacheKey    = aiCacheKey(selectedSymbol, "en");
