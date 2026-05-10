@@ -1008,7 +1008,12 @@ def get_earnings_upcoming():
             name = ""
             try:
                 info_full = ticker.info
-                name = (info_full.get("shortName") or info_full.get("longName") or symbol)[:45]
+                raw_name = (info_full.get("shortName") or info_full.get("longName") or symbol)[:45]
+                # For Korean/Japanese stocks, prefer our verified name dict over yfinance
+                if symbol in korean_stocks:
+                    name = korean_stocks[symbol]["name"]
+                else:
+                    name = raw_name
                 price = info_full.get("currentPrice") or info_full.get("regularMarketPrice")
                 change_pct = info_full.get("regularMarketChangePercent")
                 sector = info_full.get("sector")

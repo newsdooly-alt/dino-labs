@@ -522,7 +522,8 @@ export const KOREAN_STOCK_ALIASES: KoreanStockAlias[] = [
 
   // ── Korean Stocks ──
   { ticker: "005930.KS", en: "Samsung Electronics",  ko: "삼성전자",       aliases: ["삼성전자", "삼성", "samsung"] },
-  { ticker: "000660.KS", en: "SK Hynix",             ko: "SK하이닉스",     aliases: ["SK하이닉스", "하이닉스"] },
+  { ticker: "000660.KS", en: "SK Hynix",             ko: "SK하이닉스",     aliases: ["SK하이닉스", "하이닉스", "sk hynix"] },
+  { ticker: "034730.KS", en: "SK Inc.",              ko: "SK",             aliases: ["SK", "SK지주", "SK홀딩스"] },
   { ticker: "005380.KS", en: "Hyundai Motor",        ko: "현대자동차",     aliases: ["현대자동차", "현대차", "현대"] },
   { ticker: "000270.KS", en: "Kia",                  ko: "기아",           aliases: ["기아", "기아차"] },
   { ticker: "035420.KS", en: "NAVER",                ko: "네이버",         aliases: ["네이버"] },

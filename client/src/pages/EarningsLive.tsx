@@ -986,6 +986,153 @@ export default function EarningsLive() {
           </div>
         )}
 
+        {/* ── Earnings Call Section ─────────────────────────────────────── */}
+        {(() => {
+          const tLinks  = getTranscriptLinks(selectedSymbol);
+          const irLinks = getIRLinks(selectedSymbol);
+          const isKR    = currency === "KRW";
+          const ticker  = selectedSymbol.replace(".KS","").replace(".KQ","").replace(".T","");
+          return (
+            <div className="bg-card rounded-2xl border border-border overflow-hidden" data-testid="section-earnings-call">
+              {/* Header */}
+              <div className={cn(
+                "px-4 py-3 border-b flex items-center justify-between",
+                isSelectedLive ? "bg-rose-500/8 border-rose-500/30" : "bg-muted/30 border-border"
+              )}>
+                <div className="flex items-center gap-2">
+                  {isSelectedLive ? (
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+                    </span>
+                  ) : (
+                    <Mic className="w-4 h-4 text-primary" />
+                  )}
+                  <h3 className="font-bold text-sm">
+                    {isSelectedLive
+                      ? (lang === "ko" ? "📡 어닝콜 — LIVE 진행 중" : "📡 Earnings Call — LIVE NOW")
+                      : (lang === "ko" ? "어닝콜 & 기록" : "Earnings Call & Transcripts")}
+                  </h3>
+                </div>
+                {isSelectedLive && (
+                  <span className="text-[10px] font-bold text-rose-400 animate-pulse bg-rose-500/15 border border-rose-500/30 rounded-full px-2 py-0.5">
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              <div className="p-4 space-y-2">
+                {/* LIVE: Join webcast */}
+                {isSelectedLive && (
+                  <a
+                    href={irLinks.webcast || (isKR
+                      ? `https://dart.fss.or.kr/dsab001/main.do`
+                      : `https://finance.yahoo.com/quote/${ticker}/`)}
+                    target="_blank" rel="noopener noreferrer"
+                    data-testid="link-join-live-call"
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 transition-colors group">
+                    <span className="relative flex h-3 w-3 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-rose-300 group-hover:text-rose-200">
+                        {lang === "ko" ? "실시간 어닝콜 참가" : "Join Live Earnings Call"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {lang === "ko" ? "공식 IR 웹캐스트 · 현재 진행 중" : "Official IR webcast · In progress now"}
+                      </p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-rose-400 shrink-0" />
+                  </a>
+                )}
+
+                {/* Seeking Alpha — full transcripts (US stocks) */}
+                {tLinks.sa && (
+                  <a href={tLinks.sa} target="_blank" rel="noopener noreferrer"
+                    data-testid="link-sa-transcript"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
+                    <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold group-hover:text-primary">
+                        {lang === "ko" ? "어닝콜 전문 기록 — Seeking Alpha" : "Earnings Call Transcripts — Seeking Alpha"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">seekingalpha.com · {lang === "ko" ? "과거 분기별 전문" : "Full quarterly transcripts"}</p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                  </a>
+                )}
+
+                {/* Motley Fool earnings */}
+                {tLinks.fool && (
+                  <a href={tLinks.fool} target="_blank" rel="noopener noreferrer"
+                    data-testid="link-fool-transcript"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
+                    <FileText className="w-4 h-4 text-green-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold group-hover:text-primary">
+                        {lang === "ko" ? "어닝 요약 — Motley Fool" : "Earnings Summary — Motley Fool"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">fool.com · {lang === "ko" ? "분석 요약 제공" : "Analyst commentary included"}</p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                  </a>
+                )}
+
+                {/* Nasdaq earnings history */}
+                {tLinks.nasdaq && (
+                  <a href={tLinks.nasdaq} target="_blank" rel="noopener noreferrer"
+                    data-testid="link-nasdaq-transcript"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
+                    <BarChart2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold group-hover:text-primary">
+                        {lang === "ko" ? "어닝 히스토리 — Nasdaq" : "Earnings History — Nasdaq"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">nasdaq.com · {lang === "ko" ? "EPS 비교 데이터" : "EPS vs estimates history"}</p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                  </a>
+                )}
+
+                {/* DART — Korean stocks */}
+                {tLinks.dart && (
+                  <a href={tLinks.dart} target="_blank" rel="noopener noreferrer"
+                    data-testid="link-dart-transcript"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
+                    <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold group-hover:text-primary">
+                        {lang === "ko" ? "실적 공시 — DART 전자공시" : "Filing — DART (KRX)"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">dart.fss.or.kr · {lang === "ko" ? "공식 분기 실적 보고서" : "Official quarterly reports"}</p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                  </a>
+                )}
+
+                {/* IR investor page */}
+                {irLinks.ir && (
+                  <a href={irLinks.ir} target="_blank" rel="noopener noreferrer"
+                    data-testid="link-ir-direct"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
+                    <ExternalLink className="w-4 h-4 text-violet-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold group-hover:text-primary">
+                        {lang === "ko" ? "IR 공식 홈페이지" : "Investor Relations Page"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {lang === "ko" ? "공식 프레젠테이션 및 발표 자료" : "Official presentations & press releases"}
+                      </p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* History Table */}
         {earningsData.history.length > 0 && (() => {
           const tLinks = getTranscriptLinks(selectedSymbol);
@@ -1312,10 +1459,13 @@ export default function EarningsLive() {
       </div>
 
       {/* Desktop: left list | center calendar+detail toggle | right AI */}
+      {/* NOTE: panels are called as functions — NOT as <Component /> — to prevent
+          React from treating them as new component types on every render,
+          which would unmount/remount the DOM and lose input focus. */}
       <div className="hidden md:grid md:grid-cols-[260px_1fr_320px] h-[calc(100vh-97px)] overflow-hidden">
         {/* Left: Upcoming list */}
         <div className="border-r border-border p-4 overflow-y-auto">
-          <UpcomingPanel />
+          {UpcomingPanel()}
         </div>
 
         {/* Center: Tab between Calendar and Detail */}
@@ -1337,22 +1487,22 @@ export default function EarningsLive() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-5">
-            {mobileTab === "calendar" ? <CalendarPanel /> : <DetailPanel />}
+            {mobileTab === "calendar" ? CalendarPanel() : DetailPanel()}
           </div>
         </div>
 
         {/* Right: AI + Links */}
         <div className="border-l border-border p-4 overflow-y-auto">
-          <AiPanel />
+          {AiPanel()}
         </div>
       </div>
 
       {/* Mobile: tabbed content */}
       <div className="md:hidden px-4 py-4 overflow-y-auto min-h-[calc(100vh-160px)]">
-        {mobileTab === "upcoming"  && <UpcomingPanel />}
-        {mobileTab === "calendar"  && <CalendarPanel />}
-        {mobileTab === "detail"    && <DetailPanel />}
-        {mobileTab === "ai"        && <AiPanel />}
+        {mobileTab === "upcoming"  && UpcomingPanel()}
+        {mobileTab === "calendar"  && CalendarPanel()}
+        {mobileTab === "detail"    && DetailPanel()}
+        {mobileTab === "ai"        && AiPanel()}
       </div>
     </div>
   );
