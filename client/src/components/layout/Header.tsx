@@ -37,14 +37,14 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
-            <Flame className={cn("w-4 h-4 md:w-5 md:h-5", user?.streak && user.streak > 0 && "fill-current animate-pulse")} />
-            <span className="font-bold font-mono text-sm md:text-base">{user?.streak || 0}</span>
+          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500 shrink-0 whitespace-nowrap">
+            <Flame className={cn("w-4 h-4 md:w-5 md:h-5 shrink-0", user?.streak && user.streak > 0 && "fill-current animate-pulse")} />
+            <span className="font-bold font-mono text-sm md:text-base tabular-nums">{user?.streak || 0}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-xl bg-secondary/10 border border-secondary/20 text-secondary">
-            <Zap className="w-4 h-4 md:w-5 md:h-5 fill-current" />
-            <span className="font-bold font-mono text-sm md:text-base">{user?.xp || 0} <span className="hidden sm:inline">XP</span></span>
+          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-xl bg-secondary/10 border border-secondary/20 text-secondary shrink-0 whitespace-nowrap min-w-[72px] md:min-w-[88px]">
+            <Zap className="w-4 h-4 md:w-5 md:h-5 fill-current shrink-0" />
+            <span className="font-bold font-mono text-sm md:text-base tabular-nums">{user?.xp || 0} <span className="hidden sm:inline">XP</span></span>
           </div>
 
           <button

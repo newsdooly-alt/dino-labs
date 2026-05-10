@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +84,7 @@ const CATEGORY_KO_MAP: Record<string, string> = {
   "Manufacturing": "제조업",
   "Services": "서비스업",
   "Housing": "부동산",
+  "Trade": "무역",
 };
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -91,6 +92,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
   "KOR": "🇰🇷",
   "JPN": "🇯🇵",
   "EU": "🇪🇺",
+  "CHN": "🇨🇳",
 };
 
 const COUNTRY_LABELS: Record<string, { en: string; ko: string }> = {
@@ -98,6 +100,7 @@ const COUNTRY_LABELS: Record<string, { en: string; ko: string }> = {
   "KOR": { en: "Korea", ko: "한국" },
   "JPN": { en: "Japan", ko: "일본" },
   "EU": { en: "EU", ko: "유럽" },
+  "CHN": { en: "China", ko: "중국" },
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -109,6 +112,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Manufacturing": "text-orange-500",
   "Services": "text-cyan-500",
   "Housing": "text-yellow-500",
+  "Trade": "text-teal-500",
 };
 
 // Indicators where a HIGHER actual vs forecast is BAD for the economy (red = beat, green = miss)
@@ -318,8 +322,8 @@ function EventTableRow({ event, lang, tz }: { event: EconomicEvent; lang: string
               {event.actual}
             </span>
           ) : (
-            <span className={cn("font-mono text-xs tabular-nums", isPast ? "text-muted-foreground/40" : "text-muted-foreground")}>
-              {isPast ? "N/A" : "—"}
+            <span className="font-mono text-xs tabular-nums text-muted-foreground/40">
+              —
             </span>
           )}
         </td>
@@ -544,11 +548,12 @@ function CalendarDayDot({ events }: { events: EconomicEvent[] }) {
   );
 }
 
-const ALL_COUNTRIES = ["USA", "KOR", "JPN", "EU"] as const;
+const ALL_COUNTRIES = ["USA", "KOR", "JPN", "EU", "CHN"] as const;
 type CountryFilter = "ALL" | typeof ALL_COUNTRIES[number];
 
 export default function EconomicCalendar() {
   const { data: user } = useUser();
+  const queryClient = useQueryClient();
   const lang = user?.language || "ko";
 
   useEffect(() => {
@@ -630,6 +635,26 @@ export default function EconomicCalendar() {
     ];
     return raw.map(mergeActuals);
   }, [data, prevData, nextData, mergeActuals]);
+
+  // Real-time trigger: refetch actuals exactly when an upcoming event's release time passes
+  useEffect(() => {
+    const now = Date.now();
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    allVisibleEvents.forEach((evt) => {
+      if (!evt.actual) {
+        const releaseMs = new Date(evt.time).getTime();
+        const delay = releaseMs + 15_000 - now; // 15s after scheduled release
+        if (delay > 0 && delay < 8 * 60 * 60 * 1000) {
+          timers.push(
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/economic-actuals"] });
+            }, delay)
+          );
+        }
+      }
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [allVisibleEvents, queryClient]);
 
   const eventsByTzDate = useMemo(() => {
     const map = new Map<string, EconomicEvent[]>();
@@ -723,8 +748,8 @@ export default function EconomicCalendar() {
           <div className="flex items-center gap-3 flex-wrap">
             <p className="text-muted-foreground text-sm">
               {lang === "ko"
-                ? "미국·한국·일본·유럽 주요 경제 지표와 시장 영향력을 확인하세요"
-                : "Track major US, Korean, Japanese & European economic indicators and their market impact"}
+                ? "미국·한국·일본·중국·유럽 주요 경제 지표와 시장 영향력을 확인하세요"
+                : "Track major US, Korean, Japanese, Chinese & European economic indicators and their market impact"}
             </p>
             {lastUpdatedLabel && (
               <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" data-testid="text-last-updated">

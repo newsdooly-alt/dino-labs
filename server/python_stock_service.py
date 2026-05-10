@@ -2125,7 +2125,15 @@ EVENT_FRED_MAP = {
     "2026-08-20-japan-cpi": ("JPNCPIALLMINMEI", "2026-07-01", "pct_yoy"),
     # ── South Korea CPI (Statistics Korea via FRED) ────────────────────
     "2026-03-26-korea-cpi": ("KORCPIALLMINMEI", "2026-02-01", "pct_yoy"),
+    "2026-04-30-korea-cpi": ("KORCPIALLMINMEI", "2026-03-01", "pct_yoy"),
     "2026-05-28-korea-cpi": ("KORCPIALLMINMEI", "2026-04-01", "pct_yoy"),
+    # ── China CPI (NBS via FRED) ────────────────────────────────────────
+    "2026-03-11-china-cpi": ("CHNCPIALLMINMEI", "2026-02-01", "pct_yoy"),
+    "2026-04-11-china-cpi": ("CHNCPIALLMINMEI", "2026-03-01", "pct_yoy"),
+    "2026-05-11-china-cpi": ("CHNCPIALLMINMEI", "2026-04-01", "pct_yoy"),
+    "2026-06-12-china-cpi": ("CHNCPIALLMINMEI", "2026-05-01", "pct_yoy"),
+    "2026-07-11-china-cpi": ("CHNCPIALLMINMEI", "2026-06-01", "pct_yoy"),
+    "2026-08-11-china-cpi": ("CHNCPIALLMINMEI", "2026-07-01", "pct_yoy"),
 }
 
 def _fetch_fred_series(series_id: str) -> list:
