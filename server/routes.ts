@@ -2789,7 +2789,8 @@ Return EXACTLY this JSON:
   });
 
   app.post("/api/earnings/analyze", isAuthenticated, async (req, res) => {
-    const { symbol, name, epsActual, epsEstimate, surprisePct, revenueActual, revenueEstimate, quarter, lang } = req.body;
+    const { symbol, name, sector, currency, epsActual, epsEstimate, surprisePct,
+            revenueActual, revenueEstimate, quarter, lang } = req.body;
     try {
       const langInstr =
         lang === "ko"
@@ -2798,38 +2799,87 @@ Return EXACTLY this JSON:
           ? "すべてのテキストを日本語で記述してください。専門的な金融用語を使用してください。"
           : "Write all text in English. Use professional financial language.";
 
-      const revActStr = revenueActual
-        ? `Revenue Actual: $${(revenueActual / 1e9).toFixed(2)}B`
-        : "";
-      const revEstStr = revenueEstimate
-        ? `Revenue Estimate: $${(revenueEstimate / 1e9).toFixed(2)}B`
-        : "";
+      // Currency-aware revenue formatting
+      const isKRW = currency === "KRW";
+      const isJPY = currency === "JPY";
+      const currSym = isKRW ? "₩" : isJPY ? "¥" : "$";
 
-      const prompt = `You are a senior equity research analyst. Analyze this earnings report concisely.
+      function fmtRev(v: number | null): string {
+        if (!v) return "";
+        if (isKRW || isJPY) {
+          if (Math.abs(v) >= 1e12) return `${currSym}${(v / 1e12).toFixed(1)}조`;
+          if (Math.abs(v) >= 1e8)  return `${currSym}${(v / 1e8).toFixed(0)}억`;
+        }
+        if (Math.abs(v) >= 1e12) return `${currSym}${(v / 1e12).toFixed(2)}T`;
+        if (Math.abs(v) >= 1e9)  return `${currSym}${(v / 1e9).toFixed(2)}B`;
+        return `${currSym}${v.toLocaleString()}`;
+      }
+
+      function fmtEps(v: number | null): string {
+        if (v == null) return "N/A";
+        if (isKRW || isJPY) return `${currSym}${Math.round(v).toLocaleString()}`;
+        return `${currSym}${Number(v).toFixed(2)}`;
+      }
+
+      const revActStr = revenueActual   ? `Revenue Actual: ${fmtRev(revenueActual)}`   : "";
+      const revEstStr = revenueEstimate ? `Revenue Estimate: ${fmtRev(revenueEstimate)}` : "";
+
+      // Fetch recent news for market context (best-effort, non-blocking)
+      let recentNewsContext = "";
+      try {
+        const newsRes = await fetch("http://127.0.0.1:5001/news", { signal: AbortSignal.timeout(5000) });
+        if (newsRes.ok) {
+          const newsData: any = await newsRes.json();
+          const headlines = (newsData.articles || [])
+            .slice(0, 5)
+            .map((a: any) => `- ${a.title}`)
+            .join("\n");
+          if (headlines) recentNewsContext = `\nRecent Market Headlines (for context):\n${headlines}`;
+        }
+      } catch { /* ignore — news context is optional */ }
+
+      // Determine exchange context
+      const exchangeNote = isKRW
+        ? "This is a KOSPI-listed Korean company. EPS and revenue are in Korean Won (KRW). Use 조/억 units."
+        : isJPY
+        ? "This is a TSE-listed Japanese company. EPS and revenue are in Japanese Yen (JPY)."
+        : "This is a US-listed company. EPS and revenue are in USD.";
+
+      const prompt = `You are a senior equity research analyst with expertise in global markets. Analyze this earnings report and explain how it fits into the current market narrative.
 
 Company: ${name || symbol} (${symbol})
+Exchange/Currency: ${exchangeNote}
+Sector: ${sector || "Technology"}
 Quarter: ${quarter || "Most Recent Quarter"}
-EPS Actual: ${epsActual ?? "N/A"} | EPS Estimate: ${epsEstimate ?? "N/A"}${surprisePct != null ? ` | Surprise: ${surprisePct > 0 ? "+" : ""}${Number(surprisePct).toFixed(1)}%` : ""}
+EPS Actual: ${fmtEps(epsActual)} | EPS Estimate: ${fmtEps(epsEstimate)}${surprisePct != null ? ` | Surprise: ${surprisePct > 0 ? "+" : ""}${Number(surprisePct).toFixed(1)}%` : ""}
 ${revActStr}
 ${revEstStr}
+${recentNewsContext}
+
+Your analysis MUST go beyond simply repeating the numbers. Address:
+1. Whether this beat/miss is significant vs the sector trend
+2. What this result signals about the company's competitive position
+3. How this fits into the current macro/market narrative (AI boom, rate environment, consumer spending, semiconductor cycle, etc.)
+4. One specific risk or opportunity investors should watch next quarter
 
 ${langInstr}
 
 Respond ONLY with valid JSON (no markdown fences, no extra text):
 {
   "verdict": "BEAT" or "MISS" or "IN-LINE",
-  "verdictDetail": "one sentence explaining the verdict with specific numbers",
-  "keyTakeaways": ["takeaway 1", "takeaway 2", "takeaway 3"],
+  "verdictDetail": "one sentence with specific numbers and context",
+  "keyTakeaways": ["insight 1 beyond the numbers", "insight 2 about competitive position", "insight 3 about sector/macro context"],
   "sentiment": "Positive" or "Neutral" or "Negative",
   "sentimentScore": integer 1-10,
-  "guidanceOutlook": "one sentence on forward guidance or what to watch next quarter"
+  "guidanceOutlook": "one sentence on forward guidance and what catalyst to watch",
+  "marketContext": "2-3 sentences: how does this result fit into the current market narrative and sector trends?"
 }`;
 
       const aiRes = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 600,
+        temperature: 0.4,
+        max_tokens: 900,
         response_format: { type: "json_object" },
       });
 

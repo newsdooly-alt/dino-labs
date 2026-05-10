@@ -902,13 +902,41 @@ _upcoming_earnings_cache: dict = {"data": None, "ts": 0.0}
 _UPCOMING_EARNINGS_TTL = 1800  # 30 minutes
 
 UPCOMING_WATCHLIST = [
-    # US Large-Cap
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA",
-    "AMD", "NFLX", "AVGO", "JPM", "BAC", "GS", "V", "WMT",
-    "COST", "HD", "JNJ", "UNH", "CRM",
-    # Korean ADR / KRX
-    "005930.KS", "000660.KS", "035420.KS", "005380.KS",
+    # US Mega-Cap Tech
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
+    # US Tech / Semiconductors
+    "NFLX", "AVGO", "CRM", "ORCL", "ADBE", "INTC", "QCOM", "MU", "ARM", "PLTR",
+    "SNOW", "UBER", "LYFT", "SHOP", "SQ", "PYPL",
+    # US Financials
+    "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "AXP", "C", "BLK",
+    # US Healthcare
+    "JNJ", "UNH", "LLY", "MRK", "ABBV", "PFE", "CVS", "TMO",
+    # US Consumer / Retail
+    "WMT", "COST", "HD", "MCD", "SBUX", "NKE", "TGT",
+    # US Energy / Industrial
+    "XOM", "CVX", "BA", "CAT", "GE", "RTX", "HON",
+    # US Telecom / Media
+    "DIS", "CMCSA", "T", "VZ", "NFLX",
+    # Korean KOSPI 200 Blue-Chips
+    "005930.KS",  # Samsung Electronics
+    "000660.KS",  # SK Hynix
+    "035420.KS",  # Naver
+    "005380.KS",  # Hyundai Motor
+    "051910.KS",  # LG Chem
+    "035720.KS",  # Kakao
+    "000270.KS",  # Kia
+    "068270.KS",  # Celltrion
+    "105560.KS",  # KB Financial
+    "055550.KS",  # Shinhan Financial
+    "012330.KS",  # Hyundai Mobis
+    "207940.KS",  # Samsung Biologics
+    "003550.KS",  # LG Corp
+    "034730.KS",  # SK Inc
+    "096770.KS",  # SK Innovation
 ]
+
+# Currency mapping by exchange suffix
+_SYMBOL_CURRENCY = {"KS": "KRW", "KQ": "KRW", "T": "JPY"}
 
 @app.route('/earnings_upcoming', methods=['GET'])
 def get_earnings_upcoming():
@@ -957,6 +985,9 @@ def get_earnings_upcoming():
                 change_pct = None
                 sector = None
                 mkt_cap = None
+            # Determine currency from symbol suffix
+            suffix = symbol.split(".")[-1] if "." in symbol else "USD"
+            currency = _SYMBOL_CURRENCY.get(suffix, "USD")
             entry = {
                 "symbol": symbol,
                 "name": name,
@@ -966,13 +997,14 @@ def get_earnings_upcoming():
                 "currentPrice": price,
                 "changePercent": change_pct,
                 "marketCap": mkt_cap,
+                "currency": currency,
             }
             with lock:
                 results.append(entry)
         except Exception:
             pass
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         list(executor.map(fetch_one, UPCOMING_WATCHLIST))
 
     results.sort(key=lambda x: x["nextEarningsDate"])
