@@ -2788,51 +2788,102 @@ Return EXACTLY this JSON:
     }
   });
 
+  app.post("/api/earnings/call-summary", isAuthenticated, async (req, res) => {
+    const { symbol, name, lang, epsActual, epsEstimate, surprisePct, revenueActual, quarter, currency } = req.body;
+    try {
+      const isKRW = currency === "KRW";
+      const isJPY = currency === "JPY";
+      const currSym = isKRW ? "₩" : isJPY ? "¥" : "$";
+
+      function fmtN(v: number | null): string {
+        if (v == null) return "N/A";
+        if (isKRW || isJPY) return `${currSym}${Math.round(v).toLocaleString()}`;
+        return `${currSym}${Number(v).toFixed(2)}`;
+      }
+      function fmtRev2(v: number | null): string {
+        if (!v) return "N/A";
+        if (isKRW || isJPY) {
+          if (Math.abs(v) >= 1e12) return `${currSym}${(v/1e12).toFixed(1)}조`;
+          if (Math.abs(v) >= 1e8)  return `${currSym}${(v/1e8).toFixed(0)}억`;
+        }
+        if (Math.abs(v) >= 1e12) return `${currSym}${(v/1e12).toFixed(2)}T`;
+        if (Math.abs(v) >= 1e9)  return `${currSym}${(v/1e9).toFixed(2)}B`;
+        return `${currSym}${(v as number).toLocaleString()}`;
+      }
+
+      const systemMsg = lang === "ko"
+        ? "당신은 전문 주식 애널리스트입니다. 모든 답변을 반드시 한국어로 작성하세요. JSON의 모든 텍스트 필드를 한국어로 작성하세요."
+        : lang === "ja"
+        ? "あなたはプロの株式アナリストです。すべての回答を日本語で記述してください。JSONのすべてのテキストフィールドを日本語で記述してください。"
+        : "You are a professional equity analyst. Write all answers in English.";
+
+      // Fetch recent news for context
+      let newsContext = "";
+      try {
+        const nr = await fetch(`http://127.0.0.1:5001/news/${encodeURIComponent(symbol)}?limit=5`, { signal: AbortSignal.timeout(4000) });
+        if (nr.ok) {
+          const nd: any = await nr.json();
+          const headlines = (nd.articles || nd.news || []).slice(0, 5).map((a: any) => `- ${a.title}`).join("\n");
+          if (headlines) newsContext = `\nRecent news headlines:\n${headlines}`;
+        }
+      } catch { /* ignore */ }
+
+      const surpriseStr = surprisePct != null ? `${surprisePct > 0 ? "+" : ""}${Number(surprisePct).toFixed(1)}%` : "N/A";
+      const beat = surprisePct != null ? (surprisePct > 0 ? "BEAT" : surprisePct < -1 ? "MISS" : "IN-LINE") : "N/A";
+
+      const userPrompt = `Based on the following earnings data for ${name || symbol} (${symbol}), generate a realistic earnings call summary as if you were summarizing what management communicated on the call.
+
+Quarter: ${quarter || "Most Recent"}
+EPS Actual: ${fmtN(epsActual)} vs Estimate: ${fmtN(epsEstimate)} (${beat}, surprise: ${surpriseStr})
+Revenue: ${fmtRev2(revenueActual)}${newsContext}
+
+Generate 4 concise bullet points covering:
+1. Overall result and management's tone/reaction
+2. Key business driver or segment highlight mentioned
+3. Guidance or forward-looking statement management gave
+4. One risk or challenge management acknowledged
+
+${lang === "ko" ? "모든 내용을 한국어로 작성하세요. 전문 금융 용어를 사용하세요 (매출총이익률, 가이던스, 잉여현금흐름 등)." : lang === "ja" ? "すべての内容を日本語で記述してください。" : ""}
+
+Respond ONLY with valid JSON:
+{
+  "callSummary": "one sentence overall summary",
+  "bullets": ["bullet 1", "bullet 2", "bullet 3", "bullet 4"],
+  "tone": "Optimistic" or "Cautious" or "Neutral"
+}`;
+
+      const aiRes = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemMsg },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.4,
+        max_tokens: 600,
+        response_format: { type: "json_object" },
+      });
+
+      const parsed = JSON.parse(aiRes.choices[0].message.content || "{}");
+      res.json({ symbol, quarter, analyzedLang: lang || "en", ...parsed });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/earnings/analyze", isAuthenticated, async (req, res) => {
     const { symbol, name, sector, currency, epsActual, epsEstimate, surprisePct,
             revenueActual, revenueEstimate, quarter, lang } = req.body;
     try {
-      const langInstr =
-        lang === "ko"
-          ? `모든 분석 텍스트(verdictDetail, keyTakeaways, guidanceOutlook, marketContext)를 한국어로 작성하세요.
-전문 금융 한국어를 사용하며 아래 표준 용어를 정확히 적용하세요:
-• Gross Margin → 매출총이익률
-• Operating Margin → 영업이익률
-• Guidance → 가이던스 (또는 전망치)
-• Inventory Turnover → 재고회전율
-• Revenue → 매출
-• Operating Income → 영업이익
-• Net Income → 당기순이익
-• EPS (Earnings Per Share) → 주당순이익(EPS)
-• Earnings Beat → 어닝 서프라이즈 (예상치 상회)
-• Earnings Miss → 어닝 쇼크 (예상치 하회)
-• Market Cap → 시가총액
-• Forward P/E → 선행 PER
-• Free Cash Flow → 잉여현금흐름(FCF)
-• EBITDA → EBITDA(에비타)
-• Dividend Yield → 배당수익률
-• Share Buyback → 자사주 매입
-• Supply Chain → 공급망
-• Valuation → 밸류에이션
-• Momentum → 모멘텀
-• Semiconductor Cycle → 반도체 사이클
+      const systemMsg = lang === "ko"
+        ? `당신은 글로벌 주식 시장 전문 애널리스트입니다. 모든 분석 텍스트(verdictDetail, keyTakeaways, guidanceOutlook, marketContext)를 반드시 한국어로 작성하세요.
+전문 금융 한국어 표준 용어를 사용하세요:
+매출총이익률, 영업이익률, 가이던스, 재고회전율, 매출, 영업이익, 당기순이익, 주당순이익(EPS), 어닝 서프라이즈, 어닝 쇼크, 시가총액, 선행 PER, 잉여현금흐름(FCF), 배당수익률, 자사주 매입, 공급망, 밸류에이션, 모멘텀, 반도체 사이클
 ⚠️ verdict 값("BEAT"/"MISS"/"IN-LINE")과 sentiment 값("Positive"/"Neutral"/"Negative")은 반드시 영어 그대로 유지하세요.`
-          : lang === "ja"
-          ? `すべての分析テキスト(verdictDetail, keyTakeaways, guidanceOutlook, marketContext)を日本語で記述してください。
-専門的な金融用語を正確に使用してください:
-• Gross Margin → 売上総利益率
-• Operating Margin → 営業利益率
-• Guidance → ガイダンス（業績見通し）
-• Inventory Turnover → 在庫回転率
-• Revenue → 売上高
-• Operating Income → 営業利益
-• EPS → 1株当たり純利益（EPS）
-• Earnings Beat → 市場予想を上回る
-• Market Cap → 時価総額
-• Free Cash Flow → フリーキャッシュフロー（FCF）
-• Valuation → バリュエーション
+        : lang === "ja"
+        ? `あなたはグローバル株式市場の専門アナリストです。すべての分析テキスト(verdictDetail, keyTakeaways, guidanceOutlook, marketContext)を必ず日本語で記述してください。
+専門的な金融用語を使用してください: 売上総利益率、営業利益率、ガイダンス、在庫回転率、売上高、営業利益、1株当たり純利益(EPS)、時価総額、フリーキャッシュフロー(FCF)、バリュエーション
 ⚠️ verdictの値("BEAT"/"MISS"/"IN-LINE")とsentimentの値("Positive"/"Neutral"/"Negative")は必ず英語のままにしてください。`
-          : "Write all text in English. Use professional financial language and precise financial terminology.";
+        : "You are a senior equity research analyst with expertise in global markets. Write all analysis text in English.";
 
       // Currency-aware revenue formatting
       const isKRW = currency === "KRW";
@@ -2880,7 +2931,7 @@ Return EXACTLY this JSON:
         ? "This is a TSE-listed Japanese company. EPS and revenue are in Japanese Yen (JPY)."
         : "This is a US-listed company. EPS and revenue are in USD.";
 
-      const prompt = `You are a senior equity research analyst with expertise in global markets. Analyze this earnings report and explain how it fits into the current market narrative.
+      const prompt = `Analyze this earnings report and explain how it fits into the current market narrative.
 
 Company: ${name || symbol} (${symbol})
 Exchange/Currency: ${exchangeNote}
@@ -2897,8 +2948,6 @@ Your analysis MUST go beyond simply repeating the numbers. Address:
 3. How this fits into the current macro/market narrative (AI boom, rate environment, consumer spending, semiconductor cycle, etc.)
 4. One specific risk or opportunity investors should watch next quarter
 
-${langInstr}
-
 Respond ONLY with valid JSON (no markdown fences, no extra text):
 {
   "verdict": "BEAT" or "MISS" or "IN-LINE",
@@ -2912,7 +2961,10 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
 
       const aiRes = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          { role: "system", content: systemMsg },
+          { role: "user", content: prompt },
+        ],
         temperature: 0.4,
         max_tokens: 900,
         response_format: { type: "json_object" },

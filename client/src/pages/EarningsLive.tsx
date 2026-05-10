@@ -218,12 +218,34 @@ function getIRLinks(symbol: string) {
 
 // ── AI Cache (localStorage, 2-hour TTL) ───────────────────────────────────────
 
-const AI_CACHE_KEY = "earnings_ai_cache_v2";
-const AI_CACHE_TTL = 2 * 60 * 60 * 1000;
+const AI_CACHE_KEY  = "earnings_ai_cache_v3";  // v3 = lang-keyed
+const CALL_CACHE_KEY = "earnings_call_cache_v1";
+const AI_CACHE_TTL  = 2 * 60 * 60 * 1000;
+
+interface CallSummaryResult {
+  callSummary: string;
+  bullets: string[];
+  tone: "Optimistic" | "Cautious" | "Neutral";
+}
 
 function loadAiCache(): Record<string, { analysis: AIAnalysis; analyzedAt: number }> {
   try {
     const obj = JSON.parse(localStorage.getItem(AI_CACHE_KEY) || "{}");
+    const now = Date.now();
+    // Only keep entries with lang-keyed format (contains "_") and within TTL
+    return Object.fromEntries(
+      Object.entries(obj).filter(([k, v]: any) => k.includes("_") && v.analyzedAt && now - v.analyzedAt < AI_CACHE_TTL)
+    ) as any;
+  } catch { return {}; }
+}
+
+function saveAiCache(cache: Record<string, { analysis: AIAnalysis; analyzedAt: number }>) {
+  try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(cache)); } catch {}
+}
+
+function loadCallCache(): Record<string, { result: CallSummaryResult; analyzedAt: number }> {
+  try {
+    const obj = JSON.parse(localStorage.getItem(CALL_CACHE_KEY) || "{}");
     const now = Date.now();
     return Object.fromEntries(
       Object.entries(obj).filter(([, v]: any) => v.analyzedAt && now - v.analyzedAt < AI_CACHE_TTL)
@@ -231,8 +253,8 @@ function loadAiCache(): Record<string, { analysis: AIAnalysis; analyzedAt: numbe
   } catch { return {}; }
 }
 
-function saveAiCache(cache: Record<string, { analysis: AIAnalysis; analyzedAt: number }>) {
-  try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(cache)); } catch {}
+function saveCallCache(cache: Record<string, { result: CallSummaryResult; analyzedAt: number }>) {
+  try { localStorage.setItem(CALL_CACHE_KEY, JSON.stringify(cache)); } catch {}
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -373,7 +395,9 @@ export default function EarningsLive() {
   const [now, setNow]                       = useState(() => Date.now());
   // When true the AI panel shows the cached English version as a "See Original" view
   const [showOriginalEn, setShowOriginalEn] = useState(false);
+  const [callCache, setCallCache]           = useState(() => loadCallCache());
   const analyzeTriggeredRef                 = useRef<Set<string>>(new Set());
+  const callTriggeredRef                    = useRef<Set<string>>(new Set());
 
   // Clock tick every 60s so LIVE badges stay current
   useEffect(() => {
@@ -442,6 +466,20 @@ export default function EarningsLive() {
     },
   });
 
+  // Call-summary mutation
+  const callSummaryMutation = useMutation({
+    mutationFn: async (payload: object) => {
+      const res = await apiRequest("POST", "/api/earnings/call-summary", payload);
+      return res.json() as Promise<CallSummaryResult & { symbol: string; quarter: string; analyzedLang: string }>;
+    },
+    onSuccess: (data) => {
+      const key = `${data.symbol}_${data.analyzedLang || "en"}`;
+      const next = { ...callCache, [key]: { result: data, analyzedAt: Date.now() } };
+      setCallCache(next);
+      saveCallCache(next);
+    },
+  });
+
   // Auto-trigger AI analysis (language-keyed — re-runs when lang changes)
   useEffect(() => {
     if (!selectedSymbol || !earningsData) return;
@@ -461,6 +499,29 @@ export default function EarningsLive() {
       revenueActual: earningsData.revenueHistory?.[0]?.revenue ?? null,
       quarter: quarterLabel(lastQ.date),
       lang,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSymbol, earningsData, lang]);
+
+  // Auto-trigger call summary (separate from main analysis)
+  useEffect(() => {
+    if (!selectedSymbol || !earningsData) return;
+    const lastQ = earningsData.history?.find(h => h.epsActual != null);
+    if (!lastQ) return;
+    const key = `${selectedSymbol}_${lang}`;
+    if (callCache[key] || callTriggeredRef.current.has(key)) return;
+    callTriggeredRef.current.add(key);
+    const item = upcomingData?.upcoming?.find(u => u.symbol === selectedSymbol);
+    callSummaryMutation.mutate({
+      symbol: selectedSymbol,
+      name: item?.name || selectedSymbol,
+      lang,
+      currency,
+      epsActual: lastQ.epsActual,
+      epsEstimate: lastQ.epsEstimate,
+      surprisePct: lastQ.surprisePct,
+      revenueActual: earningsData.revenueHistory?.[0]?.revenue ?? null,
+      quarter: quarterLabel(lastQ.date),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSymbol, earningsData, lang]);
@@ -515,6 +576,11 @@ export default function EarningsLive() {
 
   // Reset "See Original" toggle whenever symbol or lang changes
   useEffect(() => { setShowOriginalEn(false); }, [selectedSymbol, lang]);
+
+  // Derived call summary (lang-keyed)
+  const callSummaryKey    = `${selectedSymbol}_${lang}`;
+  const callSummaryResult = callCache[callSummaryKey]?.result ?? null;
+  const isCallLoading     = callSummaryMutation.isPending;
 
   const handleSelectSymbol = useCallback((sym: string) => {
     setSelectedSymbol(sym.toUpperCase());
@@ -1051,12 +1117,23 @@ export default function EarningsLive() {
           </div>
         )}
 
-        {/* ── Earnings Call Section ─────────────────────────────────────── */}
+        {/* ── Earnings Call AI Summary ──────────────────────────────────── */}
         {(() => {
           const tLinks  = getTranscriptLinks(selectedSymbol);
           const irLinks = getIRLinks(selectedSymbol);
           const isKR    = currency === "KRW";
           const ticker  = selectedSymbol.replace(".KS","").replace(".KQ","").replace(".T","");
+          const lastQ   = earningsData?.history?.find(h => h.epsActual != null);
+          const toneColor = callSummaryResult?.tone === "Optimistic"
+            ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+            : callSummaryResult?.tone === "Cautious"
+            ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+            : "text-blue-400 bg-blue-500/10 border-blue-500/30";
+          const toneLabel = callSummaryResult?.tone === "Optimistic"
+            ? (lang === "ko" ? "낙관적" : lang === "ja" ? "楽観的" : "Optimistic")
+            : callSummaryResult?.tone === "Cautious"
+            ? (lang === "ko" ? "신중" : lang === "ja" ? "慎重" : "Cautious")
+            : (lang === "ko" ? "중립" : lang === "ja" ? "中立" : "Neutral");
           return (
             <div className="bg-card rounded-2xl border border-border overflow-hidden" data-testid="section-earnings-call">
               {/* Header */}
@@ -1064,7 +1141,7 @@ export default function EarningsLive() {
                 "px-4 py-3 border-b flex items-center justify-between",
                 isSelectedLive ? "bg-rose-500/8 border-rose-500/30" : "bg-muted/30 border-border"
               )}>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {isSelectedLive ? (
                     <span className="relative flex h-2.5 w-2.5 shrink-0">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
@@ -1076,8 +1153,13 @@ export default function EarningsLive() {
                   <h3 className="font-bold text-sm">
                     {isSelectedLive
                       ? (lang === "ko" ? "📡 어닝콜 — LIVE 진행 중" : "📡 Earnings Call — LIVE NOW")
-                      : (lang === "ko" ? "어닝콜 & 기록" : "Earnings Call & Transcripts")}
+                      : (lang === "ko" ? "어닝콜 AI 요약" : lang === "ja" ? "決算コールAI要約" : "Earnings Call AI Summary")}
                   </h3>
+                  {callSummaryResult && !isSelectedLive && (
+                    <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border", toneColor)}>
+                      {toneLabel}
+                    </span>
+                  )}
                 </div>
                 {isSelectedLive && (
                   <span className="text-[10px] font-bold text-rose-400 animate-pulse bg-rose-500/15 border border-rose-500/30 rounded-full px-2 py-0.5">
@@ -1086,8 +1168,8 @@ export default function EarningsLive() {
                 )}
               </div>
 
-              <div className="p-4 space-y-2">
-                {/* LIVE: Join webcast */}
+              <div className="p-4 space-y-3">
+                {/* LIVE: Join webcast — shown first when live */}
                 {isSelectedLive && (
                   <a
                     href={irLinks.webcast || (isKR
@@ -1112,86 +1194,78 @@ export default function EarningsLive() {
                   </a>
                 )}
 
-                {/* Seeking Alpha — full transcripts (US stocks) */}
-                {tLinks.sa && (
-                  <a href={tLinks.sa} target="_blank" rel="noopener noreferrer"
-                    data-testid="link-sa-transcript"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
-                    <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold group-hover:text-primary">
-                        {lang === "ko" ? "어닝콜 전문 기록 — Seeking Alpha" : "Earnings Call Transcripts — Seeking Alpha"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">seekingalpha.com · {lang === "ko" ? "과거 분기별 전문" : "Full quarterly transcripts"}</p>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                  </a>
+                {/* AI loading */}
+                {isCallLoading && !callSummaryResult && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "ko" ? "AI가 어닝콜 내용을 분석 중..." : lang === "ja" ? "AIが決算コールを分析中..." : "AI analyzing earnings call..."}
+                    </p>
+                  </div>
                 )}
 
-                {/* Motley Fool earnings */}
-                {tLinks.fool && (
-                  <a href={tLinks.fool} target="_blank" rel="noopener noreferrer"
-                    data-testid="link-fool-transcript"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
-                    <FileText className="w-4 h-4 text-green-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold group-hover:text-primary">
-                        {lang === "ko" ? "어닝 요약 — Motley Fool" : "Earnings Summary — Motley Fool"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">fool.com · {lang === "ko" ? "분석 요약 제공" : "Analyst commentary included"}</p>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                  </a>
+                {/* No data fallback */}
+                {!lastQ && !isCallLoading && (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    {lang === "ko" ? "실적 데이터가 없어 요약을 생성할 수 없습니다." : "No earnings data available for summary."}
+                  </p>
                 )}
 
-                {/* Nasdaq earnings history */}
-                {tLinks.nasdaq && (
-                  <a href={tLinks.nasdaq} target="_blank" rel="noopener noreferrer"
-                    data-testid="link-nasdaq-transcript"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
-                    <BarChart2 className="w-4 h-4 text-blue-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold group-hover:text-primary">
-                        {lang === "ko" ? "어닝 히스토리 — Nasdaq" : "Earnings History — Nasdaq"}
+                {/* AI-generated summary */}
+                {callSummaryResult && (
+                  <div className="space-y-3">
+                    <p className="text-xs leading-relaxed text-foreground/90 italic border-l-2 border-primary/40 pl-3">
+                      {callSummaryResult.callSummary}
+                    </p>
+                    <ul className="space-y-2">
+                      {callSummaryResult.bullets.map((bullet, i) => (
+                        <li key={i} className="flex gap-2.5 text-xs leading-relaxed">
+                          <span className="shrink-0 w-4 h-4 mt-0.5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-[9px] font-bold text-primary">
+                            {i + 1}
+                          </span>
+                          <span className="text-foreground/85">{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* Compact transcript links */}
+                    <div className="pt-1 border-t border-border/50">
+                      <p className="text-[10px] text-muted-foreground mb-1.5">
+                        {lang === "ko" ? "전문 기록 보기:" : lang === "ja" ? "全文記録:" : "Full transcripts:"}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">nasdaq.com · {lang === "ko" ? "EPS 비교 데이터" : "EPS vs estimates history"}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tLinks.sa && (
+                          <a href={tLinks.sa} target="_blank" rel="noopener noreferrer" data-testid="link-sa-compact"
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
+                            <BookOpen className="w-2.5 h-2.5" />Seeking Alpha
+                          </a>
+                        )}
+                        {tLinks.fool && (
+                          <a href={tLinks.fool} target="_blank" rel="noopener noreferrer" data-testid="link-fool-compact"
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
+                            <FileText className="w-2.5 h-2.5" />Motley Fool
+                          </a>
+                        )}
+                        {tLinks.nasdaq && (
+                          <a href={tLinks.nasdaq} target="_blank" rel="noopener noreferrer" data-testid="link-nasdaq-compact"
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
+                            <BarChart2 className="w-2.5 h-2.5" />Nasdaq
+                          </a>
+                        )}
+                        {tLinks.dart && (
+                          <a href={tLinks.dart} target="_blank" rel="noopener noreferrer" data-testid="link-dart-compact"
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
+                            <FileText className="w-2.5 h-2.5" />DART
+                          </a>
+                        )}
+                        {irLinks.ir && (
+                          <a href={irLinks.ir} target="_blank" rel="noopener noreferrer" data-testid="link-ir-compact"
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
+                            <ExternalLink className="w-2.5 h-2.5" />IR Page
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                  </a>
-                )}
-
-                {/* DART — Korean stocks */}
-                {tLinks.dart && (
-                  <a href={tLinks.dart} target="_blank" rel="noopener noreferrer"
-                    data-testid="link-dart-transcript"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
-                    <FileText className="w-4 h-4 text-blue-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold group-hover:text-primary">
-                        {lang === "ko" ? "실적 공시 — DART 전자공시" : "Filing — DART (KRX)"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">dart.fss.or.kr · {lang === "ko" ? "공식 분기 실적 보고서" : "Official quarterly reports"}</p>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                  </a>
-                )}
-
-                {/* IR investor page */}
-                {irLinks.ir && (
-                  <a href={irLinks.ir} target="_blank" rel="noopener noreferrer"
-                    data-testid="link-ir-direct"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-colors group">
-                    <ExternalLink className="w-4 h-4 text-violet-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold group-hover:text-primary">
-                        {lang === "ko" ? "IR 공식 홈페이지" : "Investor Relations Page"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {lang === "ko" ? "공식 프레젠테이션 및 발표 자료" : "Official presentations & press releases"}
-                      </p>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
-                  </a>
+                  </div>
                 )}
               </div>
             </div>
@@ -1434,109 +1508,6 @@ export default function EarningsLive() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Transcript Archive links */}
-        {(() => {
-          const tl = getTranscriptLinks(selectedSymbol);
-          return (
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen className="w-4 h-4 text-primary" />
-              <h3 className="font-bold text-sm">{L.transcript}</h3>
-            </div>
-            <div className="space-y-2">
-              {tl.sa && (
-                <a href={tl.sa} target="_blank" rel="noopener noreferrer" data-testid="link-sa-transcripts"
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                  <FileText className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold group-hover:text-primary">{L.sa_link}</p>
-                    <p className="text-muted-foreground text-[10px]">seekingalpha.com</p>
-                  </div>
-                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
-                </a>
-              )}
-              {tl.fool && (
-                <a href={tl.fool} target="_blank" rel="noopener noreferrer" data-testid="link-fool-transcripts"
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                  <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold group-hover:text-primary">{L.fool_link}</p>
-                    <p className="text-muted-foreground text-[10px]">fool.com</p>
-                  </div>
-                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
-                </a>
-              )}
-              {tl.nasdaq && (
-                <a href={tl.nasdaq} target="_blank" rel="noopener noreferrer" data-testid="link-nasdaq-earnings"
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                  <BarChart2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold group-hover:text-primary">{L.nasdaq_link}</p>
-                    <p className="text-muted-foreground text-[10px]">nasdaq.com</p>
-                  </div>
-                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
-                </a>
-              )}
-              {tl.dart && (
-                <a href={tl.dart} target="_blank" rel="noopener noreferrer" data-testid="link-dart-transcripts"
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                  <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold group-hover:text-primary">{L.dart_link}</p>
-                    <p className="text-muted-foreground text-[10px]">dart.fss.or.kr</p>
-                  </div>
-                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
-                </a>
-              )}
-            </div>
-          </div>
-          );
-        })()}
-
-        {/* IR Links */}
-        <div className="bg-card rounded-2xl border border-border p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <ExternalLink className="w-4 h-4 text-primary" />
-            <h3 className="font-bold text-sm">{L.ir_links}</h3>
-          </div>
-          <div className="space-y-2">
-            {irLinks.webcast && (
-              <a href={irLinks.webcast} target="_blank" rel="noopener noreferrer" data-testid="link-webcast"
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                <Mic className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                <span className="group-hover:text-primary">{L.webcast}</span>
-                <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground" />
-              </a>
-            )}
-            {irLinks.ir && (
-              <a href={irLinks.ir} target="_blank" rel="noopener noreferrer" data-testid="link-ir-page"
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="group-hover:text-primary">{L.ir_page}</span>
-                <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground" />
-              </a>
-            )}
-            <a href={isKR
-                ? `https://dart.fss.or.kr/dsab001/main.do`
-                : `https://finance.yahoo.com/quote/${selectedSymbol}/financials/`}
-              target="_blank" rel="noopener noreferrer" data-testid="link-financials"
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-              <BarChart2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-              <span className="group-hover:text-primary">{isKR ? "DART 공시" : L.yahoo_fin}</span>
-              <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground" />
-            </a>
-            {!isKR && (
-              <a href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${selectedSymbol}&type=10-Q&dateb=&owner=include&count=10`}
-                target="_blank" rel="noopener noreferrer" data-testid="link-sec"
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
-                <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="group-hover:text-primary">{L.sec_edgar}</span>
-                <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground" />
-              </a>
-            )}
-          </div>
         </div>
 
         {/* TZ note */}
