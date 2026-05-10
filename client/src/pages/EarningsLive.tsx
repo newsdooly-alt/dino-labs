@@ -9,7 +9,7 @@ import {
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, Brain, Search, ChevronRight,
   ExternalLink, FileText, Mic, BarChart2, Clock, Globe, AlertCircle, Loader2,
-  ChevronLeft, Calendar,
+  ChevronLeft, Calendar, Radio, BookOpen, Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -286,6 +286,34 @@ function EpsTooltip({ active, payload, label, symbol }: any) {
   );
 }
 
+// ── Live / Today Detection ─────────────────────────────────────────────────────
+
+/** True if the stock's next earnings date is today (local date) */
+function isEarningsDay(nextEarningsDate: string | null): boolean {
+  if (!nextEarningsDate) return false;
+  // en-CA locale gives YYYY-MM-DD in local time
+  return nextEarningsDate === new Date().toLocaleDateString("en-CA");
+}
+
+/** True if earnings were released within the last 3 days */
+function isJustReported(lastEarningsDate: string | null): boolean {
+  if (!lastEarningsDate) return false;
+  const diff = (Date.now() - new Date(lastEarningsDate + "T00:00:00").getTime()) / 86400000;
+  return diff >= 0 && diff <= 3;
+}
+
+/** Transcript archive links for a given ticker */
+function getTranscriptLinks(symbol: string): { sa?: string; fool?: string; dart?: string; nasdaq?: string } {
+  const base = symbol.replace(".KS","").replace(".KQ","").replace(".T","");
+  const isKR  = symbol.endsWith(".KS") || symbol.endsWith(".KQ");
+  if (isKR) return { dart: `https://dart.fss.or.kr/dsab001/main.do?option=report&textCrpNm=${base}` };
+  return {
+    sa:     `https://seekingalpha.com/symbol/${base}/earnings/transcripts`,
+    fool:   `https://www.fool.com/quote/${base}/#earnings`,
+    nasdaq: `https://www.nasdaq.com/market-activity/stocks/${base.toLowerCase()}/earnings`,
+  };
+}
+
 // ── Mobile tab types ──────────────────────────────────────────────────────────
 type MobileTab = "upcoming" | "calendar" | "detail" | "ai";
 
@@ -305,7 +333,14 @@ export default function EarningsLive() {
   const [mobileTab, setMobileTab]           = useState<MobileTab>("upcoming");
   const [calMonth, setCalMonth]             = useState(() => new Date());
   const [aiCache, setAiCache]               = useState(() => loadAiCache());
+  const [now, setNow]                       = useState(() => Date.now());
   const analyzeTriggeredRef                 = useRef<Set<string>>(new Set());
+
+  // Clock tick every 60s so LIVE badges stay current
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: upcomingData, isLoading: upcomingLoading, refetch: refetchUpcoming } =
@@ -314,19 +349,36 @@ export default function EarningsLive() {
       staleTime: 25 * 60 * 1000,
     });
 
+  // Stocks reporting TODAY (local date) — drives LIVE badges + fast polling
+  const liveToday = useMemo(
+    () => (upcomingData?.upcoming || []).filter(u => isEarningsDay(u.nextEarningsDate)),
+    [upcomingData, now]   // re-check on clock tick
+  );
+  const isSelectedLive = liveToday.some(u => u.symbol === selectedSymbol);
+
+  // Auto-refresh upcoming list every 60 s while any stock reports today
+  useEffect(() => {
+    if (liveToday.length === 0) return;
+    const id = setInterval(() => refetchUpcoming(), 60000);
+    return () => clearInterval(id);
+  }, [liveToday.length]);
+
   const { data: earningsData, isLoading: earningsLoading } = useQuery<EarningsData>({
     queryKey: ["/api/stocks/earnings", selectedSymbol],
     queryFn: () => fetch(`/api/stocks/earnings/${encodeURIComponent(selectedSymbol)}`).then(r => r.json()),
     enabled: !!selectedSymbol,
     staleTime: 5 * 60 * 1000,
+    // Refresh every 2 min on earnings day so fresh actuals appear quickly
+    refetchInterval: isSelectedLive ? 2 * 60 * 1000 : undefined,
   });
 
   const { data: liveQuotes } = useQuery<Record<string, any>>({
     queryKey: ["/api/stocks/live", selectedSymbol],
     queryFn: () => fetch(`/api/stocks/live?symbols=${selectedSymbol}`).then(r => r.json()),
     enabled: !!selectedSymbol,
-    refetchInterval: 30000,
-    staleTime: 20000,
+    // 15 s polling on earnings day, 30 s otherwise
+    refetchInterval: isSelectedLive ? 15000 : 30000,
+    staleTime: isSelectedLive ? 10000 : 20000,
   });
 
   const liveQuote  = liveQuotes?.[selectedSymbol];
@@ -446,10 +498,19 @@ export default function EarningsLive() {
   const L = {
     title:       lang === "ko" ? "실적 Live" : lang === "ja" ? "決算ライブ" : "Earnings Live",
     upcoming:    lang === "ko" ? "예정 실적" : lang === "ja" ? "予定" : "Upcoming",
-    calendarTab: lang === "ko" ? "캘린더" : lang === "ja" ? "カレンダー" : "Calendar",
-    detail:      lang === "ko" ? "실적 상세" : lang === "ja" ? "詳細" : "Detail",
-    ai:          lang === "ko" ? "AI 분석" : lang === "ja" ? "AI分析" : "AI Analysis",
-    search:      lang === "ko" ? "종목 검색..." : "Search ticker...",
+    calendarTab:   lang === "ko" ? "캘린더" : lang === "ja" ? "カレンダー" : "Calendar",
+    detail:        lang === "ko" ? "실적 상세" : lang === "ja" ? "詳細" : "Detail",
+    ai:            lang === "ko" ? "AI 분석" : lang === "ja" ? "AI分析" : "AI Analysis",
+    search:        lang === "ko" ? "종목 검색..." : "Search ticker...",
+    live_today:    lang === "ko" ? "오늘 실적 발표" : "Reporting Today",
+    live_badge:    lang === "ko" ? "실시간 발표 중" : "Live Now",
+    transcript:    lang === "ko" ? "실적발표 기록 / 분석" : "Transcripts & Archives",
+    sa_link:       lang === "ko" ? "Seeking Alpha 어닝콜 기록" : "Seeking Alpha Transcripts",
+    fool_link:     lang === "ko" ? "Motley Fool 실적 분석" : "Motley Fool Earnings",
+    nasdaq_link:   lang === "ko" ? "Nasdaq 실적 이력" : "Nasdaq Earnings History",
+    dart_link:     lang === "ko" ? "DART 전자공시" : "DART Filing",
+    just_reported: lang === "ko" ? "방금 발표됨" : "Just Reported",
+    reporting_now: lang === "ko" ? "📡 오늘 실적 발표 예정 — 실시간 업데이트 중" : "📡 Reporting Today — Live updates active",
     eps_actual:  lang === "ko" ? "EPS 실적" : "EPS Actual",
     eps_est:     lang === "ko" ? "EPS 추정" : "EPS Estimate",
     surprise:    lang === "ko" ? "서프라이즈" : "Surprise",
@@ -531,22 +592,28 @@ export default function EarningsLive() {
         <div className="grid grid-cols-7 gap-0.5">
           {cells.map((day, idx) => {
             if (!day) return <div key={idx} className="aspect-square" />;
-            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const events  = earningsByDate[dateStr] || [];
-            const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
-            const hasEvents = events.length > 0;
+            const dateStr    = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const events     = earningsByDate[dateStr] || [];
+            const isToday    = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+            const hasEvents  = events.length > 0;
+            const isLiveDay  = isToday && liveToday.length > 0 && events.some(e => isEarningsDay(e.nextEarningsDate));
 
             return (
               <div
                 key={idx}
                 className={cn(
                   "min-h-[52px] rounded-lg border p-1 flex flex-col",
-                  isToday ? "border-primary bg-primary/8" : hasEvents ? "border-border bg-card" : "border-border/30 bg-transparent",
+                  isLiveDay  ? "border-rose-500/50 bg-rose-500/5 ring-1 ring-rose-500/30" :
+                  isToday    ? "border-primary bg-primary/8" :
+                  hasEvents  ? "border-border bg-card" : "border-border/30 bg-transparent",
                 )}
               >
-                <span className={cn("text-[10px] font-semibold mb-0.5 leading-none",
-                  isToday ? "text-primary" : "text-muted-foreground"
-                )}>{day}</span>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className={cn("text-[10px] font-semibold leading-none",
+                    isLiveDay ? "text-rose-400" : isToday ? "text-primary" : "text-muted-foreground"
+                  )}>{day}</span>
+                  {isLiveDay && <span className="text-[7px] font-bold text-rose-400 leading-none">LIVE</span>}
+                </div>
                 <div className="flex-1 space-y-0.5 overflow-hidden">
                   {events.slice(0, 2).map(ev => {
                     const c = getCurrency(ev.symbol);
@@ -590,20 +657,32 @@ export default function EarningsLive() {
         {Object.entries(earningsByDate)
           .filter(([d]) => d.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`))
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([date, events]) => (
-            <div key={date} className="border border-border rounded-xl overflow-hidden">
-              <div className="px-3 py-1.5 bg-muted/50 border-b border-border">
-                <span className="text-xs font-semibold text-foreground">
+          .map(([date, events]) => {
+            const isLiveDateRow = events.some(e => isEarningsDay(e.nextEarningsDate));
+            return (
+            <div key={date} className={cn("border rounded-xl overflow-hidden",
+              isLiveDateRow ? "border-rose-500/40" : "border-border"
+            )}>
+              <div className={cn("px-3 py-1.5 border-b flex items-center justify-between",
+                isLiveDateRow ? "bg-rose-500/8 border-rose-500/30" : "bg-muted/50 border-border"
+              )}>
+                <span className={cn("text-xs font-semibold", isLiveDateRow ? "text-rose-400" : "text-foreground")}>
                   {new Date(date + "T00:00:00").toLocaleDateString(
                     lang === "ko" ? "ko-KR" : lang === "ja" ? "ja-JP" : "en-US",
                     { month: "short", day: "numeric", weekday: "short" }
                   )}
                 </span>
+                {isLiveDateRow && (
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-rose-400 animate-pulse">
+                    <Radio className="w-2.5 h-2.5" />LIVE
+                  </span>
+                )}
               </div>
               <div className="divide-y divide-border/50">
                 {events.map(ev => {
                   const name = getLocalizedCompanyName(ev.name, lang) || ev.name;
                   const c = getCurrency(ev.symbol);
+                  const evIsLive = isEarningsDay(ev.nextEarningsDate);
                   return (
                     <button
                       key={ev.symbol}
@@ -614,6 +693,7 @@ export default function EarningsLive() {
                       )}
                     >
                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0",
+                        evIsLive ? "bg-rose-500 animate-pulse" :
                         c === "KRW" ? "bg-blue-400" : c === "JPY" ? "bg-violet-400" : "bg-emerald-400"
                       )} />
                       <span className="font-mono text-xs font-bold text-foreground w-20 shrink-0">
@@ -630,7 +710,8 @@ export default function EarningsLive() {
                 })}
               </div>
             </div>
-          ))}
+          );
+        })}
       </div>
     );
   };
@@ -656,6 +737,28 @@ export default function EarningsLive() {
         </div>
       </form>
 
+      {/* 🔴 LIVE TODAY banner — shown when any stock reports today */}
+      {liveToday.length > 0 && (
+        <div className="mb-3 rounded-xl border border-rose-500/40 bg-rose-500/8 p-2.5" data-testid="banner-live-today">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+            </span>
+            <span className="text-xs font-bold text-rose-400">{L.live_today} ({liveToday.length})</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {liveToday.map(s => (
+              <button key={s.symbol} onClick={() => handleSelectSymbol(s.symbol)}
+                className="text-[10px] font-mono font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30 transition-colors"
+                data-testid={`live-badge-${s.symbol}`}>
+                {s.symbol.replace(".KS","").replace(".KQ","")}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-1.5 mb-2">
         <Globe className="w-3 h-3 text-primary" />
         <span className="text-[10px] text-primary font-medium">{L.tz_note}</span>
@@ -668,38 +771,45 @@ export default function EarningsLive() {
       ) : (
         <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
           {filteredUpcoming.map(item => {
-            const isSelected = item.symbol === selectedSymbol;
-            const localDate  = toLocalDateLabel(item.nextEarningsDate, userTz, lang);
-            const days       = Math.ceil((new Date(item.nextEarningsDate + "T00:00:00").getTime() - Date.now()) / 86400000);
-            const isToday    = days === 0;
-            const isPast     = days < 0;
-            const localName  = getLocalizedCompanyName(item.name, lang) || item.name;
-            const c          = getCurrency(item.symbol);
-            const countryDot = c === "KRW" ? "🇰🇷" : c === "JPY" ? "🇯🇵" : "🇺🇸";
+            const isSelected   = item.symbol === selectedSymbol;
+            const localDate    = toLocalDateLabel(item.nextEarningsDate, userTz, lang);
+            const days         = Math.ceil((new Date(item.nextEarningsDate + "T00:00:00").getTime() - Date.now()) / 86400000);
+            const isLive       = isEarningsDay(item.nextEarningsDate);
+            const isPast       = days < 0;
+            const localName    = getLocalizedCompanyName(item.name, lang) || item.name;
+            const c            = getCurrency(item.symbol);
+            const countryDot   = c === "KRW" ? "🇰🇷" : c === "JPY" ? "🇯🇵" : "🇺🇸";
 
             return (
               <button key={item.symbol} onClick={() => handleSelectSymbol(item.symbol)}
                 className={cn(
                   "w-full text-left px-3 py-2.5 rounded-xl border transition-all duration-150 group",
-                  isSelected
+                  isLive
+                    ? "bg-rose-500/5 border-rose-500/30"
+                    : isSelected
                     ? "bg-primary/10 border-primary/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
                     : "bg-card border-border hover:bg-muted/60"
                 )}
                 data-testid={`button-earnings-${item.symbol}`}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap">
                   <span className="text-xs">{countryDot}</span>
-                  <span className={cn("font-bold text-xs font-mono", isSelected ? "text-primary" : "text-foreground")}>
+                  <span className={cn("font-bold text-xs font-mono", isSelected ? "text-primary" : isLive ? "text-rose-300" : "text-foreground")}>
                     {item.symbol.replace(".KS","").replace(".KQ","").replace(".T","")}
                   </span>
-                  {isToday && <Badge className="text-[9px] px-1.5 py-0 bg-rose-500/20 text-rose-400 border-rose-500/30 ml-1">TODAY</Badge>}
-                  {isPast  && <Badge className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground border-border ml-1">PAST</Badge>}
+                  {/* Pulsing LIVE badge */}
+                  {isLive && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white ml-1 animate-pulse">
+                      <Radio className="w-2.5 h-2.5" /> LIVE
+                    </span>
+                  )}
+                  {!isLive && isPast && <Badge className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground border-border ml-1">PAST</Badge>}
                   <ChevronRight className={cn("w-3 h-3 ml-auto shrink-0", isSelected ? "text-primary rotate-90" : "text-muted-foreground")} />
                 </div>
                 <p className="text-[10px] text-muted-foreground truncate mt-0.5">{localName}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <Clock className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
-                  <span className="text-[10px] text-muted-foreground">{localDate}</span>
+                  <span className="text-[10px] text-muted-foreground">{isLive ? (lang === "ko" ? "📡 오늘 발표" : "📡 Today") : localDate}</span>
                 </div>
                 {item.epsEstimate != null && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -790,8 +900,35 @@ export default function EarningsLive() {
             ))}
           </div>
 
+          {/* LIVE — Reporting TODAY banner */}
+          {isSelectedLive && (
+            <div className="mt-3 flex items-start gap-2 bg-rose-500/10 border border-rose-500/40 rounded-xl px-3 py-2.5" data-testid="banner-reporting-today">
+              <span className="relative flex h-2.5 w-2.5 mt-0.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-rose-400">{L.reporting_now}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {lang === "ko"
+                    ? "주가와 실적 데이터가 15초마다 자동 업데이트됩니다"
+                    : "Price & earnings data auto-updates every 15 seconds"}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Just Reported badge */}
+          {!isSelectedLive && isJustReported(earningsData.lastEarningsDate) && (
+            <div className="mt-3 flex items-center gap-2 text-xs bg-emerald-500/8 border border-emerald-500/30 rounded-xl px-3 py-2">
+              <Zap className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="text-emerald-400 font-semibold">{L.just_reported}</span>
+              <span className="text-muted-foreground">{toLocalDateOnly(earningsData.lastEarningsDate, userTz, lang)}</span>
+            </div>
+          )}
+
           {/* Next earnings */}
-          {earningsData.nextEarningsDate && (
+          {earningsData.nextEarningsDate && !isSelectedLive && (
             <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-background/60 rounded-xl border border-border px-3 py-2">
               <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>
@@ -850,10 +987,28 @@ export default function EarningsLive() {
         )}
 
         {/* History Table */}
-        {earningsData.history.length > 0 && (
+        {earningsData.history.length > 0 && (() => {
+          const tLinks = getTranscriptLinks(selectedSymbol);
+          return (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-sm">{L.history}</h3>
+              {/* Quick transcript link beside the header */}
+              {tLinks.sa && (
+                <a href={tLinks.sa} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                  data-testid="link-transcript-quick">
+                  <BookOpen className="w-3 h-3" />
+                  {lang === "ko" ? "어닝콜 기록" : "Transcripts"}
+                </a>
+              )}
+              {tLinks.dart && (
+                <a href={tLinks.dart} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                  data-testid="link-transcript-quick-dart">
+                  <BookOpen className="w-3 h-3" />DART
+                </a>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -866,6 +1021,9 @@ export default function EarningsLive() {
                     {earningsData.revenueHistory.length > 0 && (
                       <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">{L.revenue}</th>
                     )}
+                    <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">
+                      {lang === "ko" ? "기록" : "Archive"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -883,6 +1041,23 @@ export default function EarningsLive() {
                         {earningsData.revenueHistory.length > 0 && (
                           <td className="px-4 py-2.5 text-right font-mono text-xs">{formatRevenue(rev?.revenue ?? null, selectedSymbol)}</td>
                         )}
+                        <td className="px-3 py-2.5 text-right">
+                          {tLinks.sa && (
+                            <a href={tLinks.sa} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 text-[9px] text-primary/70 hover:text-primary transition-colors"
+                              title={lang === "ko" ? "어닝콜 기록 보기" : "View transcript archive"}
+                              data-testid={`link-transcript-${h.date}`}>
+                              <BookOpen className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                          {tLinks.dart && (
+                            <a href={tLinks.dart} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 text-[9px] text-primary/70 hover:text-primary transition-colors"
+                              data-testid={`link-transcript-${h.date}`}>
+                              <BookOpen className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -890,7 +1065,8 @@ export default function EarningsLive() {
               </table>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     );
   };
@@ -971,6 +1147,65 @@ export default function EarningsLive() {
             </div>
           )}
         </div>
+
+        {/* Transcript Archive links */}
+        {(() => {
+          const tl = getTranscriptLinks(selectedSymbol);
+          return (
+          <div className="bg-card rounded-2xl border border-border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-sm">{L.transcript}</h3>
+            </div>
+            <div className="space-y-2">
+              {tl.sa && (
+                <a href={tl.sa} target="_blank" rel="noopener noreferrer" data-testid="link-sa-transcripts"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
+                  <FileText className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold group-hover:text-primary">{L.sa_link}</p>
+                    <p className="text-muted-foreground text-[10px]">seekingalpha.com</p>
+                  </div>
+                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
+                </a>
+              )}
+              {tl.fool && (
+                <a href={tl.fool} target="_blank" rel="noopener noreferrer" data-testid="link-fool-transcripts"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
+                  <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold group-hover:text-primary">{L.fool_link}</p>
+                    <p className="text-muted-foreground text-[10px]">fool.com</p>
+                  </div>
+                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
+                </a>
+              )}
+              {tl.nasdaq && (
+                <a href={tl.nasdaq} target="_blank" rel="noopener noreferrer" data-testid="link-nasdaq-earnings"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
+                  <BarChart2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold group-hover:text-primary">{L.nasdaq_link}</p>
+                    <p className="text-muted-foreground text-[10px]">nasdaq.com</p>
+                  </div>
+                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
+                </a>
+              )}
+              {tl.dart && (
+                <a href={tl.dart} target="_blank" rel="noopener noreferrer" data-testid="link-dart-transcripts"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 transition-colors text-xs group border border-transparent hover:border-primary/20">
+                  <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold group-hover:text-primary">{L.dart_link}</p>
+                    <p className="text-muted-foreground text-[10px]">dart.fss.or.kr</p>
+                  </div>
+                  <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground shrink-0" />
+                </a>
+              )}
+            </div>
+          </div>
+          );
+        })()}
 
         {/* IR Links */}
         <div className="bg-card rounded-2xl border border-border p-4">

@@ -901,30 +901,42 @@ def get_earnings(symbol):
 _upcoming_earnings_cache: dict = {"data": None, "ts": 0.0}
 _UPCOMING_EARNINGS_TTL = 1800  # 30 minutes
 
-UPCOMING_WATCHLIST = [
-    # US Mega-Cap Tech
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
-    # US Tech / Semiconductors
+UPCOMING_WATCHLIST = list(dict.fromkeys([
+    # ── US Mega-Cap Tech ──────────────────────────────────────────────────────
+    "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "AMD",
+    # ── US Tech / Software ────────────────────────────────────────────────────
     "NFLX", "AVGO", "CRM", "ORCL", "ADBE", "INTC", "QCOM", "MU", "ARM", "PLTR",
-    "SNOW", "UBER", "LYFT", "SHOP", "SQ", "PYPL",
-    # US Financials
+    "SNOW", "UBER", "LYFT", "SHOP", "SQ", "PYPL", "TWLO", "ZM", "DOCU",
+    "NOW", "WDAY", "DDOG", "CRWD", "NET", "ZS", "PANW", "OKTA", "MDB",
+    "AMAT", "LRCX", "KLAC", "MRVL", "SMCI", "ON", "TXN", "ADI", "MCHP",
+    # ── US Financials ─────────────────────────────────────────────────────────
     "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "AXP", "C", "BLK",
-    # US Healthcare
-    "JNJ", "UNH", "LLY", "MRK", "ABBV", "PFE", "CVS", "TMO",
-    # US Consumer / Retail
-    "WMT", "COST", "HD", "MCD", "SBUX", "NKE", "TGT",
-    # US Energy / Industrial
-    "XOM", "CVX", "BA", "CAT", "GE", "RTX", "HON",
-    # US Telecom / Media
-    "DIS", "CMCSA", "T", "VZ", "NFLX",
-    # Korean KOSPI 200 Blue-Chips
+    "COF", "USB", "PNC", "SCHW", "CB", "MMC", "AON", "MET", "PRU",
+    # ── US Healthcare / Pharma ────────────────────────────────────────────────
+    "JNJ", "UNH", "LLY", "MRK", "ABBV", "PFE", "CVS", "TMO", "ABT",
+    "DHR", "BSX", "ISRG", "MDT", "BDX", "SYK", "EW", "REGN", "VRTX",
+    "AMGN", "GILD", "BIIB", "MRNA", "BMY",
+    # ── US Consumer / Retail ──────────────────────────────────────────────────
+    "WMT", "COST", "HD", "MCD", "SBUX", "NKE", "TGT", "AMZN",
+    "LOW", "TJX", "BKNG", "MAR", "HLT", "YUM", "CMG", "DPZ",
+    "PG", "KO", "PEP", "PM", "MO", "CL", "KMB", "GIS",
+    # ── US Energy ────────────────────────────────────────────────────────────
+    "XOM", "CVX", "COP", "SLB", "OXY", "PSX", "VLO", "MPC",
+    # ── US Industrials / Aero / Defense ──────────────────────────────────────
+    "BA", "CAT", "GE", "RTX", "HON", "LMT", "NOC", "GD", "MMM",
+    "UPS", "FDX", "CSX", "NSC", "DE", "EMR",
+    # ── US Telecom / Media ────────────────────────────────────────────────────
+    "DIS", "CMCSA", "T", "VZ",
+    # ── US Real Estate / Utilities ────────────────────────────────────────────
+    "AMT", "PLD", "EQIX", "NEE", "DUK", "SO",
+    # ── Korean KOSPI 200 Blue-Chips ───────────────────────────────────────────
     "005930.KS",  # Samsung Electronics
     "000660.KS",  # SK Hynix
     "035420.KS",  # Naver
     "005380.KS",  # Hyundai Motor
     "051910.KS",  # LG Chem
     "035720.KS",  # Kakao
-    "000270.KS",  # Kia
+    "000270.KS",  # Kia Motors
     "068270.KS",  # Celltrion
     "105560.KS",  # KB Financial
     "055550.KS",  # Shinhan Financial
@@ -933,10 +945,32 @@ UPCOMING_WATCHLIST = [
     "003550.KS",  # LG Corp
     "034730.KS",  # SK Inc
     "096770.KS",  # SK Innovation
-]
+    "373220.KS",  # LG Energy Solution
+    "006400.KS",  # Samsung SDI
+    "028260.KS",  # Samsung C&T
+    "032830.KS",  # Samsung Life Insurance
+    "003490.KS",  # Korean Air
+    "009150.KS",  # Samsung Electro-Mechanics
+    "011200.KS",  # HMM (shipping)
+    "015760.KS",  # Korea Electric Power (KEPCO)
+    "030200.KS",  # KT Corp
+    "017670.KS",  # SK Telecom
+    "090430.KS",  # Amorepacific
+    "271560.KS",  # Orion
+    "000720.KS",  # Hyundai E&C
+    "086790.KS",  # Hana Financial
+    "316140.KS",  # Woori Financial
+]))
 
 # Currency mapping by exchange suffix
 _SYMBOL_CURRENCY = {"KS": "KRW", "KQ": "KRW", "T": "JPY"}
+
+@app.route('/earnings_upcoming/flush', methods=['POST'])
+def flush_earnings_cache():
+    """Force-clear the upcoming earnings cache so next GET re-fetches."""
+    global _upcoming_earnings_cache
+    _upcoming_earnings_cache = {"data": None, "ts": 0.0}
+    return jsonify({"ok": True, "message": "Earnings cache cleared"})
 
 @app.route('/earnings_upcoming', methods=['GET'])
 def get_earnings_upcoming():
