@@ -396,6 +396,7 @@ export default function EarningsLive() {
   // When true the AI panel shows the cached English version as a "See Original" view
   const [showOriginalEn, setShowOriginalEn] = useState(false);
   const [callCache, setCallCache]           = useState(() => loadCallCache());
+  const [callError, setCallError]           = useState<string | null>(null);
   const analyzeTriggeredRef                 = useRef<Set<string>>(new Set());
   const callTriggeredRef                    = useRef<Set<string>>(new Set());
 
@@ -470,13 +471,18 @@ export default function EarningsLive() {
   const callSummaryMutation = useMutation({
     mutationFn: async (payload: object) => {
       const res = await apiRequest("POST", "/api/earnings/call-summary", payload);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json() as Promise<CallSummaryResult & { symbol: string; quarter: string; analyzedLang: string }>;
     },
     onSuccess: (data) => {
+      setCallError(null);
       const key = `${data.symbol}_${data.analyzedLang || "en"}`;
       const next = { ...callCache, [key]: { result: data, analyzedAt: Date.now() } };
       setCallCache(next);
       saveCallCache(next);
+    },
+    onError: (err: any) => {
+      setCallError(err?.message || "error");
     },
   });
 
@@ -503,26 +509,34 @@ export default function EarningsLive() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSymbol, earningsData, lang]);
 
-  // Auto-trigger call summary (separate from main analysis)
-  useEffect(() => {
-    if (!selectedSymbol || !earningsData) return;
-    const lastQ = earningsData.history?.find(h => h.epsActual != null);
+  // Helper: fire call-summary mutation (also used for manual retry)
+  const triggerCallSummary = useCallback((sym: string, data: typeof earningsData) => {
+    if (!sym || !data) return;
+    const lastQ = data.history?.find((h: any) => h.epsActual != null);
     if (!lastQ) return;
-    const key = `${selectedSymbol}_${lang}`;
-    if (callCache[key] || callTriggeredRef.current.has(key)) return;
-    callTriggeredRef.current.add(key);
-    const item = upcomingData?.upcoming?.find(u => u.symbol === selectedSymbol);
+    const item = upcomingData?.upcoming?.find(u => u.symbol === sym);
+    setCallError(null);
     callSummaryMutation.mutate({
-      symbol: selectedSymbol,
-      name: item?.name || selectedSymbol,
+      symbol: sym,
+      name: item?.name || sym,
       lang,
       currency,
       epsActual: lastQ.epsActual,
       epsEstimate: lastQ.epsEstimate,
       surprisePct: lastQ.surprisePct,
-      revenueActual: earningsData.revenueHistory?.[0]?.revenue ?? null,
+      revenueActual: data.revenueHistory?.[0]?.revenue ?? null,
       quarter: quarterLabel(lastQ.date),
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, currency, upcomingData]);
+
+  // Auto-trigger call summary (separate from main analysis)
+  useEffect(() => {
+    if (!selectedSymbol || !earningsData) return;
+    const key = `${selectedSymbol}_${lang}`;
+    if (callCache[key] || callTriggeredRef.current.has(key)) return;
+    callTriggeredRef.current.add(key);
+    triggerCallSummary(selectedSymbol, earningsData);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSymbol, earningsData, lang]);
 
@@ -1119,7 +1133,6 @@ export default function EarningsLive() {
 
         {/* ── Earnings Call AI Summary ──────────────────────────────────── */}
         {(() => {
-          const tLinks  = getTranscriptLinks(selectedSymbol);
           const irLinks = getIRLinks(selectedSymbol);
           const isKR    = currency === "KRW";
           const ticker  = selectedSymbol.replace(".KS","").replace(".KQ","").replace(".T","");
@@ -1194,76 +1207,134 @@ export default function EarningsLive() {
                   </a>
                 )}
 
-                {/* AI loading */}
-                {isCallLoading && !callSummaryResult && (
-                  <div className="flex flex-col items-center justify-center py-6 gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                {/* Loading */}
+                {isCallLoading && (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-medium text-foreground">
+                        {lang === "ko" ? "AI 어닝콜 요약 생성 중" : lang === "ja" ? "AIが決算コールを要約中" : "Generating AI Summary"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {lang === "ko" ? "실적 데이터를 분석하고 있어요..." : lang === "ja" ? "決算データを分析しています..." : "Analyzing earnings data..."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* No earnings history */}
+                {!lastQ && !isCallLoading && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
+                    <FileText className="w-8 h-8 text-muted-foreground/40" />
                     <p className="text-xs text-muted-foreground">
-                      {lang === "ko" ? "AI가 어닝콜 내용을 분석 중..." : lang === "ja" ? "AIが決算コールを分析中..." : "AI analyzing earnings call..."}
+                      {lang === "ko" ? "실적 데이터가 없어 요약을 생성할 수 없습니다." : "No earnings data available."}
                     </p>
                   </div>
                 )}
 
-                {/* No data fallback */}
-                {!lastQ && !isCallLoading && (
-                  <p className="text-xs text-muted-foreground text-center py-4">
-                    {lang === "ko" ? "실적 데이터가 없어 요약을 생성할 수 없습니다." : "No earnings data available for summary."}
-                  </p>
+                {/* Error state with retry */}
+                {callError && !isCallLoading && !callSummaryResult && lastQ && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                      <span className="text-red-400 text-lg">!</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">
+                        {lang === "ko" ? "요약 생성에 실패했습니다" : "Failed to generate summary"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {lang === "ko" ? "잠시 후 다시 시도해주세요" : "Please try again"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="btn-retry-call-summary"
+                      onClick={() => {
+                        callTriggeredRef.current.delete(callSummaryKey);
+                        triggerCallSummary(selectedSymbol, earningsData);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-colors text-xs font-medium text-primary"
+                    >
+                      <Loader2 className="w-3 h-3" />
+                      {lang === "ko" ? "다시 생성하기" : lang === "ja" ? "再生成" : "Retry"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Idle — not yet triggered (edge case: earningsData not loaded when effect ran) */}
+                {!callSummaryResult && !isCallLoading && !callError && lastQ && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Mic className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">
+                        {lang === "ko" ? "어닝콜 AI 요약 준비됨" : "Earnings Call AI Summary Ready"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {lang === "ko" ? "버튼을 눌러 AI 요약을 생성하세요" : "Click to generate the AI summary"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="btn-generate-call-summary"
+                      onClick={() => {
+                        callTriggeredRef.current.delete(callSummaryKey);
+                        triggerCallSummary(selectedSymbol, earningsData);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 transition-colors text-xs font-semibold text-primary-foreground"
+                    >
+                      <Loader2 className="w-3 h-3" />
+                      {lang === "ko" ? "AI 요약 생성" : lang === "ja" ? "AI要約を生成" : "Generate Summary"}
+                    </button>
+                  </div>
                 )}
 
                 {/* AI-generated summary */}
-                {callSummaryResult && (
+                {callSummaryResult && !isCallLoading && (
                   <div className="space-y-3">
-                    <p className="text-xs leading-relaxed text-foreground/90 italic border-l-2 border-primary/40 pl-3">
+                    {/* One-sentence summary */}
+                    <p className="text-xs leading-relaxed text-foreground/90 italic border-l-2 border-primary/40 pl-3 py-0.5">
                       {callSummaryResult.callSummary}
                     </p>
+
+                    {/* Key points */}
                     <ul className="space-y-2">
                       {callSummaryResult.bullets.map((bullet, i) => (
                         <li key={i} className="flex gap-2.5 text-xs leading-relaxed">
-                          <span className="shrink-0 w-4 h-4 mt-0.5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-[9px] font-bold text-primary">
+                          <span className="shrink-0 w-5 h-5 mt-0.5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-[9px] font-bold text-primary">
                             {i + 1}
                           </span>
                           <span className="text-foreground/85">{bullet}</span>
                         </li>
                       ))}
                     </ul>
-                    {/* Compact transcript links */}
-                    <div className="pt-1 border-t border-border/50">
-                      <p className="text-[10px] text-muted-foreground mb-1.5">
-                        {lang === "ko" ? "전문 기록 보기:" : lang === "ja" ? "全文記録:" : "Full transcripts:"}
+
+                    {/* Refresh button */}
+                    <div className="pt-1 border-t border-border/50 flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground">
+                        {lang === "ko" ? "AI 생성 요약 · 실제 발언과 다를 수 있음" : lang === "ja" ? "AI生成要約 · 実際の発言と異なる場合があります" : "AI-generated summary · May differ from actual statements"}
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {tLinks.sa && (
-                          <a href={tLinks.sa} target="_blank" rel="noopener noreferrer" data-testid="link-sa-compact"
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
-                            <BookOpen className="w-2.5 h-2.5" />Seeking Alpha
-                          </a>
-                        )}
-                        {tLinks.fool && (
-                          <a href={tLinks.fool} target="_blank" rel="noopener noreferrer" data-testid="link-fool-compact"
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
-                            <FileText className="w-2.5 h-2.5" />Motley Fool
-                          </a>
-                        )}
-                        {tLinks.nasdaq && (
-                          <a href={tLinks.nasdaq} target="_blank" rel="noopener noreferrer" data-testid="link-nasdaq-compact"
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
-                            <BarChart2 className="w-2.5 h-2.5" />Nasdaq
-                          </a>
-                        )}
-                        {tLinks.dart && (
-                          <a href={tLinks.dart} target="_blank" rel="noopener noreferrer" data-testid="link-dart-compact"
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
-                            <FileText className="w-2.5 h-2.5" />DART
-                          </a>
-                        )}
-                        {irLinks.ir && (
-                          <a href={irLinks.ir} target="_blank" rel="noopener noreferrer" data-testid="link-ir-compact"
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 transition-colors text-muted-foreground hover:text-primary">
-                            <ExternalLink className="w-2.5 h-2.5" />IR Page
-                          </a>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        data-testid="btn-refresh-call-summary"
+                        onClick={() => {
+                          const next = { ...callCache };
+                          delete next[callSummaryKey];
+                          setCallCache(next);
+                          saveCallCache(next);
+                          callTriggeredRef.current.delete(callSummaryKey);
+                          triggerCallSummary(selectedSymbol, earningsData);
+                        }}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Loader2 className="w-3 h-3" />
+                        {lang === "ko" ? "재생성" : "Refresh"}
+                      </button>
                     </div>
                   </div>
                 )}
