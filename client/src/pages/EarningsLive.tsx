@@ -389,6 +389,7 @@ export default function EarningsLive() {
 
   const [selectedSymbol, setSelectedSymbol] = useState<string>("AAPL");
   const [searchQuery, setSearchQuery]       = useState("");
+  const [countryFilter, setCountryFilter]   = useState<"all"|"us"|"kr"|"jp"|"cn"|"eu">("all");
   const [mobileTab, setMobileTab]           = useState<MobileTab>("upcoming");
   const [calMonth, setCalMonth]             = useState(() => new Date());
   const [aiCache, setAiCache]               = useState(() => loadAiCache());
@@ -550,11 +551,27 @@ export default function EarningsLive() {
   const aiResultLang = showOriginalEn && lang !== "en" ? "en" : lang;
 
   const filteredUpcoming = useMemo(() => {
-    const list = upcomingData?.upcoming || [];
+    let list = upcomingData?.upcoming || [];
+    // Country filter
+    if (countryFilter !== "all") {
+      list = list.filter(u => {
+        const s = u.symbol;
+        if (countryFilter === "kr") return s.endsWith(".KS") || s.endsWith(".KQ");
+        if (countryFilter === "jp") return s.endsWith(".T");
+        if (countryFilter === "eu") return s.endsWith(".PA") || s.endsWith(".DE") || s.endsWith(".SW") ||
+          ["ASML","SAP","NVO","AZN","SHEL","BP","TTE","EQNR","UL","BTI","DEO","LVMH"].includes(s);
+        if (countryFilter === "cn") return ["BABA","JD","PDD","BIDU","NIO","XPEV","LI","NTES","BILI","IQ","TUYA","VNET","GDS","ZTO","YMM","FUTU","UP","TIGR","EDU","TAL"].includes(s);
+        if (countryFilter === "us") return !s.endsWith(".KS") && !s.endsWith(".KQ") && !s.endsWith(".T") &&
+          !s.endsWith(".PA") && !s.endsWith(".DE") && !s.endsWith(".SW") &&
+          !["BABA","JD","PDD","BIDU","NIO","XPEV","LI","NTES","BILI","IQ","TUYA","VNET","GDS","ZTO","YMM","FUTU","UP","TIGR","EDU","TAL","ASML","SAP","NVO","AZN","SHEL","BP","TTE","EQNR","UL","BTI","DEO","LVMH"].includes(s);
+        return true;
+      });
+    }
+    // Text search
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(u => u.symbol.toLowerCase().includes(q) || u.name.toLowerCase().includes(q));
-  }, [upcomingData, searchQuery]);
+  }, [upcomingData, searchQuery, countryFilter]);
 
   const epsChartData = useMemo(() => {
     if (!earningsData?.history) return [];
@@ -873,7 +890,7 @@ export default function EarningsLive() {
         </button>
       </div>
 
-      <form onSubmit={handleManualSearch} className="mb-3">
+      <form onSubmit={handleManualSearch} className="mb-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
@@ -881,6 +898,34 @@ export default function EarningsLive() {
             data-testid="input-earnings-search" />
         </div>
       </form>
+
+      {/* Country / Region filter tabs */}
+      <div className="flex gap-1 mb-3 overflow-x-auto pb-0.5 scrollbar-none" data-testid="filter-country-tabs">
+        {([ 
+          { id: "all", label: lang === "ko" ? "전체" : lang === "ja" ? "全体" : "All", icon: "🌎" },
+          { id: "us",  label: lang === "ko" ? "미국"   : lang === "ja" ? "米国"   : "US",    icon: "🇺🇸" },
+          { id: "kr",  label: lang === "ko" ? "한국"   : lang === "ja" ? "韓国"   : "Korea", icon: "🇰🇷" },
+          { id: "jp",  label: lang === "ko" ? "일본"   : lang === "ja" ? "日本"   : "Japan", icon: "🇯🇵" },
+          { id: "cn",  label: lang === "ko" ? "중국"   : lang === "ja" ? "中国"   : "China", icon: "🇨🇳" },
+          { id: "eu",  label: lang === "ko" ? "유럽"   : lang === "ja" ? "欧州"   : "Europe",icon: "🇪🇺" },
+        ] as const).map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            data-testid={`filter-country-${tab.id}`}
+            onClick={() => setCountryFilter(tab.id)}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-colors border shrink-0",
+              countryFilter === tab.id
+                ? "bg-primary/15 border-primary/40 text-primary"
+                : "bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:bg-muted/70"
+            )}
+          >
+            <span>{tab.icon}</span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* 🔴 LIVE TODAY banner — shown when any stock reports today */}
       {liveToday.length > 0 && (

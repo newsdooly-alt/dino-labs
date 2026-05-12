@@ -302,9 +302,67 @@ korean_stocks = {
     '036570.KS': {'name': 'NCsoft Corp', 'ko': '엔씨소프트', 'market': 'KOSPI'},
     '263750.KQ': {'name': 'Pearl Abyss', 'ko': '펄어비스', 'market': 'KOSDAQ'},
     '293490.KQ': {'name': 'Kakao Games', 'ko': '카카오게임즈', 'market': 'KOSDAQ'},
-    '041510.KQ': {'name': 'SM Entertainment', 'ko': 'SM', 'market': 'KOSDAQ'},
+    '041510.KQ': {'name': 'SM Entertainment', 'ko': 'SM엔터테인먼트', 'market': 'KOSDAQ'},
     '122870.KQ': {'name': 'YG Entertainment', 'ko': 'YG엔터테인먼트', 'market': 'KOSDAQ'},
+    '035900.KQ': {'name': 'JYP Entertainment', 'ko': 'JYP엔터테인먼트', 'market': 'KOSDAQ'},
     '352820.KQ': {'name': 'JYP Entertainment', 'ko': 'JYP엔터테인먼트', 'market': 'KOSDAQ'},
+    # KOSPI mid-cap / growth added in expansion
+    '086790.KS': {'name': 'Hana Financial Group', 'ko': '하나금융지주', 'market': 'KOSPI'},
+    '316140.KS': {'name': 'Woori Financial Group', 'ko': '우리금융지주', 'market': 'KOSPI'},
+    '003490.KS': {'name': 'Korean Air', 'ko': '대한항공', 'market': 'KOSPI'},
+    '011200.KS': {'name': 'HMM Co', 'ko': 'HMM', 'market': 'KOSPI'},
+    '015760.KS': {'name': 'Korea Electric Power', 'ko': '한국전력', 'market': 'KOSPI'},
+    '090430.KS': {'name': 'Amorepacific', 'ko': '아모레퍼시픽', 'market': 'KOSPI'},
+    '271560.KS': {'name': 'Orion Corp', 'ko': '오리온', 'market': 'KOSPI'},
+    '000720.KS': {'name': 'Hyundai E&C', 'ko': '현대건설', 'market': 'KOSPI'},
+    '009830.KS': {'name': 'Hanwha Solutions', 'ko': '한화솔루션', 'market': 'KOSPI'},
+    '010130.KS': {'name': 'Korea Zinc', 'ko': '고려아연', 'market': 'KOSPI'},
+    '047050.KS': {'name': 'Posco Future M', 'ko': '포스코퓨처엠', 'market': 'KOSPI'},
+    '326030.KS': {'name': 'SK Biopharmaceuticals', 'ko': 'SK바이오팜', 'market': 'KOSPI'},
+    '145020.KS': {'name': 'Hugel Inc', 'ko': '휴젤', 'market': 'KOSPI'},
+    '196170.KS': {'name': 'Alteogen', 'ko': '알테오젠', 'market': 'KOSPI'},
+    '011070.KS': {'name': 'LG Innotek', 'ko': 'LG이노텍', 'market': 'KOSPI'},
+    '000810.KS': {'name': 'Samsung Fire & Marine', 'ko': '삼성화재', 'market': 'KOSPI'},
+    '032640.KS': {'name': 'LG Uplus', 'ko': 'LG유플러스', 'market': 'KOSPI'},
+    '008770.KS': {'name': 'Hotel Shilla', 'ko': '호텔신라', 'market': 'KOSPI'},
+    '021240.KS': {'name': 'Coway Co', 'ko': '코웨이', 'market': 'KOSPI'},
+    '005490.KS': {'name': 'POSCO Holdings', 'ko': '포스코', 'market': 'KOSPI'},
+    '042700.KS': {'name': 'Hanmi Semiconductor', 'ko': '한미반도체', 'market': 'KOSPI'},
+    '095340.KS': {'name': 'ISC Co', 'ko': 'ISC', 'market': 'KOSPI'},
+    '251270.KS': {'name': 'Krafton Inc', 'ko': '크래프톤', 'market': 'KOSPI'},
+    # KOSDAQ
+    '247540.KQ': {'name': 'Ecopro BM', 'ko': '에코프로비엠', 'market': 'KOSDAQ'},
+    '086520.KQ': {'name': 'Ecopro Co', 'ko': '에코프로', 'market': 'KOSDAQ'},
+    '357780.KQ': {'name': 'Solus Advanced Materials', 'ko': '솔루스첨단소재', 'market': 'KOSDAQ'},
+    '028300.KQ': {'name': 'HLB Inc', 'ko': 'HLB', 'market': 'KOSDAQ'},
+    '112610.KQ': {'name': 'CS Wind', 'ko': 'CS윈드', 'market': 'KOSDAQ'},
+    '293490.KQ': {'name': 'Kakao Games', 'ko': '카카오게임즈', 'market': 'KOSDAQ'},
+    # Japanese stocks
+    '7203.T':  {'name': 'Toyota Motor', 'ko': '도요타 자동차', 'market': 'TSE'},
+    '6758.T':  {'name': 'Sony Group', 'ko': '소니 그룹', 'market': 'TSE'},
+    '9984.T':  {'name': 'SoftBank Group', 'ko': '소프트뱅크 그룹', 'market': 'TSE'},
+    '6861.T':  {'name': 'Keyence Corp', 'ko': '키엔스', 'market': 'TSE'},
+    '8306.T':  {'name': 'Mitsubishi UFJ Financial', 'ko': '미쓰비시UFJ파이낸셜', 'market': 'TSE'},
+    '9432.T':  {'name': 'NTT Corp', 'ko': 'NTT', 'market': 'TSE'},
+    '7974.T':  {'name': 'Nintendo Co', 'ko': '닌텐도', 'market': 'TSE'},
+    '6367.T':  {'name': 'Daikin Industries', 'ko': '다이킨 공업', 'market': 'TSE'},
+    '8058.T':  {'name': 'Mitsubishi Corp', 'ko': '미쓰비시 상사', 'market': 'TSE'},
+    '9983.T':  {'name': 'Fast Retailing (Uniqlo)', 'ko': '패스트리테일링(유니클로)', 'market': 'TSE'},
+    '4519.T':  {'name': 'Chugai Pharmaceutical', 'ko': '주가이 제약', 'market': 'TSE'},
+    '6954.T':  {'name': 'Fanuc Corp', 'ko': '화낙', 'market': 'TSE'},
+    '2802.T':  {'name': 'Ajinomoto Co', 'ko': '아지노모토', 'market': 'TSE'},
+    '4661.T':  {'name': 'Oriental Land (Disney Japan)', 'ko': '오리엔탈랜드(도쿄디즈니)', 'market': 'TSE'},
+    '8035.T':  {'name': 'Tokyo Electron', 'ko': '도쿄 일렉트론', 'market': 'TSE'},
+    '6098.T':  {'name': 'Recruit Holdings', 'ko': '리크루트 홀딩스', 'market': 'TSE'},
+    '3382.T':  {'name': 'Seven & i Holdings', 'ko': '세븐앤아이 홀딩스', 'market': 'TSE'},
+    '9022.T':  {'name': 'Central Japan Railway', 'ko': 'JR 도카이', 'market': 'TSE'},
+    '4502.T':  {'name': 'Takeda Pharmaceutical', 'ko': '다케다 약품', 'market': 'TSE'},
+    '6501.T':  {'name': 'Hitachi Ltd', 'ko': '히타치', 'market': 'TSE'},
+    '6702.T':  {'name': 'Fujitsu Ltd', 'ko': '후지쓰', 'market': 'TSE'},
+    '8031.T':  {'name': 'Mitsui & Co', 'ko': '미쓰이물산', 'market': 'TSE'},
+    '8001.T':  {'name': 'Itochu Corp', 'ko': '이토추 상사', 'market': 'TSE'},
+    '7267.T':  {'name': 'Honda Motor', 'ko': '혼다 자동차', 'market': 'TSE'},
+    '4063.T':  {'name': 'Shin-Etsu Chemical', 'ko': '신에츠 화학', 'market': 'TSE'},
 }
 
 korean_aliases = {
@@ -909,27 +967,94 @@ UPCOMING_WATCHLIST = list(dict.fromkeys([
     "SNOW", "UBER", "LYFT", "SHOP", "SQ", "PYPL", "TWLO", "ZM", "DOCU",
     "NOW", "WDAY", "DDOG", "CRWD", "NET", "ZS", "PANW", "OKTA", "MDB",
     "AMAT", "LRCX", "KLAC", "MRVL", "SMCI", "ON", "TXN", "ADI", "MCHP",
+    "APP", "RBLX", "SNAP", "PINS", "SPOT", "MTCH", "DASH", "ABNB", "LYFT",
+    "BILL", "GTLB", "HCP", "ESTC", "PD", "CFLT", "S", "SMAR",
+    "AFRM", "COIN", "HOOD", "SOFI", "OPEN", "NUAN",
+    # ── US AI / Data / Cloud ──────────────────────────────────────────────────
+    "AI", "GFAI", "BBAI", "SOUN", "IONQ", "QBTS", "RGTI",
+    "IBM", "HPE", "DELL", "WDC", "STX", "PSTG",
     # ── US Financials ─────────────────────────────────────────────────────────
     "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "AXP", "C", "BLK",
     "COF", "USB", "PNC", "SCHW", "CB", "MMC", "AON", "MET", "PRU",
+    "TFC", "RF", "HBAN", "KEY", "CFG", "FHN", "ALLY", "SYF", "DFS",
+    "ICE", "CME", "NDAQ", "CBOE", "MKTX",
     # ── US Healthcare / Pharma ────────────────────────────────────────────────
     "JNJ", "UNH", "LLY", "MRK", "ABBV", "PFE", "CVS", "TMO", "ABT",
     "DHR", "BSX", "ISRG", "MDT", "BDX", "SYK", "EW", "REGN", "VRTX",
     "AMGN", "GILD", "BIIB", "MRNA", "BMY",
+    "DXCM", "ALGN", "HOLX", "BAX", "ZBH", "XRAY", "HSIC",
+    "ILMN", "IQV", "CRL", "CTLT", "PKI",
+    "HALO", "ARQT", "RXRX", "EXAS", "NVAX", "BNTX",
     # ── US Consumer / Retail ──────────────────────────────────────────────────
-    "WMT", "COST", "HD", "MCD", "SBUX", "NKE", "TGT", "AMZN",
+    "WMT", "COST", "HD", "MCD", "SBUX", "NKE", "TGT",
     "LOW", "TJX", "BKNG", "MAR", "HLT", "YUM", "CMG", "DPZ",
     "PG", "KO", "PEP", "PM", "MO", "CL", "KMB", "GIS",
+    "ULTA", "EL", "COTY", "LULU", "TPR", "RL", "VFC",
+    "F", "GM", "RIVN", "LCID", "QS",
+    "RACE", "PHM", "LEN", "DHI", "TOL", "NVR",
+    "RCL", "CCL", "NCLH", "MGM", "WYNN", "LVS",
+    "DKNG", "PENN", "CZR",
     # ── US Energy ────────────────────────────────────────────────────────────
     "XOM", "CVX", "COP", "SLB", "OXY", "PSX", "VLO", "MPC",
+    "PXD", "DVN", "FANG", "MRO", "APA", "HAL", "BKR",
+    "ENPH", "FSLR", "RUN", "ARRY", "BE", "PLUG",
     # ── US Industrials / Aero / Defense ──────────────────────────────────────
     "BA", "CAT", "GE", "RTX", "HON", "LMT", "NOC", "GD", "MMM",
     "UPS", "FDX", "CSX", "NSC", "DE", "EMR",
+    "TDG", "HEI", "AXON", "LHX", "LDOS", "CACI", "SAIC",
+    "ROK", "ITW", "ETN", "DOV", "AME", "PH", "IR",
+    "GWW", "FLS", "RXO", "XPO", "ODFL", "SAIA", "JBHT",
     # ── US Telecom / Media ────────────────────────────────────────────────────
-    "DIS", "CMCSA", "T", "VZ",
+    "DIS", "CMCSA", "T", "VZ", "TMUS",
+    "WBD", "PARA", "FOX", "NYT", "NWSA",
+    "CHTR", "LBRDA", "ATUS",
     # ── US Real Estate / Utilities ────────────────────────────────────────────
     "AMT", "PLD", "EQIX", "NEE", "DUK", "SO",
-    # ── Korean KOSPI 200 Blue-Chips ───────────────────────────────────────────
+    "CCI", "SBAC", "WPC", "O", "VICI", "SPG", "EQR", "AVB",
+    "AWK", "AEP", "EXC", "SRE", "D", "PCG", "XEL",
+    # ── US Materials / Metals ─────────────────────────────────────────────────
+    "FCX", "NEM", "GOLD", "AA", "ALB", "MP", "PAAS", "HL",
+    "NUE", "STLD", "CLF", "X", "PKG", "IP", "WRK",
+    "LIN", "APD", "ECL", "SHW", "PPG", "EMN",
+    # ── Chinese ADR ──────────────────────────────────────────────────────────
+    "BABA", "JD", "PDD", "BIDU", "NIO", "XPEV", "LI",
+    "NTES", "BILI", "IQ", "TUYA", "VNET", "GDS",
+    "ZTO", "YMM", "DIDI", "EDU", "TAL", "NEW",
+    "FUTU", "UP", "TIGR",
+    # ── European ADR / US-listed ──────────────────────────────────────────────
+    "ASML", "SAP", "NVO", "AZN", "SHEL", "BP",
+    "TTE", "EQNR", "UL", "BTI", "DEO",
+    "LVMH", "MC.PA",
+    "NESN.SW", "ROG.SW", "NOVN.SW",
+    "SIE.DE", "BMW.DE", "VOW3.DE", "MBG.DE", "BAS.DE", "BAYN.DE",
+    "AIR.PA", "BNP.PA", "SAN.PA",
+    # ── Japanese Stocks (.T) ──────────────────────────────────────────────────
+    "7203.T",   # Toyota Motor
+    "6758.T",   # Sony Group
+    "9984.T",   # SoftBank Group
+    "6861.T",   # Keyence
+    "8306.T",   # Mitsubishi UFJ Financial
+    "9432.T",   # NTT
+    "7974.T",   # Nintendo
+    "6367.T",   # Daikin Industries
+    "8058.T",   # Mitsubishi Corp
+    "9983.T",   # Fast Retailing (Uniqlo)
+    "4519.T",   # Chugai Pharmaceutical
+    "6954.T",   # Fanuc
+    "2802.T",   # Ajinomoto
+    "4661.T",   # Oriental Land (Disney Japan)
+    "8035.T",   # Tokyo Electron
+    "6098.T",   # Recruit Holdings
+    "3382.T",   # Seven & i Holdings
+    "9022.T",   # Central Japan Railway
+    "4502.T",   # Takeda Pharmaceutical
+    "6501.T",   # Hitachi
+    "6702.T",   # Fujitsu
+    "8031.T",   # Mitsui & Co
+    "8001.T",   # Itochu Corp
+    "7267.T",   # Honda Motor
+    "4063.T",   # Shin-Etsu Chemical
+    # ── Korean KOSPI Blue-Chips ───────────────────────────────────────────────
     "005930.KS",  # Samsung Electronics
     "000660.KS",  # SK Hynix
     "035420.KS",  # Naver
@@ -960,6 +1085,40 @@ UPCOMING_WATCHLIST = list(dict.fromkeys([
     "000720.KS",  # Hyundai E&C
     "086790.KS",  # Hana Financial
     "316140.KS",  # Woori Financial
+    # ── Korean KOSPI Mid-Cap / Growth ─────────────────────────────────────────
+    "036570.KS",  # NCsoft
+    "251270.KS",  # Krafton
+    "112040.KS",  # Wemade
+    "263750.KS",  # Pearl Abyss
+    "095340.KS",  # ISC (semiconductor)
+    "042700.KS",  # Hanmi Semiconductor
+    "009830.KS",  # Hanwha Solutions
+    "010130.KS",  # Korea Zinc
+    "047050.KS",  # Posco Future M
+    "003670.KS",  # Posco Holdings
+    "326030.KS",  # SK Biopharmaceuticals
+    "145020.KS",  # Hugel (botox)
+    "196170.KS",  # Alteogen
+    "011070.KS",  # LG Innotek
+    "066570.KS",  # LG Electronics
+    "000810.KS",  # Samsung Fire & Marine
+    "032640.KS",  # LG Uplus
+    "008770.KS",  # Hotel Shilla
+    "021240.KS",  # Coway
+    "005490.KS",  # POSCO
+    # ── Korean KOSDAQ ─────────────────────────────────────────────────────────
+    "247540.KQ",  # Ecopro BM
+    "086520.KQ",  # Ecopro
+    "357780.KQ",  # Solus Advanced Materials
+    "028300.KQ",  # HLB (biotech)
+    "000250.KQ",  # Sam Chun Dang Pharm
+    "214150.KQ",  # Classsys
+    "041510.KQ",  # SM Entertainment
+    "035900.KQ",  # JYP Entertainment
+    "122870.KQ",  # YG Entertainment
+    "293490.KQ",  # Kakao Games
+    "112610.KQ",  # CS Wind
+    "236340.KQ",  # Mobiis
 ]))
 
 # Currency mapping by exchange suffix
