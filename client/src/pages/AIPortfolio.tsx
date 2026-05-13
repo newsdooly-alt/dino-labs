@@ -8,7 +8,7 @@ import {
   Brain, Sparkles, ChevronRight, ChevronLeft, RotateCcw,
   TrendingUp, Shield, Target, Globe, Zap, Leaf, DollarSign,
   Building2, BarChart3, CheckCircle2, AlertCircle, BookOpen, RefreshCw,
-  ChevronDown, User2
+  ChevronDown, User2, Layers, WalletCards, BadgeCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
@@ -30,6 +30,7 @@ interface PortfolioResult {
   riskLevel: string;
   sectorBreakdown: { sector: string; percentage: number }[];
   investmentNote: string;
+  aiSectorRecommendation?: { topSectors: string[]; rationale: string };
 }
 
 type QuestionType = "slider" | "choice" | "multiChoice";
@@ -44,6 +45,7 @@ interface Question {
   maxLabel?: { ko: string; en: string; ja: string };
   options?: { value: string; label: { ko: string; en: string; ja: string } }[];
   multiple?: boolean;
+  optional?: boolean;
 }
 
 interface Answers {
@@ -139,7 +141,7 @@ const QUESTIONS: Question[] = [
     type: "multiChoice",
     icon: Building2,
     label: { ko: "관심 섹터", en: "Sectors of Interest", ja: "関心セクター" },
-    question: { ko: "관심 있는 섹터를 모두 선택하세요", en: "Select all sectors you're interested in", ja: "興味のあるセクターを全て選択してください" },
+    question: { ko: "관심 있는 섹터를 선택하세요 (없으면 AI가 추천)", en: "Select sectors you're interested in (skip = AI recommends)", ja: "興味のあるセクターを選択（スキップ可）" },
     options: [
       { value: "tech", label: { ko: "💻 기술·AI", en: "💻 Tech & AI", ja: "💻 テクノロジー・AI" } },
       { value: "finance", label: { ko: "🏦 금융", en: "🏦 Finance", ja: "🏦 金融" } },
@@ -152,6 +154,7 @@ const QUESTIONS: Question[] = [
       { value: "utilities", label: { ko: "💡 유틸리티", en: "💡 Utilities", ja: "💡 公益" } },
     ],
     multiple: true,
+    optional: true,
   },
   {
     id: "style",
@@ -237,6 +240,12 @@ export default function AIPortfolio() {
     gen_step1: lang === "ko" ? "답변 분석 중..." : "Analyzing your answers...",
     gen_step2: lang === "ko" ? "최적 종목 선정 중..." : "Selecting optimal stocks...",
     gen_step3: lang === "ko" ? "포트폴리오 최적화 중..." : "Optimizing portfolio...",
+    ai_sector_rec: lang === "ko" ? "AI 추천 섹터" : lang === "ja" ? "AI推薦セクター" : "AI Recommended Sectors",
+    ai_sector_why: lang === "ko" ? "이 섹터들을 추천한 이유" : lang === "ja" ? "このセクターを推薦した理由" : "Why these sectors",
+    total_alloc: lang === "ko" ? "총 배분" : "Total",
+    skip_opt: lang === "ko" ? "AI에게 맡기기 →" : lang === "ja" ? "AIに任せる →" : "Let AI decide →",
+    invest_amt: lang === "ko" ? "투자 금액" : "Investment Amount",
+    num_stocks: lang === "ko" ? "종목 수" : "# Stocks",
   };
 
   const [step, setStep] = useState<number>(-1);
@@ -270,7 +279,10 @@ export default function AIPortfolio() {
     const val = answers[currentQuestion.id as keyof Answers];
     if (currentQuestion.type === "slider") return true;
     if (currentQuestion.type === "choice") return typeof val === "string" && val !== "";
-    if (currentQuestion.type === "multiChoice") return Array.isArray(val) && val.length > 0;
+    if (currentQuestion.type === "multiChoice") {
+      if (currentQuestion.optional) return true;
+      return Array.isArray(val) && val.length > 0;
+    }
     return false;
   }, [currentQuestion, answers]);
 
@@ -406,28 +418,49 @@ export default function AIPortfolio() {
   const MultiChoiceInput = ({ q }: { q: Question }) => {
     const vals = (answers[q.id as keyof Answers] as string[]) || [];
     return (
-      <div className="grid grid-cols-2 gap-2">
-        {q.options!.map(opt => {
-          const selected = vals.includes(opt.value);
-          return (
-            <button
-              key={opt.value} type="button"
-              onClick={() => handleMultiChoice(q.id, opt.value)}
-              data-testid={`multi-${q.id}-${opt.value}`}
-              className={cn(
-                "px-3 py-3.5 rounded-xl border-2 transition-all duration-150 text-xs font-semibold text-center relative",
-                selected
-                  ? "border-primary bg-primary/10 text-primary shadow-sm"
-                  : "border-border bg-card hover:border-primary/30 hover:bg-muted/40 text-muted-foreground"
-              )}
-            >
-              {selected && (
-                <CheckCircle2 className="w-3 h-3 absolute top-1.5 right-1.5 text-primary" />
-              )}
-              {opt.label[lang]}
-            </button>
-          );
-        })}
+      <div className="space-y-3">
+        {q.optional && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">{L.select_multi}</span>
+            {vals.length === 0 ? (
+              <span className="text-[10px] text-primary bg-primary/10 px-2 py-1 rounded-lg font-medium flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5" />
+                {L.skip_opt}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAnswers(prev => ({ ...prev, [q.id]: [] }))}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline"
+              >
+                {lang === "ko" ? "선택 해제" : "Clear"}
+              </button>
+            )}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          {q.options!.map(opt => {
+            const selected = vals.includes(opt.value);
+            return (
+              <button
+                key={opt.value} type="button"
+                onClick={() => handleMultiChoice(q.id, opt.value)}
+                data-testid={`multi-${q.id}-${opt.value}`}
+                className={cn(
+                  "px-3 py-3.5 rounded-xl border-2 transition-all duration-150 text-xs font-semibold text-center relative",
+                  selected
+                    ? "border-primary bg-primary/10 text-primary shadow-sm"
+                    : "border-border bg-card hover:border-primary/30 hover:bg-muted/40 text-muted-foreground"
+                )}
+              >
+                {selected && (
+                  <CheckCircle2 className="w-3 h-3 absolute top-1.5 right-1.5 text-primary" />
+                )}
+                {opt.label[lang]}
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -687,15 +720,23 @@ export default function AIPortfolio() {
                 real_estate: lang === "ko" ? "부동산" : "Real Estate",
                 utilities: lang === "ko" ? "유틸리티" : "Utilities",
               };
+              const amtLabels: Record<string,string> = {
+                under1m: lang === "ko" ? "💳 $1K 미만" : "💳 <$1K",
+                "1m_10m": lang === "ko" ? "💵 $1K~$10K" : "💵 $1K~$10K",
+                "10m_100m": lang === "ko" ? "💰 $10K~$100K" : "💰 $10K~$100K",
+                over100m: lang === "ko" ? "🏦 $100K+" : "🏦 $100K+",
+              };
+              const numStocksResult = answers.stockCount <= 2 ? 5 : answers.stockCount <= 4 ? 7 : answers.stockCount <= 6 ? 10 : answers.stockCount <= 8 ? 15 : 20;
               const profileItems = [
                 { label: lang === "ko" ? "위험 성향" : "Risk", value: `${answers.riskTolerance}/10`, bar: answers.riskTolerance / 10, color: answers.riskTolerance >= 7 ? "#ef4444" : answers.riskTolerance >= 4 ? "#f59e0b" : "#22c55e" },
                 { label: lang === "ko" ? "투자 기간" : "Horizon", value: horizonLabels[answers.horizon] || answers.horizon },
                 { label: lang === "ko" ? "수익 목표" : "Return", value: `${answers.returnTarget}/10`, bar: answers.returnTarget / 10, color: "#3b82f6" },
-                { label: lang === "ko" ? "종목 집중도" : "Diversity", value: `${answers.stockCount}/10`, bar: answers.stockCount / 10, color: "#8b5cf6" },
+                { label: lang === "ko" ? "종목 수" : "# Stocks", value: `${numStocksResult}종목`, bar: answers.stockCount / 10, color: "#8b5cf6" },
+                { label: lang === "ko" ? "투자 금액" : "Amount", value: amtLabels[answers.investmentAmount] || answers.investmentAmount },
                 { label: lang === "ko" ? "투자 스타일" : "Style", value: styleLabels[answers.style] || answers.style },
                 { label: lang === "ko" ? "기업 규모" : "Cap", value: capLabels[answers.marketCap] || answers.marketCap },
                 { label: lang === "ko" ? "지역" : "Regions", value: (answers.regions as string[]).map((r: string) => regionLabelMap[r] || r).join(" ") || "-" },
-                { label: lang === "ko" ? "관심 섹터" : "Sectors", value: (answers.sectors as string[]).length > 0 ? (answers.sectors as string[]).map((s: string) => sectorLabelMap[s] || s).join(", ") : (lang === "ko" ? "전 섹터" : "All") },
+                { label: lang === "ko" ? "관심 섹터" : "Sectors", value: (answers.sectors as string[]).length > 0 ? (answers.sectors as string[]).map((s: string) => sectorLabelMap[s] || s).join(", ") : (lang === "ko" ? "AI 추천" : "AI Picks") },
                 { label: "ESG", value: `${answers.esg}/10`, bar: answers.esg / 10, color: "#22c55e" },
               ];
               return (
@@ -807,16 +848,60 @@ export default function AIPortfolio() {
               </div>
             )}
 
+            {/* AI Sector Recommendation panel */}
+            {result.aiSectorRecommendation && result.aiSectorRecommendation.topSectors?.length > 0 && (
+              <div className="mx-4 md:mx-8 mb-4 bg-gradient-to-br from-violet-500/10 to-blue-500/10 border border-violet-500/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground">{L.ai_sector_rec}</span>
+                  <span className="ml-auto text-[9px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">AI</span>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2.5">
+                  {result.aiSectorRecommendation.topSectors.map((sector, i) => (
+                    <span
+                      key={i}
+                      className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl border"
+                      style={{
+                        background: `${SECTOR_COLORS[i % SECTOR_COLORS.length]}18`,
+                        borderColor: `${SECTOR_COLORS[i % SECTOR_COLORS.length]}40`,
+                        color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+                      }}
+                    >
+                      <BadgeCheck className="w-3 h-3" />
+                      {sector}
+                    </span>
+                  ))}
+                </div>
+                {result.aiSectorRecommendation.rationale && (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-violet-300">{L.ai_sector_why}: </span>
+                    {result.aiSectorRecommendation.rationale}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Stock cards */}
             <div className="px-4 md:px-8 space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">
-                {L.stocks_selected(result.portfolio.length)}
-              </h3>
-              {result.portfolio.map((stock, idx) => {
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {L.stocks_selected(result.portfolio.length)}
+                </h3>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                  <BadgeCheck className="w-3 h-3" />
+                  {L.total_alloc} {result.portfolio.reduce((s, p) => s + p.allocation, 0)}%
+                </span>
+              </div>
+              {(() => {
+                const maxAlloc = Math.max(...result.portfolio.map(s => s.allocation), 1);
+                return result.portfolio.map((stock, idx) => {
                 const isExpanded = expandedStocks.has(stock.symbol);
                 const localName = getLocalizedCompanyName(stock.name, lang) || stock.name;
                 const barColor = SECTOR_COLORS[idx % SECTOR_COLORS.length];
                 const flag = getFlagEmoji(stock.symbol);
+                const barWidth = (stock.allocation / maxAlloc) * 100;
 
                 return (
                   <div
@@ -860,12 +945,12 @@ export default function AIPortfolio() {
                         </div>
                       </div>
 
-                      {/* Allocation bar */}
+                      {/* Allocation bar — scales relative to top holding */}
                       <div className="mt-3 h-1.5 bg-muted/50 rounded-full overflow-hidden">
                         <motion.div
                           className="h-full rounded-full"
                           initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(stock.allocation * 3, 100)}%` }}
+                          animate={{ width: `${barWidth}%` }}
                           transition={{ duration: 0.6, delay: idx * 0.08 }}
                           style={{ background: barColor }}
                         />
@@ -900,7 +985,8 @@ export default function AIPortfolio() {
                     </div>
                   </div>
                 );
-              })}
+              });
+            })()}
             </div>
 
             {/* Investment note */}

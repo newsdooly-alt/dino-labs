@@ -3002,223 +3002,224 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
         marketCap = "mixed", esg = 3, investmentAmount = "1m_10m", lang = "en"
       } = req.body;
 
-      const numStocks = stockCount <= 3 ? 5 : stockCount <= 6 ? 10 : stockCount <= 8 ? 15 : 20;
-
       const isKo = lang === "ko";
       const isJa = lang === "ja";
+      const L: "ko"|"en"|"ja" = isKo ? "ko" : isJa ? "ja" : "en";
 
-      // Build human-readable answer summary (in user's language)
-      const riskLabel = isKo
-        ? (riskTolerance <= 3 ? `보수적 (${riskTolerance}/10) — 폭락시 매도 성향` : riskTolerance <= 6 ? `중립적 (${riskTolerance}/10) — 손실 어느 정도 감내` : `공격적 (${riskTolerance}/10) — 폭락시 추가 매수 선호`)
-        : (riskTolerance <= 3 ? `Conservative (${riskTolerance}/10) — prefers to sell on crash` : riskTolerance <= 6 ? `Moderate (${riskTolerance}/10) — tolerates some losses` : `Aggressive (${riskTolerance}/10) — buys more on crashes`);
-
-      const horizonLabelMap: Record<string, { ko: string; en: string; ja: string }> = {
-        short:     { ko: "3개월 미만 단기",    en: "Under 3 months (short-term)",  ja: "3ヶ月未満の短期" },
-        mid_short: { ko: "6개월~1년 중단기",   en: "6 months to 1 year",           ja: "6ヶ月~1年" },
-        medium:    { ko: "1~3년 중기",         en: "1 to 3 years (medium-term)",   ja: "1~3年の中期" },
-        long:      { ko: "3~10년 장기",        en: "3 to 10 years (long-term)",    ja: "3~10年の長期" },
-        ultra:     { ko: "10년 이상 초장기",   en: "10+ years (very long-term)",   ja: "10年以上の超長期" },
+      // Pre-compute allocations server-side — guarantees EXACTLY 100%
+      const numStocks = stockCount <= 2 ? 5 : stockCount <= 4 ? 7 : stockCount <= 6 ? 10 : stockCount <= 8 ? 15 : 20;
+      const computeAllocs = (n: number, conc: number): number[] => {
+        let raw: number[];
+        if (conc <= 3) raw = Array.from({length:n},(_,i)=>Math.max(2,Math.round(42*Math.pow(0.70,i))));
+        else if (conc <= 6) raw = Array.from({length:n},(_,i)=>Math.max(2,Math.round(24*Math.pow(0.86,i))));
+        else { const b=Math.floor(100/n), r=100-b*n; return Array.from({length:n},(_,i)=>b+(i<r?1:0)); }
+        const sum=raw.reduce((a,b)=>a+b,0);
+        const scaled=raw.map(w=>Math.round(w/sum*100));
+        scaled[scaled.length-1]+=(100-scaled.reduce((a,b)=>a+b,0));
+        return scaled;
       };
-      const horizonLabel = (horizonLabelMap[horizon] || horizonLabelMap["medium"])[isKo ? "ko" : isJa ? "ja" : "en"];
+      const allocations = computeAllocs(numStocks, stockCount);
 
-      const returnLabel = isKo
-        ? (returnTarget <= 3 ? `원금 보전 위주 (~${returnTarget * 2}%)` : returnTarget <= 6 ? `중간 수익 목표 (연 ${returnTarget * 2}~${returnTarget * 3}%)` : `고수익 목표 (연 ${returnTarget * 3}%+)`)
-        : (returnTarget <= 3 ? `Capital preservation (~${returnTarget * 2}% annually)` : returnTarget <= 6 ? `Moderate growth (${returnTarget * 2}~${returnTarget * 3}% annually)` : `High growth target (${returnTarget * 3}%+ annually)`);
+      // Human-readable labels per language
+      const HL = ({
+        short:{ko:"3개월 미만 단기",en:"Under 3 months",ja:"3ヶ月未満"},
+        mid_short:{ko:"6개월~1년",en:"6mo~1 year",ja:"6ヶ月~1年"},
+        medium:{ko:"1~3년 중기",en:"1~3 years",ja:"1~3年"},
+        long:{ko:"3~10년 장기",en:"3~10 years",ja:"3~10年"},
+        ultra:{ko:"10년 이상 초장기",en:"10+ years",ja:"10年以上"},
+      } as any)[horizon]?.[L] || "1~3 years";
 
-      const stockCountLabel = isKo
-        ? `${numStocks}개 종목 (${stockCount <= 3 ? "집중형 — 소수 핵심 종목" : stockCount <= 6 ? "균형형" : "분산형 — 리스크 분산"})`
-        : `${numStocks} stocks (${stockCount <= 3 ? "concentrated — few high-conviction picks" : stockCount <= 6 ? "balanced" : "diversified — spread risk"})`;
+      const RL = riskTolerance<=3
+        ? {ko:`보수적 (${riskTolerance}/10)`,en:`Conservative ${riskTolerance}/10`,ja:`保守的 ${riskTolerance}/10`}[L]
+        : riskTolerance<=6
+        ? {ko:`중립 (${riskTolerance}/10)`,en:`Moderate ${riskTolerance}/10`,ja:`中立 ${riskTolerance}/10`}[L]
+        : {ko:`공격적 (${riskTolerance}/10)`,en:`Aggressive ${riskTolerance}/10`,ja:`積極的 ${riskTolerance}/10`}[L];
 
-      const regionMap: Record<string, string> = {
-        us: isKo ? "🇺🇸 미국 (NYSE/NASDAQ)" : "🇺🇸 US (NYSE/NASDAQ)",
-        kr: isKo ? "🇰🇷 한국 (코스피/코스닥)" : "🇰🇷 Korea (KOSPI/KOSDAQ)",
-        jp: isKo ? "🇯🇵 일본 (도쿄증권거래소)" : "🇯🇵 Japan (TSE)",
-        cn: isKo ? "🇨🇳 중국 ADR (미국 상장)" : "🇨🇳 China ADRs (US-listed)",
-        eu: isKo ? "🇪🇺 유럽 ADR (미국 상장)" : "🇪🇺 European ADRs (US-listed)",
+      const RT = returnTarget<=3
+        ? {ko:"원금 보전 (~6%/년)",en:"Capital preservation ~6%/yr",ja:"元本保全 ~6%/年"}[L]
+        : returnTarget<=6
+        ? {ko:`중간 수익 목표 (${returnTarget*2}~${returnTarget*3}%/년)`,en:`Moderate ${returnTarget*2}~${returnTarget*3}%/yr`,ja:`${returnTarget*2}~${returnTarget*3}%/年`}[L]
+        : {ko:`고수익 목표 (${returnTarget*3}%+/년)`,en:`High growth ${returnTarget*3}%+/yr`,ja:`高収益 ${returnTarget*3}%+/年`}[L];
+
+      const INV = ({
+        under1m:{ko:"소액 ($1K 미만) — 유동성 최상위 종목만. 거래량 일 $50M+ 필수",en:"Small (<$1K) — only top-liquidity stocks, daily vol >$50M"},
+        "1m_10m":{ko:"중소 ($1K~$10K) — 표준 접근, 유동성 양호",en:"Medium ($1K~$10K) — standard, good liquidity"},
+        "10m_100m":{ko:"중대형 ($10K~$100K) — 중형주까지 유동성 충분, 분산 투자 가능",en:"Large ($10K~$100K) — mid-cap liquidity fine, good for diversification"},
+        over100m:{ko:"대규모 ($100K+) — 소형주 포함 가능하나 유동성(일 $5M+) 반드시 검증",en:"Very large ($100K+) — small caps OK only if daily vol >$5M"},
+      } as any)[investmentAmount]?.[L] || "standard";
+
+      const SL = ({
+        growth:{ko:"성장주 (매출 YoY 20%+, 고PEG 감내)",en:"Growth (rev YoY 20%+, high P/E OK)",ja:"グロース"},
+        value:{ko:"가치주 (PER 15 이하, PBR 저평가 우량주)",en:"Value (P/E <15, undervalued quality)",ja:"バリュー"},
+        dividend:{ko:"배당주 (배당수익률 2%+, 10년+ 배당 이력)",en:"Dividend (yield 2%+, 10yr+ history)",ja:"高配当"},
+        momentum:{ko:"모멘텀 (최근 6개월 RS상위 20%)",en:"Momentum (top 20% RS last 6mo)",ja:"モメンタム"},
+        blend:{ko:"혼합형 (성장 50%+가치 30%+배당 20%)",en:"Blend (60% growth + 40% value/dividend)",ja:"ブレンド"},
+      } as any)[style]?.[L] || "Blend";
+
+      const regionMap: Record<string,string> = {
+        us: isKo?"🇺🇸 미국":"🇺🇸 US (NYSE/NASDAQ)",
+        kr: isKo?"🇰🇷 한국 (코스피/코스닥)":"🇰🇷 Korea (KOSPI/KOSDAQ)",
+        jp: isKo?"🇯🇵 일본 (TSE)":"🇯🇵 Japan (TSE)",
+        cn: isKo?"🇨🇳 중국 ADR":"🇨🇳 China ADRs",
+        eu: isKo?"🇪🇺 유럽 ADR":"🇪🇺 European ADRs",
       };
-      const regionsDesc = (Array.isArray(regions) && regions.length > 0 ? regions : ["us"])
-        .map((r: string) => regionMap[r] || r).join(", ");
+      const regionsDesc = (Array.isArray(regions)&&regions.length>0?regions:["us"]).map((r:string)=>regionMap[r]||r).join(", ");
 
-      const sectorMap: Record<string, string> = {
-        tech: isKo ? "기술·AI" : "Technology & AI",
-        finance: isKo ? "금융" : "Finance",
-        healthcare: isKo ? "헬스케어" : "Healthcare",
-        energy: isKo ? "에너지" : "Energy",
-        consumer: isKo ? "소비재" : "Consumer",
-        industrial: isKo ? "산업재" : "Industrial",
-        materials: isKo ? "소재" : "Materials",
-        real_estate: isKo ? "부동산" : "Real Estate",
-        utilities: isKo ? "유틸리티" : "Utilities",
-      };
-      const sectorsDesc = Array.isArray(sectors) && sectors.length > 0
-        ? sectors.map((s: string) => sectorMap[s] || s).join(", ")
-        : (isKo ? "섹터 무관 (전 섹터)" : "all sectors (no preference)");
+      const sKo: Record<string,string> = {tech:"기술·AI",finance:"금융·은행",healthcare:"헬스케어·바이오",energy:"에너지·친환경",consumer:"소비재",industrial:"산업재",materials:"소재·화학",real_estate:"부동산(리츠)",utilities:"유틸리티"};
+      const sEn: Record<string,string> = {tech:"Technology & AI",finance:"Finance & Banking",healthcare:"Healthcare & Biotech",energy:"Energy & CleanTech",consumer:"Consumer Discretionary",industrial:"Industrials",materials:"Materials & Chemicals",real_estate:"Real Estate (REITs)",utilities:"Utilities"};
+      const hasSectors = Array.isArray(sectors) && sectors.length > 0;
+      const sectorsDesc = hasSectors
+        ? sectors.map((s:string)=>(isKo?sKo:sEn)[s]||s).join(", ")
+        : (isKo?"미지정 — AI가 투자자 프로필에 맞는 최적 섹터 추천":"not specified — AI recommends optimal sectors for this profile");
 
-      const styleMap: Record<string, string> = {
-        growth:   isKo ? "성장주 — 매출 고성장, 높은 밸류에이션 감내" : "Growth — high revenue growth, high valuation tolerated",
-        value:    isKo ? "가치주 — 저PER/저PBR 저평가 우량주" : "Value — low P/E, undervalued quality stocks",
-        dividend: isKo ? "배당주 — 안정적 현금배당, 낮은 변동성" : "Dividend — stable dividends, low volatility",
-        momentum: isKo ? "모멘텀 — 최근 주가 상승세 강한 종목" : "Momentum — stocks with strong recent price momentum",
-        blend:    isKo ? "혼합형 — 성장+가치 균형" : "Blend — mix of growth and value",
-      };
-      const styleDesc = styleMap[style] || style;
-
-      const marketCapMap: Record<string, { label: string; koLabel: string; rule: string; koRule: string; examples: string }> = {
+      const capMap: Record<string,{label:string,rule:string,forbidden:string|null,examples:string}> = {
         large: {
-          label: "Large Cap (>$10B / 시총 10조원+)",
-          koLabel: "대형주 (시총 10조원 이상)",
-          rule: "ALL stocks MUST be large-cap (market cap >$10B). Examples: AAPL, MSFT, NVDA, AMZN, 005930.KS, 000660.KS, 7203.T",
-          koRule: "반드시 모든 종목이 대형주여야 합니다 (시총 10조원+). 예: AAPL, MSFT, NVDA, 005930.KS",
-          examples: "AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, 005930.KS, 000660.KS",
+          label: isKo?"대형주 ($10B+ / 코스피 대형)":"Large Cap (>$10B market cap)",
+          rule: isKo?"모든 종목이 대형주 (시총 $10B 이상). 삼성전자·애플 급 기업들.":"ALL stocks MUST be large-cap (>$10B). Proven global leaders only.",
+          forbidden: null,
+          examples:"AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,V,MA,JPM,005930.KS,000660.KS,7203.T,6758.T",
         },
         mid: {
-          label: "Mid Cap ($2B-$10B / 시총 2~10조원)",
-          koLabel: "중형주 (시총 2~10조원)",
-          rule: "MAJORITY of stocks (at least 60%) MUST be mid-cap ($2B-$10B market cap). Avoid mega-caps like AAPL, MSFT, NVDA. Examples: CRWD, DDOG, SMCI, NET, BILL, TWLO, GLOB",
-          koRule: "최소 60%는 반드시 중형주여야 합니다 (시총 2~10조원). AAPL/MSFT/NVDA 같은 초대형주는 피하세요.",
-          examples: "CRWD, DDOG, SMCI, NET, BILL, TWLO, GLOB, SMAR, ZI, PCTY, DOCU, COUP",
+          label: isKo?"중형주 ($2~10B / 코스피 중형)":"Mid Cap ($2B~$10B)",
+          rule: isKo?"70%+ 중형주 ($2~10B 시총). 초대형주(AAPL·MSFT·NVDA 등) 금지.":"70%+ must be mid-cap ($2B~$10B). NO mega-caps.",
+          forbidden:"AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,AVGO,ORCL,AMD,V,MA,JPM,BRK.B",
+          examples:"CRWD,DDOG,NET,ZS,SNOW,HUBS,BILL,GLOB,TWLO,SQ,RBLX,U,MNDY,GTLB,PCTY",
         },
         small: {
-          label: "Small Cap (<$2B / 시총 2조원 미만)",
-          koLabel: "소형주 (시총 2조원 미만)",
-          rule: "MAJORITY of stocks (at least 60%) MUST be small-cap (market cap under $2B). These are high-risk/high-reward growth companies. DO NOT include AAPL, MSFT, NVDA, AMZN, META, GOOGL, or any mega-cap. Examples: IONQ, RKLB, ASTS, ACHR, JOBY, LUNR, RDDT, MNTS",
-          koRule: "최소 60%는 반드시 소형주여야 합니다 (시총 2조원 미만). 절대로 AAPL/MSFT/NVDA/AMZN 같은 대형주를 포함하지 마세요.",
-          examples: "IONQ, RKLB, ASTS, ACHR, JOBY, LUNR, RDDT, MNTS, HYMC, MVIS, NKLA, SPCE, LIDR, PRCT",
+          label: isKo?"소형주 ($2B 미만 / 코스닥 소형)":"Small Cap (<$2B)",
+          rule: isKo?"70%+ 소형주 ($2B 미만). 대형주 절대 금지. 고위험·고성장 기업 위주.":"70%+ small-cap (<$2B). ABSOLUTELY NO large-caps. High-risk/high-reward only.",
+          forbidden:"AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,AVGO,JPM,V,MA,UNH,XOM,JNJ,PG,WMT,HD,BAC,LLY,ORCL,AMD,COST,MCD",
+          examples:"IONQ,RKLB,ASTS,ACHR,JOBY,LUNR,RDDT,PRCT,ARWR,RXRX,MVIS,KULR,BFLY,OUST,LIDR,LAZR",
         },
         mixed: {
-          label: "Mixed (all market caps)",
-          koLabel: "혼합 (규모 무관)",
-          rule: "Include a genuine MIX of market caps — roughly 1/3 large-cap, 1/3 mid-cap, 1/3 small-cap. Do NOT default to all large-caps.",
-          koRule: "대형/중형/소형주를 고루 섞으세요. 대형주만 추천하지 마세요.",
-          examples: "Mix of AAPL/MSFT (large) + CRWD/NET (mid) + IONQ/RKLB (small)",
+          label: isKo?"혼합 (규모 무관)":"Mixed (all market caps)",
+          rule: isKo?"대형주 30~40% + 중형주 30~40% + 소형주 20~30% 골고루 혼합. 대형주만 나열 절대 금지.":"True mix: 30~40% large + 30~40% mid + 20~30% small. NEVER list only large-caps.",
+          forbidden: null,
+          examples:"Large: AAPL,MSFT | Mid: CRWD,NET,DDOG | Small: IONQ,RKLB,ASTS",
         },
       };
-      const capInfo = marketCapMap[marketCap] || marketCapMap["mixed"];
+      const cap = capMap[marketCap] || capMap.mixed;
 
-      const esgRule = esg >= 7
-        ? (isKo ? "ESG 등급 높은 기업 필수 포함 (Sustainalytics 저위험 기업, 탄소중립 선언 기업 우선)" : "MUST include ESG-rated companies (Sustainalytics low risk, carbon-neutral pledges)")
-        : esg >= 4
-        ? (isKo ? "가능하면 ESG 친화적 기업 선호" : "Prefer ESG-friendly companies when possible")
-        : (isKo ? "ESG 무관 — 수익성 최우선" : "ESG not a factor — prioritize returns");
+      const esgDesc = esg>=7
+        ? (isKo?"ESG 최우선 — 탄소중립 목표 기업, Sustainalytics 저위험 등급 필수":"ESG top priority — must be carbon-neutral pledged, Sustainalytics low-risk")
+        : esg>=4?(isKo?"ESG 선호 — 가능하면 친환경·사회책임 기업 우선":"ESG preferred")
+        : (isKo?"ESG 무관 — 수익성 최우선":"ESG not a factor — returns first");
 
-      // Build the user's answer summary for the AI to cite in reasons
-      const answerSummary = isKo ? `
-=== 이 투자자의 실제 답변 요약 (종목 선정 사유에 반드시 이것을 구체적으로 언급할 것) ===
-• 위험 성향: ${riskLabel}
-• 투자 기간: ${horizonLabel}
-• 수익 목표: ${returnLabel}
-• 종목 구성: ${stockCountLabel}
-• 투자 지역: ${regionsDesc}
-• 관심 섹터: ${sectorsDesc}
-• 투자 스타일: ${styleDesc}
-• 기업 규모: ${isKo ? capInfo.koLabel : capInfo.label}
-• ESG 중요도: ${esg}/10
-` : `
-=== THIS INVESTOR'S ACTUAL SURVEY ANSWERS (MUST be cited specifically in each reason) ===
-• Risk Tolerance: ${riskLabel}
-• Investment Horizon: ${horizonLabel}
-• Return Target: ${returnLabel}
-• Portfolio Size: ${stockCountLabel}
-• Regions: ${regionsDesc}
-• Sectors: ${sectorsDesc}
-• Style: ${styleDesc}
-• Market Cap Preference: ${capInfo.label}
-• ESG Priority: ${esg}/10
-`;
+      const horizonConstraint = horizon==="short"
+        ? (isKo?"단기 촉매(어닝 발표, FDA 승인, M&A 등) 보유 종목 우선. 느린 장기 가치주 제외.":"Near-term catalysts (earnings beat, FDA, M&A). Exclude slow value plays.")
+        : horizon==="ultra"
+        ? (isKo?"강력한 경제적 해자, 장기 복리 성장. 단기 변동성 무관. 배당 재투자 효과 고려.":"Wide economic moat, compounding growth. Ignore short-term volatility.")
+        : (isKo?"성장성과 안정성 균형. 분기 실적 개선 추세 선호.":"Balance growth and stability, prefer improving quarterly trends.");
+
+      const allocGuide = allocations.map((a,i)=>`  Rank${i+1}: ${a}%`).join("\n");
+      const forbLine = cap.forbidden
+        ? (isKo?`\n⛔ 금지 티커 (포함 즉시 오답): ${cap.forbidden}`:`\n⛔ FORBIDDEN (= wrong answer): ${cap.forbidden}`):"";
 
       const systemMsg = isKo
-        ? `당신은 엄격한 규칙을 따르는 전문 포트폴리오 매니저입니다. 사용자의 설문 답변을 100% 반영하여 포트폴리오를 구성하고, 각 종목 선정 사유에는 반드시 사용자가 답한 구체적인 수치와 조건을 언급해야 합니다. 시가총액 규칙을 절대적으로 준수하세요. 반드시 유효한 JSON만 출력하세요.`
-        : isJa
-        ? `あなたは厳格なルールに従うプロのポートフォリオマネージャーです。ユーザーの回答を100%反映し、各銘柄の理由にはユーザーの具体的な回答を必ず言及してください。時価総額ルールを厳守してください。有効なJSONのみ出力してください。`
-        : `You are a strict portfolio manager who MUST follow all rules exactly. Reflect 100% of the investor's survey answers. Each stock reason MUST cite the investor's specific answers (their risk score, horizon, style, etc.). NEVER default to large-caps unless explicitly requested. Output only valid JSON.`;
+        ? `당신은 CFA 보유 전문 포트폴리오 매니저입니다. 아래 규칙을 100% 준수하고, 배분 순위표의 숫자를 정확히 사용하며, 모든 종목 사유에 투자자의 수치를 직접 인용합니다. JSON만 출력하세요. 모든 텍스트는 한국어.`
+        : isJa?`あなたはCFA保有のプロPMです。ルール100%遵守、配分比率は指定通り、各理由に投資家の数値を引用。JSONのみ。全テキスト日本語。`
+        : `You are a CFA-certified portfolio manager. Follow ALL rules 100%, use EXACT pre-assigned allocations, cite investor's specific numbers in every reason. JSON only.`;
 
-      // Forbidden tickers based on market cap selection
-      const forbiddenTickers = marketCap === "small"
-        ? "AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, AVGO, JPM, V, MA, UNH, XOM, JNJ, PG, HD, BAC, WMT, BRK.B, LLY"
-        : marketCap === "mid"
-        ? "AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, AVGO, ORCL, AMD"
-        : null;
+      const sectorRecommendationJson = !hasSectors
+        ? (isKo?`  "aiSectorRecommendation": {"topSectors": ["섹터1","섹터2","섹터3"], "rationale": "이 투자자 프로필에 이 섹터들을 추천하는 이유"},`:`  "aiSectorRecommendation": {"topSectors": ["Sector1","Sector2","Sector3"], "rationale": "why these sectors fit this investor"},`):"";
 
-      const forbiddenLine = forbiddenTickers
-        ? (isKo
-          ? `\n⛔ 절대 금지 종목 (이 티커들을 포함하면 틀린 답입니다): ${forbiddenTickers}`
-          : `\n⛔ FORBIDDEN TICKERS (including any of these = WRONG ANSWER): ${forbiddenTickers}`)
-        : "";
+      const prompt = `
+=== 투자자 프로필 / INVESTOR PROFILE ===
+• 위험성향 / Risk: ${RL}
+• 투자기간 / Horizon: ${HL}
+• 수익목표 / Return Target: ${RT}
+• 종목수 / # Stocks: ${numStocks}개 (집중도 ${stockCount}/10)
+• 투자지역 / Regions: ${regionsDesc}
+• 관심섹터 / Sectors: ${sectorsDesc}
+• 스타일 / Style: ${SL}
+• 기업규모 / Market Cap: ${cap.label}
+• 투자금액 / Amount: ${INV}
+• ESG: ${esgDesc}
+• 기간제약 / Horizon Constraint: ${horizonConstraint}
+${forbLine}
 
-      const prompt = `${answerSummary}
-${forbiddenLine}
+=== MARKET CAP RULE (VIOLATION = ENTIRE ANSWER REJECTED) ===
+${cap.rule}
+Good examples: ${cap.examples}
+${forbLine}
 
-=== #1 PRIORITY: MARKET CAP RULE (MUST FOLLOW OR ANSWER IS INVALID) ===
-MARKET CAP SELECTED: "${isKo ? capInfo.koLabel : capInfo.label}"
-RULE: ${isKo ? capInfo.koRule : capInfo.rule}
-GOOD EXAMPLES FOR THIS SIZE: ${capInfo.examples}
-${forbiddenLine}
+=== PRE-ASSIGNED ALLOCATION RANKS (use EXACTLY — total = 100%) ===
+${allocGuide}
+→ Rank1 = highest conviction stock gets the highest %, Rank${numStocks} = lowest conviction.
+→ You MUST copy these exact percentages into "allocation" fields, in this order.
 
-=== STOCK SELECTION RULES ===
-1. Select EXACTLY ${numStocks} stocks
-2. ${isKo ? capInfo.koRule : capInfo.rule} ${forbiddenLine}
-3. Regions to include: ${regionsDesc}
-4. Sectors to focus on: ${sectorsDesc}
-5. Style: ${styleDesc}
-6. ESG: ${esgRule}
-7. For Korean stocks: use format 005930.KS, 000660.KS, 035420.KS, 035720.KS, 051910.KS (LG Chem), 068270.KS (Celltrion), 207940.KS (Samsung Bio), etc.
-8. For Japanese stocks: 7203.T, 6758.T, 9984.T, 6861.T, 4519.T, 8306.T, etc.
-9. For China ADRs: BABA, JD, PDD, BIDU, NIO, XPEV, BEKE, LI, etc.
-10. Allocations must sum to EXACTLY 100%
-11. sectorBreakdown percentages must sum to EXACTLY 100%
+=== REASON FORMAT (for each stock) ===
+Start: "${isKo?`귀하의 ${RL} 위험성향과 ${HL} 투자기간을 고려할 때,`:`Given your ${RL} risk profile and ${HL} horizon,`}"
+Then: why this stock matches style=${SL}, cap=${cap.label}, target=${RT}
+Then: 1 specific data point (revenue growth %, P/E ratio, market moat, etc.)
+Length: 3~4 sentences.
 
-=== REASON WRITING RULES (CRITICAL) ===
-Each stock's "reason" field MUST:
-- Start by referencing the investor's SPECIFIC answers (e.g., "귀하의 위험 성향 ${riskTolerance}/10과 ${horizonLabel} 투자 기간을 고려할 때..." or "Given your ${riskTolerance}/10 risk tolerance and ${horizonLabel} horizon...")
-- Explain WHY this specific stock fits the investor's risk level (${riskTolerance}/10), time horizon (${horizonLabel}), and style (${styleDesc})
-- Mention the market cap category and why it fits the preference (${isKo ? capInfo.koLabel : capInfo.label})
-- Reference the return target (${returnLabel})
-- Be 3-5 sentences long, professional, specific
-${isKo ? "- 반드시 한국어로 작성" : isJa ? "- 必ず日本語で記述" : "- Write in English"}
+Regional tickers:
+• Korea: 005930.KS(삼성), 000660.KS(SK하이닉스), 035420.KS(NAVER), 035720.KS(카카오), 051910.KS(LG화학), 207940.KS(삼성바이오), 068270.KS(셀트리온), 373220.KS(LG에너지솔루션), 000270.KS(기아), 005380.KS(현대차)
+• Japan: 7203.T(Toyota), 6758.T(Sony), 9984.T(SoftBank), 6861.T(Keyence), 7974.T(Nintendo), 8306.T(MUFG), 4519.T(Chugai), 6367.T(Daikin)
+• China ADRs: BABA,JD,PDD,BIDU,NIO,XPEV,LI,BEKE,VIPS,TAL
+• Europe ADRs: ASML,SAP,NVO,AZN,LVMHY,MC.PA,SIE.DE
 
-${isKo ? "모든 텍스트 필드(reason, summary, expectedReturn, riskLevel, sector, marketCap, investmentNote)는 반드시 한국어로 작성하세요." : isJa ? "全てのテキストフィールドは日本語で記述してください。" : "All text fields in English."}
+${isKo?"모든 텍스트 필드 한국어로 작성.":isJa?"全テキストフィールドは日本語。":"All text fields in English."}
 
-Respond ONLY with valid JSON (no markdown fences):
+Output ONLY valid JSON:
 {
   "portfolio": [
     {
       "symbol": "TICKER",
       "name": "Company Name",
-      "allocation": 20,
-      "reason": "reason citing the investor's specific answers",
-      "sector": "${isKo ? "기술" : "Technology"}",
-      "marketCap": "${isKo ? capInfo.koLabel : capInfo.label}",
+      "allocation": <exact rank allocation>,
+      "reason": "...",
+      "sector": "...",
+      "marketCap": "...",
       "riskLevel": "low|medium|high"
     }
   ],
-  "summary": "${isKo ? "이 투자자의 답변을 바탕으로 한 포트폴리오 설명 2~3문장" : "2-3 sentence overview citing the investor's profile"}",
-  "expectedReturn": "${isKo ? "연 X~X%" : "X~X% annually"}",
-  "riskLevel": "${isKo ? "낮음/중간/높음" : "Low/Moderate/High"}",
-  "sectorBreakdown": [{ "sector": "${isKo ? "섹터명" : "Sector"}", "percentage": 40 }],
-  "investmentNote": "${isKo ? "이 투자자가 주의해야 할 리스크와 모니터링 포인트" : "Key risks and what to monitor for this specific investor"}"
+  "summary": "...",
+  "expectedReturn": "${isKo?"연 X~X%":"X~X% annually"}",
+  "riskLevel": "${isKo?"낮음/중간/높음":"Low/Moderate/High"}",
+  "sectorBreakdown": [{"sector":"...","percentage":40}],
+${sectorRecommendationJson}
+  "investmentNote": "..."
 }`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemMsg },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 4000,
-        temperature: 0.55,
+        messages:[{role:"system",content:systemMsg},{role:"user",content:prompt}],
+        response_format:{type:"json_object"},
+        max_tokens: 4500,
+        temperature: 0.45,
       });
 
       const raw = response.choices[0].message.content || "{}";
       let result: any;
-      try {
-        result = JSON.parse(raw);
-      } catch {
-        return res.status(500).json({ error: "Invalid AI response format" });
+      try { result = JSON.parse(raw); } catch { return res.status(500).json({ error: "Invalid AI response format" }); }
+      if (!result.portfolio || !Array.isArray(result.portfolio)) return res.status(500).json({ error: "Invalid portfolio structure" });
+
+      // === SERVER-SIDE GUARANTEE: override allocations with pre-computed values ===
+      result.portfolio = result.portfolio.slice(0, numStocks).map((stock: any, i: number) => ({
+        ...stock,
+        allocation: allocations[i] !== undefined ? allocations[i] : Math.max(1, Math.floor(100 / numStocks)),
+      }));
+      // Final rounding fix
+      const allTotal = result.portfolio.reduce((s: number, p: any) => s + p.allocation, 0);
+      if (allTotal !== 100 && result.portfolio.length > 0) {
+        result.portfolio[result.portfolio.length - 1].allocation += (100 - allTotal);
       }
 
-      if (!result.portfolio || !Array.isArray(result.portfolio)) {
-        return res.status(500).json({ error: "Invalid portfolio structure" });
+      // Normalize sector breakdown
+      if (Array.isArray(result.sectorBreakdown) && result.sectorBreakdown.length > 0) {
+        const sbTotal = result.sectorBreakdown.reduce((s: number, p: any) => s + (Number(p.percentage) || 0), 0);
+        if (sbTotal > 0 && sbTotal !== 100) {
+          let running = 0;
+          result.sectorBreakdown = result.sectorBreakdown.map((p: any, i: number) => {
+            const pct = i === result.sectorBreakdown.length - 1
+              ? 100 - running
+              : Math.round((Number(p.percentage) / sbTotal) * 100);
+            running += pct;
+            return { ...p, percentage: Math.max(1, pct) };
+          });
+        }
       }
 
       res.json(result);
@@ -3233,6 +3234,7 @@ Respond ONLY with valid JSON (no markdown fences):
 
   return httpServer;
 }
+
 
 async function seedStockData() {
     // Just seed some initial stocks (users are created via auth now)
