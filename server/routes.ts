@@ -2993,6 +2993,123 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
     }
   });
 
+  // === AI Portfolio Builder ===
+  app.post("/api/portfolio/generate", isAuthenticated, async (req, res) => {
+    try {
+      const {
+        riskTolerance = 5, horizon = "medium", returnTarget = 5,
+        stockCount = 5, regions = ["us"], sectors = [], style = "blend",
+        marketCap = "mixed", esg = 3, investmentAmount = "1m_10m", lang = "en"
+      } = req.body;
+
+      const numStocks = stockCount <= 3 ? 5 : stockCount <= 6 ? 10 : stockCount <= 8 ? 15 : 20;
+      const riskProfile = riskTolerance <= 3 ? "conservative" : riskTolerance <= 6 ? "moderate" : "aggressive";
+      const horizonMap: Record<string, string> = {
+        short: "under 3 months (short-term trading)", mid_short: "6 months to 1 year",
+        medium: "1 to 3 years (medium-term)", long: "3 to 10 years", ultra: "10+ years (long-term)"
+      };
+      const regionMap: Record<string, string> = {
+        us: "US (NYSE/NASDAQ)", kr: "Korea (KRX/KOSPI/KOSDAQ)",
+        jp: "Japan (TSE)", cn: "China (NYSE/NASDAQ ADRs)", eu: "European ADRs (NYSE/NASDAQ)"
+      };
+      const styleMap: Record<string, string> = {
+        growth: "growth stocks (high revenue growth, expanding TAM)",
+        value: "value stocks (low P/E, undervalued quality companies)",
+        dividend: "dividend stocks (stable dividends, cash flow positive)",
+        momentum: "momentum stocks (strong price momentum, high RS)",
+        blend: "blend of value and growth"
+      };
+
+      const isKo = lang === "ko";
+      const isJa = lang === "ja";
+
+      const systemMsg = isKo
+        ? `당신은 전문 포트폴리오 매니저입니다. 사용자의 투자 성향에 맞는 맞춤형 포트폴리오를 구성하고, 각 종목 선택 이유를 전문적이고 상세하게 한국어로 설명합니다. 반드시 유효한 JSON만 출력하세요.`
+        : isJa
+        ? `あなたはプロのポートフォリオマネージャーです。ユーザーの投資プロファイルに基づいたカスタムポートフォリオを作成し、各銘柄の選定理由を詳しく日本語で説明します。有効なJSONのみを出力してください。`
+        : `You are a professional portfolio manager. Build a customized stock portfolio based on the user's investment profile, and provide detailed, professional reasoning for each stock selection. Output only valid JSON.`;
+
+      const regionsDesc = (Array.isArray(regions) && regions.length > 0 ? regions : ["us"])
+        .map((r: string) => regionMap[r] || r).join(", ");
+      const sectorsDesc = Array.isArray(sectors) && sectors.length > 0
+        ? sectors.join(", ") : "no specific sector preference (all sectors)";
+
+      const prompt = `Build a personalized investment portfolio for this investor profile:
+
+RISK PROFILE: ${riskProfile} (${riskTolerance}/10)
+INVESTMENT HORIZON: ${horizonMap[horizon] || horizon}
+RETURN TARGET: ${returnTarget}/10 (${returnTarget <= 3 ? "capital preservation ~3%" : returnTarget <= 6 ? "moderate growth 8-15%" : "high growth 20%+"})
+NUMBER OF STOCKS: ${numStocks} stocks
+PREFERRED REGIONS: ${regionsDesc}
+PREFERRED SECTORS: ${sectorsDesc}
+INVESTMENT STYLE: ${styleMap[style] || style}
+MARKET CAP: ${marketCap}
+ESG PRIORITY: ${esg}/10 ${esg >= 7 ? "(must include ESG-compliant companies)" : esg >= 4 ? "(prefer ESG-friendly when possible)" : "(ESG not a priority)"}
+INVESTMENT AMOUNT: ${investmentAmount}
+
+IMPORTANT RULES:
+- Select EXACTLY ${numStocks} stocks
+- For Korean stocks use ticker format: 005930.KS (Samsung), 000660.KS (SK Hynix), etc.
+- For Japanese stocks: 7203.T (Toyota), 6758.T (Sony), etc.  
+- Allocations must sum to exactly 100%
+- Each stock reason must be 3-5 sentences explaining WHY this stock fits THIS investor's specific profile
+- Reason must reference the investor's risk level, horizon, and style preferences
+- sectorBreakdown percentages must also sum to exactly 100%
+- riskLevel for each stock: "low", "medium", or "high"
+${isKo ? "- ALL text fields (reason, summary, expectedReturn, riskLevel, sector, marketCap, investmentNote) must be in Korean" : isJa ? "- ALL text fields must be in Japanese" : "- All text fields in English"}
+
+Respond ONLY with this JSON structure (no markdown, no extra text):
+{
+  "portfolio": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "allocation": 20,
+      "reason": "detailed 3-5 sentence reason referencing investor profile",
+      "sector": "${isKo ? "기술" : "Technology"}",
+      "marketCap": "${isKo ? "대형" : "Large"}",
+      "riskLevel": "low"
+    }
+  ],
+  "summary": "2-3 sentence portfolio overview tailored to the investor",
+  "expectedReturn": "${isKo ? "연 8~15%" : "8~15% annually"}",
+  "riskLevel": "${isKo ? "중간" : "Moderate"}",
+  "sectorBreakdown": [
+    { "sector": "${isKo ? "기술" : "Technology"}", "percentage": 40 }
+  ],
+  "investmentNote": "1-2 sentences on key risk factors and what to monitor"
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemMsg },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 3500,
+        temperature: 0.65,
+      });
+
+      const raw = response.choices[0].message.content || "{}";
+      let result: any;
+      try {
+        result = JSON.parse(raw);
+      } catch {
+        return res.status(500).json({ error: "Invalid AI response format" });
+      }
+
+      if (!result.portfolio || !Array.isArray(result.portfolio)) {
+        return res.status(500).json({ error: "Invalid portfolio structure" });
+      }
+
+      res.json(result);
+    } catch (e: any) {
+      console.error("Portfolio generation error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Seed initial stock data (if empty)
   await seedStockData();
 

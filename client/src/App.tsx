@@ -28,6 +28,7 @@ import GlobalSearch from "@/pages/GlobalSearch";
 import AdvancedDashboard from "@/pages/AdvancedDashboard";
 import HotIssues from "@/pages/HotIssues";
 import EarningsLive from "@/pages/EarningsLive";
+import AIPortfolio from "@/pages/AIPortfolio";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect, useMemo } from "react";
 
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/pro" component={AdvancedDashboard} />
       <Route path="/hot-issues" component={HotIssues} />
       <Route path="/earnings" component={EarningsLive} />
+      <Route path="/ai-portfolio" component={AIPortfolio} />
       <Route component={NotFound} />
     </Switch>
   );
