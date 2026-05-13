@@ -7,7 +7,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   Brain, Sparkles, ChevronRight, ChevronLeft, RotateCcw,
   TrendingUp, Shield, Target, Globe, Zap, Leaf, DollarSign,
-  Building2, BarChart3, CheckCircle2, AlertCircle, BookOpen, RefreshCw
+  Building2, BarChart3, CheckCircle2, AlertCircle, BookOpen, RefreshCw,
+  ChevronDown, User2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
@@ -243,6 +244,7 @@ export default function AIPortfolio() {
   const [result, setResult] = useState<PortfolioResult | null>(null);
   const [expandedStocks, setExpandedStocks] = useState<Set<string>>(new Set());
   const [genError, setGenError] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const portfolioMutation = useMutation({
     mutationFn: async (payload: object) => {
@@ -648,6 +650,101 @@ export default function AIPortfolio() {
                 <RefreshCw className="w-3 h-3" />{L.rebuild}
               </button>
             </div>
+
+            {/* My Investment Profile (collapsible) */}
+            {(() => {
+              const horizonLabels: Record<string, string> = {
+                short:     lang === "ko" ? "3개월 미만" : "Under 3mo",
+                mid_short: lang === "ko" ? "6개월~1년" : "6mo~1yr",
+                medium:    lang === "ko" ? "1~3년" : "1~3 yrs",
+                long:      lang === "ko" ? "3~10년" : "3~10 yrs",
+                ultra:     lang === "ko" ? "10년 이상" : "10+ yrs",
+              };
+              const styleLabels: Record<string, string> = {
+                growth:   lang === "ko" ? "성장주" : "Growth",
+                value:    lang === "ko" ? "가치주" : "Value",
+                dividend: lang === "ko" ? "배당주" : "Dividend",
+                momentum: lang === "ko" ? "모멘텀" : "Momentum",
+                blend:    lang === "ko" ? "혼합형" : "Blend",
+              };
+              const capLabels: Record<string, string> = {
+                large: lang === "ko" ? "대형주" : "Large Cap",
+                mid:   lang === "ko" ? "중형주" : "Mid Cap",
+                small: lang === "ko" ? "소형주" : "Small Cap",
+                mixed: lang === "ko" ? "혼합" : "Mixed",
+              };
+              const regionLabelMap: Record<string, string> = {
+                us: "🇺🇸", kr: "🇰🇷", jp: "🇯🇵", cn: "🇨🇳", eu: "🇪🇺",
+              };
+              const sectorLabelMap: Record<string, string> = {
+                tech: lang === "ko" ? "기술" : "Tech",
+                finance: lang === "ko" ? "금융" : "Finance",
+                healthcare: lang === "ko" ? "헬스케어" : "Health",
+                energy: lang === "ko" ? "에너지" : "Energy",
+                consumer: lang === "ko" ? "소비재" : "Consumer",
+                industrial: lang === "ko" ? "산업재" : "Industrial",
+                materials: lang === "ko" ? "소재" : "Materials",
+                real_estate: lang === "ko" ? "부동산" : "Real Estate",
+                utilities: lang === "ko" ? "유틸리티" : "Utilities",
+              };
+              const profileItems = [
+                { label: lang === "ko" ? "위험 성향" : "Risk", value: `${answers.riskTolerance}/10`, bar: answers.riskTolerance / 10, color: answers.riskTolerance >= 7 ? "#ef4444" : answers.riskTolerance >= 4 ? "#f59e0b" : "#22c55e" },
+                { label: lang === "ko" ? "투자 기간" : "Horizon", value: horizonLabels[answers.horizon] || answers.horizon },
+                { label: lang === "ko" ? "수익 목표" : "Return", value: `${answers.returnTarget}/10`, bar: answers.returnTarget / 10, color: "#3b82f6" },
+                { label: lang === "ko" ? "종목 집중도" : "Diversity", value: `${answers.stockCount}/10`, bar: answers.stockCount / 10, color: "#8b5cf6" },
+                { label: lang === "ko" ? "투자 스타일" : "Style", value: styleLabels[answers.style] || answers.style },
+                { label: lang === "ko" ? "기업 규모" : "Cap", value: capLabels[answers.marketCap] || answers.marketCap },
+                { label: lang === "ko" ? "지역" : "Regions", value: (answers.regions as string[]).map((r: string) => regionLabelMap[r] || r).join(" ") || "-" },
+                { label: lang === "ko" ? "관심 섹터" : "Sectors", value: (answers.sectors as string[]).length > 0 ? (answers.sectors as string[]).map((s: string) => sectorLabelMap[s] || s).join(", ") : (lang === "ko" ? "전 섹터" : "All") },
+                { label: "ESG", value: `${answers.esg}/10`, bar: answers.esg / 10, color: "#22c55e" },
+              ];
+              return (
+                <div className="mx-4 md:mx-8 mb-4">
+                  <button
+                    onClick={() => setProfileOpen(v => !v)}
+                    className="w-full flex items-center gap-2 px-4 py-3 bg-primary/5 hover:bg-primary/10 border border-primary/20 rounded-2xl transition-colors"
+                    data-testid="btn-toggle-profile"
+                  >
+                    <User2 className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-semibold text-primary flex-1 text-left">
+                      {lang === "ko" ? "내 투자 프로필 (AI가 반영한 답변)" : "My Investment Profile (used by AI)"}
+                    </span>
+                    <ChevronDown className={cn("w-4 h-4 text-primary transition-transform duration-200", profileOpen && "rotate-180")} />
+                  </button>
+                  <AnimatePresence>
+                    {profileOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pt-2 grid grid-cols-1 gap-1.5">
+                          {profileItems.map((item, i) => (
+                            <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-card rounded-xl border border-border">
+                              <span className="text-[10px] text-muted-foreground w-20 shrink-0">{item.label}</span>
+                              <div className="flex-1 min-w-0">
+                                {item.bar !== undefined ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full" style={{ width: `${item.bar * 100}%`, background: item.color }} />
+                                    </div>
+                                    <span className="text-[11px] font-bold text-foreground shrink-0">{item.value}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-[11px] font-semibold text-foreground truncate">{item.value}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })()}
 
             {/* Key stats */}
             <div className="grid grid-cols-2 gap-3 px-4 md:px-8 mb-4">
