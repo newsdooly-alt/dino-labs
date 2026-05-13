@@ -185,9 +185,6 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <h1 className="text-2xl font-display font-bold mb-4" data-testid="text-dashboard-title">
-          {isKo ? `안녕하세요, ${displayName} 👋` : `Hi, ${displayName} 👋`}
-        </h1>
         <button
           type="button"
           onClick={() => navigate("/search")}
