@@ -21,6 +21,8 @@ interface PortfolioStock {
   sector: string;
   marketCap: string;
   riskLevel: "low" | "medium" | "high";
+  growthRate?: string;
+  pe?: string;
 }
 
 interface PortfolioResult {
@@ -726,7 +728,8 @@ export default function AIPortfolio() {
                 "10m_100m": lang === "ko" ? "💰 $10K~$100K" : "💰 $10K~$100K",
                 over100m: lang === "ko" ? "🏦 $100K+" : "🏦 $100K+",
               };
-              const numStocksResult = answers.stockCount <= 2 ? 5 : answers.stockCount <= 4 ? 7 : answers.stockCount <= 6 ? 10 : answers.stockCount <= 8 ? 15 : 20;
+              const stockCountMap: Record<number,number> = {1:5,2:7,3:9,4:11,5:13,6:15,7:18,8:20,9:22,10:25};
+              const numStocksResult = stockCountMap[Math.round(answers.stockCount)] ?? result.portfolio.length;
               const profileItems = [
                 { label: lang === "ko" ? "위험 성향" : "Risk", value: `${answers.riskTolerance}/10`, bar: answers.riskTolerance / 10, color: answers.riskTolerance >= 7 ? "#ef4444" : answers.riskTolerance >= 4 ? "#f59e0b" : "#22c55e" },
                 { label: lang === "ko" ? "투자 기간" : "Horizon", value: horizonLabels[answers.horizon] || answers.horizon },
@@ -934,8 +937,28 @@ export default function AIPortfolio() {
                             <span className="text-[9px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted/50 border border-border">
                               {stock.sector}
                             </span>
+                            {stock.marketCap && (
+                              <span className="text-[9px] text-blue-400/80 px-1.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+                                {stock.marketCap}
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{localName}</p>
+                          {/* Growth & Valuation mini-badges */}
+                          {(stock.growthRate || stock.pe) && (
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              {stock.growthRate && stock.growthRate !== "N/A" && (
+                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                                  📈 {lang === "ko" ? "성장" : "Growth"} {stock.growthRate}
+                                </span>
+                              )}
+                              {stock.pe && stock.pe !== "N/A" && (
+                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                  PER {stock.pe}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Allocation */}

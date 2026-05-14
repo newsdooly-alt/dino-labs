@@ -3006,17 +3006,29 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
       const isJa = lang === "ja";
       const L: "ko"|"en"|"ja" = isKo ? "ko" : isJa ? "ja" : "en";
 
-      // Pre-compute allocations server-side — guarantees EXACTLY 100%
-      const numStocks = stockCount <= 2 ? 5 : stockCount <= 4 ? 7 : stockCount <= 6 ? 10 : stockCount <= 8 ? 15 : 20;
+      // Map slider (1-10) → actual stock count: min=5, max=25
+      const stockCountMap: Record<number,number> = {1:5,2:7,3:9,4:11,5:13,6:15,7:18,8:20,9:22,10:25};
+      const numStocks = stockCountMap[Math.round(stockCount)] ?? Math.round(5 + (stockCount - 1) / 9 * 20);
+
+      // Pre-compute allocations server-side — GUARANTEES exactly 100%, rank order preserved
+      // Uses geometric decay (Largest Remainder Method for rounding)
       const computeAllocs = (n: number, conc: number): number[] => {
-        let raw: number[];
-        if (conc <= 3) raw = Array.from({length:n},(_,i)=>Math.max(2,Math.round(42*Math.pow(0.70,i))));
-        else if (conc <= 6) raw = Array.from({length:n},(_,i)=>Math.max(2,Math.round(24*Math.pow(0.86,i))));
-        else { const b=Math.floor(100/n), r=100-b*n; return Array.from({length:n},(_,i)=>b+(i<r?1:0)); }
-        const sum=raw.reduce((a,b)=>a+b,0);
-        const scaled=raw.map(w=>Math.round(w/sum*100));
-        scaled[scaled.length-1]+=(100-scaled.reduce((a,b)=>a+b,0));
-        return scaled;
+        // decay: 0.60 (very concentrated, strong skew) → 0.96 (gentle slope — still varied, never equal)
+        const decay = conc <= 1 ? 0.60 : conc <= 2 ? 0.65 : conc <= 3 ? 0.70 : conc <= 4 ? 0.76 : conc <= 5 ? 0.82 : conc <= 6 ? 0.86 : conc <= 7 ? 0.90 : conc <= 8 ? 0.92 : conc <= 9 ? 0.94 : 0.96;
+        const raw = Array.from({length: n}, (_, i) => Math.pow(decay, i));
+        const rawSum = raw.reduce((a, b) => a + b, 0);
+        const exact = raw.map(w => (w / rawSum) * 100);
+        // Largest Remainder Method: floor each value (min 1%), distribute leftover to highest fractional parts
+        const floored = exact.map(v => Math.max(1, Math.floor(v)));
+        let remainder = 100 - floored.reduce((a, b) => a + b, 0);
+        // Sort by fractional part descending; pick indices to bump
+        const fracs = exact.map((v, i) => ({ i, frac: v - Math.floor(Math.max(1, v)) }))
+          .sort((a, b) => b.frac - a.frac);
+        for (let j = 0; j < remainder && j < fracs.length; j++) floored[fracs[j].i]++;
+        // Final safety: if sum still off (rare edge case with many min-1 stocks), adjust index 0
+        const finalSum = floored.reduce((a, b) => a + b, 0);
+        if (finalSum !== 100) floored[0] = Math.max(1, floored[0] + (100 - finalSum));
+        return floored;
       };
       const allocations = computeAllocs(numStocks, stockCount);
 
@@ -3113,22 +3125,42 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
 
       const allocGuide = allocations.map((a,i)=>`  Rank${i+1}: ${a}%`).join("\n");
       const forbLine = cap.forbidden
-        ? (isKo?`\n⛔ 금지 티커 (포함 즉시 오답): ${cap.forbidden}`:`\n⛔ FORBIDDEN (= wrong answer): ${cap.forbidden}`):"";
+        ? (isKo?`⛔ 금지 티커 (포함 즉시 오답): ${cap.forbidden}`:`⛔ FORBIDDEN tickers (instant disqualification): ${cap.forbidden}`):"";
 
       const systemMsg = isKo
-        ? `당신은 CFA 보유 전문 포트폴리오 매니저입니다. 아래 규칙을 100% 준수하고, 배분 순위표의 숫자를 정확히 사용하며, 모든 종목 사유에 투자자의 수치를 직접 인용합니다. JSON만 출력하세요. 모든 텍스트는 한국어.`
-        : isJa?`あなたはCFA保有のプロPMです。ルール100%遵守、配分比率は指定通り、各理由に投資家の数値を引用。JSONのみ。全テキスト日本語。`
-        : `You are a CFA-certified portfolio manager. Follow ALL rules 100%, use EXACT pre-assigned allocations, cite investor's specific numbers in every reason. JSON only.`;
+        ? `당신은 CFA Level 3 자격증을 보유한 전문 포트폴리오 매니저입니다. 투자자 프로필에 최적화된 ${numStocks}개 종목을 선정하고, 배분 순위표의 숫자를 반드시 그대로 사용하세요. JSON만 출력. 모든 텍스트는 한국어.`
+        : isJa ? `あなたはCFAレベル3のプロPMです。${numStocks}銘柄を選定し、配分比率は指定通り使用。JSONのみ出力。全テキスト日本語。`
+        : `You are a CFA Level 3 certified portfolio manager. Select exactly ${numStocks} stocks optimized for this investor's profile. Use allocation percentages EXACTLY as specified. Output JSON only.`;
 
       const sectorRecommendationJson = !hasSectors
-        ? (isKo?`  "aiSectorRecommendation": {"topSectors": ["섹터1","섹터2","섹터3"], "rationale": "이 투자자 프로필에 이 섹터들을 추천하는 이유"},`:`  "aiSectorRecommendation": {"topSectors": ["Sector1","Sector2","Sector3"], "rationale": "why these sectors fit this investor"},`):"";
+        ? (isKo
+          ? `  "aiSectorRecommendation": {"topSectors": ["섹터1","섹터2","섹터3"], "rationale": "이 투자자 프로필에 이 섹터들을 추천하는 이유 (위험성향·기간·목표 수익률 반영 2~3문장)"},`
+          : `  "aiSectorRecommendation": {"topSectors": ["Sector1","Sector2","Sector3"], "rationale": "2-3 sentence rationale citing risk=${stockCount}/10, horizon=${horizon}, target=${RT}"},`)
+        : "";
+
+      // Conviction ranking criteria for the AI
+      const convictionCriteria = isKo
+        ? `순위 결정 기준 (Rank1 = 가장 확신 높은 종목):
+  1. 매출 성장률 (YoY Revenue Growth %) — 목표 수익률 ${RT}에 부합하는지
+  2. 시장 점유율 & 경제적 해자 (독점적 지위, 브랜드, 특허, 네트워크 효과)
+  3. 리스크 조정 수익 (Sharpe Ratio 추정 — 변동성 대비 수익)
+  4. 밸류에이션 (PEG Ratio, P/E vs 섹터 평균)
+  5. 유동성 (일 거래량, 시총 규모) — 투자금액 ${INV} 고려
+  ※ 같은 섹터 종목 과도 집중 금지: 동일 섹터 최대 ${numStocks <= 7 ? 2 : numStocks <= 15 ? 3 : 4}개 초과 불가`
+        : `Conviction ranking criteria (Rank1 = highest conviction):
+  1. Revenue growth rate (YoY %) aligned with return target ${RT}
+  2. Market share & economic moat (pricing power, patents, network effects, brand)
+  3. Risk-adjusted return (estimated Sharpe — return per unit of volatility)
+  4. Valuation attractiveness (PEG ratio, P/E vs sector average)
+  5. Liquidity (daily volume, market cap) given investment size ${INV}
+  ⚠ Sector diversification: NO more than ${numStocks <= 7 ? 2 : numStocks <= 15 ? 3 : 4} stocks from the same sector`;
 
       const prompt = `
 === 투자자 프로필 / INVESTOR PROFILE ===
 • 위험성향 / Risk: ${RL}
 • 투자기간 / Horizon: ${HL}
 • 수익목표 / Return Target: ${RT}
-• 종목수 / # Stocks: ${numStocks}개 (집중도 ${stockCount}/10)
+• 종목수 / # Stocks: EXACTLY ${numStocks}개
 • 투자지역 / Regions: ${regionsDesc}
 • 관심섹터 / Sectors: ${sectorsDesc}
 • 스타일 / Style: ${SL}
@@ -3136,58 +3168,62 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
 • 투자금액 / Amount: ${INV}
 • ESG: ${esgDesc}
 • 기간제약 / Horizon Constraint: ${horizonConstraint}
-${forbLine}
 
 === MARKET CAP RULE (VIOLATION = ENTIRE ANSWER REJECTED) ===
 ${cap.rule}
-Good examples: ${cap.examples}
+Suggested examples: ${cap.examples}
 ${forbLine}
 
-=== PRE-ASSIGNED ALLOCATION RANKS (use EXACTLY — total = 100%) ===
+=== CONVICTION RANKING — how to order stocks from Rank1 to Rank${numStocks} ===
+${convictionCriteria}
+
+=== PRE-ASSIGNED ALLOCATION WEIGHTS (copy EXACTLY into "allocation" field) ===
 ${allocGuide}
-→ Rank1 = highest conviction stock gets the highest %, Rank${numStocks} = lowest conviction.
-→ You MUST copy these exact percentages into "allocation" fields, in this order.
+→ Rank1 stock (highest conviction) gets the HIGHEST percentage shown above.
+→ Rank${numStocks} stock (lowest conviction) gets the LOWEST percentage.
+→ These numbers already sum to exactly 100. Do NOT modify them. Do NOT round them differently.
 
-=== REASON FORMAT (for each stock) ===
-Start: "${isKo?`귀하의 ${RL} 위험성향과 ${HL} 투자기간을 고려할 때,`:`Given your ${RL} risk profile and ${HL} horizon,`}"
-Then: why this stock matches style=${SL}, cap=${cap.label}, target=${RT}
-Then: 1 specific data point (revenue growth %, P/E ratio, market moat, etc.)
-Length: 3~4 sentences.
+=== REASON FORMAT (for each stock, 3~4 sentences) ===
+Line 1: "${isKo?`귀하의 ${RL} 위험성향과 ${HL} 투자기간을 고려할 때,`:`Given your ${RL} risk profile and ${HL} horizon,`} [why this stock fits]"
+Line 2: [1 specific quantitative data point: revenue growth %, P/E, market share %, dividend yield, etc.]
+Line 3: [how this stock contributes to the overall portfolio: diversification role, moat, catalysts]
 
-Regional tickers:
-• Korea: 005930.KS(삼성), 000660.KS(SK하이닉스), 035420.KS(NAVER), 035720.KS(카카오), 051910.KS(LG화학), 207940.KS(삼성바이오), 068270.KS(셀트리온), 373220.KS(LG에너지솔루션), 000270.KS(기아), 005380.KS(현대차)
-• Japan: 7203.T(Toyota), 6758.T(Sony), 9984.T(SoftBank), 6861.T(Keyence), 7974.T(Nintendo), 8306.T(MUFG), 4519.T(Chugai), 6367.T(Daikin)
-• China ADRs: BABA,JD,PDD,BIDU,NIO,XPEV,LI,BEKE,VIPS,TAL
-• Europe ADRs: ASML,SAP,NVO,AZN,LVMHY,MC.PA,SIE.DE
+=== REGIONAL TICKER REFERENCE ===
+• Korea: 005930.KS(삼성전자), 000660.KS(SK하이닉스), 035420.KS(NAVER), 035720.KS(카카오), 051910.KS(LG화학), 207940.KS(삼성바이오로직스), 068270.KS(셀트리온), 373220.KS(LG에너지솔루션), 000270.KS(기아), 005380.KS(현대차), 086790.KS(하나금융), 105560.KS(KB금융), 055550.KS(신한지주), 032830.KS(삼성생명), 003550.KS(LG)
+• Japan: 7203.T(Toyota), 6758.T(Sony), 9984.T(SoftBank), 6861.T(Keyence), 7974.T(Nintendo), 8306.T(MUFG), 4519.T(Chugai), 6367.T(Daikin), 9432.T(NTT), 6501.T(Hitachi), 7267.T(Honda), 4063.T(Shin-Etsu), 2914.T(JT), 8001.T(Itochu)
+• China ADRs: BABA,JD,PDD,BIDU,NIO,XPEV,LI,BEKE,VIPS,TAL,FUTU,TIGR
+• Europe ADRs: ASML,SAP,NVO,AZN,LVMHY,SIE.DE,TTE,UL,BN.PA,AIR.PA,IDEXY,ALIZF
 
-${isKo?"모든 텍스트 필드 한국어로 작성.":isJa?"全テキストフィールドは日本語。":"All text fields in English."}
+${isKo?"⚠ 모든 텍스트 필드(reason, summary, investmentNote)는 반드시 한국어로 작성.":isJa?"⚠ 全テキストフィールドは必ず日本語で記述。":"⚠ All text fields in English."}
 
-Output ONLY valid JSON:
+Output ONLY valid JSON (no markdown, no extra text):
 {
   "portfolio": [
     {
       "symbol": "TICKER",
-      "name": "Company Name",
-      "allocation": <exact rank allocation>,
+      "name": "${isKo?"회사명 (한국어)":"Company Name"}",
+      "allocation": <integer from rank table above>,
       "reason": "...",
-      "sector": "...",
-      "marketCap": "...",
-      "riskLevel": "low|medium|high"
+      "sector": "${isKo?"섹터명":"Sector name"}",
+      "marketCap": "${isKo?"대형주|중형주|소형주":"Large|Mid|Small Cap"}",
+      "riskLevel": "low|medium|high",
+      "growthRate": "${isKo?"매출 YoY% 또는 N/A":"Revenue YoY% or N/A"}",
+      "pe": "${isKo?"PER 수치 또는 N/A":"P/E ratio or N/A"}"
     }
   ],
-  "summary": "...",
+  "summary": "${isKo?"포트폴리오 전략 요약 (3~4문장, 투자자 프로필 수치 인용)":"Portfolio strategy summary (3-4 sentences citing investor's profile numbers)"}",
   "expectedReturn": "${isKo?"연 X~X%":"X~X% annually"}",
-  "riskLevel": "${isKo?"낮음/중간/높음":"Low/Moderate/High"}",
-  "sectorBreakdown": [{"sector":"...","percentage":40}],
+  "riskLevel": "${isKo?"낮음|중간|높음":"Low|Moderate|High"}",
+  "sectorBreakdown": [{"sector":"${isKo?"섹터":"Sector"}","percentage":40}],
 ${sectorRecommendationJson}
-  "investmentNote": "..."
+  "investmentNote": "${isKo?"투자 금액·유동성·특이사항 주의점":"Liquidity, amount-specific notes, key risks"}"
 }`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages:[{role:"system",content:systemMsg},{role:"user",content:prompt}],
         response_format:{type:"json_object"},
-        max_tokens: 4500,
+        max_tokens: 7000,
         temperature: 0.45,
       });
 
