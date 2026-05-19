@@ -860,14 +860,21 @@ def get_earnings(symbol):
                 date_col = ed_reset.columns[0]
                 for _, row in ed_reset.iterrows():
                     raw_date = row.get(date_col)
-                    date_str = str(raw_date)[:10] if raw_date is not None else None
+                    if raw_date is None:
+                        continue
+                    # Preserve full ISO timestamp with timezone (yfinance earnings_dates has tz-aware timestamps)
+                    if hasattr(raw_date, 'isoformat'):
+                        date_full = raw_date.isoformat()
+                    else:
+                        date_full = str(raw_date)
+                    date_str = date_full[:10]
                     if not date_str or date_str in ("None", "nan", "NaT"):
                         continue
                     eps_est = row.get("EPS Estimate")
                     eps_act = row.get("Reported EPS")
                     surp    = row.get("Surprise(%)")
                     entry = {
-                        "date":        date_str,
+                        "date":        date_full,
                         "epsEstimate": float(eps_est) if eps_est is not None and pd.notna(eps_est) else None,
                         "epsActual":   float(eps_act) if eps_act is not None and pd.notna(eps_act) else None,
                         "surprisePct": float(surp)    if surp    is not None and pd.notna(surp)    else None,
@@ -1154,11 +1161,21 @@ def get_earnings_upcoming():
             dates = cal.get("Earnings Date")
             if not dates or len(dates) == 0:
                 return
-            next_date = str(dates[0])[:10]
-            # Skip dates more than 90 days out
+            raw_ts = dates[0]
+            next_date = str(raw_ts)[:10]
+            # Preserve full ISO timestamp with timezone if available (for accurate local-time display)
+            if hasattr(raw_ts, 'isoformat'):
+                next_date_full = raw_ts.isoformat()
+            else:
+                next_date_full = str(raw_ts)
+            # Skip dates already in the past (stock already reported) or more than 90 days out
             from datetime import datetime as _dt
             try:
-                if (_dt.strptime(next_date, "%Y-%m-%d") - _dt.now()).days > 90:
+                next_dt = _dt.strptime(next_date, "%Y-%m-%d")
+                days_diff = (next_dt - _dt.now()).days
+                if days_diff < -1:  # More than 1 day in the past → already reported
+                    return
+                if days_diff > 90:  # Too far out
                     return
             except Exception:
                 return
@@ -1189,7 +1206,7 @@ def get_earnings_upcoming():
             entry = {
                 "symbol": symbol,
                 "name": name,
-                "nextEarningsDate": next_date,
+                "nextEarningsDate": next_date_full,
                 "epsEstimate": float(avg_eps) if avg_eps is not None else None,
                 "sector": sector,
                 "currentPrice": price,

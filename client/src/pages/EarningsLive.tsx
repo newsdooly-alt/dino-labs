@@ -149,8 +149,15 @@ function revenueChartUnit(symbol: string): { divisor: number; label: string } {
 function toLocalDateLabel(isoDate: string | null, tz: string, lang: string): string {
   if (!isoDate) return "—";
   try {
-    // Assume 4 PM ET for US stocks (typical earnings release); Korean stocks release at open
-    const d = new Date(isoDate + "T16:00:00-05:00");
+    // If the string already contains time info (T or space separator), use it directly.
+    // yfinance returns full ISO timestamps like "2025-04-24T17:00:00-04:00".
+    // For bare dates (YYYY-MM-DD) fall back to 4 PM ET (typical US earnings release time).
+    const hasTime = isoDate.includes("T") || (isoDate.length > 10 && isoDate[10] === " ");
+    const normalized = hasTime
+      ? isoDate.replace(" ", "T")          // "2025-04-24 17:00:00-0400" → valid ISO
+      : isoDate + "T16:00:00-05:00";        // bare date → assume 4 PM ET
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return isoDate.slice(0, 10);
     return new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : lang === "ja" ? "ja-JP" : "en-US", {
       timeZone: tz, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true,
     }).format(d);
@@ -162,7 +169,10 @@ function toLocalDateLabel(isoDate: string | null, tz: string, lang: string): str
 function toLocalDateOnly(isoDate: string | null, tz: string, lang: string): string {
   if (!isoDate) return "—";
   try {
-    const d = new Date(isoDate + "T00:00:00");
+    const hasTime = isoDate.includes("T") || (isoDate.length > 10 && isoDate[10] === " ");
+    const normalized = hasTime ? isoDate.replace(" ", "T") : isoDate + "T00:00:00";
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return isoDate.slice(0, 10);
     return new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : lang === "ja" ? "ja-JP" : "en-US", {
       timeZone: tz, month: "short", day: "numeric", year: "numeric",
     }).format(d);
@@ -179,7 +189,10 @@ function getTzAbbr(tz: string): string {
 }
 
 function quarterLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
+  // Handle both full ISO timestamps and bare date strings
+  const hasTime = dateStr.includes("T") || (dateStr.length > 10 && dateStr[10] === " ");
+  const normalized = hasTime ? dateStr.replace(" ", "T") : dateStr + "T00:00:00";
+  const d = new Date(normalized);
   const q = Math.floor(d.getMonth() / 3) + 1;
   return `Q${q}'${String(d.getFullYear()).slice(2)}`;
 }
@@ -350,14 +363,16 @@ function EpsTooltip({ active, payload, label, symbol }: any) {
 /** True if the stock's next earnings date is today (local date) */
 function isEarningsDay(nextEarningsDate: string | null): boolean {
   if (!nextEarningsDate) return false;
-  // en-CA locale gives YYYY-MM-DD in local time
-  return nextEarningsDate === new Date().toLocaleDateString("en-CA");
+  // en-CA locale gives YYYY-MM-DD in local time; compare only the date portion
+  return nextEarningsDate.slice(0, 10) === new Date().toLocaleDateString("en-CA");
 }
 
 /** True if earnings were released within the last 3 days */
 function isJustReported(lastEarningsDate: string | null): boolean {
   if (!lastEarningsDate) return false;
-  const diff = (Date.now() - new Date(lastEarningsDate + "T00:00:00").getTime()) / 86400000;
+  const hasTime = lastEarningsDate.includes("T") || (lastEarningsDate.length > 10 && lastEarningsDate[10] === " ");
+  const normalized = hasTime ? lastEarningsDate.replace(" ", "T") : lastEarningsDate + "T00:00:00";
+  const diff = (Date.now() - new Date(normalized).getTime()) / 86400000;
   return diff >= 0 && diff <= 3;
 }
 
@@ -594,11 +609,11 @@ export default function EarningsLive() {
     }));
   }, [earningsData, revUnit]);
 
-  // Calendar: group upcoming by date
+  // Calendar: group upcoming by date (use only the YYYY-MM-DD portion as key)
   const earningsByDate = useMemo(() => {
     const map: Record<string, UpcomingItem[]> = {};
     for (const item of upcomingData?.upcoming || []) {
-      const d = item.nextEarningsDate;
+      const d = item.nextEarningsDate.slice(0, 10);
       if (!map[d]) map[d] = [];
       map[d].push(item);
     }

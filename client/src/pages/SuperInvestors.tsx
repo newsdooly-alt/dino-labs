@@ -197,12 +197,51 @@ export default function SuperInvestors() {
     },
   });
 
+  // DB sync status for all investors — used to show live portfolio values in the list view
+  const { data: dbStatus, refetch: refetchDbStatus } = useQuery<{
+    investors: Array<{
+      investorId: string;
+      synced: boolean;
+      reportDate: string | null;
+      lastSynced: string | null;
+      holdingCount: number;
+      totalValueUSD: number;
+    }>;
+  }>({
+    queryKey: ["/api/13f-db-status"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  interface DbStatusEntry {
+    investorId: string;
+    synced: boolean;
+    reportDate: string | null;
+    lastSynced: string | null;
+    holdingCount: number;
+    totalValueUSD: number;
+  }
+
+  const dbStatusMap = useMemo(() => {
+    const m: Record<string, DbStatusEntry> = {};
+    for (const inv of dbStatus?.investors ?? []) {
+      m[inv.investorId] = inv;
+    }
+    return m;
+  }, [dbStatus]);
+
   const syncAllMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/13f-sync-all");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/13f"] });
+      // Poll DB status every 10s for 3 min to detect when background sync updates holdings
+      let polls = 0;
+      const interval = setInterval(() => {
+        polls++;
+        refetchDbStatus();
+        if (polls >= 18) clearInterval(interval);
+      }, 10000);
     },
   });
 
@@ -570,30 +609,48 @@ export default function SuperInvestors() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-col gap-3">
-                      <div className="flex justify-between items-end">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                            {t.portfolio_value}
-                          </p>
-                          <p className="text-xl font-display font-bold text-primary">
-                            {formatAum(investor.aum, investor.aumUnit, lang, krwRate)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary text-[10px]">
-                            {investor.country}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] border-muted"
-                            style={{ backgroundColor: investor.avatarColor + "15", color: investor.avatarColor }}
-                          >
-                            {lang === "ko"
-                              ? getCategoryLabel(investor.category).ko
-                              : getCategoryLabel(investor.category).en}
-                          </Badge>
-                        </div>
-                      </div>
+                      {(() => {
+                        const dbInv = dbStatusMap[investor.id];
+                        const hasDbValue = dbInv?.synced && dbInv.totalValueUSD > 0;
+                        // DB value is in $thousands — convert to full USD
+                        const dbValueUSD = hasDbValue ? dbInv.totalValueUSD * 1000 : 0;
+                        const syncedDate = dbInv?.lastSynced
+                          ? new Date(dbInv.lastSynced).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric", year: "2-digit" })
+                          : null;
+                        return (
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1">
+                                {t.portfolio_value}
+                                {hasDbValue && (
+                                  <span className="normal-case font-normal text-emerald-500 text-[9px]">
+                                    · SEC {syncedDate ? (lang === "ko" ? `${syncedDate} 기준` : syncedDate) : ""}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xl font-display font-bold text-primary">
+                                {hasDbValue
+                                  ? formatValueUSD(dbValueUSD, lang, krwRate)
+                                  : formatAum(investor.aum, investor.aumUnit, lang, krwRate)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary text-[10px]">
+                                {investor.country}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-muted"
+                                style={{ backgroundColor: investor.avatarColor + "15", color: investor.avatarColor }}
+                              >
+                                {lang === "ko"
+                                  ? getCategoryLabel(investor.category).ko
+                                  : getCategoryLabel(investor.category).en}
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <div className="flex flex-wrap gap-1.5">
                         {(lang === "ko" ? investor.styleTagsKo : investor.styleTagsEn).slice(0, 2).map((tag) => (
                           <Badge key={tag} variant="secondary" className="text-[10px] font-bold uppercase tracking-tighter">
