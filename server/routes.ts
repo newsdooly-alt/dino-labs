@@ -3268,6 +3268,80 @@ ${sectorRecommendationJson}
   // Seed initial stock data (if empty)
   await seedStockData();
 
+  // ── AI Stock Chatbot ──────────────────────────────────────────────────────────
+  // POST /api/chat/stock — Expert stock market AI that explains concepts simply
+  app.post("/api/chat/stock", isAuthenticated, async (req, res) => {
+    const { message, history = [], lang = "ko" } = req.body;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "message required" });
+    }
+
+    try {
+      // Detect potential ticker symbols in the user's message (uppercase 1-5 chars, optional suffix)
+      const tickerRegex = /\b([A-Z]{1,5}(?:\.[A-Z]{1,2})?)\b/g;
+      const STOP = new Set(["I","A","AN","THE","IS","WAS","ARE","FOR","AND","OR","BUT","IN","ON","AT","TO","OF","IF","IT","AI","PE","EPS","ETF","S&P","GDP","CPI","IPO","ROE","EV","FCF","DCF","ESG","USD","KRW","JPY","EUR","CEO","CFO","CTO","US","UK","EU","KR","JP","BE","MY"]);
+      const rawMessage = message.toUpperCase();
+      const raw = [...new Set((rawMessage.match(tickerRegex) || []))];
+      const tickers = raw.filter(t => !STOP.has(t) && t.length >= 2).slice(0, 3);
+
+      // Fetch live stock data for detected tickers
+      let stockContext = "";
+      if (tickers.length > 0) {
+        try {
+          const quotes = await getMultipleQuotes(tickers);
+          const lines = Object.entries(quotes)
+            .filter(([, q]) => q && (q as any).price)
+            .map(([sym, q]: [string, any]) =>
+              `${sym}: $${q.price?.toFixed(2)} (${q.changePercent >= 0 ? "+" : ""}${q.changePercent?.toFixed(2)}%), Market Cap: ${q.marketCap ? "$" + (q.marketCap / 1e9).toFixed(1) + "B" : "N/A"}, Name: ${q.name || sym}`
+            );
+          if (lines.length > 0) {
+            stockContext = `\n\n[실시간 주식 데이터 / Live Stock Data]\n${lines.join("\n")}`;
+          }
+        } catch { /* ignore stock fetch errors */ }
+      }
+
+      const systemPrompt = `You are DinoBot 🦖, a friendly and expert stock market advisor for DinoInvest — a gamified stock market education platform for Korean and global users.
+
+Your expertise: US stocks (NYSE/NASDAQ), Korean stocks (KOSPI/KOSDAQ), Japanese stocks (TSE), technical analysis, fundamental analysis (P/E, EPS, PEG, ROE, FCF), macroeconomics, investment strategies, ETFs, crypto basics, and market psychology.
+
+Your communication style:
+- Expert-level knowledge, but explain like you're teaching a curious 10-year-old (or a new investor)
+- Use simple, relatable analogies: lemonade stands, pizza shops, saving allowance money, etc.
+- Keep answers concise and engaging — usually 3–6 short paragraphs or bullet points
+- Use **bold** around key terms for emphasis (e.g., **P/E ratio**, **NVIDIA**, **시가총액**)
+- Add relevant emojis occasionally to make it fun (🦖📈💡💰⚡ etc.) but don't overdo it
+- Always be accurate and factual
+- End responses with an encouraging note or a follow-up question suggestion
+- This is educational content only — never give specific buy/sell advice or price targets
+
+Language rule: Detect and respond in the SAME language the user writes in (Korean → Korean, English → English, Japanese → Japanese, mixed → match the dominant language).
+
+When stock data is provided, incorporate it naturally and explain what the numbers mean in simple terms.${stockContext}`;
+
+      const chatMessages = [
+        { role: "system" as const, content: systemPrompt },
+        ...history.slice(-10).map((m: any) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        { role: "user" as const, content: message },
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: chatMessages,
+        max_tokens: 600,
+        temperature: 0.7,
+      });
+
+      const reply = completion.choices[0]?.message?.content || "";
+      return res.json({ reply });
+    } catch (err: any) {
+      console.error("[StockChat] Error:", err.message);
+      return res.status(500).json({ error: "AI response failed", reply: lang === "ko" ? "죄송해요, 잠시 후 다시 시도해주세요. 🙏" : "Sorry, please try again shortly. 🙏" });
+    }
+  });
+
   return httpServer;
 }
 
