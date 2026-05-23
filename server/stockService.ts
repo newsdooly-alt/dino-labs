@@ -30,7 +30,30 @@ interface HistoryDataPoint {
   volume: number;
 }
 
-// Helper to check if Python service is running
+// ─── Node-layer in-memory TTL cache ───────────────────────────────────────────
+interface CacheEntry<T> { data: T; ts: number; }
+
+const _quoteCache  = new Map<string, CacheEntry<StockQuote>>();
+const _newsCache   = { data: null as any, ts: 0 };
+const _stockNewsCache = new Map<string, CacheEntry<any>>();
+const _historyCache = new Map<string, CacheEntry<HistoryDataPoint[]>>();
+const _infoCache   = new Map<string, CacheEntry<any>>();
+
+const QUOTE_TTL   = 60_000;    // 60 s  – live prices
+const NEWS_TTL    = 600_000;   // 10 min – market news
+const HISTORY_TTL = 900_000;   // 15 min – chart data
+const INFO_TTL    = 1_800_000; // 30 min – fundamentals
+
+function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string, ttl: number): T | null {
+  const entry = map.get(key);
+  if (entry && Date.now() - entry.ts < ttl) return entry.data;
+  return null;
+}
+function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, data: T) {
+  map.set(key, { data, ts: Date.now() });
+}
+
+// ─── Python service ────────────────────────────────────────────────────────────
 async function checkPythonService(): Promise<boolean> {
   try {
     const response = await fetch(`${PYTHON_SERVICE_URL}/health`, { 
@@ -45,6 +68,9 @@ async function checkPythonService(): Promise<boolean> {
 // Get a single stock quote
 export async function getStockQuote(symbol: string): Promise<StockQuote> {
   const upperSymbol = symbol.toUpperCase();
+
+  const cached = cacheGet(_quoteCache, upperSymbol, QUOTE_TTL);
+  if (cached) return cached;
   
   try {
     const response = await fetch(`${PYTHON_SERVICE_URL}/quote/${upperSymbol}`, {
@@ -58,7 +84,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote> {
     
     const data = await response.json();
     
-    return {
+    const result: StockQuote = {
       symbol: data.symbol,
       name: data.name || upperSymbol,
       price: data.price || 0,
@@ -68,33 +94,45 @@ export async function getStockQuote(symbol: string): Promise<StockQuote> {
       lastUpdated: data.lastUpdated || new Date().toISOString(),
       isStale: data.price === 0,
     };
+    cacheSet(_quoteCache, upperSymbol, result);
+    return result;
   } catch (error: any) {
     console.error(`[yfinance] Error fetching quote for ${upperSymbol}:`, error.message);
     throw new Error(`FETCH_ERROR: ${error.message}`);
   }
 }
 
-// Get multiple stock quotes in a batch (more efficient than individual calls)
+// Get multiple stock quotes in a batch, with per-symbol caching
 export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]> {
   if (symbols.length === 0) return [];
   
   const upperSymbols = symbols.map(s => s.toUpperCase());
   const startTime = Date.now();
-  
-  try {
-    // Check if Python service is available first
-    console.log("[yfinance] Checking Python service for batch quotes...");
-    const isServiceUp = await checkPythonService();
-    
-    if (!isServiceUp) {
-      console.error("[yfinance] Python service not responding for batch quotes");
-      throw new Error("Python service unavailable");
+
+  // Serve cached symbols immediately, only fetch the rest
+  const fresh: StockQuote[] = [];
+  const needed: string[] = [];
+
+  for (const sym of upperSymbols) {
+    const cached = cacheGet(_quoteCache, sym, QUOTE_TTL);
+    if (cached) {
+      fresh.push(cached);
+    } else {
+      needed.push(sym);
     }
-    
-    console.log(`[yfinance] Fetching batch quotes for: ${upperSymbols.join(', ')}`);
+  }
+
+  if (needed.length === 0) {
+    console.log(`[yfinance] All ${upperSymbols.length} quotes served from cache`);
+    // Return in original order
+    return upperSymbols.map(s => fresh.find(q => q.symbol === s)!).filter(Boolean);
+  }
+
+  try {
+    console.log(`[yfinance] Fetching ${needed.length}/${upperSymbols.length} quotes (rest from cache)`);
     const response = await fetch(
-      `${PYTHON_SERVICE_URL}/quotes?symbols=${upperSymbols.join(',')}`,
-      { signal: AbortSignal.timeout(25000) } // 25 second timeout for global symbols
+      `${PYTHON_SERVICE_URL}/quotes?symbols=${needed.join(',')}`,
+      { signal: AbortSignal.timeout(25000) }
     );
     
     const elapsed = Date.now() - startTime;
@@ -107,18 +145,26 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
     
     const data = await response.json();
     const quotesCount = data.quotes?.length || 0;
-    console.log(`[yfinance] Batch quotes success: ${quotesCount} quotes in ${elapsed}ms`);
+    console.log(`[yfinance] Batch quotes success: ${quotesCount} new quotes in ${elapsed}ms`);
     
-    return (data.quotes || []).map((q: any) => ({
-      symbol: q.symbol,
-      name: q.name || q.symbol,
-      price: q.price || 0,
-      change: q.change || 0,
-      changePercent: q.changePercent || 0,
-      isMarketOpen: q.isMarketOpen || false,
-      lastUpdated: q.lastUpdated || new Date().toISOString(),
-      isStale: q.isStale || q.price === 0,
-    }));
+    const fetched: StockQuote[] = (data.quotes || []).map((q: any) => {
+      const result: StockQuote = {
+        symbol: q.symbol,
+        name: q.name || q.symbol,
+        price: q.price || 0,
+        change: q.change || 0,
+        changePercent: q.changePercent || 0,
+        isMarketOpen: q.isMarketOpen || false,
+        lastUpdated: q.lastUpdated || new Date().toISOString(),
+        isStale: q.isStale || q.price === 0,
+      };
+      cacheSet(_quoteCache, q.symbol, result);
+      return result;
+    });
+
+    // Merge and return in original order
+    const allQuotes = [...fresh, ...fetched];
+    return upperSymbols.map(s => allQuotes.find(q => q.symbol === s)!).filter(Boolean);
   } catch (error: any) {
     const elapsed = Date.now() - startTime;
     
@@ -130,17 +176,21 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
       console.error(`[yfinance] Batch quotes error after ${elapsed}ms:`, error.message);
     }
     
-    // Return empty prices - server route will use fallback
-    return upperSymbols.map(symbol => ({
-      symbol,
-      name: symbol,
-      price: 0,
-      change: 0,
-      changePercent: 0,
-      isMarketOpen: false,
-      lastUpdated: new Date().toISOString(),
-      isStale: true,
-    }));
+    // Return cached + empty stubs for uncacheable
+    const allQuotes = [
+      ...fresh,
+      ...needed.map(symbol => ({
+        symbol,
+        name: symbol,
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        isMarketOpen: false,
+        lastUpdated: new Date().toISOString(),
+        isStale: true,
+      })),
+    ];
+    return upperSymbols.map(s => allQuotes.find(q => q.symbol === s)!).filter(Boolean);
   }
 }
 
@@ -176,6 +226,13 @@ export async function getStockHistory(
   end?: string,
 ): Promise<HistoryDataPoint[]> {
   const upperSymbol = symbol.toUpperCase();
+  const cacheKey = `${upperSymbol}|${period}|${interval}|${start || ''}|${end || ''}`;
+
+  const cached = cacheGet(_historyCache, cacheKey, HISTORY_TTL);
+  if (cached) {
+    console.log(`[yfinance] History cache hit: ${cacheKey}`);
+    return cached;
+  }
   
   try {
     let url = `${PYTHON_SERVICE_URL}/history/${upperSymbol}?interval=${interval}`;
@@ -193,7 +250,9 @@ export async function getStockHistory(
     }
     
     const data = await response.json();
-    return data.data || [];
+    const result = data.data || [];
+    cacheSet(_historyCache, cacheKey, result);
+    return result;
   } catch (error: any) {
     console.error(`[yfinance] History error for ${upperSymbol}:`, error.message);
     throw new Error(`HISTORY_ERROR: ${error.message}`);
@@ -203,6 +262,9 @@ export async function getStockHistory(
 // Get detailed stock info
 export async function getStockInfo(symbol: string): Promise<any> {
   const upperSymbol = symbol.toUpperCase();
+
+  const cached = cacheGet(_infoCache, upperSymbol, INFO_TTL);
+  if (cached) return cached;
   
   try {
     const response = await fetch(
@@ -215,7 +277,9 @@ export async function getStockInfo(symbol: string): Promise<any> {
       throw new Error(error.error || 'Failed to fetch info');
     }
     
-    return await response.json();
+    const result = await response.json();
+    cacheSet(_infoCache, upperSymbol, result);
+    return result;
   } catch (error: any) {
     console.error(`[yfinance] Info error for ${upperSymbol}:`, error.message);
     throw new Error(`INFO_ERROR: ${error.message}`);
@@ -239,9 +303,6 @@ export async function getStockFundamentals(symbol: string): Promise<{
   fiftyTwoWeekLow: number | null;
 } | null> {
   try {
-    const isServiceUp = await checkPythonService();
-    if (!isServiceUp) return null;
-    
     const [quoteRes, infoRes] = await Promise.all([
       fetch(`${PYTHON_SERVICE_URL}/quote/${symbol}`, { signal: AbortSignal.timeout(8000) }),
       fetch(`${PYTHON_SERVICE_URL}/info/${symbol}`, { signal: AbortSignal.timeout(8000) }),
@@ -285,16 +346,14 @@ export interface NewsItem {
 
 export async function getMarketNews(): Promise<NewsItem[]> {
   const startTime = Date.now();
+
+  // Serve from cache if fresh
+  if (_newsCache.data && Date.now() - _newsCache.ts < NEWS_TTL) {
+    console.log('[yfinance] News served from cache');
+    return _newsCache.data;
+  }
   
   try {
-    console.log("[yfinance] Checking Python service availability...");
-    const isServiceUp = await checkPythonService();
-    
-    if (!isServiceUp) {
-      console.error("[yfinance] Python service is not responding - news fetch aborted");
-      return [];
-    }
-    
     console.log("[yfinance] Fetching news from Python service...");
     const response = await fetch(
       `${PYTHON_SERVICE_URL}/news`,
@@ -313,11 +372,10 @@ export async function getMarketNews(): Promise<NewsItem[]> {
     const newsCount = data.news?.length || 0;
     console.log(`[yfinance] News fetch successful: ${newsCount} items in ${elapsed}ms`);
     
-    if (newsCount === 0) {
-      console.warn("[yfinance] News API returned empty array");
-    }
-    
-    return data.news || [];
+    const result = data.news || [];
+    _newsCache.data = result;
+    _newsCache.ts = Date.now();
+    return result;
   } catch (error: any) {
     const elapsed = Date.now() - startTime;
     
@@ -336,6 +394,9 @@ export async function getMarketNews(): Promise<NewsItem[]> {
 // Get news for a specific stock
 export async function getStockNews(symbol: string): Promise<NewsItem[]> {
   const upperSymbol = symbol.toUpperCase();
+
+  const cached = cacheGet(_stockNewsCache, upperSymbol, NEWS_TTL);
+  if (cached) return cached;
   
   try {
     const response = await fetch(
@@ -348,7 +409,9 @@ export async function getStockNews(symbol: string): Promise<NewsItem[]> {
     }
     
     const data = await response.json();
-    return data.news || [];
+    const result = data.news || [];
+    cacheSet(_stockNewsCache, upperSymbol, result);
+    return result;
   } catch (error: any) {
     console.error(`[yfinance] Stock news error for ${upperSymbol}:`, error.message);
     return [];

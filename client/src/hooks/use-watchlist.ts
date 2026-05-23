@@ -12,8 +12,8 @@ export function useWatchlist() {
       if (!res.ok) throw new Error('Failed to fetch watchlist');
       return api.watchlist.list.responses[200].parse(await res.json());
     },
-    // Refresh prices occasionally
-    refetchInterval: 15000, 
+    // Refresh prices every 60 s (Node-layer cache absorbs repeated hits)
+    refetchInterval: 60000, 
   });
 }
 

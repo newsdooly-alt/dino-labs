@@ -24,7 +24,7 @@ export function useStockQuote(symbol: string) {
       if (!res.ok) throw new Error('Failed to fetch quote');
       return api.stocks.quote.responses[200].parse(await res.json());
     },
-    // Refresh every 10 seconds for "real-time" feel
-    refetchInterval: 10000, 
+    // Refresh every 60 seconds (yfinance is slow; use cache)
+    refetchInterval: 60000, 
   });
 }

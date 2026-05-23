@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import pytz
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
+import time as _t
 
 app = Flask(__name__)
 # CORS only needed if accessed from browser directly - we're proxying through Node
@@ -64,8 +65,12 @@ def health():
 @app.route('/quote/<path:symbol>', methods=['GET'])
 def get_quote(symbol):
     """Get real-time quote for a single stock using fast_info for latest prices."""
+    sym = symbol.upper()
+    cached = _quote_cache.get(sym)
+    if cached and (_t.time() - cached["ts"] < _QUOTE_CACHE_TTL):
+        return jsonify(cached["data"])
     try:
-        ticker = yf.Ticker(symbol.upper())
+        ticker = yf.Ticker(sym)
         is_kr = is_korean_ticker(symbol)
         market_open = is_market_open(symbol)
         now_tz = datetime.now(KST if is_kr else US_EASTERN)
@@ -98,9 +103,9 @@ def get_quote(symbol):
         region = 'South Korea' if is_kr else 'United States'
         native_currency = 'KRW' if is_kr else 'USD'
         
-        return jsonify({
-            "symbol": symbol.upper(),
-            "name": info.get('shortName') or info.get('longName') or symbol.upper(),
+        result = {
+            "symbol": sym,
+            "name": info.get('shortName') or info.get('longName') or sym,
             "price": round(float(price), 2),
             "change": round(float(change), 2),
             "changePercent": round(float(change_percent), 2),
@@ -116,7 +121,9 @@ def get_quote(symbol):
             "isKorean": is_kr,
             "lastUpdated": now_tz.strftime('%Y-%m-%dT%H:%M:%S'),
             "lastUpdatedFormatted": now_tz.strftime(f'%I:%M %p {time_label}')
-        })
+        }
+        _quote_cache[sym] = {"data": result, "ts": _t.time()}
+        return jsonify(result)
     except Exception as e:
         print(f"[yfinance] Error in /quote/{symbol}: {e}")
         return jsonify({"error": str(e), "symbol": symbol}), 500
@@ -125,8 +132,30 @@ def get_quote(symbol):
 # Simple name cache to avoid repeated info calls
 _name_cache = {}
 
+# Per-symbol quote cache (avoids hammering yfinance on every request)
+_quote_cache: dict = {}
+_QUOTE_CACHE_TTL = 45  # seconds
+
+def _get_cached_quote(symbol: str):
+    entry = _quote_cache.get(symbol)
+    if entry and (_t.time() - entry["ts"] < _QUOTE_CACHE_TTL):
+        return entry["data"]
+    return None
+
+def _set_cached_quote(symbol: str, data: dict):
+    _quote_cache[symbol] = {"data": data, "ts": _t.time()}
+
+# News cache
+_news_cache = {"data": None, "ts": 0.0}
+_NEWS_CACHE_TTL = 600  # 10 minutes
+
 def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
     """Fetch a single stock quote; used by batch parallel fetch."""
+    # Return from cache when fresh enough
+    cached = _get_cached_quote(symbol)
+    if cached is not None:
+        return cached
+
     is_kr = is_korean_ticker(symbol)
     is_jp = is_japanese_ticker(symbol)
     sym_market_open = is_market_open(symbol)
@@ -183,7 +212,7 @@ def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
         except Exception:
             vol = 0
 
-        return {
+        result = {
             "symbol": symbol,
             "name": name,
             "price": round(price, 2),
@@ -197,6 +226,8 @@ def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
             "lastUpdated": updated_str,
             "lastUpdatedFormatted": time_str
         }
+        _set_cached_quote(symbol, result)
+        return result
     except Exception as e:
         print(f"[yfinance] Error fetching {symbol}: {e}")
         err_currency = "KRW" if is_kr else "JPY" if is_jp else "USD"
@@ -1291,6 +1322,10 @@ import pandas as pd
 @app.route('/news', methods=['GET'])
 def get_market_news():
     """Get latest market news from major tickers."""
+    # Serve from cache if fresh
+    if _news_cache["data"] is not None and (_t.time() - _news_cache["ts"] < _NEWS_CACHE_TTL):
+        print("[yfinance] News served from cache")
+        return jsonify({"news": _news_cache["data"], "count": len(_news_cache["data"]), "fetchedAt": datetime.now().isoformat(), "cached": True})
     try:
         # Get news from major market ETFs and stocks
         tickers_for_news = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA']
@@ -1365,6 +1400,9 @@ def get_market_news():
         # Sort by publish time (newest first) and limit to 10
         all_news.sort(key=lambda x: x['publishedAt'], reverse=True)
         all_news = all_news[:10]
+
+        _news_cache["data"] = all_news
+        _news_cache["ts"] = _t.time()
         
         return jsonify({
             "news": all_news,
