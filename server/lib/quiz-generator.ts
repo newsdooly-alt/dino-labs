@@ -459,3 +459,100 @@ function fallbackQuests(userId: string, language: string = 'en', skillLevel: Ski
     isCompleted: false
   }));
 }
+
+// ─── Chart Master AI Quiz Generator ────────────────────────────────────────────
+
+const CHART_PATTERNS_POOL = [
+  "Double Bottom","Double Top","Head and Shoulders","Inverse Head and Shoulders",
+  "Bull Flag","Bear Flag","Ascending Triangle","Descending Triangle","Symmetrical Triangle",
+  "Cup and Handle","Rising Wedge","Falling Wedge","Bollinger Band Squeeze",
+  "Golden Cross","Death Cross","VWAP Reclaim","Bull Trap / Fake-out",
+  "Engulfing Candle Reversal","Hammer Reversal at Support","Gap and Go Continuation",
+  "Support/Resistance Breakout","Volume Dry-up at Base","RSI Divergence Setup",
+  "Moving Average Ribbon","Consolidation Before Breakout","Three White Soldiers",
+  "Evening Star / Morning Star","Pennant Continuation","Channel Breakout",
+  "High Tight Flag","Volatility Contraction Pattern","On-Balance Volume Divergence",
+];
+
+const SECTORS_POOL = [
+  "semiconductor","energy","financial","healthcare","consumer discretionary",
+  "software","biotech","industrial","utilities","REIT","defense","retail",
+  "electric vehicle","cloud computing","commodity","media","auto","insurance",
+];
+
+export async function generateChartQuiz(
+  lang: string,
+  difficulty: string,
+  recentPatterns: string[] = []
+): Promise<{ context: string; answer: "up" | "down"; analysis: string; patternName: string; difficulty: string }> {
+  const available = CHART_PATTERNS_POOL.filter(p => !recentPatterns.includes(p));
+  const pool = available.length > 0 ? available : CHART_PATTERNS_POOL;
+  const pattern = pool[Math.floor(Math.random() * pool.length)];
+  const sector = SECTORS_POOL[Math.floor(Math.random() * SECTORS_POOL.length)];
+  const answer: "up" | "down" = Math.random() > 0.5 ? "up" : "down";
+
+  const difficultyGuide = difficulty === "beginner"
+    ? "2-3 clear, easy-to-read signals. Use simple language. Keep price action straightforward."
+    : difficulty === "intermediate"
+    ? "3-4 signals including volume behavior and one indicator reading. Moderate terminology."
+    : "4-5 signals including at least one divergence or multi-timeframe observation. Professional terminology.";
+
+  const langInstruction = lang === "ko"
+    ? "Respond ENTIRELY in Korean. All text — context and analysis — must be in Korean."
+    : lang === "ja"
+    ? "Respond ENTIRELY in Japanese. All text — context and analysis — must be in Japanese."
+    : "Respond in English.";
+
+  const correctDir = answer === "up" ? "UP / bullish" : "DOWN / bearish";
+
+  const prompt = `You are a professional technical analyst creating an interactive chart pattern quiz for stock market learners.
+
+Create a realistic stock market scenario based on the "${pattern}" pattern in the ${sector} sector.
+The correct answer MUST be "${answer}" — price is expected to move ${correctDir}.
+Difficulty: ${difficultyGuide}
+${langInstruction}
+
+Rules:
+- Write a scenario of 4-6 sentences describing recent price action, indicator readings, volume behavior with specific realistic numbers (prices, percentages, RSI values, volume multipliers, day counts)
+- Use a plausible stock price range for the ${sector} sector
+- The scenario should contain clear but non-obvious confirming signals for the "${answer}" direction
+- Do NOT explicitly name the pattern in the context (let the student identify it)
+- The analysis must start with a declarative opening line stating the correct direction, then explain WHY with 3-5 bullet points — each bullet starts with **bold concept name**: explanation
+- Do NOT use phrases like "Imagine", "Let me", "Certainly", "Great question"
+
+Return ONLY valid JSON (no markdown fences):
+{
+  "context": "4-6 sentence scenario with specific numbers",
+  "analysis": "**Correct — ${answer === "up" ? "UP" : "DOWN"}.** [1-2 sentence intro explaining the pattern identified]\\n\\n• **Concept**: explanation\\n• **Concept**: explanation\\n• **Concept**: explanation"
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.9,
+      max_tokens: 800,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = response.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+
+    return {
+      context: parsed.context ?? "",
+      answer,
+      analysis: parsed.analysis ?? `**Correct — ${answer.toUpperCase()}.** This pattern showed a classic ${pattern} setup.`,
+      patternName: pattern,
+      difficulty,
+    };
+  } catch (err) {
+    console.error("generateChartQuiz error:", err);
+    return {
+      context: `A ${sector} stock has been forming a ${pattern} over the past several weeks with notable volume characteristics and momentum shifts.`,
+      answer,
+      analysis: `**Correct — ${answer.toUpperCase()}.** The ${pattern} pattern signaled a ${answer === "up" ? "bullish" : "bearish"} directional move based on price structure and volume confirmation.`,
+      patternName: pattern,
+      difficulty,
+    };
+  }
+}

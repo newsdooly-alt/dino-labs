@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { generateDailyQuests, generatePracticeQuest } from "./lib/quiz-generator";
+import { generateDailyQuests, generatePracticeQuest, generateChartQuiz } from "./lib/quiz-generator";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -476,6 +476,24 @@ export async function registerRoutes(
       res.json(practiceQuest);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate practice quest" });
+    }
+  });
+
+  // Chart Master AI Quiz Generation
+  app.get("/api/chart-master/quiz", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const profile = await storage.getUserProfile(userId);
+    const lang = (req.query.lang as string) || profile?.language || "en";
+    const difficulty = (req.query.difficulty as string) || profile?.skillLevel || "intermediate";
+    const recentRaw = (req.query.recent as string) || "";
+    const recentPatterns = recentRaw ? recentRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
+    try {
+      const quiz = await generateChartQuiz(lang, difficulty, recentPatterns);
+      res.json(quiz);
+    } catch (err) {
+      console.error("Chart quiz generation error:", err);
+      res.status(500).json({ message: "Failed to generate quiz" });
     }
   });
 

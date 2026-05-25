@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { X, TrendingUp, TrendingDown, Minus, AlertTriangle, ChevronRight, BookOpen, Brain, Trophy, RefreshCw, Check, XCircle } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { X, TrendingUp, TrendingDown, Minus, AlertTriangle, ChevronRight, BookOpen, Brain, Trophy, RefreshCw, Check, XCircle, Sparkles, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -717,7 +717,7 @@ export default function ChartMaster() {
   const [selected, setSelected] = useState<Pattern | null>(null);
   const [modalTab, setModalTab] = useState<"definition" | "why" | "fusion" | "strategy">("definition");
 
-  // Quiz state
+  // Quiz state — hardcoded rounds
   const [quizIndex, setQuizIndex] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [chosen, setChosen] = useState<"up" | "down" | null>(null);
@@ -725,8 +725,47 @@ export default function ChartMaster() {
   const [xpEarned, setXpEarned] = useState(0);
   const [quizHistory, setQuizHistory] = useState<Array<{ correct: boolean; answer: "up" | "down" }>>([]);
 
-  const scenario = SCENARIOS[quizIndex];
-  const isCorrect = chosen === scenario?.answer;
+  // AI-generated infinite quiz state
+  type AiQuiz = { context: string; answer: "up" | "down"; analysis: string; patternName: string; difficulty: string };
+  const [aiMode, setAiMode] = useState(false);
+  const [aiQuiz, setAiQuiz] = useState<AiQuiz | null>(null);
+  const [nextAiQuiz, setNextAiQuiz] = useState<AiQuiz | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiQuizTotal, setAiQuizTotal] = useState(0);
+  const [recentAiPatterns, setRecentAiPatterns] = useState<string[]>([]);
+
+  const isAiMode = aiMode;
+  const scenario = !isAiMode ? SCENARIOS[quizIndex] : null;
+  const currentAnswer = isAiMode ? aiQuiz?.answer : scenario?.answer;
+  const isCorrect = chosen === currentAnswer;
+
+  const fetchAiQuiz = useCallback(async (recent: string[] = []) => {
+    try {
+      const params = new URLSearchParams({ lang, recent: recent.slice(-10).join(",") });
+      const res = await fetch(`/api/chart-master/quiz?${params}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return (await res.json()) as AiQuiz;
+    } catch { return null; }
+  }, [lang]);
+
+  const prefetchNextAiQuiz = useCallback(async (recent: string[]) => {
+    const q = await fetchAiQuiz(recent);
+    if (q) setNextAiQuiz(q);
+  }, [fetchAiQuiz]);
+
+  const enterAiMode = useCallback(async () => {
+    setAiLoading(true);
+    setAiMode(true);
+    const q = await fetchAiQuiz(recentAiPatterns);
+    setAiQuiz(q);
+    setAiLoading(false);
+    setAiQuizTotal(1);
+    if (q) {
+      const updated = [...recentAiPatterns, q.patternName].slice(-15);
+      setRecentAiPatterns(updated);
+      prefetchNextAiQuiz(updated);
+    }
+  }, [fetchAiQuiz, prefetchNextAiQuiz, recentAiPatterns]);
 
   const typeColors: Record<PatternType, string> = {
     bullish:"text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800",
@@ -766,7 +805,7 @@ export default function ChartMaster() {
     if (answered) return;
     setChosen(dir);
     setAnswered(true);
-    const correct = dir === scenario.answer;
+    const correct = dir === currentAnswer;
     const xp = correct ? 15 : 5;
     setScore(s => s + (correct ? 1 : 0));
     setXpEarned(x => x + xp);
@@ -775,12 +814,45 @@ export default function ChartMaster() {
       await apiRequest("POST", "/api/quests/special/complete", { xpAmount: xp });
       queryClient.invalidateQueries({ queryKey: ["/api/profiles/me"] });
     } catch {}
+    // If in AI mode, pre-fetch next quiz in the background while user reads analysis
+    if (isAiMode && aiQuiz) {
+      const updated = [...recentAiPatterns, aiQuiz.patternName].slice(-15);
+      setRecentAiPatterns(updated);
+      if (!nextAiQuiz) prefetchNextAiQuiz(updated);
+    }
   };
 
-  const nextQuiz = () => {
-    setQuizIndex(i => (i + 1) % SCENARIOS.length);
+  const nextQuiz = async () => {
     setAnswered(false);
     setChosen(null);
+    if (isAiMode) {
+      if (nextAiQuiz) {
+        setAiQuiz(nextAiQuiz);
+        setNextAiQuiz(null);
+        setAiQuizTotal(t => t + 1);
+        const updated = [...recentAiPatterns, nextAiQuiz.patternName].slice(-15);
+        setRecentAiPatterns(updated);
+        prefetchNextAiQuiz(updated);
+      } else {
+        setAiLoading(true);
+        const q = await fetchAiQuiz(recentAiPatterns);
+        setAiQuiz(q);
+        setAiLoading(false);
+        setAiQuizTotal(t => t + 1);
+        if (q) {
+          const updated = [...recentAiPatterns, q.patternName].slice(-15);
+          setRecentAiPatterns(updated);
+          prefetchNextAiQuiz(updated);
+        }
+      }
+    } else {
+      const next = quizIndex + 1;
+      if (next >= SCENARIOS.length) {
+        await enterAiMode();
+      } else {
+        setQuizIndex(next);
+      }
+    }
   };
 
   const resetQuiz = () => {
@@ -790,6 +862,12 @@ export default function ChartMaster() {
     setScore(0);
     setXpEarned(0);
     setQuizHistory([]);
+    setAiMode(false);
+    setAiQuiz(null);
+    setNextAiQuiz(null);
+    setAiLoading(false);
+    setAiQuizTotal(0);
+    setRecentAiPatterns([]);
   };
 
   const modalTabs: Array<{ key: "definition"|"why"|"fusion"|"strategy"; label: Record<Lang,string> }> = [
@@ -915,9 +993,17 @@ export default function ChartMaster() {
               <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-4 py-2">
                 <span className="text-sm font-semibold text-primary">+{xpEarned} XP</span>
               </div>
-              <div className="flex gap-1.5">
-                {quizHistory.map((h,i)=>(
-                  <div key={i} className={`w-5 h-5 rounded-full flex items-center justify-center ${h.correct?"bg-emerald-500/20 text-emerald-500":"bg-red-500/20 text-red-500"}`}>
+              {isAiMode && (
+                <div className="flex items-center gap-1.5 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 rounded-xl px-3 py-1.5">
+                  <Sparkles className="w-3.5 h-3.5"/>
+                  <span className="text-xs font-semibold">
+                    {lang==="ko"?"AI 무한 생성":lang==="ja"?"AI 無限生成":"AI Generated"}
+                  </span>
+                </div>
+              )}
+              <div className="flex gap-1.5 overflow-x-auto max-w-[160px]">
+                {quizHistory.slice(-10).map((h,i)=>(
+                  <div key={i} className={`w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center ${h.correct?"bg-emerald-500/20 text-emerald-500":"bg-red-500/20 text-red-500"}`}>
                     {h.correct?<Check className="w-3 h-3"/>:<XCircle className="w-3 h-3"/>}
                   </div>
                 ))}
@@ -929,96 +1015,185 @@ export default function ChartMaster() {
             </div>
 
             {/* Progress indicator */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {SCENARIOS.map((s,i)=>(
-                <div key={s.id} className={`h-1.5 flex-1 rounded-full transition-all ${i===quizIndex?"bg-primary":i<quizIndex?"bg-emerald-500":"bg-muted"}`}/>
+                <div key={s.id} className={`h-1.5 rounded-full transition-all ${
+                  isAiMode ? "bg-emerald-500 flex-none w-5"
+                  : i===quizIndex ? "bg-primary flex-1"
+                  : i<quizIndex ? "bg-emerald-500 flex-1"
+                  : "bg-muted flex-1"
+                }`}/>
               ))}
-            </div>
-
-            {/* Scenario card */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              {/* Header */}
-              <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-lg border font-semibold ${diffColors[scenario.difficulty]}`}>
-                      {diffLabels[scenario.difficulty][lang]}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {lang==="ko"?`문제 ${quizIndex+1} / ${SCENARIOS.length}`:lang==="ja"?`問題 ${quizIndex+1} / ${SCENARIOS.length}`:`Question ${quizIndex+1} of ${SCENARIOS.length}`}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {lang==="ko"?"다음 캔들 방향을 예측하세요":lang==="ja"?"次のロウソク足の方向を予測してください":"Predict the next price direction"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Context */}
-              <div className="px-5 pb-3">
-                <p className="text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl p-3">
-                  {getScenarioText(scenario).context}
-                </p>
-              </div>
-
-              {/* Chart */}
-              <div className="px-5 pb-3">
-                <CandlestickChart
-                  candles={[...scenario.history, ...scenario.reveal]}
-                  revealFrom={scenario.history.length}
-                  showReveal={answered}
-                />
-              </div>
-
-              {/* Buttons */}
-              {!answered ? (
-                <div className="px-5 pb-5 grid grid-cols-2 gap-3">
-                  <button onClick={()=>handleAnswer("up")}
-                    className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-500/20 hover:border-emerald-500 transition-all font-bold text-base"
-                    data-testid="btn-answer-up">
-                    <TrendingUp className="w-5 h-5"/>
-                    {lang==="ko"?"상승 / 매수":lang==="ja"?"上昇 / 買い":"Up / Buy"}
-                  </button>
-                  <button onClick={()=>handleAnswer("down")}
-                    className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 hover:bg-red-500/20 hover:border-red-500 transition-all font-bold text-base"
-                    data-testid="btn-answer-down">
-                    <TrendingDown className="w-5 h-5"/>
-                    {lang==="ko"?"하락 / 매도":lang==="ja"?"下落 / 売り":"Down / Sell"}
-                  </button>
-                </div>
-              ) : (
-                <div className="px-5 pb-5 space-y-4" style={{animation:"fadeInUp 0.4s ease"}}>
-                  {/* Result banner */}
-                  <div className={`rounded-xl p-4 border ${isCorrect?"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700":"bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700"}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      {isCorrect
-                        ?<><Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400"/><span className="font-bold text-emerald-700 dark:text-emerald-300">{lang==="ko"?"정답 — +15 XP 적립":lang==="ja"?"正解 — +15 XP 獲得":"Correct — +15 XP earned"}</span></>
-                        :<><XCircle className="w-5 h-5 text-red-600 dark:text-red-400"/><span className="font-bold text-red-700 dark:text-red-300">{lang==="ko"?`오답. 정답: ${scenario.answer==="up"?"상승":"하락"} / 참여 보상 +5 XP`:lang==="ja"?`不正解。正解: ${scenario.answer==="up"?"上昇":"下落"} / 参加報酬 +5 XP`:`Incorrect. Correct direction: ${scenario.answer.toUpperCase()} — +5 XP for participating.`}</span></>
-                      }
-                    </div>
-                    <div className="text-sm text-foreground leading-relaxed">
-                      {getScenarioText(scenario).analysis.split("\n").map((line,i)=>(
-                        <p key={i} className="mb-1"><StrategyText text={line}/></p>
-                      ))}
-                    </div>
-                    <div className="mt-3 pt-2 border-t border-border/50">
-                      <p className="text-xs text-muted-foreground">
-                        {lang==="ko"?`관련 패턴: ${scenario.pattern} → 패턴 학습 탭에서 자세히 배워보세요.`
-                          :lang==="ja"?`関連パターン: ${scenario.pattern} → パターン学習タブで詳しく学びましょう。`
-                          :`Related pattern: ${scenario.pattern} — review it in the Learn tab for deeper context.`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Next button */}
-                  <button onClick={nextQuiz}
-                    className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity"
-                    data-testid="btn-next-quiz">
-                    {lang==="ko"?"다음 문제 →":lang==="ja"?"次の問題 →":"Next Question →"}
-                  </button>
+              {isAiMode && (
+                <div className="h-1.5 flex-1 rounded-full bg-gradient-to-r from-violet-400 to-violet-600 animate-pulse"/>
+              )}
+              {!isAiMode && (
+                <div className="text-[10px] text-muted-foreground font-medium ml-1 flex-shrink-0">
+                  {lang==="ko"?"→ AI 무한":lang==="ja"?"→ AI 無限":"→ ∞ AI"}
                 </div>
               )}
             </div>
+
+            {/* Loading screen */}
+            {aiLoading && (
+              <div className="bg-card border border-border rounded-2xl p-12 flex flex-col items-center gap-4">
+                <Loader2 className="w-8 h-8 text-primary animate-spin"/>
+                <p className="text-sm text-muted-foreground">
+                  {lang==="ko"?"AI가 새 시나리오를 생성 중입니다...":lang==="ja"?"AIが新しいシナリオを生成中です...":"Generating a new scenario with AI..."}
+                </p>
+              </div>
+            )}
+
+            {/* Scenario card — hardcoded */}
+            {!aiLoading && !isAiMode && scenario && (
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-lg border font-semibold ${diffColors[scenario.difficulty]}`}>
+                        {diffLabels[scenario.difficulty][lang]}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {lang==="ko"?`문제 ${quizIndex+1} / ${SCENARIOS.length}`:lang==="ja"?`問題 ${quizIndex+1} / ${SCENARIOS.length}`:`Question ${quizIndex+1} of ${SCENARIOS.length}`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {lang==="ko"?"다음 캔들 방향을 예측하세요":lang==="ja"?"次のロウソク足の方向を予測してください":"Predict the next price direction"}
+                    </p>
+                  </div>
+                </div>
+                <div className="px-5 pb-3">
+                  <p className="text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl p-3">
+                    {getScenarioText(scenario).context}
+                  </p>
+                </div>
+                <div className="px-5 pb-3">
+                  <CandlestickChart
+                    candles={[...scenario.history, ...scenario.reveal]}
+                    revealFrom={scenario.history.length}
+                    showReveal={answered}
+                  />
+                </div>
+                {!answered ? (
+                  <div className="px-5 pb-5 grid grid-cols-2 gap-3">
+                    <button onClick={()=>handleAnswer("up")}
+                      className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-500/20 hover:border-emerald-500 transition-all font-bold text-base"
+                      data-testid="btn-answer-up">
+                      <TrendingUp className="w-5 h-5"/>
+                      {lang==="ko"?"상승 / 매수":lang==="ja"?"上昇 / 買い":"Up / Buy"}
+                    </button>
+                    <button onClick={()=>handleAnswer("down")}
+                      className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 hover:bg-red-500/20 hover:border-red-500 transition-all font-bold text-base"
+                      data-testid="btn-answer-down">
+                      <TrendingDown className="w-5 h-5"/>
+                      {lang==="ko"?"하락 / 매도":lang==="ja"?"下落 / 売り":"Down / Sell"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="px-5 pb-5 space-y-4" style={{animation:"fadeInUp 0.4s ease"}}>
+                    <div className={`rounded-xl p-4 border ${isCorrect?"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700":"bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {isCorrect
+                          ?<><Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400"/><span className="font-bold text-emerald-700 dark:text-emerald-300">{lang==="ko"?"정답 — +15 XP 적립":lang==="ja"?"正解 — +15 XP 獲得":"Correct — +15 XP earned"}</span></>
+                          :<><XCircle className="w-5 h-5 text-red-600 dark:text-red-400"/><span className="font-bold text-red-700 dark:text-red-300">{lang==="ko"?`오답. 정답: ${scenario.answer==="up"?"상승":"하락"} — 참여 보상 +5 XP`:lang==="ja"?`不正解。正解: ${scenario.answer==="up"?"上昇":"下落"} — 参加報酬 +5 XP`:`Incorrect. Correct direction: ${scenario.answer.toUpperCase()} — +5 XP for participating.`}</span></>
+                        }
+                      </div>
+                      <div className="text-sm text-foreground leading-relaxed">
+                        {getScenarioText(scenario).analysis.split("\n").map((line,i)=>(
+                          <p key={i} className="mb-1"><StrategyText text={line}/></p>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-2 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground">
+                          {lang==="ko"?`관련 패턴: ${scenario.pattern} — 패턴 학습 탭에서 자세히 배워보세요.`
+                            :lang==="ja"?`関連パターン: ${scenario.pattern} — パターン学習タブで詳しく学びましょう。`
+                            :`Related pattern: ${scenario.pattern} — review it in the Learn tab.`}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={nextQuiz}
+                      className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      data-testid="btn-next-quiz">
+                      {quizIndex + 1 >= SCENARIOS.length
+                        ? <><Sparkles className="w-4 h-4"/>{lang==="ko"?"AI 무한 퀴즈 시작 →":lang==="ja"?"AI 無限クイズ開始 →":"Start AI Infinite Quiz →"}</>
+                        : <>{lang==="ko"?"다음 문제 →":lang==="ja"?"次の問題 →":"Next Question →"}</>
+                      }
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Scenario card — AI generated */}
+            {!aiLoading && isAiMode && aiQuiz && (
+              <div className="bg-card border border-violet-200 dark:border-violet-800 rounded-2xl overflow-hidden" style={{animation:"fadeInUp 0.3s ease"}}>
+                <div className="px-5 pt-5 pb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-lg border font-semibold ${diffColors[(aiQuiz.difficulty as Difficulty) || "intermediate"]}`}>
+                      {diffLabels[(aiQuiz.difficulty as Difficulty) || "intermediate"][lang]}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border font-semibold bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-800">
+                      <Sparkles className="w-3 h-3"/>
+                      {lang==="ko"?`AI 생성 #${SCENARIOS.length + aiQuizTotal}`:lang==="ja"?`AI生成 #${SCENARIOS.length + aiQuizTotal}`:`AI #${SCENARIOS.length + aiQuizTotal}`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {lang==="ko"?"시장 시나리오를 읽고 다음 가격 방향을 예측하세요":lang==="ja"?"市場シナリオを読んで次の価格方向を予測してください":"Read the scenario and predict the next price direction"}
+                  </p>
+                </div>
+                <div className="px-5 pb-3">
+                  <p className="text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl p-4">
+                    {aiQuiz.context}
+                  </p>
+                </div>
+                {!answered ? (
+                  <div className="px-5 pb-5 grid grid-cols-2 gap-3">
+                    <button onClick={()=>handleAnswer("up")}
+                      className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-500/20 hover:border-emerald-500 transition-all font-bold text-base"
+                      data-testid="btn-answer-up">
+                      <TrendingUp className="w-5 h-5"/>
+                      {lang==="ko"?"상승 / 매수":lang==="ja"?"上昇 / 買い":"Up / Buy"}
+                    </button>
+                    <button onClick={()=>handleAnswer("down")}
+                      className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 hover:bg-red-500/20 hover:border-red-500 transition-all font-bold text-base"
+                      data-testid="btn-answer-down">
+                      <TrendingDown className="w-5 h-5"/>
+                      {lang==="ko"?"하락 / 매도":lang==="ja"?"下落 / 売り":"Down / Sell"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="px-5 pb-5 space-y-4" style={{animation:"fadeInUp 0.4s ease"}}>
+                    <div className={`rounded-xl p-4 border ${isCorrect?"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700":"bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {isCorrect
+                          ?<><Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400"/><span className="font-bold text-emerald-700 dark:text-emerald-300">{lang==="ko"?"정답 — +15 XP 적립":lang==="ja"?"正解 — +15 XP 獲得":"Correct — +15 XP earned"}</span></>
+                          :<><XCircle className="w-5 h-5 text-red-600 dark:text-red-400"/><span className="font-bold text-red-700 dark:text-red-300">{lang==="ko"?`오답. 정답: ${aiQuiz.answer==="up"?"상승":"하락"} — 참여 보상 +5 XP`:lang==="ja"?`不正解。正解: ${aiQuiz.answer==="up"?"上昇":"下落"} — 参加報酬 +5 XP`:`Incorrect. Correct direction: ${aiQuiz.answer.toUpperCase()} — +5 XP for participating.`}</span></>
+                        }
+                      </div>
+                      <div className="text-sm text-foreground leading-relaxed">
+                        {aiQuiz.analysis.split("\n").map((line,i)=>(
+                          <p key={i} className="mb-1"><StrategyText text={line}/></p>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-2 border-t border-border/50 flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-violet-500"/>
+                        <p className="text-xs text-muted-foreground">
+                          {lang==="ko"?`패턴: ${aiQuiz.patternName}`:lang==="ja"?`パターン: ${aiQuiz.patternName}`:`Pattern: ${aiQuiz.patternName}`}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={nextQuiz}
+                      className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      data-testid="btn-next-quiz">
+                      {nextAiQuiz
+                        ? <>{lang==="ko"?"다음 문제 →":lang==="ja"?"次の問題 →":"Next Question →"}</>
+                        : <><Loader2 className="w-4 h-4 animate-spin"/>{lang==="ko"?"생성 중... (바로 이동 가능)":lang==="ja"?"生成中... (移動可能)":"Generating... (tap to continue)"}</>
+                      }
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Educational note */}
             <div className="rounded-xl bg-muted/40 border border-border px-4 py-3 flex gap-2">
