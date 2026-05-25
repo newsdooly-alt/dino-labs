@@ -1308,13 +1308,21 @@ export default function ChartMaster() {
                 {modalTab==="definition" && (
                   <div>
                     <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"정의 및 형태":lang==="ja"?"定義と形状":"Definition & Shape"}</p>
-                    <p>{getText(selected).definition}</p>
+                    <div className="space-y-1">
+                      {getText(selected).definition.split("\n").map((line,i)=>(
+                        <p key={i}><StrategyText text={line}/></p>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {modalTab==="why" && (
                   <div>
                     <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"시장 심리":lang==="ja"?"市場心理":"Market Psychology"}</p>
-                    <p>{getText(selected).why}</p>
+                    <div className="space-y-1">
+                      {getText(selected).why.split("\n").map((line,i)=>(
+                        <p key={i}><StrategyText text={line}/></p>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {modalTab==="fusion" && (
