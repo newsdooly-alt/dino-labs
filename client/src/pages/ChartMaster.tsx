@@ -597,16 +597,16 @@ const SCENARIOS: QuizScenario[] = [
       genCandles(98, [{trend:2.0,vol:1.5,count:6,vBase:3200,vMul:1.8}])
     ),
     en:{
-      context:"📊 Scenario: A tech stock has fallen 18% from its highs over the past 5 weeks. It touched support near $95 twice (3 weeks apart), forming two equal troughs. RSI reached 28 on both tests. Volume on the second bottom is noticeably lower than the first. The stock is now attempting to reclaim the neckline at $107.",
-      analysis:"✅ **UP was correct.** This was a textbook Double Bottom reversal.\n\n**Why this worked:**\n• **Two-trough equality**: Both bottoms touched ~$95, confirming the support zone has structural demand.\n• **Volume confirmation**: Lower volume on the 2nd trough = sellers are exhausted. Fewer shares changing hands at the lows means less supply.\n• **RSI Bullish Divergence**: RSI formed higher lows between the two bottoms, revealing hidden buying conviction despite the price holding flat.\n• **Neckline breakout volume**: The breakout above $107 occurred on volume 1.8× the average — institutional confirmation.\n\n**Pattern target**: $95 (trough) → $107 (neckline) = $12 pattern height. Target: $107 + $12 = $119.",
+      context:"A technology stock has declined 18% from its highs over the past five weeks. Price tested support near $95 on two separate occasions three weeks apart, forming two roughly equal troughs. RSI reached 28 on both tests. Volume on the second trough is measurably lower than the first. Price is now attempting to reclaim the neckline at $107.",
+      analysis:"**Correct — UP.**\n\nThis setup constituted a Double Bottom reversal. The following factors confirmed the pattern:\n\n• **Structural equality of troughs**: Both lows held near $95, validating the level as a zone of structural demand.\n• **Volume contraction on second bottom**: Declining volume at the second trough indicates seller exhaustion — fewer participants willing to sell at that price level.\n• **RSI bullish divergence**: RSI formed a higher low between the two price lows, signaling that downside momentum was weakening beneath the surface.\n• **Breakout volume expansion**: The neckline break at $107 was accompanied by 1.8× average volume, confirming institutional-level participation.\n\n**Measured move target**: Pattern height = $107 − $95 = $12. Projected target: $119.",
     },
     ko:{
-      context:"📊 시나리오: 한 기술주가 지난 5주에 걸쳐 고점 대비 18% 하락했습니다. 3주 간격으로 두 번에 걸쳐 $95 근처 지지선에 닿아 두 개의 동일한 저점을 형성했습니다. 두 번의 테스트에서 RSI는 28까지 내려갔습니다. 두 번째 저점의 거래량은 첫 번째보다 눈에 띄게 낮습니다. 현재 주가는 $107의 넥라인을 회복하려 시도 중입니다.",
-      analysis:"✅ **상승이 정답이었습니다.** 교과서적인 이중 바닥 반전이었습니다.\n\n**이것이 작동한 이유:**\n• **두 저점의 동등성**: 두 저점 모두 ~$95에 닿으며 구조적 수요를 가진 지지 구간을 확인.\n• **거래량 확인**: 두 번째 저점에서 더 낮은 거래량 = 매도 소진. 저점에서 거래되는 주식 수가 적다는 것은 공급이 적다는 의미.\n• **RSI 불리쉬 다이버전스**: 두 저점 사이에서 RSI가 더 높은 저점 형성, 가격이 동일한 수준임에도 숨겨진 매수 확신 노출.\n• **넥라인 돌파 거래량**: $107 상방 돌파가 평균의 1.8배 거래량으로 발생 — 기관 확인 신호.",
+      context:"기술주 한 종목이 지난 5주에 걸쳐 고점 대비 18% 하락했습니다. 3주 간격으로 두 차례에 걸쳐 $95 근처 지지선에 접근하며 두 개의 대등한 저점을 형성했습니다. 두 번의 테스트에서 RSI는 28까지 하락했습니다. 두 번째 저점의 거래량은 첫 번째보다 뚜렷하게 낮습니다. 현재 주가는 $107의 넥라인 회복을 시도하고 있습니다.",
+      analysis:"**정답 — 상승.**\n\n이 셋업은 이중 바닥 반전 패턴입니다. 다음 요소들이 패턴을 뒷받침했습니다.\n\n• **저점의 구조적 동등성**: 두 저점 모두 $95 근처에서 지지되어, 해당 가격대에 구조적 수요가 존재함을 확인.\n• **두 번째 저점의 거래량 수축**: 매도 참여자 감소를 의미하며 매도 소진 신호.\n• **RSI 강세 다이버전스**: 가격의 저점은 동일하나 RSI는 더 높은 저점을 형성 — 하락 모멘텀이 내부적으로 약화 중임을 반영.\n• **넥라인 돌파 시 거래량 확대**: $107 돌파가 평균 대비 1.8배 거래량으로 발생 — 기관 수준의 매수 참여 확인.\n\n**패턴 목표가**: 패턴 폭 = $107 − $95 = $12. 상방 목표: $119.",
     },
     ja:{
-      context:"📊 シナリオ：ある技術株が過去5週間で高値から18%下落しました。3週間の間隔で$95付近のサポートに2回タッチし、2つの等しい谷を形成しました。両テストでRSIは28に達しました。2番底の出来高は1番底より明らかに低いです。現在、株価は$107のネックラインを回復しようとしています。",
-      analysis:"✅ **上昇が正解でした。** 教科書的なダブルボトム反転でした。\n\n**機能した理由:**\n• **2つの谷の同等性**: 両底が~$95にタッチし、構造的需要のあるサポートゾーンを確認。\n• **出来高確認**: 2番底での低出来高 = 売り手枯渇。\n• **RSIブリッシュダイバージェンス**: 2つの底の間でRSIが高い安値を形成し、隠れた買いの確信を示す。\n• **ネックラインブレイクアウト出来高**: $107の上抜けが平均の1.8倍の出来高で発生 — 機関の確認。",
+      context:"ある技術株が過去5週間で高値から18%下落しました。3週間の間隔で$95付近のサポートに2回接触し、2つの等しい谷を形成しました。両テストでRSIは28まで低下しました。2番底の出来高は1番底より明確に低下しています。現在、株価は$107のネックラインの回復を試みています。",
+      analysis:"**正解 — 上昇。**\n\nこのセットアップはダブルボトム反転パターンを構成していました。以下の要素がパターンを裏付けました。\n\n• **谷の構造的同等性**: 両底が$95付近で支持され、その価格帯に構造的な需要が存在することを確認。\n• **2番底での出来高収縮**: 売り参加者の減少を示し、売り手枯渇のシグナル。\n• **RSIブリッシュダイバージェンス**: 価格は同水準の安値だがRSIは高い安値を形成 — 下降モメンタムの内部的な弱まりを反映。\n• **ネックライン突破時の出来高拡大**: $107の突破が平均比1.8倍の出来高で発生 — 機関レベルの参加を確認。\n\n**メジャードムーブ目標**: パターン幅 = $107 − $95 = $12。上方目標: $119。",
     },
   },
   {
@@ -616,16 +616,16 @@ const SCENARIOS: QuizScenario[] = [
       genCandles(88, [{trend:-2.5,vol:2,count:7,vBase:3500,vMul:2.0}])
     ),
     en:{
-      context:"📊 Scenario: A financial stock dropped sharply from $110 to $78 in just 8 days (the pole) on heavy volume. Over the next 12 sessions it has slowly drifted up to $88 in a tight, orderly channel — volume has been declining throughout this bounce. RSI sits at 48. The stock has now tested the top of this channel for the third time.",
-      analysis:"✅ **DOWN was correct.** This was a Bear Flag with declining volume — a high-conviction continuation short.\n\n**Why this worked:**\n• **The pole**: -29% decline in 8 days on high volume = strong institutional selling dominance established.\n• **Volume in the flag**: Each day of the 'recovery' had lower volume than the day before — no real buying conviction. Sellers are just pausing to reload.\n• **RSI at 48**: Not oversold, not recovering toward 60+ — momentum stuck in neutral/bearish territory.\n• **3rd test of resistance**: Three rejections at $88 without a close above = the level is defended by sellers.\n• **Measured move target**: Pole length ($110 → $78 = $32) subtracted from flag breakdown point ($88) = ~$56.",
+      context:"A financial stock declined sharply from $110 to $78 in eight sessions on elevated volume, forming the pole of a Bear Flag. Over the following 12 sessions, price drifted up to $88 in a narrow, orderly channel while volume contracted steadily throughout. RSI stands at 48. Price has now tested the upper boundary of this channel for the third time.",
+      analysis:"**Correct — DOWN.**\n\nThis was a Bear Flag continuation setup with confirming volume contraction. The following factors defined the trade:\n\n• **Pole structure**: A -29% decline in 8 sessions on heavy volume established clear institutional selling dominance.\n• **Flag volume behavior**: Each session within the flag printed lower volume than the prior — absent buying conviction. The channel represents a pause in supply, not a demand-driven recovery.\n• **RSI at 48**: Momentum is neither oversold nor recovering into bullish territory. The oscillator reflects a bearish holding pattern.\n• **Third rejection at channel resistance**: Three consecutive failures to close above $88 confirm that sellers are defending the level.\n\n**Measured move target**: Pole height = $110 − $78 = $32. Subtracted from flag breakdown at $88 → target ~$56.",
     },
     ko:{
-      context:"📊 시나리오: 한 금융주가 단 8일 만에 고거래량으로 $110에서 $78로 급락했습니다(폴). 이후 12 거래일 동안 좁고 질서 있는 채널에서 $88까지 천천히 상승했으며, 이 반등 내내 거래량이 감소했습니다. RSI는 48입니다. 현재 주가는 이 채널의 상단을 세 번째로 테스트하고 있습니다.",
-      analysis:"✅ **하락이 정답이었습니다.** 거래량 감소를 동반한 하락 깃발 — 고확신 지속 공매도 셋업.\n\n**이것이 작동한 이유:**\n• **폴**: 8일 만에 고거래량으로 -29% 하락 = 강한 기관 매도 우위 확립.\n• **깃발 내 거래량**: '회복' 중 매일 전날보다 낮은 거래량 — 진정한 매수 확신 없음. 매도자들은 재충전을 위해 잠시 쉬는 중.\n• **RSI 48**: 과매도도 아니고, 60+ 이상으로 회복도 안 됨 — 모멘텀이 중립/약세 영역에 갇힘.\n• **저항선 3번째 테스트**: $88에서 세 번 거부되고 위에서 종가 없음 = 매도자들이 방어 중.\n• **측정 목표**: 폴 길이($110→$78 = $32)를 깃발 이탈 지점($88)에서 차감 = ~$56.",
+      context:"금융주 한 종목이 8거래일 만에 고거래량으로 $110에서 $78까지 급락하며 하락 깃발의 폴을 형성했습니다. 이후 12거래일 동안 좁고 정돈된 채널 안에서 $88까지 완만하게 상승했으나, 반등 전 구간에서 거래량은 지속 감소했습니다. RSI는 48입니다. 현재 주가는 이 채널의 상단 경계를 세 번째 테스트하고 있습니다.",
+      analysis:"**정답 — 하락.**\n\n이 셋업은 거래량 수축을 동반한 하락 깃발 지속 패턴입니다. 다음 요소들이 매도 방향을 지지했습니다.\n\n• **폴 구조**: 8거래일 간 고거래량 -29% 하락은 기관 매도 주도권을 명확하게 수립.\n• **깃발 내 거래량 감소**: 채널 내 각 거래일의 거래량이 직전일보다 낮음 — 수요 부재. 채널은 매도 압력의 일시적 중단이지, 수요 주도의 회복이 아님.\n• **RSI 48**: 과매도 구간에 있지 않으며 강세 영역으로 회복도 없음 — 약세 방향성 유지 확인.\n• **저항선 3차 테스트 실패**: $88에서 세 차례 연속으로 종가 이탈 실패 — 해당 수준에 매도 압력이 집중.\n\n**측정 목표가**: 폴 길이 = $110 − $78 = $32. 깃발 이탈 지점 $88에서 차감 → 목표 ~$56.",
     },
     ja:{
-      context:"📊 シナリオ：ある金融株が高出来高で$110から$78にわずか8日で急落しました（ポール）。その後12セッションかけて狭く整然としたチャネルで$88まで緩やかに上昇しましたが、この反発を通じて出来高は減少しています。RSIは48です。株価は現在このチャネルの上端を3回目にテストしています。",
-      analysis:"✅ **下落が正解でした。** 出来高減少を伴うベアフラッグ — 高確信の継続空売りセットアップ。\n\n**機能した理由:**\n• **ポール**: 8日間で高出来高の-29%下落 = 強い機関の売り優位が確立。\n• **フラッグ内の出来高**: 「回復」の各日が前日より低い出来高 — 本物の買い確信なし。\n• **RSI 48**: 売られ過ぎでなく、60+への回復もない — モメンタムが中立/弱気ゾーンに留まる。\n• **レジスタンスへの3回目のテスト**: $88で3回拒絶、上での終値なし = 売り手が守っている。",
+      context:"ある金融株が高出来高で$110から$78へ8日間で急落し、ベアフラッグのポールを形成しました。その後12セッションかけて狭く整然としたチャネルで$88まで緩やかに上昇しましたが、反発を通じて出来高は継続的に低下しました。RSIは48です。株価は現在このチャネルの上端を3回目にテストしています。",
+      analysis:"**正解 — 下落。**\n\nこのセットアップは出来高収縮を伴うベアフラッグ継続パターンです。以下の要素が売り方向を支持しました。\n\n• **ポール構造**: 8セッションで高出来高の-29%下落は、機関の売り主導権を明確に確立。\n• **フラッグ内の出来高減少**: チャネル内の各セッションが前日より低い出来高 — 需要の不在。チャネルは売り圧力の一時的な中断であり、需要主導の回復ではない。\n• **RSI 48**: 売られ過ぎでなく、強気ゾーンへの回復もない — 弱気の方向性を維持。\n• **レジスタンスへの3回目のテスト失敗**: $88で3回連続して終値が上回れず、売り手がその水準を守っていることを確認。\n\n**メジャードムーブ目標**: ポール幅 = $110 − $78 = $32。フラッグ崩れ地点$88から差し引く → 目標 ~$56。",
     },
   },
   {
@@ -635,16 +635,16 @@ const SCENARIOS: QuizScenario[] = [
       genCandles(95, [{trend:1.8,vol:1.5,count:7,vBase:2800,vMul:2.2}])
     ),
     en:{
-      context:"📊 Scenario: A semiconductor stock has been trading in an ascending triangle for 6 weeks. Resistance is flat at $98. The lows have been: $85, $87, $90, $93 — a clear rising staircase. Today the 50-day MA has just crossed above the 200-day MA (Golden Cross) for the first time in 8 months. Volume over the past 3 days has been 30% above average. RSI is 62.",
-      analysis:"✅ **UP was correct.** Multiple high-conviction bullish signals converging.\n\n**The convergence:**\n• **Ascending triangle**: 4 rising lows compressing price toward flat resistance = classic institutional accumulation.\n• **Golden Cross**: 50-day crossing above 200-day triggers systematic buying from trend-following funds (CTAs, quant strategies).\n• **Volume expansion**: 3-day volume buildup (30% above avg) before the breakout = institutional positioning ahead of the move.\n• **RSI 62**: In bullish territory, trending up, NOT overbought — room to run.\n• **Multi-timeframe alignment**: Triangle (structural setup) + Golden Cross (momentum confirmation) + Volume (institutional participation) = textbook multi-factor confirmation.",
+      context:"A semiconductor stock has been trading within an ascending triangle for six weeks. Resistance is flat at $98. The successive lows have been $85, $87, $90, and $93 — a consistent rising staircase structure. Today, the 50-day MA crossed above the 200-day MA (Golden Cross) for the first time in eight months. Volume over the past three sessions has run 30% above the 20-day average. RSI is 62.",
+      analysis:"**Correct — UP.**\n\nMultiple independent bullish signals converged on this setup. Each factor reinforced the directional bias:\n\n• **Ascending triangle**: Four successive rising lows compressing price into flat resistance is a textbook institutional accumulation structure — buyers absorbing supply at progressively higher levels.\n• **Golden Cross**: The 50-day crossing above the 200-day triggers programmatic buying from trend-following funds (CTAs, quantitative strategies). This amplifies breakout momentum.\n• **Pre-breakout volume buildup**: Three sessions of volume running 30% above average indicates institutional positioning ahead of the anticipated breakout — not retail.\n• **RSI at 62**: Squarely in bullish territory, trending higher, and not yet overbought — momentum has capacity to extend.\n• **Multi-factor alignment**: Structural setup (triangle) + momentum confirmation (Golden Cross) + institutional participation (volume) constitutes a high-conviction confluence.",
     },
     ko:{
-      context:"📊 시나리오: 한 반도체 주식이 6주 동안 상승 삼각형 내에서 거래되고 있습니다. 저항선은 $98에 수평으로 유지됩니다. 저점들은: $85, $87, $90, $93 — 뚜렷한 상승하는 계단식 패턴. 오늘 50일 MA가 8개월 만에 처음으로 200일 MA를 상방 교차했습니다(골든 크로스). 지난 3일간 거래량이 평균보다 30% 높습니다. RSI는 62입니다.",
-      analysis:"✅ **상승이 정답이었습니다.** 여러 고확신 강세 신호들이 수렴.\n\n**수렴한 신호들:**\n• **상승 삼각형**: 4개의 상승하는 저점이 가격을 수평 저항선으로 압축 = 고전적 기관 매집.\n• **골든 크로스**: 50일이 200일 상방 교차로 추세 추종 펀드(CTA, 퀀트 전략)들의 체계적 매수 트리거.\n• **거래량 확장**: 돌파 전 3일 거래량 증가(평균 30% 상회) = 움직임에 앞선 기관 포지셔닝.\n• **RSI 62**: 강세 영역, 상승 추세, 과매수 아님 — 상승 여력 있음.\n• **다중 시간대 정렬**: 삼각형(구조적 셋업) + 골든 크로스(모멘텀 확인) + 거래량(기관 참여) = 교과서적 다중 요소 확인.",
+      context:"반도체 주식 한 종목이 6주 동안 상승 삼각형 내에서 거래되고 있습니다. 저항선은 $98에서 수평을 유지합니다. 연속 저점은 $85, $87, $90, $93으로 일관된 상승 계단 구조를 보입니다. 오늘 50일 MA가 8개월 만에 처음으로 200일 MA를 상방 교차했습니다(골든 크로스). 지난 3거래일 동안 거래량이 20일 평균 대비 30% 상회했습니다. RSI는 62입니다.",
+      analysis:"**정답 — 상승.**\n\n독립적인 강세 신호들이 이 셋업에 수렴했습니다. 각 요소가 방향성을 보강했습니다.\n\n• **상승 삼각형**: 4개의 연속 상승 저점이 가격을 수평 저항으로 압축 — 매수자들이 점점 더 높은 수준에서 공급을 흡수하는 기관 매집 구조.\n• **골든 크로스**: 50일의 200일 상방 교차로 추세 추종 펀드(CTA, 퀀트 전략)의 프로그래매틱 매수 유발. 돌파 모멘텀을 증폭.\n• **돌파 전 거래량 증가**: 평균 30% 상회 거래량이 3거래일 지속은 개인이 아닌 기관의 사전 포지셔닝을 의미.\n• **RSI 62**: 강세 영역에 위치, 상승 추세, 과매수 미도달 — 모멘텀의 연장 여력 존재.\n• **다중 요소 정렬**: 구조적 셋업(삼각형) + 모멘텀 확인(골든 크로스) + 기관 참여(거래량) = 고확신 수렴 신호.",
     },
     ja:{
-      context:"📊 シナリオ：ある半導体株が6週間、上昇三角形で取引されています。レジスタンスは$98に水平に維持。安値は$85、$87、$90、$93と上昇する階段状のパターン。本日、50日MAが8ヶ月ぶりに200日MAを上回りました（ゴールデンクロス）。過去3日間の出来高は平均より30%高いです。RSIは62です。",
-      analysis:"✅ **上昇が正解でした。** 複数の高確信な強気シグナルが収束。\n\n**収束したシグナル:**\n• **上昇三角形**: 4つの上昇する安値が価格を水平抵抗に圧縮 = 典型的な機関蓄積。\n• **ゴールデンクロス**: トレンドフォローファンドの体系的な買いをトリガー。\n• **出来高拡大**: ブレイクアウト前の3日間の出来高増加 = 機関のポジショニング。\n• **RSI 62**: 強気ゾーン、上昇中、買われ過ぎでない — 上昇余地あり。",
+      context:"ある半導体株が6週間、上昇三角形の中で取引されています。レジスタンスは$98に水平を維持。連続する安値は$85、$87、$90、$93と一貫した上昇階段構造を形成しています。本日、50日MAが8ヶ月ぶりに200日MAを上抜けました（ゴールデンクロス）。過去3セッションの出来高は20日平均を30%上回っています。RSIは62です。",
+      analysis:"**正解 — 上昇。**\n\n独立した複数の強気シグナルがこのセットアップに収束しました。各要素が方向性を強化しました。\n\n• **上昇三角形**: 4つの連続上昇安値が価格を水平レジスタンスに圧縮 — 買い手が上昇する水準で供給を吸収する機関蓄積の構造。\n• **ゴールデンクロス**: 50日が200日を上抜けることでトレンドフォローファンド（CTA、クオンツ戦略）のプログラマティック買いをトリガー。ブレイクアウトのモメンタムを増幅。\n• **ブレイクアウト前の出来高増加**: 平均を30%上回る出来高が3セッション継続は、個人ではなく機関の事前ポジショニングを示す。\n• **RSI 62**: 強気ゾーンに位置し、上昇トレンド中、まだ買われ過ぎでない — モメンタムの延長余地あり。\n• **多要素アライメント**: 構造的セットアップ（三角形）+ モメンタム確認（ゴールデンクロス）+ 機関参加（出来高）= 高確信の収束。",
     },
   },
   {
@@ -654,16 +654,16 @@ const SCENARIOS: QuizScenario[] = [
       genCandles(105, [{trend:-3.0,vol:2.0,count:7,vBase:4000,vMul:2.5}])
     ),
     en:{
-      context:"📊 Scenario: A consumer stock has risen in a rising wedge pattern for 10 weeks. The major resistance zone is $100–$102 (52-week high). Yesterday, the stock gapped up to $104 on news of a product launch, printing one candle ABOVE the resistance zone. However: volume was only 0.6× average. RSI shows a bearish divergence (price at new high, RSI at 66 vs. 72 at the prior high). The candle closed with a long upper wick at $101 — back below the resistance zone.",
-      analysis:"✅ **DOWN was correct.** This was a Rising Wedge Fake-out at major resistance — a high-probability short setup.\n\n**The fake-out anatomy:**\n• **Rising wedge**: Decelerating momentum for 10 weeks (volume declining throughout = distribution, not accumulation).\n• **Low-volume 'breakout'**: 0.6× average volume on the breakout candle = no institutional buying. Real breakouts need 1.5–3× volume.\n• **Shooting star candle**: Long upper wick + close BELOW resistance = sellers overwhelmed buyers AT resistance. Classic reversal candle.\n• **RSI Bearish Divergence**: Price at a NEW high but RSI at a LOWER level = internal momentum has been weakening all along.\n• **Close below resistance**: The key rule — intraday print above resistance is noise; CLOSING below resistance = fake-out confirmed.\n\n**This is the stop hunt**: Institutions used the news spike to sell into retail FOMO buyers at $104, then let price collapse.",
+      context:"A consumer stock has risen in a rising wedge pattern over ten weeks. The major resistance zone is $100–$102, coinciding with the 52-week high. The prior session saw a gap-up to $104 on a product launch announcement, briefly printing above the resistance zone. Volume on that session was only 0.6× the 20-day average. RSI showed a bearish divergence at the time: price at a new high, RSI at 66 versus 72 at the prior high. The session closed with a long upper wick at $101 — back inside the resistance zone.",
+      analysis:"**Correct — DOWN.**\n\nThis was a Rising Wedge fake-out at major resistance — a high-probability short setup. The anatomy of the failure:\n\n• **Rising wedge structure**: Ten weeks of decelerating momentum with declining volume throughout — characteristics of distribution, not accumulation.\n• **Below-average breakout volume**: 0.6× average on the breakout session confirms absent institutional buying. Genuine breakouts typically require 1.5–3× volume to sustain.\n• **Shooting star candle**: Long upper wick with a close below resistance indicates sellers overwhelmed buyers at the resistance level — a classic single-candle reversal signal.\n• **RSI bearish divergence**: Price printed a new high but RSI registered a lower reading than the prior peak — internal momentum had been deteriorating throughout the wedge.\n• **Close below resistance**: Intraday penetration of resistance is insufficient. A closing rejection back inside the zone confirms the fake-out and establishes the distribution zone.\n\n**The mechanism**: The news catalyst provided liquidity for institutional sellers to unwind into retail breakout buyers at $104, followed by price collapsing under its own structural weight.",
     },
     ko:{
-      context:"📊 시나리오: 한 소비재 주식이 10주 동안 상승 쐐기 패턴으로 상승했습니다. 주요 저항 구간은 $100–$102(52주 신고가)입니다. 어제, 제품 출시 뉴스로 주가가 $104까지 갭업하며 저항 구간 위로 한 캔들을 출력했습니다. 하지만: 거래량은 평균의 0.6배에 불과했습니다. RSI는 베어리쉬 다이버전스를 보여줍니다(가격 신고가, RSI 66 vs. 이전 고점의 72). 캔들은 긴 위꼬리와 함께 $101에서 종가 — 저항 구간 아래로 다시 내려갔습니다.",
-      analysis:"✅ **하락이 정답이었습니다.** 주요 저항선에서의 상승 쐐기 페이크아웃 — 고확률 공매도 셋업.\n\n**페이크아웃 해부학:**\n• **상승 쐐기**: 10주 동안 감속하는 모멘텀(내내 거래량 감소 = 분산, 매집 아님).\n• **저거래량 '돌파'**: 돌파 캔들에서 평균의 0.6배 거래량 = 기관 매수 없음. 진짜 돌파는 1.5~3배 거래량 필요.\n• **슈팅스타 캔들**: 긴 위꼬리 + 저항선 아래 종가 = 저항에서 매도자가 매수자를 압도. 고전적 반전 캔들.\n• **RSI 베어리쉬 다이버전스**: 가격은 신고가이지만 RSI는 더 낮은 수준 = 내부 모멘텀이 계속 약화되어 왔음.\n• **저항선 아래 종가**: 핵심 규칙 — 장중 고점은 노이즈이지만, 저항선 아래 종가 마감 = 페이크아웃 확인.\n\n**이것이 스탑 헌팅**: 기관들이 뉴스 스파이크를 이용해 $104에서 개인 FOMO 매수자들에게 매도하고 가격을 폭락시켰습니다.",
+      context:"소비재 주식 한 종목이 10주에 걸쳐 상승 쐐기 패턴을 형성하며 올랐습니다. 주요 저항 구간은 $100–$102로 52주 신고가와 일치합니다. 직전 거래일, 제품 출시 발표로 주가가 $104까지 갭업하며 잠시 저항 구간 위에 도달했습니다. 해당 거래일의 거래량은 20일 평균의 0.6배에 불과했습니다. RSI는 강세 다이버전스의 반대를 보여줬습니다: 가격은 신고가였으나 RSI는 이전 고점의 72 대비 66에 그쳤습니다. 해당 세션은 긴 위꼬리를 남기고 $101에서 종가 마감 — 저항 구간 내부로 되돌아왔습니다.",
+      analysis:"**정답 — 하락.**\n\n이 셋업은 주요 저항선에서의 상승 쐐기 페이크아웃으로, 고확률 매도 셋업이었습니다. 실패 구조의 분석:\n\n• **상승 쐐기 구조**: 10주에 걸쳐 거래량이 지속 감소하며 모멘텀이 감속 — 매집이 아닌 분산의 특성.\n• **평균 이하의 돌파 거래량**: 돌파 거래일 0.6배 거래량은 기관 매수 부재를 확인. 진성 돌파는 통상 1.5–3배 거래량이 지속을 뒷받침.\n• **슈팅스타 캔들**: 긴 위꼬리와 저항선 아래 종가 — 저항 수준에서 매도자가 매수자를 압도한 고전적 단일 캔들 반전 신호.\n• **RSI 약세 다이버전스**: 가격은 신고가를 기록했으나 RSI는 이전 고점보다 낮은 수준 — 쐐기 전 구간에 걸쳐 내부 모멘텀이 악화 중이었음.\n• **저항선 아래 종가**: 장중 저항 돌파만으로는 불충분. 저항 구간 내 종가 거부가 페이크아웃을 확인하고 분산 구간을 확정.\n\n**매커니즘**: 뉴스 촉매가 기관 매도자들에게 $104의 개인 돌파 매수자들을 상대로 포지션을 해소할 유동성을 제공하고, 이후 가격은 구조적 자체 무게로 붕괴.",
     },
     ja:{
-      context:"📊 シナリオ：ある消費財株が10週間、上昇ウェッジパターンで上昇しています。主要な抵抗ゾーンは$100〜$102（52週高値）です。昨日、製品発表のニュースで株価は$104にギャップアップし、抵抗ゾーンの上に1本のキャンドルを出力しました。しかし：出来高は平均の0.6倍に過ぎませんでした。RSIはベアリッシュダイバージェンスを示しています（価格は新高値、RSIは前回高値の72に対して66）。キャンドルは長い上ヒゲを付け、$101で終値 — 抵抗ゾーンの下に戻りました。",
-      analysis:"✅ **下落が正解でした。** 主要レジスタンスでの上昇ウェッジフォルスブレイクアウト — 高確率の空売りセットアップ。\n\n**フォルスブレイクアウトの解剖:**\n• **上昇ウェッジ**: 10週間のモメンタム減速（出来高の継続的減少 = 分散、蓄積でない）。\n• **低出来高の「ブレイクアウト」**: 平均の0.6倍の出来高 = 機関の買いなし。\n• **シューティングスターキャンドル**: 長い上ヒゲ + レジスタンス下での終値 = レジスタンスで売り方が買い方を圧倒。\n• **RSIベアリッシュダイバージェンス**: 価格は新高値だがRSIは低い水準 = 内部モメンタムが弱まり続けていた。\n• **これがストップハント**: 機関はニュースの急騰を利用して$104で個人のFOMO買いに売り抜けました。",
+      context:"ある消費財株が10週間、上昇ウェッジパターンで上昇しました。主要な抵抗ゾーンは$100〜$102で、52週高値と一致しています。前セッションでは製品発表のニュースで株価が$104にギャップアップし、一時的に抵抗ゾーンを上抜けました。そのセッションの出来高は20日平均の0.6倍に過ぎませんでした。RSIは弱気ダイバージェンスを示していました：価格は新高値、RSIは前回高値の72に対して66。そのセッションは長い上ヒゲを付け、$101で終値 — 抵抗ゾーンの内側に戻りました。",
+      analysis:"**正解 — 下落。**\n\nこのセットアップは主要レジスタンスでの上昇ウェッジのフォルスブレイクアウトで、高確率の売りセットアップでした。失敗の構造分析：\n\n• **上昇ウェッジ構造**: 10週間の継続的な出来高減少とモメンタム減速 — 蓄積ではなく分散の特性。\n• **平均以下のブレイクアウト出来高**: 0.6倍の出来高は機関の買い不在を確認。本物のブレイクアウトは通常1.5〜3倍の出来高が継続を支える。\n• **シューティングスターキャンドル**: 長い上ヒゲとレジスタンス下での終値 — レジスタンス水準で売り方が買い方を圧倒した典型的な単一キャンドル反転シグナル。\n• **RSI弱気ダイバージェンス**: 価格は新高値だがRSIは前回ピークより低い水準 — ウェッジ全体を通じて内部モメンタムが悪化していた。\n• **レジスタンス下での終値**: 場中のレジスタンス突破だけでは不十分。ゾーン内への終値での拒絶がフォルスブレイクアウトを確定し、分散ゾーンを確立。\n\n**メカニズム**: ニュース触媒が機関売り手に$104の個人ブレイクアウト買いへ向けてポジションを解消する流動性を提供し、その後価格は構造的な自重で崩落。",
     },
   },
   {
@@ -673,25 +673,25 @@ const SCENARIOS: QuizScenario[] = [
       genCandles(102, [{trend:2.2,vol:1.5,count:8,vBase:4500,vMul:3.0}])
     ),
     en:{
-      context:"📊 Scenario: An energy stock has been locked in a $97–$103 range for 22 sessions. Bollinger Band width has compressed to the lowest reading in 18 months — a historic squeeze. The VWAP for the past 10 days is at $100.50, and today the stock closed at $102.20 — reclaiming VWAP on 2.8× average volume after spending 3 days below it. RSI is 54 and trending up from a low of 44.",
-      analysis:"✅ **UP was correct.** Multi-factor confluence — BB Squeeze, VWAP Reclaim, Volume Explosion.\n\n**The confluence breakdown:**\n• **BB Squeeze (18-month low)**: The most compressed volatility in 1.5 years. A spring wound the tightest. Historical precedent: after 18-month lows in band width, the subsequent expansion averaged 22%.\n• **VWAP reclaim**: Closing above VWAP ($100.50) on 2.8× volume = institutional buyers stepped in decisively. They were accumulating 3 days BELOW VWAP (at a discount to their benchmark).\n• **RSI structure**: Rising from 44 to 54 = momentum recovering. Not overbought. 50-line cross = bullish regime shift.\n• **Volume explosion**: 3.0× average on the squeeze breakout candle = exactly what a real squeeze breakout looks like. Not a fake-out.\n• **Energy sector context**: Rising oil prices as backdrop provide fundamental tailwind amplifying the technical setup.",
+      context:"An energy stock has been confined to a $97–$103 range for 22 sessions. Bollinger Band width has compressed to its lowest reading in 18 months — a historically rare squeeze. The 10-day VWAP sits at $100.50. Today, following three sessions below VWAP, the stock closed at $102.20, reclaiming VWAP on 2.8× average volume. RSI is 54, trending up from a recent low of 44.",
+      analysis:"**Correct — UP.**\n\nThis setup presented a multi-factor confluence: Bollinger Band Squeeze, VWAP reclaim, and volume expansion — all aligning in the same direction.\n\n• **BB Squeeze at 18-month low**: Band width at its most compressed point in 1.5 years signals the lowest realized volatility in that period. Historical data shows that following 18-month band-width lows, the subsequent directional expansion has averaged 22%.\n• **VWAP reclaim on volume**: Closing above the 10-day VWAP at $100.50 on 2.8× average volume indicates institutional buyers re-entered decisively. The prior three sessions below VWAP allowed accumulation at a benchmark discount.\n• **RSI structure**: RSI rising from 44 to 54 reflects recovering momentum — crossing the 50 level signals a regime shift from distribution to accumulation. Not overbought, with room to extend.\n• **Squeeze breakout volume**: 3.0× average volume on the expansion candle confirms genuine directional commitment — the hallmark of a real squeeze resolution versus a false start.\n• **Sector context**: Rising crude oil prices provided a fundamental tailwind, amplifying the technical setup's probability of follow-through.",
     },
     ko:{
-      context:"📊 시나리오: 한 에너지 주식이 22 거래일 동안 $97–$103 레인지에 갇혀 있었습니다. 볼린저 밴드 폭이 18개월 만에 최저 수준으로 압축됐습니다 — 역사적인 스퀴즈. 지난 10일간의 VWAP는 $100.50이며, 오늘 주가는 3일 동안 VWAP 아래에 있다가 평균의 2.8배 거래량으로 VWAP를 회복하며 $102.20에 마감했습니다. RSI는 44에서 상승하며 54를 기록 중입니다.",
-      analysis:"✅ **상승이 정답이었습니다.** 다중 요소 수렴 — BB 스퀴즈, VWAP 회복, 거래량 폭발.\n\n**수렴 분석:**\n• **BB 스퀴즈 (18개월 최저)**: 1.5년 만의 가장 압축된 변동성. 가장 꽉 감긴 스프링. 역사적 선례: 밴드 폭의 18개월 최저치 이후 후속 팽창은 평균 22%.\n• **VWAP 회복**: 2.8배 거래량으로 VWAP($100.50) 위에서 종가 = 기관 매수자들이 결정적으로 개입. 그들은 벤치마크 아래 할인 가격으로 VWAP 아래 3일 동안 매집 중이었습니다.\n• **RSI 구조**: 44에서 54로 상승 = 모멘텀 회복. 과매수 아님. 50선 교차 = 강세 전환.\n• **거래량 폭발**: 스퀴즈 돌파 캔들에서 평균의 3.0배 = 진짜 스퀴즈 돌파의 정확한 모습. 페이크아웃 아님.\n• **에너지 섹터 맥락**: 유가 상승이 배경으로 기술적 셋업을 증폭시키는 펀더멘털 순풍 제공.",
+      context:"에너지 주식 한 종목이 22거래일 동안 $97–$103 레인지에 갇혀 있었습니다. 볼린저 밴드 폭이 18개월 만에 최저 수준으로 압축됐습니다 — 역사적으로 드문 스퀴즈입니다. 10일 VWAP는 $100.50에 위치합니다. 오늘 주가는 3거래일 연속 VWAP 아래에 머문 후, 평균의 2.8배 거래량으로 VWAP를 회복하며 $102.20에 마감했습니다. RSI는 최근 저점 44에서 상승해 54를 기록 중입니다.",
+      analysis:"**정답 — 상승.**\n\n이 셋업은 볼린저 밴드 스퀴즈, VWAP 회복, 거래량 확대의 다중 수렴을 제시했습니다 — 모두 동일한 방향을 가리켰습니다.\n\n• **BB 스퀴즈 18개월 최저**: 1.5년 만의 가장 압축된 밴드 폭은 해당 기간 중 가장 낮은 실현 변동성을 의미합니다. 과거 데이터에 따르면 18개월 최저 밴드 폭 이후 후속 방향성 확대는 평균 22%였습니다.\n• **거래량을 동반한 VWAP 회복**: 10일 VWAP $100.50 위로 2.8배 거래량으로 종가 마감은 기관 매수자의 결정적 재진입을 나타냅니다. 직전 3거래일 VWAP 하방 구간에서 벤치마크 할인 가격으로 매집이 이루어졌습니다.\n• **RSI 구조**: 44에서 54로 상승하는 RSI는 모멘텀 회복을 반영 — 50선 교차는 분산에서 매집으로의 레짐 전환 신호. 과매수 아니며 연장 여력 존재.\n• **스퀴즈 돌파 거래량**: 팽창 캔들에서 평균 3.0배 거래량은 진정한 방향성 확약을 확인 — 페이크 스타트가 아닌 실제 스퀴즈 해소의 특징.\n• **섹터 맥락**: 유가 상승이 펀더멘털 순풍으로 작용해 기술적 셋업의 모멘텀 지속 가능성을 높였습니다.",
     },
     ja:{
-      context:"📊 シナリオ：あるエネルギー株が22セッション、$97〜$103のレンジに閉じ込められています。ボリンジャーバンド幅は18ヶ月で最低水準まで圧縮されました — 歴史的なスクイーズ。過去10日間のVWAPは$100.50で、本日株価はVWAPの下に3日間いた後、平均の2.8倍の出来高でVWAPを回復して$102.20で終値を付けました。RSIは44から上昇して54を記録中です。",
-      analysis:"✅ **上昇が正解でした。** 多要素収束 — BBスクイーズ、VWAP回復、出来高爆発。\n\n**収束分析:**\n• **BBスクイーズ（18ヶ月最低）**: 1.5年で最も圧縮されたボラティリティ。最も固く巻かれたバネ。\n• **VWAP回復**: 2.8倍の出来高でVWAPの上で終値 = 機関の買い手が決定的に介入。彼らはVWAPの下で3日間（ベンチマーク下の割引価格で）積み上げていました。\n• **RSI構造**: 44から54に上昇 = モメンタム回復。50ライン交差 = 強気レジームシフト。\n• **出来高爆発**: スクイーズブレイクアウトキャンドルで平均の3.0倍 = 本物のスクイーズブレイクアウトの典型。",
+      context:"あるエネルギー株が22セッション、$97〜$103のレンジに閉じ込められています。ボリンジャーバンド幅は18ヶ月で最低水準まで圧縮されました — 歴史的に稀なスクイーズです。10日間のVWAPは$100.50に位置します。本日、VWAPの下に3セッションいた後、平均の2.8倍の出来高でVWAPを回復して$102.20で終値を付けました。RSIは最近の安値44から上昇して54を記録中です。",
+      analysis:"**正解 — 上昇。**\n\nこのセットアップはボリンジャーバンドスクイーズ、VWAP回復、出来高拡大の多要素収束を示しました — すべて同じ方向に一致しています。\n\n• **BBスクイーズ18ヶ月最低**: 1.5年で最も圧縮されたバンド幅は、その期間で最も低い実現ボラティリティを意味します。過去データによると、18ヶ月最低バンド幅の後の方向性拡大は平均22%でした。\n• **出来高を伴うVWAP回復**: 10日間VWAP $100.50を2.8倍の出来高で上回る終値は、機関の買い手の決定的な再参入を示します。直前の3セッションVWAP下での時間帯でベンチマーク割引価格での蓄積が行われていました。\n• **RSI構造**: 44から54へのRSI上昇はモメンタム回復を反映 — 50ラインの交差は分散から蓄積へのレジームシフトシグナル。買われ過ぎでなく、延長余地あり。\n• **スクイーズブレイクアウト出来高**: 拡大キャンドルで平均3.0倍の出来高は本物の方向性コミットを確認 — フォルススタートではなく実際のスクイーズ解消の特徴。\n• **セクターコンテキスト**: 原油価格の上昇がファンダメンタルの追い風となり、テクニカルセットアップのフォロースルー確率を高めました。",
     },
   },
 ];
 
 // ─── Disclaimer ────────────────────────────────────────────────────────────────
 const DISCLAIMER: Record<Lang, string> = {
-  ko:"⚠️ 기술적 분석 및 차트 패턴 활용 시 유의사항: 본 메뉴에서 제공하는 차트 패턴 및 기술적 지표는 과거 시장 데이터의 통계적 시각화 자료이며, 미래의 투자 수익을 보장하거나 특정 종목의 매수/매도를 권유하지 않습니다. 패턴은 언제든 무력화(Fake-out)될 수 있으므로 반드시 기업 펀더멘털 및 철저한 리스크 관리(손절매 기준 설정)와 병행하세요.",
-  en:"⚠️ Educational disclaimer: Chart patterns and technical indicators are statistical visualizations of historical data only. They do not guarantee future returns or constitute buy/sell recommendations. Patterns can be invalidated at any time by unexpected events. Always combine technical analysis with fundamental research and strict risk management.",
-  ja:"⚠️ テクニカル分析に関する重要な注意事項: 本セクションのチャートパターンおよびテクニカル指標は過去データの統計的可視化に過ぎず、将来の投資収益を保証するものでも売買推奨でもありません。常にファンダメンタル分析とリスク管理を併用してください。",
+  ko:"기술적 분석 및 차트 패턴 활용 시 유의사항: 본 메뉴의 차트 패턴 및 기술적 지표는 과거 시장 데이터의 통계적 시각화 자료이며, 미래의 투자 수익을 보장하거나 특정 종목의 매수/매도를 권유하지 않습니다. 패턴은 언제든 무력화(Fake-out)될 수 있으므로 반드시 기업 펀더멘털 및 철저한 리스크 관리(손절매 기준 설정)와 병행하세요.",
+  en:"Educational disclaimer: Chart patterns and technical indicators are statistical visualizations of historical data only. They do not guarantee future returns or constitute buy/sell recommendations. Patterns can be invalidated at any time by unexpected events. Always combine technical analysis with fundamental research and strict risk management.",
+  ja:"テクニカル分析に関する重要な注意事項: 本セクションのチャートパターンおよびテクニカル指標は過去データの統計的可視化に過ぎず、将来の投資収益を保証するものでも売買推奨でもありません。常にファンダメンタル分析とリスク管理を併用してください。",
 };
 
 function StrategyText({ text }: { text: string }) {
@@ -812,14 +812,13 @@ export default function ChartMaster() {
 
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
-            <span className="text-2xl">📈</span>
+          <h1 className="text-3xl font-display font-bold text-foreground">
             {lang==="ko"?"차트 마스터":lang==="ja"?"チャートマスター":"Chart Master"}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {lang==="ko"?"21가지 핵심 기술 분석 패턴 + 실전 차트 퀴즈로 전문가 수준의 실력을 키워보세요."
-              :lang==="ja"?"21の重要テクニカル分析パターン + 実践チャートクイズでプロレベルのスキルを身につけましょう。"
-              :"21 core technical analysis patterns + interactive chart quiz — build professional-grade skills."}
+            {lang==="ko"?"21가지 기술적 분석 패턴을 난이도별로 학습하고, 실전 차트 퀴즈로 판단력을 검증하세요."
+              :lang==="ja"?"21のテクニカル分析パターンをレベル別に学習し、チャートクイズで判断力を検証しましょう。"
+              :"21 technical analysis patterns organized by difficulty level, with an interactive chart quiz to test your judgment."}
           </p>
         </div>
 
@@ -829,13 +828,13 @@ export default function ChartMaster() {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab==="learn"?"bg-card text-foreground shadow-sm":"text-muted-foreground hover:text-foreground"}`}
             data-testid="tab-learn">
             <BookOpen className="w-4 h-4"/>
-            {lang==="ko"?"📚 패턴 학습":lang==="ja"?"📚 パターン学習":"📚 Learn Patterns"}
+            {lang==="ko"?"패턴 학습":lang==="ja"?"パターン学習":"Learn Patterns"}
           </button>
           <button onClick={()=>setActiveTab("quiz")}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab==="quiz"?"bg-card text-foreground shadow-sm":"text-muted-foreground hover:text-foreground"}`}
             data-testid="tab-quiz">
             <Brain className="w-4 h-4"/>
-            {lang==="ko"?"🧪 차트 퀴즈":lang==="ja"?"🧪 チャートクイズ":"🧪 Chart Quiz"}
+            {lang==="ko"?"차트 퀴즈":lang==="ja"?"チャートクイズ":"Chart Quiz"}
           </button>
         </div>
 
@@ -978,13 +977,13 @@ export default function ChartMaster() {
                     className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-500/20 hover:border-emerald-500 transition-all font-bold text-base"
                     data-testid="btn-answer-up">
                     <TrendingUp className="w-5 h-5"/>
-                    {lang==="ko"?"📈 상승 / 매수":lang==="ja"?"📈 上昇 / 買い":"📈 Up / Buy"}
+                    {lang==="ko"?"상승 / 매수":lang==="ja"?"上昇 / 買い":"Up / Buy"}
                   </button>
                   <button onClick={()=>handleAnswer("down")}
                     className="flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 hover:bg-red-500/20 hover:border-red-500 transition-all font-bold text-base"
                     data-testid="btn-answer-down">
                     <TrendingDown className="w-5 h-5"/>
-                    {lang==="ko"?"📉 하락 / 매도":lang==="ja"?"📉 下落 / 売り":"📉 Down / Sell"}
+                    {lang==="ko"?"하락 / 매도":lang==="ja"?"下落 / 売り":"Down / Sell"}
                   </button>
                 </div>
               ) : (
@@ -993,8 +992,8 @@ export default function ChartMaster() {
                   <div className={`rounded-xl p-4 border ${isCorrect?"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700":"bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700"}`}>
                     <div className="flex items-center gap-2 mb-2">
                       {isCorrect
-                        ?<><Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400"/><span className="font-bold text-emerald-700 dark:text-emerald-300">{lang==="ko"?"정답! +15 XP":lang==="ja"?"正解！ +15 XP":"Correct! +15 XP"}</span></>
-                        :<><XCircle className="w-5 h-5 text-red-600 dark:text-red-400"/><span className="font-bold text-red-700 dark:text-red-300">{lang==="ko"?`틀렸습니다. 정답: ${scenario.answer==="up"?"상승":"하락"} (+5 XP 참여)`:lang==="ja"?`不正解。正解: ${scenario.answer==="up"?"上昇":"下落"} (+5 XP 参加)`:` Incorrect — answer was ${scenario.answer.toUpperCase()}. (+5 XP for participating)`}</span></>
+                        ?<><Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400"/><span className="font-bold text-emerald-700 dark:text-emerald-300">{lang==="ko"?"정답 — +15 XP 적립":lang==="ja"?"正解 — +15 XP 獲得":"Correct — +15 XP earned"}</span></>
+                        :<><XCircle className="w-5 h-5 text-red-600 dark:text-red-400"/><span className="font-bold text-red-700 dark:text-red-300">{lang==="ko"?`오답. 정답: ${scenario.answer==="up"?"상승":"하락"} / 참여 보상 +5 XP`:lang==="ja"?`不正解。正解: ${scenario.answer==="up"?"上昇":"下落"} / 参加報酬 +5 XP`:`Incorrect. Correct direction: ${scenario.answer.toUpperCase()} — +5 XP for participating.`}</span></>
                       }
                     </div>
                     <div className="text-sm text-foreground leading-relaxed">
@@ -1084,19 +1083,19 @@ export default function ChartMaster() {
               <div className="text-sm text-muted-foreground leading-relaxed min-h-[120px]" style={{animation:"fadeInUp 0.2s ease"}}>
                 {modalTab==="definition" && (
                   <div>
-                    <p className="text-foreground font-medium mb-1">{lang==="ko"?"📐 정의 및 형태":lang==="ja"?"📐 定義と形状":"📐 Definition & Shape"}</p>
+                    <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"정의 및 형태":lang==="ja"?"定義と形状":"Definition & Shape"}</p>
                     <p>{getText(selected).definition}</p>
                   </div>
                 )}
                 {modalTab==="why" && (
                   <div>
-                    <p className="text-foreground font-medium mb-1">{lang==="ko"?"🧠 시장 심리 (The Psychological Catalyst)":lang==="ja"?"🧠 市場心理（心理的触媒）":"🧠 The Psychological Catalyst"}</p>
+                    <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"시장 심리":lang==="ja"?"市場心理":"Market Psychology"}</p>
                     <p>{getText(selected).why}</p>
                   </div>
                 )}
                 {modalTab==="fusion" && (
                   <div>
-                    <p className="text-foreground font-medium mb-1">{lang==="ko"?"🔀 지표 결합 (Indicator Fusion)":lang==="ja"?"🔀 指標融合":"🔀 Indicator Fusion — Cross-validation"}</p>
+                    <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"지표 결합":lang==="ja"?"指標融合":"Indicator Fusion"}</p>
                     <div className="space-y-1">
                       {getText(selected).indicatorFusion.split("\n").map((line,i)=>(
                         <p key={i}><StrategyText text={line}/></p>
@@ -1106,7 +1105,7 @@ export default function ChartMaster() {
                 )}
                 {modalTab==="strategy" && (
                   <div>
-                    <p className="text-foreground font-medium mb-1">{lang==="ko"?"📋 실전 전략":lang==="ja"?"📋 実践戦略":"📋 Trading Strategy"}</p>
+                    <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"실전 전략":lang==="ja"?"実践戦略":"Trading Strategy"}</p>
                     <div className="space-y-1">
                       {getText(selected).strategy.split("\n").map((line,i)=>(
                         <p key={i}><StrategyText text={line}/></p>
