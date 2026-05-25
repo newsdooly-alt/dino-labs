@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle } from "lucide-react";
+import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle, BookOpen } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ const menuItems = [
   { path: "/ai-portfolio", icon: Brain,    translationKey: "mobile_menu_portfolio" as const },
   { path: "/chat",         icon: MessageCircle, translationKey: "mobile_menu_chat" as const },
   { path: "/investors",    icon: Briefcase,translationKey: "mobile_menu_investors" as const },
+  { path: "/chart-master", icon: BookOpen,  translationKey: "mobile_menu_chart_master" as const },
   { path: "/pro",          icon: Zap,      translationKey: "mobile_menu_pro" as const },
   { path: "/settings",     icon: Settings, translationKey: "mobile_menu_settings" as const },
 ];

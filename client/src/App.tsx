@@ -30,6 +30,7 @@ import HotIssues from "@/pages/HotIssues";
 import EarningsLive from "@/pages/EarningsLive";
 import AIPortfolio from "@/pages/AIPortfolio";
 import StockChat from "@/pages/StockChat";
+import ChartMaster from "@/pages/ChartMaster";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect, useMemo } from "react";
 
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/earnings" component={EarningsLive} />
       <Route path="/ai-portfolio" component={AIPortfolio} />
       <Route path="/chat" component={StockChat} />
+      <Route path="/chart-master" component={ChartMaster} />
       <Route component={NotFound} />
     </Switch>
   );

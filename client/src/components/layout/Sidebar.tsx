@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Target, LineChart, Settings, LogOut, TrendingUp, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Target, LineChart, Settings, LogOut, TrendingUp, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
@@ -22,6 +22,7 @@ export function Sidebar() {
     { href: "/hot-issues", label: lang === "ko" ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues", icon: Newspaper },
     { href: "/calendar", label: lang === "ko" ? "경제 캘린더" : "Economic Calendar", icon: Calendar },
     { href: "/investors", label: lang === "ko" ? "슈퍼 투자자" : t.super_investors, icon: Briefcase },
+    { href: "/chart-master", label: lang === "ko" ? "차트 마스터" : lang === "ja" ? "チャートマスター" : "Chart Master", icon: BookOpen },
     { href: "/earnings", label: lang === "ko" ? "실적 Live" : lang === "ja" ? "決算ライブ" : "Earnings Live", icon: BarChart2 },
     { href: "/ai-portfolio", label: lang === "ko" ? "AI 포트폴리오" : lang === "ja" ? "AIポートフォリオ" : "AI Portfolio", icon: Brain },
     { href: "/chat", label: lang === "ko" ? "AI 주식 챗봇" : lang === "ja" ? "AI株式チャット" : "AI Stock Chat", icon: MessageCircle },
