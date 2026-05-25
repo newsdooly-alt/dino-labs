@@ -48,6 +48,42 @@ function genCandles(startPrice: number, moves: Array<{trend:number;vol:number;co
   return out;
 }
 
+// AI quiz candle generator — unique chart per quiz using seed
+function genAiCandles(quizSeed: number, answer: "up" | "down"): { history: OHLCV[]; reveal: OHLCV[] } {
+  let seed = Math.abs((quizSeed * 1664525 + 1013904223) ^ 0x5a7b3c1d) & 0x7fffffff;
+  const rng = () => { seed = (seed * 1664525 + 1013904223) & 0x7fffffff; return seed / 0x7fffffff; };
+  const startPrice = 40 + rng() * 160;
+  const vol = startPrice * 0.012;
+  const vBase = 600000 + rng() * 600000;
+  let price = startPrice;
+  const mk = (bias: number, noise: number, vMul: number): OHLCV => {
+    const o = price;
+    const c = o + bias + (rng() - 0.5) * noise * 2;
+    const wick = noise * rng() * 0.7;
+    const h = Math.max(o, c) + wick;
+    const l = Math.min(o, c) - wick * 0.5;
+    price = c;
+    return { o: +o.toFixed(2), h: +h.toFixed(2), l: +Math.max(l, 1).toFixed(2), c: +c.toFixed(2), v: Math.round(vBase * vMul * (0.6 + rng() * 0.8)) };
+  };
+  const history: OHLCV[] = [];
+  if (answer === "up") {
+    for (let i = 0; i < 7; i++) history.push(mk(-vol * 0.6, vol * 1.3, 1.2));   // downtrend
+    for (let i = 0; i < 5; i++) history.push(mk(0, vol * 0.45, 0.55));          // base / contraction
+    for (let i = 0; i < 3; i++) history.push(mk(vol * 0.25, vol * 0.55, 0.8)); // early recovery
+  } else {
+    for (let i = 0; i < 7; i++) history.push(mk(vol * 0.6, vol * 1.3, 1.2));   // uptrend
+    for (let i = 0; i < 5; i++) history.push(mk(0, vol * 0.45, 0.55));          // topping / distribution
+    for (let i = 0; i < 3; i++) history.push(mk(-vol * 0.25, vol * 0.55, 0.8));// early weakness
+  }
+  const reveal: OHLCV[] = [];
+  if (answer === "up") {
+    for (let i = 0; i < 3; i++) reveal.push(mk(vol * 1.4, vol * 0.7, 2.0));  // bullish breakout
+  } else {
+    for (let i = 0; i < 3; i++) reveal.push(mk(-vol * 1.4, vol * 0.7, 2.0)); // bearish breakdown
+  }
+  return { history, reveal };
+}
+
 // ─── SVG components ─────────────────────────────────────────────────────────────
 function HeadShouldersSVG() { return <svg viewBox="0 0 120 64" className="w-full h-full"><polyline points="0,52 18,22 28,40 58,6 88,40 102,26 120,52" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="24" y1="40" x2="94" y2="40" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.5"/></svg>; }
 function InverseHSSVG() { return <svg viewBox="0 0 120 64" className="w-full h-full"><polyline points="0,12 18,42 28,24 58,58 88,24 102,38 120,12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="24" y1="24" x2="94" y2="24" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.5"/></svg>; }
@@ -726,7 +762,8 @@ export default function ChartMaster() {
   const [quizHistory, setQuizHistory] = useState<Array<{ correct: boolean; answer: "up" | "down" }>>([]);
 
   // AI-generated infinite quiz state
-  type AiQuiz = { context: string; answer: "up" | "down"; analysis: string; patternName: string; difficulty: string };
+  type AiQuizRaw = { context: string; answer: "up" | "down"; analysis: string; patternName: string; difficulty: string };
+  type AiQuiz = AiQuizRaw & { history: OHLCV[]; reveal: OHLCV[]; seed: number };
   const [aiMode, setAiMode] = useState(false);
   const [aiQuiz, setAiQuiz] = useState<AiQuiz | null>(null);
   const [nextAiQuiz, setNextAiQuiz] = useState<AiQuiz | null>(null);
@@ -739,31 +776,34 @@ export default function ChartMaster() {
   const currentAnswer = isAiMode ? aiQuiz?.answer : scenario?.answer;
   const isCorrect = chosen === currentAnswer;
 
-  const fetchAiQuiz = useCallback(async (recent: string[] = []) => {
+  const fetchAiQuiz = useCallback(async (recent: string[], seed: number) => {
     try {
       const params = new URLSearchParams({ lang, recent: recent.slice(-10).join(",") });
       const res = await fetch(`/api/chart-master/quiz?${params}`, { credentials: "include" });
       if (!res.ok) return null;
-      return (await res.json()) as AiQuiz;
+      const raw = (await res.json()) as AiQuizRaw;
+      const { history, reveal } = genAiCandles(seed, raw.answer);
+      return { ...raw, history, reveal, seed };
     } catch { return null; }
   }, [lang]);
 
-  const prefetchNextAiQuiz = useCallback(async (recent: string[]) => {
-    const q = await fetchAiQuiz(recent);
+  const prefetchNextAiQuiz = useCallback(async (recent: string[], seed: number) => {
+    const q = await fetchAiQuiz(recent, seed);
     if (q) setNextAiQuiz(q);
   }, [fetchAiQuiz]);
 
   const enterAiMode = useCallback(async () => {
     setAiLoading(true);
     setAiMode(true);
-    const q = await fetchAiQuiz(recentAiPatterns);
+    const seed = Date.now();
+    const q = await fetchAiQuiz(recentAiPatterns, seed);
     setAiQuiz(q);
     setAiLoading(false);
     setAiQuizTotal(1);
     if (q) {
       const updated = [...recentAiPatterns, q.patternName].slice(-15);
       setRecentAiPatterns(updated);
-      prefetchNextAiQuiz(updated);
+      prefetchNextAiQuiz(updated, seed + 1);
     }
   }, [fetchAiQuiz, prefetchNextAiQuiz, recentAiPatterns]);
 
@@ -818,7 +858,7 @@ export default function ChartMaster() {
     if (isAiMode && aiQuiz) {
       const updated = [...recentAiPatterns, aiQuiz.patternName].slice(-15);
       setRecentAiPatterns(updated);
-      if (!nextAiQuiz) prefetchNextAiQuiz(updated);
+      if (!nextAiQuiz) prefetchNextAiQuiz(updated, Date.now() + 2);
     }
   };
 
@@ -832,17 +872,18 @@ export default function ChartMaster() {
         setAiQuizTotal(t => t + 1);
         const updated = [...recentAiPatterns, nextAiQuiz.patternName].slice(-15);
         setRecentAiPatterns(updated);
-        prefetchNextAiQuiz(updated);
+        prefetchNextAiQuiz(updated, Date.now() + 3);
       } else {
         setAiLoading(true);
-        const q = await fetchAiQuiz(recentAiPatterns);
+        const seed = Date.now();
+        const q = await fetchAiQuiz(recentAiPatterns, seed);
         setAiQuiz(q);
         setAiLoading(false);
         setAiQuizTotal(t => t + 1);
         if (q) {
           const updated = [...recentAiPatterns, q.patternName].slice(-15);
           setRecentAiPatterns(updated);
-          prefetchNextAiQuiz(updated);
+          prefetchNextAiQuiz(updated, seed + 1);
         }
       }
     } else {
@@ -1145,6 +1186,14 @@ export default function ChartMaster() {
                   <p className="text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl p-4">
                     {aiQuiz.context}
                   </p>
+                </div>
+                {/* AI-generated candlestick chart */}
+                <div className="px-5 pb-3">
+                  <CandlestickChart
+                    candles={[...aiQuiz.history, ...aiQuiz.reveal]}
+                    revealFrom={aiQuiz.history.length}
+                    showReveal={answered}
+                  />
                 </div>
                 {!answered ? (
                   <div className="px-5 pb-5 grid grid-cols-2 gap-3">

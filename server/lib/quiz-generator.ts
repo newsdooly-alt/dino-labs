@@ -517,13 +517,14 @@ Rules:
 - Use a plausible stock price range for the ${sector} sector
 - The scenario should contain clear but non-obvious confirming signals for the "${answer}" direction
 - Do NOT explicitly name the pattern in the context (let the student identify it)
-- The analysis must start with a declarative opening line stating the correct direction, then explain WHY with 3-5 bullet points — each bullet starts with **bold concept name**: explanation
+- Do NOT use any markdown formatting — no asterisks, no bold markers, no symbols like ** or *
+- The analysis: 1-2 plain sentences introducing the correct direction, then 3-5 bullet points starting with "•" followed by "Concept name: explanation" (no bold, no asterisks)
 - Do NOT use phrases like "Imagine", "Let me", "Certainly", "Great question"
 
 Return ONLY valid JSON (no markdown fences):
 {
   "context": "4-6 sentence scenario with specific numbers",
-  "analysis": "**Correct — ${answer === "up" ? "UP" : "DOWN"}.** [1-2 sentence intro explaining the pattern identified]\\n\\n• **Concept**: explanation\\n• **Concept**: explanation\\n• **Concept**: explanation"
+  "analysis": "Correct direction: ${answer === "up" ? "UP" : "DOWN"}. [1-2 sentence explanation of the pattern]\\n\\n• Concept name: explanation\\n• Concept name: explanation\\n• Concept name: explanation"
 }`;
 
   try {
@@ -538,10 +539,11 @@ Return ONLY valid JSON (no markdown fences):
     const raw = response.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(raw);
 
+    const stripBold = (s: string) => s.replace(/\*\*/g, "");
     return {
-      context: parsed.context ?? "",
+      context: stripBold(parsed.context ?? ""),
       answer,
-      analysis: parsed.analysis ?? `**Correct — ${answer.toUpperCase()}.** This pattern showed a classic ${pattern} setup.`,
+      analysis: stripBold(parsed.analysis ?? `Correct direction: ${answer.toUpperCase()}. This pattern showed a classic ${pattern} setup.`),
       patternName: pattern,
       difficulty,
     };
@@ -550,7 +552,7 @@ Return ONLY valid JSON (no markdown fences):
     return {
       context: `A ${sector} stock has been forming a ${pattern} over the past several weeks with notable volume characteristics and momentum shifts.`,
       answer,
-      analysis: `**Correct — ${answer.toUpperCase()}.** The ${pattern} pattern signaled a ${answer === "up" ? "bullish" : "bearish"} directional move based on price structure and volume confirmation.`,
+      analysis: `Correct direction: ${answer.toUpperCase()}. The ${pattern} pattern signaled a ${answer === "up" ? "bullish" : "bearish"} directional move based on price structure and volume confirmation.`,
       patternName: pattern,
       difficulty,
     };
