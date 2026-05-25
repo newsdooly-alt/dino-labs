@@ -99,6 +99,23 @@ function BollingerSqueezeSVG() { return <svg viewBox="0 0 120 64" className="w-f
 function RisingWedgeSVG() { return <svg viewBox="0 0 120 64" className="w-full h-full"><polyline points="0,50 30,32 60,22 90,16 108,14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><polyline points="0,58 30,46 60,38 90,32 108,30" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 3"/><polyline points="108,22 120,54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>; }
 function FallingWedgeSVG() { return <svg viewBox="0 0 120 64" className="w-full h-full"><polyline points="0,14 30,28 60,36 90,44 108,48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><polyline points="0,6 30,16 60,22 90,28 108,32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 3"/><polyline points="108,40 120,10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>; }
 function RoundingBottomSVG() { return <svg viewBox="0 0 120 64" className="w-full h-full"><path d="M0,12 Q60,62 120,12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>; }
+function FibonacciSVG() {
+  return <svg viewBox="0 0 120 64" className="w-full h-full">
+    <line x1="0" y1="8" x2="48" y2="8" stroke="currentColor" strokeWidth="1.2" opacity="0.45"/>
+    <line x1="0" y1="22" x2="48" y2="22" stroke="#f59e0b" strokeWidth="1.2" opacity="0.7"/>
+    <line x1="0" y1="32" x2="48" y2="32" stroke="#22c55e" strokeWidth="1.5" opacity="0.8"/>
+    <line x1="0" y1="40" x2="48" y2="40" stroke="#22c55e" strokeWidth="1.5" opacity="0.8"/>
+    <line x1="0" y1="48" x2="48" y2="48" stroke="#f59e0b" strokeWidth="1.2" opacity="0.7"/>
+    <line x1="0" y1="58" x2="48" y2="58" stroke="currentColor" strokeWidth="1.2" opacity="0.45"/>
+    <text x="50" y="11" fontSize="6" fill="currentColor" opacity="0.6">0%</text>
+    <text x="50" y="25" fontSize="6" fill="#f59e0b">23.6%</text>
+    <text x="50" y="35" fontSize="6" fill="#22c55e">38.2%</text>
+    <text x="50" y="43" fontSize="6" fill="#22c55e">61.8%</text>
+    <text x="50" y="51" fontSize="6" fill="#f59e0b">78.6%</text>
+    <text x="50" y="61" fontSize="6" fill="currentColor" opacity="0.6">100%</text>
+    <polyline points="90,58 102,28 112,38 120,8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>;
+}
 function BasicCandlesSVG() {
   return <svg viewBox="0 0 120 64" className="w-full h-full">
     <g transform="translate(8,0)"><line x1="0" y1="8" x2="0" y2="56" stroke="#22c55e" strokeWidth="1.5"/><rect x="-5" y="18" width="10" height="26" fill="#22c55e" rx="1"/></g>
@@ -198,7 +215,7 @@ function MultiTimeframeSVG() {
     <rect x="1" y="36" width="77" height="26" rx="2" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.4"/>
     <polyline points="5,54 14,48 23,46 32,50 41,42 50,44 59,38 68,40 75,36" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <text x="3" y="63" fontSize="5" fill="currentColor" opacity="0.5">15m</text>
-    <rect x="84" y="2" width="34" height="60" rx="2" fill="currentColor" opacity="0.05" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
+    <rect x="84" y="2" width="34" height="60" rx="2" fill="currentColor" opacity="0.05" stroke="currentColor" strokeWidth="1"/>
     <text x="88" y="14" fontSize="5" fill="#22c55e" opacity="0.8">All ✓</text>
     <text x="88" y="24" fontSize="5" fill="#22c55e" opacity="0.8">Bull</text>
     <text x="88" y="36" fontSize="5" fill="currentColor" opacity="0.5">Entry</text>
@@ -609,6 +626,211 @@ const PATTERNS: Pattern[] = [
     ko:{title:"상승 쐐기 (Rising Wedge)",shortDesc:"기만적인 상승 채널 — 상승하는 가격 뒤에 악화되는 내부 지표.",definition:"두 추세선 모두 상향이지만 하단선 기울기가 더 가파른 좁아지는 쐐기. 가격이 상승해도 하락 반전 패턴. 하단 추세선 이탈로 확인.",why:"가격은 오르지만 모멘텀이 둔화됩니다. 매수 열기가 감소합니다. 거래량은 전형적으로 감소하며 확신 약화를 확인합니다.",indicatorFusion:"**RSI 다이버전스**: 가장 중요한 확인 — 쐐기 내에서 가격은 더 높은 고점을 만들지만 RSI는 더 낮은 고점 = 거의 확실히 하락. **거래량**: 쐐기 내 각 반등이 이전보다 낮은 거래량 = 분산 측정. **MACD**: 쐐기를 통과하며 줄어드는 히스토그램 = 모멘텀 누수. **볼린저 밴드**: 상단 BB를 터치/돌파하는 상승 쐐기 = 과매수, 반전 무르익음.",strategy:"**진입**: 하단 쐐기 추세선 하방 종가 이탈 시 공매도.\n**목표가**: 쐐기 가장 넓은 부분 크기를 하방으로 설정.\n**손절**: 쐐기 내 최근 반등 고점 위."},
     ja:{title:"ライジングウェッジ",shortDesc:"欺瞞的な上昇チャネル — 上昇する価格の裏に悪化する内部指標。",definition:"両トレンドラインが上向きで下限ラインの方が急勾配な先細りウェッジ。価格が上昇しても弱気反転パターン。下限トレンドラインの下抜けで確認。",why:"価格は上昇しますがモメンタムが鈍化。出来高は典型的に減少し確信の弱まりを確認。",indicatorFusion:"**RSIダイバージェンス**：最重要確認 — ウェッジ内で価格が高値を更新するがRSIが低い高値 = ほぼ確実に弱気。**出来高**：ウェッジ内の各反発が前回より低い出来高 = 分散を測定。",strategy:"**エントリー**：下限ウェッジラインの下抜け確認後の空売り。\n**目標**：ウェッジの最大幅を下方に投影。\n**損切り**：ウェッジ内の直近高値の上。"},
   },
+  // ── INTERMEDIATE (추가) ──
+  {
+    id:"inverse-head-shoulders", type:"bullish", difficulty:"intermediate",
+    coreIndicators:["Price Structure","Volume","Neckline Break"],
+    svg:<InverseHSSVG/>,
+    en:{
+      title:"Inverse Head & Shoulders",
+      shortDesc:"Three troughs signal the end of a downtrend — the most reliable bullish reversal.",
+      definition:"The mirror image of Head & Shoulders. Three troughs: a deeper middle trough (Head) flanked by two higher troughs (Shoulders). A 'neckline' connects the two peaks between troughs.\n**Confirmation**: A close above the neckline on high volume triggers the bullish reversal.",
+      why:"Left shoulder: sellers push down, but buyers step in. Head: bears make a final push to new lows — but buying absorption accelerates at that extreme.\nRight shoulder: bears fail to reach the prior low — demand is strengthening.\nWhen neckline breaks, short-sellers must cover and new longs enter simultaneously, creating a powerful squeeze.",
+      indicatorFusion:"**Volume pattern**: Volume is typically highest on the left shoulder, lower on the head, and lowest on the right shoulder — sellers are exhausted.\n**RSI**: Bullish divergence across the three troughs (RSI makes higher lows) is the strongest confirmation.\n**MACD**: A bullish crossover during right shoulder formation is an early entry signal.\n**Moving Averages**: If the neckline break also reclaims the 200-day MA, significance is doubled.",
+      strategy:"**Entry**: Buy on confirmed close above neckline.\n**Target**: Head-to-neckline distance projected upward from breakout point.\n**Stop-Loss**: Below the right shoulder.\n**Pro tip**: A pullback to the neckline after the breakout (now acting as support) is a second, lower-risk entry opportunity.",
+    },
+    ko:{
+      title:"역헤드앤숄더 (Inverse Head & Shoulders)",
+      shortDesc:"세 저점이 하락 추세의 끝을 알리는 가장 신뢰할 수 있는 상승 반전 패턴.",
+      definition:"헤드앤숄더의 거울 이미지. 세 저점: 더 낮은 가운데 저점(헤드)과 양쪽의 높은 두 저점(숄더). 두 저점 사이의 고점을 넥라인이 연결.\n**확인**: 고거래량 넥라인 상방 종가 이탈이 상승 반전을 트리거합니다.",
+      why:"왼쪽 숄더: 매도자가 밀어내리지만 매수자 유입. 헤드: 약세론자의 마지막 신저가 시도, 하지만 매수 흡수 가속화.\n오른쪽 숄더: 약세론자가 이전 저점에도 못 미치며 수요 강화 확인.\n넥라인 이탈 시 공매도 청산 + 신규 매수가 동시에 발생하며 강력한 숏 스퀴즈.",
+      indicatorFusion:"**거래량 패턴**: 왼쪽 숄더에서 가장 높고, 헤드, 오른쪽 숄더로 갈수록 감소 — 매도 소진.\n**RSI**: 세 저점에 걸친 불리쉬 다이버전스(RSI가 높은 저점) = 가장 강력한 확인.\n**MACD**: 오른쪽 숄더 형성 중 상승 교차 = 조기 진입 신호.\n**이동평균**: 넥라인 이탈이 200일 MA 회복도 동반하면 신호 강도 두 배.",
+      strategy:"**진입**: 넥라인 상방 종가 이탈 확인 후 매수.\n**목표가**: 헤드에서 넥라인까지의 거리를 돌파 지점에서 상방으로.\n**손절**: 오른쪽 숄더 아래.\n**프로 팁**: 돌파 후 넥라인으로의 되돌림(이제 지지 역할)은 두 번째 저위험 진입 기회.",
+    },
+    ja:{
+      title:"逆ヘッドアンドショルダー",
+      shortDesc:"3つの谷が下降トレンドの終焉を告げる最も信頼性の高い強気反転パターン。",
+      definition:"ヘッドアンドショルダーの鏡像。3つの谷：より深い中央の谷（ヘッド）と両側の高い2つの谷（ショルダー）。ネックラインが谷間の2つのピークを結ぶ。\n**確認**：高出来高を伴うネックライン上抜けが強気反転を示します。",
+      why:"左肩：売り方が押し下げるが買い方が参入。ヘッド：弱気筋の最後の新安値試み、しかし買い吸収が加速。\n右肩：弱気筋が前の安値に届かず需要強化を確認。ネックライン突破で空売りの買い戻しと新規ロングが同時発生。",
+      indicatorFusion:"**出来高パターン**：左肩が最多、ヘッド、右肩と減少 — 売り手枯渇。\n**RSI**：3つの谷にわたるブリッシュダイバージェンス = 最強の確認。\n**MACD**：右肩形成中の強気クロス = 早期エントリーシグナル。\n**移動平均線**：ネックライン突破が200日MAの回復も伴う場合、シグナル強度は2倍。",
+      strategy:"**エントリー**：ネックライン上抜け確認後の買い。\n**目標**：ヘッドからネックラインまでの距離を上方に投影。\n**損切り**：右肩の下。\n**プロのヒント**：ブレイクアウト後のネックライン（今はサポートとして機能）への押し戻しは第二の低リスクエントリー機会。",
+    },
+  },
+  {
+    id:"double-top", type:"bearish", difficulty:"intermediate",
+    coreIndicators:["Price Structure","Volume","Neckline Break"],
+    svg:<DoubleTopSVG/>,
+    en:{
+      title:"Double Top",
+      shortDesc:"Two equal highs at resistance — a reliable bearish reversal pattern.",
+      definition:"Price rallies to a resistance level twice and fails both times. Two roughly equal peaks separated by a pullback valley. Pattern confirms when price breaks below the trough between the two tops (the neckline).\n**Key rule**: The two tops should be within 3% of each other to qualify as a 'double top.'",
+      why:"First top: buyers push to resistance, then profit-taking emerges. Second test: bulls try again — but sellers absorb every bid at the same price.\nThis proves sellers have a 'firm offer' at that level. Trapped longs from the second top panic as price falls — their stop-losses add fuel to the decline.\nThe pattern reflects a fundamental shift: buyers have lost the ability to make new highs.",
+      indicatorFusion:"**Volume**: Second top should form on LOWER volume than the first — declining buying conviction. Neckline break on HIGH volume confirms.\n**RSI**: Bearish divergence (RSI makes lower high at second top) is the strongest confirmation signal.\n**MACD**: A bearish crossover during the second top formation is an early warning.\n**Moving Averages**: If the neckline aligns with a key MA (50-day or 200-day), it becomes a critical level to watch.",
+      strategy:"**Entry**: Short on confirmed close below neckline (the valley between the two tops).\n**Target**: Pattern height (top to neckline) projected downward from breakout.\n**Stop-Loss**: Just above the second top.\n**Note**: A retest of the neckline from below after the break is a second, high-conviction short entry.",
+    },
+    ko:{
+      title:"이중 천장 (Double Top)",
+      shortDesc:"저항선에서 두 번 실패 — 신뢰할 수 있는 하락 반전 패턴.",
+      definition:"가격이 저항 수준에서 두 번 상승 시도 후 실패합니다. 두 고점이 거의 같고 중간에 되돌림 계곡이 있습니다. 두 고점 사이의 저점(넥라인) 하방 이탈로 패턴 확인.\n**핵심 규칙**: 두 고점은 '이중 천장'으로 인정받으려면 서로 3% 이내에 있어야 합니다.",
+      why:"첫 번째 고점: 매수자가 저항까지 밀어올린 후 차익 실현. 두 번째 테스트: 강세론자가 재시도 — 하지만 매도자가 같은 가격에서 모든 주문을 흡수.\n이는 그 수준에 '확고한 매도 의지'가 있음을 증명합니다. 두 번째 고점에서 갇힌 매수자들이 가격 하락 시 패닉 매도하며 하락에 힘을 더합니다.\n이 패턴은 매수자들이 신고가를 만들 능력을 잃었음을 반영합니다.",
+      indicatorFusion:"**거래량**: 두 번째 고점은 첫 번째보다 낮은 거래량(매수 확신 감소). 넥라인 이탈은 높은 거래량으로 확인.\n**RSI**: 베어리쉬 다이버전스(두 번째 고점에서 RSI가 낮은 고점) = 가장 강력한 확인 신호.\n**MACD**: 두 번째 고점 형성 중 하락 교차 = 조기 경고.\n**이동평균**: 넥라인이 주요 MA(50일 또는 200일)와 일치하면 더욱 중요한 수준이 됩니다.",
+      strategy:"**진입**: 넥라인(두 고점 사이 저점) 하방 종가 이탈 시 공매도.\n**목표가**: 패턴 높이(고점→넥라인)를 돌파 지점에서 하방으로.\n**손절**: 두 번째 고점 바로 위.\n**참고**: 이탈 후 넥라인 아래에서 재테스트 = 두 번째 고확신 공매도 진입 기회.",
+    },
+    ja:{
+      title:"ダブルトップ",
+      shortDesc:"レジスタンスで2回失敗 — 信頼性の高い弱気反転パターン。",
+      definition:"価格が抵抗水準に2回上昇を試みて失敗します。概ね等しい2つの山と中間の谷。谷（ネックライン）の下抜けで確認。\n**重要ルール**：2つの山は「ダブルトップ」として認められるには互いに3%以内である必要があります。",
+      why:"1番天井：買い方が抵抗まで押し上げた後に利益確定。2番目のテスト：強気筋が再試みるが、売り方が同じ価格で全ての注文を吸収。\n2番天井で捕まった買い方が価格下落時にパニック売りし、下落に拍車をかけます。\nこのパターンは買い方が新高値を作る能力を失ったことを反映しています。",
+      indicatorFusion:"**出来高**：2番天井は1番天井より低い出来高（買い確信の低下）。ネックライン割れは高出来高で確認。\n**RSI**：ベアリッシュダイバージェンス（2番天井でRSIが低い高値）= 最強の確認シグナル。\n**MACD**：2番天井形成中の弱気クロス = 早期警告。\n**移動平均線**：ネックラインが主要MA（50日または200日）と一致すると重要性が増します。",
+      strategy:"**エントリー**：ネックライン下抜け確認後の空売り。\n**目標**：パターンの高さ（山からネックライン）を下方に投影。\n**損切り**：2番天井のすぐ上。\n**注記**：割れ後のネックライン下からの再テスト = 第二の高確信空売りエントリー機会。",
+    },
+  },
+  {
+    id:"bear-flag", type:"bearish", difficulty:"intermediate",
+    coreIndicators:["Volume","Consolidation Angle","Breakdown"],
+    svg:<BearFlagSVG/>,
+    en:{
+      title:"Bear Flag",
+      shortDesc:"Sharp drop then tight bounce — textbook continuation of the downtrend.",
+      definition:"A near-vertical price drop (pole) followed by an orderly bounce within parallel trendlines (flag). The flag retraces 30–50% of the pole on low volume.\n**Breakdown below the lower flag trendline = continuation of the downtrend.**",
+      why:"The pole shows sellers overwhelming buyers with conviction. The flag is a weak, low-volume bounce — short-sellers are NOT covering, and buyers lack conviction to sustain it.\nThe 'relief rally' into the flag traps new buyers who think the selling is over. When volume returns on breakdown, those trapped buyers panic-sell, adding fuel to the next leg down.",
+      indicatorFusion:"**Volume**: Volume must DRY UP during the flag. Flag forming on high volume = genuine buying pressure, not a flag.\n**RSI**: RSI bouncing to 50 during the flag (not overbought) = healthy momentum correction in the downtrend.\n**Moving Averages**: The flag ideally stays below the 20-day EMA — a weak bounce that doesn't threaten the downtrend.\n**MACD**: Histogram remaining negative through the flag = sellers still in control.",
+      strategy:"**Entry**: Short on high-volume breakdown below lower flag trendline.\n**Target**: Subtract pole's length from the flag's breakdown point (measured move).\n**Stop-Loss**: Above upper flag boundary.\n**Caution**: Bear flags in a broader bull market have lower success rates — context matters.",
+    },
+    ko:{
+      title:"하락 깃발 (Bear Flag)",
+      shortDesc:"급락 이후 좁은 반등 — 하락 추세 지속의 교과서적 패턴.",
+      definition:"수직에 가까운 급락(폴)에 이어 평행 추세선 안에서 질서 있는 반등(깃발). 깃발은 폴의 30~50%를 저거래량으로 되돌립니다.\n**깃발 하단 추세선 하방 이탈 = 하락 추세 지속 확인.**",
+      why:"폴은 매도세가 매수세를 강하게 압도. 깃발은 약하고 거래량이 없는 반등 — 공매도자들이 청산하지 않고, 매수자들도 확신 부족.\n'안도 반등'이 하락이 끝났다고 생각하는 신규 매수자들을 함정에 빠뜨립니다. 이탈 시 거래량이 돌아오면 갇힌 매수자들이 패닉 매도하며 다음 하락을 가속화합니다.",
+      indicatorFusion:"**거래량**: 깃발 구간에서 반드시 거래량이 감소해야 합니다. 높은 거래량의 깃발 = 진짜 매수 압력, 패턴 아님.\n**RSI**: 깃발 중 RSI가 50으로 반등(과매수 아님) = 하락 추세에서 건강한 모멘텀 조정.\n**이동평균**: 이상적으로 깃발이 20일 EMA 아래 유지 — 하락 추세를 위협하지 않는 약한 반등.\n**MACD**: 깃발 내내 히스토그램이 음수 유지 = 매도자가 여전히 주도.",
+      strategy:"**진입**: 깃발 하단 추세선 고거래량 이탈 시 공매도.\n**목표가**: 폴 길이를 이탈 지점에서 하방으로 빼기(Measured Move).\n**손절**: 깃발 상단 추세선 위.\n**주의**: 더 큰 강세장 환경의 하락 깃발은 성공률이 낮습니다 — 맥락이 중요합니다.",
+    },
+    ja:{
+      title:"ベアフラッグ",
+      shortDesc:"急落後の狭い反発 — 下降トレンド継続の教科書的パターン。",
+      definition:"ほぼ垂直の急落（ポール）に続く平行トレンドライン内での反発（フラッグ）。フラッグはポールの30〜50%を低出来高で押し戻します。\n**フラッグ下限の下抜け = 下降トレンド継続の確認。**",
+      why:"ポールは売り方が買い方を強く圧倒。フラッグは出来高の乏しい弱い反発 — 空売り筋は買い戻さず、買い方も確信不足。\n「安堵の反発」が下落終了と思う新規買い方を罠にかけます。ブレイクダウン時に出来高が戻ると捕まった買い方がパニック売りし、次の下落を加速させます。",
+      indicatorFusion:"**出来高**：フラッグ中は必ず出来高が減少する必要があります。高出来高のフラッグ = 本物の買い圧力、パターンではない。\n**RSI**：フラッグ中にRSIが50に反発（買われ過ぎでない）= 下降トレンドにおける健全なモメンタム調整。\n**移動平均線**：フラッグが理想的に20日EMAの下に維持 — 下降トレンドを脅かさない弱い反発。\n**MACD**：フラッグを通じてヒストグラムが負を維持 = 売り方が依然として主導。",
+      strategy:"**エントリー**：フラッグ下限を高出来高で下抜け時の空売り。\n**目標**：ポールの長さをブレイクダウン地点から下方に引く（メジャードムーブ）。\n**損切り**：フラッグ上限の上。\n**注意**：より大きな強気市場環境でのベアフラッグは成功率が低い — コンテキストが重要。",
+    },
+  },
+  {
+    id:"descending-triangle", type:"bearish", difficulty:"intermediate",
+    coreIndicators:["Flat Support","Declining Highs","Volume on Break"],
+    svg:<DescendingTriangleSVG/>,
+    en:{
+      title:"Descending Triangle",
+      shortDesc:"Flat support + declining highs = sellers slowly gaining control.",
+      definition:"A flat lower support line with a declining upper trendline. Each rally attempt reaches a lower high — sellers are becoming more aggressive. Price is compressed toward the support floor.\n**Expected breakdown**: Downside on volume. (Note: ~30% of descending triangles break upward — always wait for confirmation.)",
+      why:"Sellers are increasingly impatient — each bounce is sold at progressively lower prices, meaning sellers aren't waiting for price to fully recover before distributing.\nMeanwhile, buyers hold firm at the same flat support. The repeated testing of that flat support is actually WEAKENING it — each test depletes the resting buy orders at that level.\nWhen the buy orders are absorbed, support fails and price collapses.",
+      indicatorFusion:"**Volume**: Volume should DECLINE through the triangle (spring being compressed) then expand on breakdown.\n**RSI**: RSI making lower highs through the triangle = deteriorating momentum matching the price structure.\n**MACD**: Histogram declining through the pattern confirms momentum leaking to the downside.\n**Moving Averages**: If the flat support aligns with the 200-day MA, the breakdown when it comes will be especially significant.",
+      strategy:"**Entry**: Short on high-volume breakdown below flat support.\n**Target**: Triangle height (widest point) projected downward from breakdown.\n**Stop-Loss**: Above last declining high before breakdown.\n**False break filter**: Wait for a close below support — not just an intraday touch. A reversal back above support = potential false break, exit.",
+    },
+    ko:{
+      title:"하락 삼각형 (Descending Triangle)",
+      shortDesc:"수평 지지 + 하락하는 고점 = 매도자가 서서히 주도권 장악.",
+      definition:"수평 하단 지지선과 하락하는 상단 추세선. 매번 반등 시도가 낮은 고점에 도달 — 매도자들이 점점 더 공격적. 가격이 지지선으로 압축.\n**예상 이탈**: 거래량 동반 하방. (참고: 하락 삼각형의 약 30%는 상방으로 이탈 — 항상 확인 대기 필요.)",
+      why:"매도자들이 점점 더 조급해집니다 — 매번 반등을 점점 낮은 가격에 매도. 매도자들이 완전한 반등을 기다리지 않고 분산(배분).\n반면 매수자들은 같은 지지선을 지킵니다. 지지선의 반복 테스트는 실제로 그것을 약화시킵니다 — 각 테스트가 해당 수준의 대기 매수 주문을 소진.\n매수 주문이 소진되면 지지가 무너지고 가격이 붕괴합니다.",
+      indicatorFusion:"**거래량**: 삼각형을 통해 거래량이 감소해야 함(스프링 압축처럼), 이탈 시 확대.\n**RSI**: 삼각형을 통해 RSI가 낮은 고점 형성 = 가격 구조와 일치하는 모멘텀 약화.\n**MACD**: 패턴 전반에 걸쳐 히스토그램 감소 = 하방으로 모멘텀 누수 확인.\n**이동평균**: 수평 지지선이 200일 MA와 일치하면, 이탈 시 특히 중요한 의미를 가집니다.",
+      strategy:"**진입**: 수평 지지선 고거래량 하방 이탈 시 공매도.\n**목표가**: 삼각형 높이(가장 넓은 부분)를 이탈 지점에서 하방으로.\n**손절**: 이탈 직전 마지막 하락 고점 위.\n**페이크아웃 필터**: 장중 터치가 아닌 지지선 아래 종가 이탈 대기. 지지선 위로 되돌리면 = 잠재적 페이크아웃, 청산.",
+    },
+    ja:{
+      title:"ディセンディングトライアングル",
+      shortDesc:"水平サポート + 下降する高値 = 売り方がゆっくりと主導権を握る。",
+      definition:"水平な下限サポートラインと下降する上限トレンドライン。毎回の反発試みが低い高値 — 売り方がますます積極的。価格がサポートに向かって圧縮。\n**予想される下抜け**：出来高を伴う下方。（注記：ディセンディングトライアングルの約30%は上方に抜ける — 常に確認を待つこと。）",
+      why:"売り方がますます焦り始めます。各反発をより低い価格で売り、完全な回復を待たずに分散。\n一方、買い方は同じサポートを守ります。サポートの繰り返しテストは実際にそれを弱化させ — 各テストがその水準の待機買い注文を消耗。\n買い注文が枯渇するとサポートが崩壊し価格が急落します。",
+      indicatorFusion:"**出来高**：三角形を通じて出来高が減少（バネの圧縮）、下抜け時に拡大。\n**RSI**：三角形を通じてRSIが低い高値 = 価格構造に一致するモメンタム悪化。\n**MACD**：パターン全体でヒストグラム減少 = 下方へのモメンタム漏れ確認。\n**移動平均線**：水平サポートが200日MAと一致すると下抜け時の意義が特に大きい。",
+      strategy:"**エントリー**：水平サポートを高出来高で下抜け時の空売り。\n**目標**：三角形の最大幅を下方に投影。\n**損切り**：下抜け直前の最後の下降高値の上。\n**フォルスブレイクフィルター**：日中タッチではなくサポート下での終値を待つ。サポート上への反転 = 潜在的フォルスブレイク、撤退。",
+    },
+  },
+  {
+    id:"rounding-bottom", type:"bullish", difficulty:"intermediate",
+    coreIndicators:["Base Duration","Volume Pattern","Breakout"],
+    svg:<RoundingBottomSVG/>,
+    en:{
+      title:"Rounding Bottom (Saucer)",
+      shortDesc:"A slow, U-shaped accumulation over months — institutional patience rewarded.",
+      definition:"A gradual, curved base forming over weeks to months. Unlike V-bottoms or double bottoms, the rounding bottom reflects a very gradual transition from bearish to bullish sentiment. Volume mirrors the price: declining as price falls, at its lowest at the base, and rising as price gradually recovers.\n**Breakout**: When price clears the resistance at the rim of the 'saucer' on expanding volume.",
+      why:"The rounding bottom represents patient, methodical accumulation by institutional investors. Unlike sharp reversal patterns that show one decisive battle, the rounding bottom reflects a slow transfer of shares from weak, discouraged holders to strong, informed buyers.\nThe gradual volume recovery as price rises shows institutions carefully managing their purchases to avoid moving the price. When they've accumulated their full position, they 'step away' — and without sellers, price breaks out.",
+      indicatorFusion:"**Volume curve**: Volume should mirror the price curve — a U-shape of its own. Low volume at the base, rising volume as price rises.\n**Moving Averages**: During the base, MAs will be flat and tangled. A clean 'fan out' (short-term MA crossing above long-term) signals the base is complete.\n**RS Line**: A stock's Relative Strength vs. the market should be making new highs before or alongside the breakout — confirms institutional preference.\n**MACD**: A bullish MACD crossover as price approaches the rim = strong confirmation.",
+      strategy:"**Entry**: Buy on high-volume breakout above the saucer rim.\n**Target**: Depth of the saucer projected upward from breakout.\n**Stop-Loss**: Below the last rising low before the breakout.\n**Patience required**: Rounding bottoms can take 3-12 months to complete. Set alerts and wait — don't try to buy early before the breakout confirms.",
+    },
+    ko:{
+      title:"원형 바닥 / 소서 (Rounding Bottom)",
+      shortDesc:"수개월에 걸친 느린 U자형 매집 — 기관의 인내가 보상받는 패턴.",
+      definition:"수주~수개월에 걸쳐 형성되는 완만한 곡선 바닥. V자 바닥이나 이중 바닥과 달리 원형 바닥은 약세에서 강세 심리로의 매우 점진적인 전환을 반영합니다. 거래량이 가격을 그대로 반영: 가격 하락 시 감소, 바닥에서 최저, 가격 회복 시 상승.\n**돌파**: 가격이 '소서' 상단 저항을 거래량 증가와 함께 돌파할 때.",
+      why:"원형 바닥은 기관 투자자들의 인내심 있고 체계적인 매집을 나타냅니다. 하나의 결정적 전투를 보여주는 급격한 반전 패턴과 달리, 실망한 약한 보유자로부터 강하고 정보력 있는 매수자로의 느린 주식 이전을 반영합니다.\n가격 상승과 함께 거래량이 점차 회복되는 것은 기관들이 가격을 움직이지 않도록 신중하게 매수를 관리함을 보여줍니다. 목표 포지션을 완성하면 그들은 '물러서고' — 매도자 없이 가격이 돌파합니다.",
+      indicatorFusion:"**거래량 곡선**: 거래량이 가격 곡선을 그대로 반영해야 합니다 — U자형 거래량. 바닥에서 낮고, 가격 상승과 함께 증가.\n**이동평균**: 바닥 형성 중 MA는 평평하고 얽힙니다. '팬 아웃'(단기 MA가 장기 MA 상방 교차) = 바닥 완성 신호.\n**상대강도(RS) 라인**: 주식의 시장 대비 RS가 돌파 전이나 함께 신고가 형성 = 기관의 선호 확인.\n**MACD**: 가격이 림에 접근할 때 상승 MACD 교차 = 강력한 확인.",
+      strategy:"**진입**: 소서 상단(림) 위 고거래량 돌파 시 매수.\n**목표가**: 소서 깊이를 돌파 지점에서 상방으로.\n**손절**: 돌파 직전 마지막 상승 저점 아래.\n**인내 필요**: 원형 바닥은 완성까지 3~12개월이 걸릴 수 있습니다. 알림 설정 후 대기 — 돌파 확인 전 조기 매수 시도 금물.",
+    },
+    ja:{
+      title:"ラウンディングボトム（ソーサー）",
+      shortDesc:"数ヶ月にわたる緩やかなU字形の蓄積 — 機関の忍耐が報われるパターン。",
+      definition:"数週間から数ヶ月にわたって形成される緩やかな曲線ベース。V字底やダブルボトムと異なり、ラウンディングボトムは弱気から強気へのセンチメントの非常に段階的な移行を反映します。出来高が価格を反映：価格下落で減少、ベースで最低、価格回復で上昇。\n**ブレイクアウト**：価格が「ソーサー」の縁の抵抗を出来高増加と共に突破する時。",
+      why:"ラウンディングボトムは機関投資家の忍耐強く系統的な蓄積を表します。失望した弱い保有者から強く情報力のある買い手への株式の緩やかな移転を反映します。\n価格上昇と共に出来高が徐々に回復するのは、機関が価格を動かさないよう慎重に購入を管理していることを示します。目標ポジションを完成させると「引き下がり」— 売り手なしで価格がブレイクアウトします。",
+      indicatorFusion:"**出来高曲線**：出来高が価格曲線を反映する必要があります — U字形の出来高。ベースで低く、価格上昇と共に増加。\n**移動平均線**：ベース形成中はMAが平坦に絡み合います。「ファンアウト」（短期MAが長期MAを上抜け）= ベース完成シグナル。\n**RSライン**：銘柄の相対強度がブレイクアウト前または同時に新高値 = 機関の選好確認。\n**MACD**：価格が縁に近づく時の強気クロス = 強力な確認。",
+      strategy:"**エントリー**：ソーサーの縁を高出来高で上抜け時の買い。\n**目標**：ソーサーの深さをブレイクアウト地点から上方に投影。\n**損切り**：ブレイクアウト直前の最後の上昇安値の下。\n**忍耐が必要**：ラウンディングボトムは完成まで3〜12ヶ月かかることがあります。アラートを設定して待つ — ブレイクアウト確認前の早期参入は禁物。",
+    },
+  },
+  // ── ADVANCED (추가) ──
+  {
+    id:"falling-wedge", type:"bullish", difficulty:"advanced",
+    coreIndicators:["Trendline Convergence","Volume Contraction","RSI Divergence"],
+    svg:<FallingWedgeSVG/>,
+    en:{
+      title:"Falling Wedge",
+      shortDesc:"Deceptive downward channel — falling price hides strengthening internals.",
+      definition:"Both trendlines slope downward, with the upper trendline steeper than the lower. The wedge narrows as price falls. Despite the declining appearance, this is typically a BULLISH pattern — either a continuation in an uptrend or a reversal in a downtrend.\n**Confirmation**: Breakout above the upper trendline on expanding volume.",
+      why:"Price falls, but momentum is actually recovering — sellers are taking less and less control with each push lower. The narrowing range shows that selling pressure is exhausting itself.\nEach lower high is less aggressively reached, while each lower low is shallower — buyers are quietly absorbing every sell wave.\nWhen the upper trendline breaks, it triggers short-covering and new buying simultaneously, often resulting in a sharp, fast reversal.",
+      indicatorFusion:"**RSI Divergence**: Price making lower lows while RSI makes higher lows inside the wedge = hidden buying pressure accumulating.\n**Volume**: Each wave down in the wedge prints lower volume — measuring selling exhaustion. Breakout on 2× average volume confirms.\n**MACD**: Histogram bars growing smaller (less negative) through the wedge = momentum recovery beneath price.\n**Bollinger Bands**: Price touching lower BB while RSI diverges = high-conviction reversal setup.",
+      strategy:"**Entry**: Buy on close above upper wedge trendline with volume.\n**Target**: Top of wedge projected from breakout point (full retracement of wedge).\n**Stop-Loss**: Below the most recent swing low inside the wedge.\n**Advanced entry**: Watch for a bullish RSI divergence forming inside the wedge — enter on that candle's close for a lower-risk entry before the trendline break.",
+    },
+    ko:{
+      title:"하락 쐐기 (Falling Wedge)",
+      shortDesc:"기만적인 하락 채널 — 하락하는 가격 뒤에 강화되는 내부 지표.",
+      definition:"두 추세선 모두 하향이지만 상단선 기울기가 더 가파른 좁아지는 쐐기. 가격이 하락해도 일반적으로 상승 패턴 — 상승 추세에서 지속 또는 하락 추세에서 반전.\n**확인**: 거래량 증가와 함께 상단 추세선 상방 이탈.",
+      why:"가격은 하락하지만 모멘텀은 실제로 회복 중 — 매도자들이 매번 밀어내릴 때마다 주도권을 덜 가져갑니다. 좁아지는 범위는 매도 압력이 스스로 소진되고 있음을 보여줍니다.\n각 낮은 고점은 덜 공격적으로 도달되고, 각 낮은 저점은 더 얕습니다 — 매수자들이 조용히 모든 매도 파동을 흡수하고 있습니다.\n상단 추세선이 이탈되면 공매도 청산과 신규 매수가 동시에 발생, 종종 급격하고 빠른 반전을 초래합니다.",
+      indicatorFusion:"**RSI 다이버전스**: 가격이 낮은 저점을 만드는 동안 RSI가 높은 저점 = 숨겨진 매수 압력 축적.\n**거래량**: 쐐기 내 각 하락 파동이 낮은 거래량 = 매도 소진 측정. 평균의 2배 거래량 돌파로 확인.\n**MACD**: 쐐기를 통해 히스토그램 막대가 작아짐(덜 음수) = 가격 아래에서 모멘텀 회복.\n**볼린저 밴드**: RSI 다이버전스와 함께 하단 BB에 접촉 = 고확신 반전 셋업.",
+      strategy:"**진입**: 거래량을 동반한 상단 쐐기 추세선 위 종가 이탈 시 매수.\n**목표가**: 돌파 지점에서 쐐기 상단 투영(쐐기의 완전한 되돌림).\n**손절**: 쐐기 내 최근 반등 저점 아래.\n**고급 진입**: 쐐기 내 불리쉬 RSI 다이버전스 형성 관찰 — 추세선 이탈 전 그 캔들 종가에서 저위험 진입.",
+    },
+    ja:{
+      title:"フォーリングウェッジ",
+      shortDesc:"欺瞞的な下降チャネル — 下落する価格の裏に強化される内部指標。",
+      definition:"両トレンドラインが下向きで上限ラインの方が急勾配な先細りウェッジ。価格が下落しても通常は強気パターン — 上昇トレンドでの継続または下降トレンドでの反転。\n**確認**：出来高増加を伴う上限トレンドライン上抜け。",
+      why:"価格は下落していますが、モメンタムは実際に回復中。売り方が押し下げるたびに主導権をより少ししか取れなくなっています。\n各下降高値はより攻撃的でなく、各下降安値はより浅くなっています — 買い方が全ての売り波を静かに吸収。\n上限トレンドラインが突破されると空売りの買い戻しと新規買いが同時に発生し、急激で速い反転が起きることが多い。",
+      indicatorFusion:"**RSIダイバージェンス**：価格が低い安値を付ける一方でRSIが高い安値 = 隠れた買い圧力の蓄積。\n**出来高**：ウェッジ内の各下落波が低い出来高 = 売り枯渇の測定。平均の2倍の出来高ブレイクアウトで確認。\n**MACD**：ウェッジを通じてヒストグラムが小さくなる（負が少ない）= 価格の下でのモメンタム回復。\n**ボリンジャーバンド**：RSIダイバージェンスを伴う下限BBへの接触 = 高確信反転セットアップ。",
+      strategy:"**エントリー**：出来高を伴う上限ウェッジラインの上抜け確認後の買い。\n**目標**：ブレイクアウト地点からウェッジ上端を投影（ウェッジの完全な戻り）。\n**損切り**：ウェッジ内の直近安値の下。\n**高度なエントリー**：ウェッジ内の強気RSIダイバージェンスを観察 — トレンドライン突破前にそのキャンドルの終値で低リスクエントリー。",
+    },
+  },
+  {
+    id:"fibonacci-retracement", type:"neutral", difficulty:"advanced",
+    coreIndicators:["Fibonacci Levels","Price Action","Volume at Levels"],
+    svg:<FibonacciSVG/>,
+    en:{
+      title:"Fibonacci Retracement",
+      shortDesc:"Ancient math meets modern markets — where prices naturally pause and reverse.",
+      definition:"Fibonacci retracement levels are drawn from a significant swing low to swing high (or high to low). The key levels are: 23.6%, 38.2%, 50%, 61.8%, and 78.6%.\n**The golden ratio (61.8%)** is the most important — it represents the point where a trend is most likely to either hold or fully reverse.\n**How to draw**: Identify a clear swing high and low. Draw the tool from low to high (uptrend) or high to low (downtrend).",
+      why:"Fibonacci ratios appear throughout nature (spiral shells, leaf patterns, galaxy arms) and human psychology naturally aligns with these proportions. In markets, the 61.8% level works because it represents the exact point where a retracement becomes 'too deep' for trend participants — bulls who bought near the lows will have lost enough to doubt the trend, while bears see it as confirmed weakness.\n**Institutional use**: Many quant funds and algorithmic systems incorporate Fibonacci levels as trigger points for order placement, creating self-fulfilling support/resistance zones.",
+      indicatorFusion:"**Volume Confirmation**: High volume bounce at a Fib level = institutional support confirmed. Low volume = level may fail.\n**Candlestick patterns**: A bullish engulfing or hammer AT the 61.8% level is a very high-conviction entry signal.\n**Moving Averages**: When the 61.8% level aligns with the 50-day or 200-day MA = 'confluence zone' — extremely strong support.\n**RSI**: Oversold RSI (below 30) coinciding with price at a Fib level = high-probability bounce setup.\n**Multiple timeframe Fib**: Fib levels from both daily and weekly charts aligning at the same price = 'cluster' — exceptionally powerful support/resistance.",
+      strategy:"**Drawing the levels**: For an uptrend pullback, draw from the most recent major swing low to swing high. Look for price to find support at 38.2%, 50%, or 61.8%.\n**Entry**: Buy when price shows a bullish reversal candle at a Fib level, confirmed by volume.\n**Stop-Loss**: Below the next Fib level (e.g., if entering at 61.8%, stop below 78.6%).\n**Targets**: Use Fibonacci extension levels (127.2%, 161.8%) for profit targets beyond the prior high.\n**Invalidation**: A close below 78.6% means the trend structure is breaking — treat as a reversal signal.",
+    },
+    ko:{
+      title:"피보나치 되돌림 (Fibonacci Retracement)",
+      shortDesc:"고대 수학이 현대 시장을 만나다 — 가격이 자연스럽게 멈추고 반전하는 곳.",
+      definition:"피보나치 되돌림 수준은 중요한 스윙 저점에서 고점(또는 고점에서 저점)으로 그립니다. 핵심 수준: 23.6%, 38.2%, 50%, 61.8%, 78.6%.\n**황금비율(61.8%)**이 가장 중요 — 추세가 지속될지 완전히 반전될지 결정되는 지점입니다.\n**그리는 방법**: 명확한 스윙 고점과 저점 식별. 저점→고점(상승 추세) 또는 고점→저점(하락 추세)으로 그리기.",
+      why:"피보나치 비율은 자연 전반(나선형 조개, 잎사귀 패턴, 은하 팔)에 나타나며 인간 심리는 자연스럽게 이 비율에 맞춰집니다. 61.8% 수준이 작동하는 이유는 되돌림이 추세 참가자들에게 '너무 깊다'고 느껴지는 정확한 지점이기 때문입니다.\n**기관의 활용**: 많은 퀀트 펀드와 알고리즘 시스템이 피보나치 수준을 주문 배치 트리거로 통합하여 자기실현적 지지/저항 구간을 형성합니다.",
+      indicatorFusion:"**거래량 확인**: 피보나치 수준에서 고거래량 반등 = 기관 지지 확인. 저거래량 = 수준 실패 가능.\n**캔들 패턴**: 61.8% 수준에서의 상승 장악형 또는 망치형 = 매우 고확신 진입 신호.\n**이동평균**: 61.8% 수준이 50일 또는 200일 MA와 일치 = '수렴 구간' — 극히 강한 지지.\n**RSI**: 피보나치 수준에서 과매도 RSI(30 미만) = 고확률 반등 셋업.\n**다중 시간대 피보나치**: 일간 및 주간 차트의 피보나치 수준이 같은 가격에서 일치 = '클러스터' — 예외적으로 강력한 지지/저항.",
+      strategy:"**수준 그리기**: 상승 추세 되돌림의 경우, 최근 주요 스윙 저점에서 고점으로 그리기. 38.2%, 50%, 61.8%에서 지지 찾기.\n**진입**: 피보나치 수준에서 상승 반전 캔들을 거래량으로 확인 후 매수.\n**손절**: 다음 피보나치 수준 아래(예: 61.8%에서 진입하면 78.6% 아래에서 손절).\n**목표가**: 이전 고점을 넘는 수익 목표에 피보나치 확장 수준(127.2%, 161.8%) 활용.\n**무효화**: 78.6% 아래 종가 = 추세 구조 이탈 — 반전 신호로 처리.",
+    },
+    ja:{
+      title:"フィボナッチリトレースメント",
+      shortDesc:"古代の数学が現代市場と出会う — 価格が自然に止まり反転する場所。",
+      definition:"フィボナッチリトレースメントは重要なスイング安値から高値（または高値から安値）に向けて描きます。主要水準：23.6%、38.2%、50%、61.8%、78.6%。\n**黄金比（61.8%）**が最重要 — トレンドが継続するか完全に反転するかが決まる地点。\n**描き方**：明確なスイング高値と安値を特定。安値→高値（上昇トレンド）または高値→安値（下降トレンド）で描く。",
+      why:"フィボナッチ比率は自然界（螺旋状の貝殻、葉のパターン、銀河の腕）全体に現れ、人間の心理は自然にこの比率に合致します。61.8%水準が機能するのは、押し戻りがトレンド参加者にとって「深すぎる」と感じさせる正確な地点だからです。\n**機関の活用**：多くのクォンツファンドとアルゴリズムシステムがフィボナッチ水準を注文配置のトリガーとして組み込み、自己実現的なS/Rゾーンを形成します。",
+      indicatorFusion:"**出来高確認**：フィボナッチ水準での高出来高反発 = 機関のサポート確認。低出来高 = 水準が失敗する可能性。\n**キャンドルパターン**：61.8%水準での強気包み足またはハンマー = 非常に高確信のエントリーシグナル。\n**移動平均線**：61.8%水準が50日または200日MAと一致 = 「収束ゾーン」— 極めて強いサポート。\n**RSI**：フィボナッチ水準での売られ過ぎRSI（30未満）= 高確率リバウンドセットアップ。\n**マルチタイムフレームFib**：日足と週足のフィボナッチ水準が同じ価格で一致 = 「クラスター」— 例外的に強力なS/R。",
+      strategy:"**水準の描き方**：上昇トレンドの押し戻しには、最近の主要なスイング安値から高値へ描く。38.2%、50%、61.8%でのサポートを探す。\n**エントリー**：フィボナッチ水準での強気反転キャンドルを出来高で確認後に買い。\n**損切り**：次のフィボナッチ水準の下（例：61.8%エントリーなら78.6%の下で損切り）。\n**目標**：前の高値を超える利益目標にフィボナッチ拡張水準（127.2%、161.8%）を活用。\n**無効化**：78.6%下での終値 = トレンド構造の崩壊 — 反転シグナルとして処理。",
+    },
+  },
 ];
 
 // ─── Quiz scenarios ────────────────────────────────────────────────────────────
@@ -740,6 +962,14 @@ function StrategyText({ text }: { text: string }) {
       )}
     </span>
   );
+}
+
+function splitConcepts(text: string): string[] {
+  return text
+    .replace(/([.。])\s+(\*\*[A-Z가-힣\w\u3040-\u30FF])/g, '$1\n$2')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l !== '');
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -1308,8 +1538,8 @@ export default function ChartMaster() {
                 {modalTab==="definition" && (
                   <div>
                     <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"정의 및 형태":lang==="ja"?"定義と形状":"Definition & Shape"}</p>
-                    <div className="space-y-1">
-                      {getText(selected).definition.split("\n").map((line,i)=>(
+                    <div className="space-y-1.5">
+                      {splitConcepts(getText(selected).definition).map((line,i)=>(
                         <p key={i}><StrategyText text={line}/></p>
                       ))}
                     </div>
@@ -1318,8 +1548,8 @@ export default function ChartMaster() {
                 {modalTab==="why" && (
                   <div>
                     <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"시장 심리":lang==="ja"?"市場心理":"Market Psychology"}</p>
-                    <div className="space-y-1">
-                      {getText(selected).why.split("\n").map((line,i)=>(
+                    <div className="space-y-1.5">
+                      {splitConcepts(getText(selected).why).map((line,i)=>(
                         <p key={i}><StrategyText text={line}/></p>
                       ))}
                     </div>
@@ -1328,8 +1558,8 @@ export default function ChartMaster() {
                 {modalTab==="fusion" && (
                   <div>
                     <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"지표 결합":lang==="ja"?"指標融合":"Indicator Fusion"}</p>
-                    <div className="space-y-1">
-                      {getText(selected).indicatorFusion.split("\n").map((line,i)=>(
+                    <div className="space-y-1.5">
+                      {splitConcepts(getText(selected).indicatorFusion).map((line,i)=>(
                         <p key={i}><StrategyText text={line}/></p>
                       ))}
                     </div>
@@ -1338,8 +1568,8 @@ export default function ChartMaster() {
                 {modalTab==="strategy" && (
                   <div>
                     <p className="text-foreground font-semibold mb-2 text-xs uppercase tracking-wide opacity-60">{lang==="ko"?"실전 전략":lang==="ja"?"実践戦略":"Trading Strategy"}</p>
-                    <div className="space-y-1">
-                      {getText(selected).strategy.split("\n").map((line,i)=>(
+                    <div className="space-y-1.5">
+                      {splitConcepts(getText(selected).strategy).map((line,i)=>(
                         <p key={i}><StrategyText text={line}/></p>
                       ))}
                     </div>
