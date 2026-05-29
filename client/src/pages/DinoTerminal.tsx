@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,8 @@ import {
   Zap, Flame, Activity, Globe, DollarSign, Calendar,
   ArrowUpRight, Briefcase, Radio, MonitorPlay,
   ChevronRight, AlertTriangle, Clock,
+  TrendingUp, TrendingDown, Users, Building2, Target,
+  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert,
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -212,6 +214,51 @@ function useCalendar() {
     },
     staleTime: 600_000,
     retry: 1,
+  });
+}
+
+/** Insider trades */
+function useInsider(symbol: string) {
+  return useQuery<any>({
+    queryKey: ["/api/ownership", symbol, "insiders"],
+    queryFn: async () => {
+      const res = await fetch(`/api/ownership?ticker=${encodeURIComponent(symbol)}&type=insiders`);
+      if (!res.ok) throw new Error("insider failed");
+      return res.json();
+    },
+    staleTime: 3_600_000,
+    retry: 1,
+    enabled: !!symbol,
+  });
+}
+
+/** Institutional holders */
+function useInstitutional(symbol: string) {
+  return useQuery<any>({
+    queryKey: ["/api/ownership", symbol, "managers"],
+    queryFn: async () => {
+      const res = await fetch(`/api/ownership?ticker=${encodeURIComponent(symbol)}&type=managers`);
+      if (!res.ok) throw new Error("institutional failed");
+      return res.json();
+    },
+    staleTime: 3_600_000,
+    retry: 1,
+    enabled: !!symbol,
+  });
+}
+
+/** Analyst ratings */
+function useAnalyst(symbol: string) {
+  return useQuery<any>({
+    queryKey: ["/api/stocks/analyst", symbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/stocks/analyst/${encodeURIComponent(symbol)}`);
+      if (!res.ok) throw new Error("analyst failed");
+      return res.json();
+    },
+    staleTime: 3_600_000,
+    retry: 1,
+    enabled: !!symbol,
   });
 }
 
@@ -958,24 +1005,62 @@ function CalendarPanel() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// NEWS PANEL (lazy loaded)
+// NEWS PANEL — with Korean summary + click-to-generate multi-lang AI summary
 // ══════════════════════════════════════════════════════════════════════════════
 function NewsPanel() {
   const { data, isLoading, isError } = useNews();
-  const items = (data || []).slice(0, 10);
+  const items = (data || []).slice(0, 8);
+  const [expanded, setExpanded] = useState<number|null>(null);
+  const [summaries, setSummaries] = useState<Record<number, Record<string,string>>>({});
+  const [generating, setGenerating] = useState<{idx:number;lang:string}|null>(null);
+
+  async function generateSummary(idx: number, title: string, lang: string) {
+    if (summaries[idx]?.[lang]) { setExpanded(idx); return; }
+    setGenerating({ idx, lang });
+    setExpanded(idx);
+    try {
+      const res = await fetch("/api/news/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, lang }),
+      });
+      const d = await res.json();
+      setSummaries(prev => ({
+        ...prev,
+        [idx]: { ...(prev[idx] || {}), [lang]: d.summary || "" },
+      }));
+    } catch {
+      setSummaries(prev => ({
+        ...prev,
+        [idx]: { ...(prev[idx] || {}), [lang]: "요약 생성 실패" },
+      }));
+    } finally {
+      setGenerating(null);
+    }
+  }
+
+  const LANGS = [
+    { code:"ko", label:"한", flag:"🇰🇷" },
+    { code:"en", label:"EN", flag:"🇺🇸" },
+    { code:"ja", label:"日", flag:"🇯🇵" },
+  ];
 
   return (
     <div className="border-b" style={{ borderColor:C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
-          style={{ color:C.muted }}>NEWS FEED</span>
+        <div className="flex items-center gap-1.5">
+          <Newspaper className="w-3 h-3" style={{ color:C.info }} />
+          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>NEWS FEED</span>
+        </div>
         <div className="flex items-center gap-2">
           <StatusBadge isLoading={isLoading} isError={isError}
             isLive={!isLoading && !isError && items.length > 0} />
-          <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+          <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color:C.info }}>모두→</Link>
         </div>
       </div>
+
       {isLoading ? (
         Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2} />)
       ) : isError ? (
@@ -985,20 +1070,402 @@ function NewsPanel() {
         </div>
       ) : !items.length ? (
         <div className="px-2 py-2 text-[10px] font-mono" style={{ color:C.muted }}>뉴스 없음</div>
-      ) : items.map((item:any, i:number) => (
-        <a key={i} href={item.link||"#"} target="_blank" rel="noopener noreferrer"
-          className="flex items-start gap-2 px-2 py-2 border-b group"
-          style={{ borderColor:C.border+"40" }}
-          onMouseEnter={e => (e.currentTarget.style.background = C.panel2)}
-          onMouseLeave={e => (e.currentTarget.style.background = "")}>
-          <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5"
-            style={{ color: i===0 ? C.down : C.muted }}>
-            {i===0 ? "HOT" : String(i+1).padStart(2,"0")}
-          </span>
-          <span className="text-[10px] font-mono leading-snug line-clamp-2"
-            style={{ color:C.text }}>{item.title}</span>
-        </a>
-      ))}
+      ) : items.map((item:any, i:number) => {
+        const isOpen = expanded === i;
+        const genLang = (generating?.idx === i) ? generating.lang : null;
+        return (
+          <div key={i} className="border-b" style={{ borderColor:C.border+"40" }}>
+            <div className="flex items-start gap-2 px-2 py-2 cursor-pointer"
+              style={{ background: isOpen ? C.panel2 : "" }}
+              onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = C.panel2+"80"; }}
+              onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = ""; }}
+              onClick={() => setExpanded(isOpen ? null : i)}>
+              <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5"
+                style={{ color: i===0 ? C.down : C.muted }}>
+                {i===0 ? "HOT" : String(i+1).padStart(2,"0")}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-mono leading-snug line-clamp-2"
+                  style={{ color:C.text }}>{item.title}</div>
+                {item.koreanSummary && !isOpen && (
+                  <div className="text-[9px] font-mono leading-snug mt-0.5 line-clamp-1"
+                    style={{ color:C.muted }}>🇰🇷 {item.koreanSummary}</div>
+                )}
+              </div>
+              <span style={{ color:C.muted, flexShrink:0 }}>
+                {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </span>
+            </div>
+
+            {isOpen && (
+              <div className="px-2 pb-2" style={{ background:C.panel2 }}>
+                {/* Korean summary line */}
+                {item.koreanSummary && (
+                  <div className="text-[9px] font-mono leading-relaxed mb-1.5 px-1 py-1 rounded"
+                    style={{ background:C.border+"30", color:C.text }}>
+                    🇰🇷 {item.koreanSummary}
+                  </div>
+                )}
+
+                {/* AI multi-lang summary buttons */}
+                <div className="flex items-center gap-1 mb-1.5">
+                  <Languages className="w-2.5 h-2.5" style={{ color:C.info }} />
+                  <span className="text-[8px] font-mono" style={{ color:C.muted }}>AI 요약</span>
+                  {LANGS.map(({ code, label, flag }) => (
+                    <button key={code}
+                      onClick={() => generateSummary(i, item.title, code)}
+                      disabled={genLang !== null}
+                      className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold"
+                      style={{
+                        background: summaries[i]?.[code] ? C.info+"22" : C.border+"60",
+                        color: summaries[i]?.[code] ? C.info : C.muted,
+                        border: `1px solid ${summaries[i]?.[code] ? C.info+"40" : C.border}`,
+                        opacity: genLang && genLang !== code ? 0.5 : 1,
+                      }}>
+                      {genLang === code
+                        ? <span className="inline-flex items-center gap-0.5"><Loader2 className="w-2 h-2 animate-spin"/></span>
+                        : `${flag} ${label}`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Generated summaries */}
+                {LANGS.map(({ code, flag }) => summaries[i]?.[code] && (
+                  <div key={code} className="text-[9px] font-mono leading-relaxed mb-1 px-1.5 py-1 rounded"
+                    style={{ background:C.header, color:C.text, border:`1px solid ${C.border}` }}>
+                    <span style={{ color:C.info }}>{flag} </span>
+                    {summaries[i][code]}
+                  </div>
+                ))}
+
+                {/* Link */}
+                <a href={item.link||"#"} target="_blank" rel="noopener noreferrer"
+                  className="text-[8px] font-mono"
+                  style={{ color:C.info }}>
+                  원문 보기 → {item.publisher && `(${item.publisher})`}
+                </a>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INSIDER TRADING PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+function InsiderPanel({ symbol }: { symbol:string }) {
+  const { data, isLoading, isError } = useInsider(symbol);
+  const trades: any[] = (data?.trades || []).slice(0, 8);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const buys  = trades.filter(t => t.transactionType === "Purchase" || t.transactionType === "Buy");
+  const sells = trades.filter(t => t.transactionType === "Sale" || t.transactionType === "Sell");
+
+  function fmtVal(v: number) {
+    if (!v) return "—";
+    if (v >= 1_000_000) return `$${(v/1_000_000).toFixed(1)}M`;
+    if (v >= 1_000)     return `$${(v/1_000).toFixed(0)}K`;
+    return `$${v}`;
+  }
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <button className="w-full px-2 py-1.5 flex items-center justify-between border-b"
+        style={{ borderColor:C.border, background:C.header }}
+        onClick={() => setCollapsed(p => !p)}>
+        <div className="flex items-center gap-1.5">
+          <ShieldAlert className="w-3 h-3" style={{ color:C.warn }} />
+          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>INSIDER TRADES</span>
+          {!isLoading && !isError && trades.length > 0 && (
+            <span className="text-[8px] font-mono px-1 rounded"
+              style={{ background:C.up+"22", color:C.up }}>
+              {buys.length}매수
+            </span>
+          )}
+          {!isLoading && !isError && sells.length > 0 && (
+            <span className="text-[8px] font-mono px-1 rounded"
+              style={{ background:C.down+"22", color:C.down }}>
+              {sells.length}매도
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <StatusBadge isLoading={isLoading} isError={isError}
+            isLive={!isLoading && !isError && trades.length > 0} />
+          {collapsed ? <ChevronDown className="w-3 h-3" style={{ color:C.muted }} />
+                     : <ChevronUp   className="w-3 h-3" style={{ color:C.muted }} />}
+        </div>
+      </button>
+
+      {!collapsed && (
+        isLoading ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
+        isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
+                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>데이터 없음</div> :
+        !trades.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>내부자 거래 없음</div> :
+        trades.map((t:any, i:number) => {
+          const isBuy = t.transactionType === "Purchase" || t.transactionType === "Buy";
+          const isSell = t.transactionType === "Sale" || t.transactionType === "Sell";
+          const col = isBuy ? C.up : isSell ? C.down : C.muted;
+          return (
+            <div key={i} className="flex items-start gap-1.5 px-2 py-1.5 border-b"
+              style={{ borderColor:C.border+"40" }}>
+              <div className="mt-0.5 shrink-0">
+                {isBuy  ? <TrendingUp   className="w-3 h-3" style={{ color:C.up }} />
+               : isSell ? <TrendingDown className="w-3 h-3" style={{ color:C.down }} />
+               :           <ArrowUpRight className="w-3 h-3" style={{ color:C.muted }} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] font-mono font-bold truncate" style={{ color:C.text }}>
+                    {(t.owner||"").split(" ").slice(0,2).join(" ")}
+                  </span>
+                  <span className="text-[9px] font-mono font-bold shrink-0" style={{ color:col }}>
+                    {fmtVal(t.value)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-1 mt-0.5">
+                  <span className="text-[8px] font-mono truncate" style={{ color:C.muted }}>
+                    {(t.relationship||"").split(" ").slice(0,3).join(" ")}
+                  </span>
+                  <span className="text-[8px] font-mono shrink-0" style={{ color:C.muted }}>
+                    {t.date?.slice(5) || ""}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INSTITUTIONAL HOLDERS PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+function InstitutionalPanel({ symbol }: { symbol:string }) {
+  const { data, isLoading, isError } = useInstitutional(symbol);
+  const holders: any[] = (data?.holders || []).slice(0, 6);
+  const [collapsed, setCollapsed] = useState(false);
+  const maxPct = Math.max(...holders.map((h:any) => h.pctHeld || 0), 1);
+
+  function fmtShares(v: number) {
+    if (v >= 1_000_000_000) return `${(v/1_000_000_000).toFixed(2)}B`;
+    if (v >= 1_000_000)     return `${(v/1_000_000).toFixed(1)}M`;
+    if (v >= 1_000)         return `${(v/1_000).toFixed(0)}K`;
+    return String(v);
+  }
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <button className="w-full px-2 py-1.5 flex items-center justify-between border-b"
+        style={{ borderColor:C.border, background:C.header }}
+        onClick={() => setCollapsed(p => !p)}>
+        <div className="flex items-center gap-1.5">
+          <Building2 className="w-3 h-3" style={{ color:C.info }} />
+          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>INSTITUTIONS</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <StatusBadge isLoading={isLoading} isError={isError}
+            isLive={!isLoading && !isError && holders.length > 0} />
+          {collapsed ? <ChevronDown className="w-3 h-3" style={{ color:C.muted }} />
+                     : <ChevronUp   className="w-3 h-3" style={{ color:C.muted }} />}
+        </div>
+      </button>
+
+      {!collapsed && (
+        isLoading ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
+        isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
+                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>데이터 없음</div> :
+        !holders.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>보유 데이터 없음</div> :
+        holders.map((h:any, i:number) => {
+          const pct   = h.pctHeld || 0;
+          const barW  = Math.round((pct / maxPct) * 100);
+          const name  = (h.holder || "").replace(/,?\s*(LLC|Inc\.|Corp\.|L\.P\.)/, "").trim();
+          return (
+            <div key={i} className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[9px] font-mono truncate flex-1" style={{ color:C.text }}>
+                  {name.length > 22 ? name.slice(0,22)+"…" : name}
+                </span>
+                <span className="text-[9px] font-mono font-bold shrink-0 ml-1" style={{ color:C.info }}>
+                  {pct.toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background:C.border }}>
+                  <div className="h-full rounded-full transition-all"
+                    style={{ width:`${barW}%`, background:`${C.info}99` }} />
+                </div>
+                <span className="text-[8px] font-mono shrink-0" style={{ color:C.muted }}>
+                  {fmtShares(h.shares || 0)}주
+                </span>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ANALYST RATINGS PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+function AnalystPanel({ symbol }: { symbol:string }) {
+  const { data, isLoading, isError } = useAnalyst(symbol);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const sum = data?.summary || {};
+  const strongBuy  = sum.strongBuy  || 0;
+  const buy        = sum.buy        || 0;
+  const hold       = sum.hold       || 0;
+  const sell       = sum.sell       || 0;
+  const strongSell = sum.strongSell || 0;
+  const total      = strongBuy + buy + hold + sell + strongSell;
+
+  const bullPct = total ? Math.round((strongBuy + buy) / total * 100) : 0;
+  const holdPct = total ? Math.round(hold / total * 100) : 0;
+  const bearPct = total ? Math.round((sell + strongSell) / total * 100) : 0;
+
+  const target   = data?.targetPrice;
+  const curr     = data?.currentPrice;
+  const upside   = (target && curr && curr > 0) ? ((target - curr) / curr * 100) : null;
+  const shortPct = data?.shortPctFloat;
+  const actions  = (data?.recentActions || []).slice(0, 4);
+
+  function gradeColor(g: string) {
+    const lo = g.toLowerCase();
+    if (lo.includes("buy") || lo.includes("outperform") || lo.includes("overweight")) return C.up;
+    if (lo.includes("sell") || lo.includes("underperform") || lo.includes("underweight")) return C.down;
+    return C.warn;
+  }
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <button className="w-full px-2 py-1.5 flex items-center justify-between border-b"
+        style={{ borderColor:C.border, background:C.header }}
+        onClick={() => setCollapsed(p => !p)}>
+        <div className="flex items-center gap-1.5">
+          <Target className="w-3 h-3" style={{ color:C.up }} />
+          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>ANALYST RATINGS</span>
+          {!isLoading && total > 0 && (
+            <span className="text-[8px] font-mono px-1 rounded"
+              style={{ background:C.up+"22", color:C.up }}>{bullPct}% 매수</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <StatusBadge isLoading={isLoading} isError={isError}
+            isLive={!isLoading && !isError && total > 0} />
+          {collapsed ? <ChevronDown className="w-3 h-3" style={{ color:C.muted }} />
+                     : <ChevronUp   className="w-3 h-3" style={{ color:C.muted }} />}
+        </div>
+      </button>
+
+      {!collapsed && (
+        isLoading ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
+        isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
+                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>데이터 없음</div> :
+        <div>
+          {/* Consensus bar */}
+          {total > 0 && (
+            <div className="px-2 pt-2 pb-1.5">
+              <div className="flex items-center gap-1 mb-1">
+                <span className="text-[8px] font-mono" style={{ color:C.up }}>강매수{strongBuy}·매수{buy}</span>
+                <span className="flex-1" />
+                <span className="text-[8px] font-mono" style={{ color:C.warn }}>중립{hold}</span>
+                <span className="flex-1" />
+                <span className="text-[8px] font-mono" style={{ color:C.down }}>매도{sell+strongSell}</span>
+              </div>
+              <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+                {bullPct > 0 && <div style={{ width:`${bullPct}%`, background:C.up, transition:"width 0.4s" }} />}
+                {holdPct > 0 && <div style={{ width:`${holdPct}%`, background:C.warn, transition:"width 0.4s" }} />}
+                {bearPct > 0 && <div style={{ width:`${bearPct}%`, background:C.down, transition:"width 0.4s" }} />}
+              </div>
+              <div className="flex justify-between mt-0.5">
+                <span className="text-[8px] font-mono font-bold" style={{ color:C.up }}>{bullPct}%</span>
+                <span className="text-[8px] font-mono font-bold" style={{ color:C.warn }}>{holdPct}%</span>
+                <span className="text-[8px] font-mono font-bold" style={{ color:C.down }}>{bearPct}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Target price + short interest */}
+          {(target || shortPct !== null) && (
+            <div className="flex items-center gap-2 px-2 py-1.5 border-t" style={{ borderColor:C.border+"40" }}>
+              {target && (
+                <div className="flex-1">
+                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>목표주가</div>
+                  <div className="text-[10px] font-mono font-bold" style={{ color:C.text }}>
+                    ${target.toFixed(2)}
+                    {upside !== null && (
+                      <span className="ml-1 text-[9px]"
+                        style={{ color: upside >= 0 ? C.up : C.down }}>
+                        {upside >= 0 ? "▲" : "▼"}{Math.abs(upside).toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {shortPct !== null && (
+                <div className="flex-1">
+                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>공매도비율</div>
+                  <div className="text-[10px] font-mono font-bold"
+                    style={{ color: shortPct > 10 ? C.down : shortPct > 5 ? C.warn : C.text }}>
+                    {shortPct.toFixed(1)}%
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recent upgrades/downgrades */}
+          {actions.length > 0 && (
+            <div className="border-t" style={{ borderColor:C.border+"40" }}>
+              <div className="px-2 py-1 text-[8px] font-mono font-bold tracking-widest uppercase"
+                style={{ color:C.muted }}>최근 리포트</div>
+              {actions.map((a:any, i:number) => (
+                <div key={i} className="flex items-center gap-1.5 px-2 py-1 border-b"
+                  style={{ borderColor:C.border+"30" }}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[8px] font-mono truncate" style={{ color:C.muted }}>
+                      {a.firm?.slice(0,16) || "—"}
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {a.fromGrade && (
+                        <>
+                          <span className="text-[8px] font-mono" style={{ color:gradeColor(a.fromGrade) }}>
+                            {a.fromGrade.slice(0,10)}
+                          </span>
+                          <span className="text-[8px] font-mono" style={{ color:C.muted }}>→</span>
+                        </>
+                      )}
+                      <span className="text-[8px] font-mono font-bold" style={{ color:gradeColor(a.toGrade) }}>
+                        {a.toGrade?.slice(0,12) || "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[7px] font-mono shrink-0" style={{ color:C.muted }}>
+                    {a.date?.slice(5) || ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {total === 0 && actions.length === 0 && (
+            <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>
+              애널리스트 데이터 없음
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1257,9 +1724,12 @@ export default function DinoTerminal() {
         </div>
 
         {/* RIGHT */}
-        <div className="w-[210px] shrink-0 border-l overflow-y-auto flex flex-col"
+        <div className="w-[230px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <FundamentalsPanel symbol={selected} quote={quote} />
+          <AnalystPanel symbol={selected} />
+          <InsiderPanel symbol={selected} />
+          <InstitutionalPanel symbol={selected} />
           <CalendarPanel />
           <NewsPanel />
           <AIPanel symbol={selected} />
@@ -1342,6 +1812,9 @@ export default function DinoTerminal() {
         {mTab === "fund" && (
           <>
             <FundamentalsPanel symbol={selected} quote={quote} />
+            <AnalystPanel symbol={selected} />
+            <InsiderPanel symbol={selected} />
+            <InstitutionalPanel symbol={selected} />
             <div className="p-3 grid grid-cols-3 gap-2">
               {[
                 {label:"투자자",  href:"/investors",    icon:<Briefcase className="w-4 h-4"/>},

@@ -2329,6 +2329,85 @@ def get_ownership():
         return jsonify({"error": str(e), "trades": [], "holders": []}), 500
 
 
+# ─── Analyst Recommendations + Short Interest ─────────────────────────────────
+_analyst_cache: dict = {}
+ANALYST_CACHE_DURATION = 3600
+
+@app.route('/analyst/<path:symbol>', methods=['GET'])
+def get_analyst(symbol):
+    """Get analyst recommendations summary, upgrades/downgrades, short interest, target price."""
+    import time
+    now = time.time()
+    symbol = symbol.upper()
+
+    if symbol in _analyst_cache:
+        entry = _analyst_cache[symbol]
+        if entry.get("data") and (now - entry["timestamp"]) < ANALYST_CACHE_DURATION:
+            return jsonify(entry["data"])
+
+    try:
+        stock = yf.Ticker(symbol)
+
+        summary = {"strongBuy": 0, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}
+        try:
+            rec_df = stock.recommendations_summary
+            if rec_df is not None and not (hasattr(rec_df, 'empty') and rec_df.empty):
+                latest = rec_df.iloc[0]
+                for key in ("strongBuy", "buy", "hold", "sell", "strongSell"):
+                    v = latest.get(key, 0)
+                    try: summary[key] = int(float(v)) if v == v else 0
+                    except: pass
+        except Exception as e:
+            print(f"[Analyst] rec_summary error {symbol}: {e}")
+
+        recent_actions = []
+        try:
+            upgrades_df = stock.upgrades_downgrades
+            if upgrades_df is not None and not (hasattr(upgrades_df, 'empty') and upgrades_df.empty):
+                for idx, row in upgrades_df.head(8).iterrows():
+                    try:
+                        date_str = idx.strftime('%Y-%m-%d') if hasattr(idx, 'strftime') else str(idx)[:10]
+                        recent_actions.append({
+                            "date": date_str,
+                            "firm": str(row.get("Firm", "") or ""),
+                            "action": str(row.get("Action", "") or ""),
+                            "fromGrade": str(row.get("FromGrade", "") or ""),
+                            "toGrade": str(row.get("ToGrade", "") or ""),
+                        })
+                    except: pass
+        except Exception as e:
+            print(f"[Analyst] upgrades error {symbol}: {e}")
+
+        info = stock.info
+        def safe_float(v):
+            try:
+                f = float(v)
+                return None if f != f else f
+            except: return None
+
+        result = {
+            "symbol": symbol,
+            "summary": summary,
+            "recentActions": recent_actions,
+            "shortRatio": safe_float(info.get("shortRatio")),
+            "shortPctFloat": safe_float(info.get("shortPercentOfFloat")),
+            "targetPrice": safe_float(info.get("targetMeanPrice")),
+            "targetHigh": safe_float(info.get("targetHighPrice")),
+            "targetLow": safe_float(info.get("targetLowPrice")),
+            "currentPrice": safe_float(info.get("currentPrice") or info.get("regularMarketPrice")),
+        }
+        if result["shortPctFloat"] is not None:
+            result["shortPctFloat"] = round(result["shortPctFloat"] * 100, 2)
+
+        _analyst_cache[symbol] = {"data": result, "timestamp": now}
+        print(f"[Analyst] {symbol}: buy={summary['buy']+summary['strongBuy']}, hold={summary['hold']}, sell={summary['sell']+summary['strongSell']}, target={result['targetPrice']}")
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"[Analyst] Error for {symbol}: {e}")
+        return jsonify({"symbol": symbol, "summary": {}, "recentActions": [], "error": str(e)}), 500
+
+
 _macro_sparklines_cache = {"data": None, "timestamp": 0, "symbols": ""}
 MACRO_SPARKLINES_CACHE_DURATION = 60
 

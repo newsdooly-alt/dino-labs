@@ -1331,6 +1331,46 @@ export async function registerRoutes(
     }
   });
 
+  // === Analyst Recommendations + Short Interest ===
+  app.get("/api/stocks/analyst/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+      const response = await fetch(
+        `${MACRO_PYTHON_URL}/analyst/${encodeURIComponent(symbol)}`,
+        { signal: AbortSignal.timeout(25000) }
+      );
+      if (!response.ok) return res.status(500).json({ symbol, summary: {}, recentActions: [] });
+      res.json(await response.json());
+    } catch (error: any) {
+      console.error("[Analyst] Error:", error.message);
+      res.status(500).json({ symbol, summary: {}, recentActions: [] });
+    }
+  });
+
+  // === On-demand multi-language AI news summary ===
+  app.post("/api/news/summarize", async (req, res) => {
+    const { title, lang } = req.body as { title?: string; lang?: string };
+    if (!title || !lang) return res.status(400).json({ error: "title and lang required" });
+    const prompts: Record<string, string> = {
+      ko: "당신은 한국 금융 전문 기자입니다. 주어진 뉴스 제목을 바탕으로 2~3문장의 핵심 한국어 요약을 작성해주세요. 투자자 관점에서 중요한 함의를 강조해주세요.",
+      en: "You are a financial journalist. Write a 2-3 sentence summary of the news headline below. Emphasize key investment implications.",
+      ja: "あなたは金融専門家です。以下のニュース見出しを投資家向けに2〜3文の日本語で要約してください。重要な投資インプリケーションを強調してください。",
+    };
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: prompts[lang] || prompts.en },
+          { role: "user", content: `뉴스: "${title}"` },
+        ],
+        max_tokens: 220,
+      });
+      res.json({ summary: completion.choices[0]?.message?.content?.trim() || "" });
+    } catch (e: any) {
+      res.status(500).json({ error: "AI summary failed" });
+    }
+  });
+
   // === Sector Returns (1-day % change per sector, equal-weighted) ===
   app.get("/api/sector-returns", async (req, res) => {
     try {
