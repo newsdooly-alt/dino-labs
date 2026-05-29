@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -1185,34 +1185,25 @@ export default function DinoTerminal() {
 
   // ─── DESKTOP ───────────────────────────────────────────────────────────────
   const Desktop = (
-    <div className="hidden lg:flex flex-col h-full overflow-hidden"
+    <div className="hidden md:flex flex-col h-full overflow-hidden"
       style={{ background:C.bg, color:C.text }}>
 
-      {/* Top bar */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-b shrink-0"
+      {/* Terminal control bar (symbol search + quest + clock) */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0"
         style={{ borderColor:C.border, background:C.header }}>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black"
-            style={{ background:C.info, color:"#fff" }}>ST</div>
-          <span className="text-[11px] font-mono font-black" style={{ color:C.info }}>DinoTerminal</span>
-          <span className="text-[9px] font-mono" style={{ color:C.muted }}>US/KR LIVE</span>
-        </div>
-        <div className="w-px h-4 shrink-0" style={{ background:C.border }} />
         <SymbolSearch onSelect={selectSym} />
         <div className="flex-1" />
         <QuestBar />
         <div className="w-px h-4 shrink-0" style={{ background:C.border }} />
         <TerminalClock />
         {user && (
-          <div className="flex items-center gap-1.5 text-[10px] font-mono ml-2"
+          <div className="flex items-center gap-1.5 text-[10px] font-mono ml-2 shrink-0"
             style={{ color:C.muted }}>
             <span style={{ color:C.up }}>Lv.{user.level}</span>
             <span>{user.nickname}</span>
           </div>
         )}
       </div>
-
-      <IndexStrip />
 
       {/* 3-column body */}
       <div className="flex flex-1 overflow-hidden">
@@ -1281,18 +1272,13 @@ export default function DinoTerminal() {
 
   // ─── MOBILE ────────────────────────────────────────────────────────────────
   const Mobile = (
-    <div className="flex lg:hidden flex-col"
-      style={{ height:"calc(100vh - 57px)", background:C.bg, color:C.text }}>
+    <div className="flex md:hidden flex-col"
+      style={{ minHeight:"60vh", background:C.bg, color:C.text }}>
 
-      {/* Header */}
+      {/* Mobile control bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0"
         style={{ borderColor:C.border, background:C.header }}>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black"
-            style={{ background:C.info, color:"#fff" }}>ST</div>
-          <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>DinoTerminal</span>
-        </div>
-        <div className="flex-1 flex items-center justify-end gap-2">
+        <div className="flex-1 flex items-center gap-2">
           <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>
             {selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
           </span>
@@ -1306,7 +1292,6 @@ export default function DinoTerminal() {
         <SymbolSearch onSelect={selectSym} />
       </div>
 
-      <IndexStrip />
       <QuestBar />
 
       {/* Tab content */}
