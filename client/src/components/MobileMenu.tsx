@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle, BookOpen } from "lucide-react";
+import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle, BookOpen, Terminal } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ interface MobileMenuProps {
 }
 
 const menuItems = [
+  { path: "/terminal",     icon: Terminal,  translationKey: "mobile_menu_terminal" as const, highlight: true },
   { path: "/",             icon: Home,     translationKey: "mobile_menu_dashboard" as const },
   { path: "/quests",       icon: Target,   translationKey: "mobile_menu_quests" as const },
   { path: "/market-trends",icon: TrendingUp,translationKey: "mobile_menu_trends" as const },
@@ -84,6 +85,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 {menuItems.map((item) => {
                   const isActive = location === item.path;
                   const Icon = item.icon;
+                  const isHighlight = (item as any).highlight;
                   
                   return (
                     <Link key={item.path} href={item.path}>
@@ -93,22 +95,27 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                           "w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-left transition-all duration-200",
                           isActive
                             ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                            : isHighlight
+                            ? "bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20"
                             : "text-foreground hover-elevate"
                         )}
                         data-testid={`mobile-nav-${item.path.replace("/", "") || "dashboard"}`}
                       >
                         <div className={cn(
                           "w-10 h-10 rounded-lg flex items-center justify-center",
-                          isActive
-                            ? "bg-white/20"
-                            : "bg-primary/10"
+                          isActive ? "bg-white/20" : isHighlight ? "bg-primary/20" : "bg-primary/10"
                         )}>
                           <Icon className={cn(
                             "w-5 h-5",
                             isActive ? "text-white" : "text-primary"
                           )} />
                         </div>
-                        <span className="font-medium text-base">{t[item.translationKey]}</span>
+                        <div className="flex-1 flex items-center gap-2">
+                          <span className="font-medium text-base">{t[item.translationKey]}</span>
+                          {isHighlight && !isActive && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground uppercase tracking-wide">NEW</span>
+                          )}
+                        </div>
                       </button>
                     </Link>
                   );

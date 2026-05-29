@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 // Pages
 import TerminalMarkets from "@/pages/TerminalMarkets";
+import DinoTerminal from "@/pages/DinoTerminal";
 import Dashboard from "@/pages/Dashboard";
 import Quests from "@/pages/Quests";
 import Watchlist from "@/pages/Watchlist";
@@ -39,6 +40,7 @@ import { useState, useEffect } from "react";
 function DesktopRouter() {
   return (
     <Switch>
+      <Route path="/terminal" component={DinoTerminal} />
       <Route path="/" component={TerminalMarkets} />
       <Route path="/quests" component={Quests} />
       <Route path="/watchlist" component={Watchlist} />
@@ -67,6 +69,7 @@ function DesktopRouter() {
 function MobileRouter() {
   return (
     <Switch>
+      <Route path="/terminal" component={DinoTerminal} />
       <Route path="/" component={Dashboard} />
       <Route path="/quests" component={Quests} />
       <Route path="/watchlist" component={Watchlist} />

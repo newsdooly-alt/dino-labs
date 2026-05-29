@@ -35,7 +35,7 @@ const WIDGET_META: Record<WidgetId, { title: string; icon: React.ReactNode }> = 
 };
 
 // ─── Layout Persistence ────────────────────────────────────────────────────────
-function useLayoutPersistence(userId: number | undefined) {
+function useLayoutPersistence(userId: number | string | undefined) {
   const key = `terminal-layout-${userId ?? "guest"}`;
 
   const [layout, setLayout] = useState<ColumnLayout>(() => {
@@ -169,7 +169,7 @@ function WidgetColumn({
 }
 
 // ─── Widget: WatchGrid ─────────────────────────────────────────────────────────
-function WatchGridWidget({ userId }: { userId?: number }) {
+function WatchGridWidget({ userId }: { userId?: number | string }) {
   const { data: user } = useUser();
   const symbols: string[] = user?.favoriteStocks?.length ? user.favoriteStocks : ["AAPL", "TSLA", "NVDA", "MSFT", "005930.KS"];
 

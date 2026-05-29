@@ -17,6 +17,7 @@ const TABS = [
   { label: "투자자", en: "Investors", ja: "投資家", href: "/investors" },
   { label: "퀘스트", en: "Quests", ja: "クエスト", href: "/quests" },
   { label: "AI", en: "AI", ja: "AI", href: "/chat" },
+  { label: "다이노터미널", en: "DinoTerminal", ja: "DinoTerminal", href: "/terminal", highlight: true },
 ];
 
 const TOP_MENUS = [
@@ -131,20 +132,24 @@ export function TerminalTopBar() {
         </div>
 
         {/* Tab strip */}
-        <nav className="flex items-stretch overflow-x-auto">
+        <nav className="flex items-stretch overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {TABS.map(tab => {
             const active = tab.href === "/" ? location === "/" : location.startsWith(tab.href);
+            const isHighlight = (tab as any).highlight;
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  "flex items-center px-3 text-[11px] font-semibold border-b-2 transition-all whitespace-nowrap shrink-0",
+                  "flex items-center gap-1 px-3 text-[11px] font-semibold border-b-2 transition-all whitespace-nowrap shrink-0",
                   active
                     ? "border-primary text-primary bg-primary/5"
+                    : isHighlight
+                    ? "border-primary/30 text-primary/70 hover:text-primary hover:bg-primary/5"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 )}
               >
+                {isHighlight && <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-pulse shrink-0" />}
                 {getTabLabel(tab)}
               </Link>
             );

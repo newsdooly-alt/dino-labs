@@ -178,6 +178,12 @@
   100% { transform: translateX(-50%); }
 }
 
+/* DinoTerminal scrolling ticker */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 /* Hover elevation utilities */
 .hover-elevate {
   @apply transition-all duration-200;
