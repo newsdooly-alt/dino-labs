@@ -8,11 +8,10 @@ import {
   ResponsiveContainer, ComposedChart, ReferenceLine,
 } from "recharts";
 import {
-  Search, RefreshCw, Newspaper, Bot, Star, BarChart2,
-  Zap, Flame, Activity, Globe, DollarSign, Calendar,
-  ArrowUpRight, Briefcase, Radio, MonitorPlay,
-  ChevronRight, AlertTriangle, Clock,
-  TrendingUp, TrendingDown, Users, Building2, Target,
+  Search, RefreshCw, Newspaper, Bot, BarChart2,
+  Zap, Flame, Activity, DollarSign, Calendar,
+  ArrowUpRight, AlertTriangle, Clock,
+  TrendingUp, TrendingDown, Building2, Target,
   ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert,
 } from "lucide-react";
 
@@ -1911,16 +1910,37 @@ export default function DinoTerminal() {
     <div className="hidden md:flex flex-col h-full overflow-hidden"
       style={{ background:C.bg, color:C.text }}>
 
-      {/* Terminal control bar (symbol search + quest + clock) */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0"
+      {/* ── TOP BAR: search + live ticker strip + quest + clock ── */}
+      <div className="flex items-center gap-2 px-2 py-1 border-b shrink-0"
         style={{ borderColor:C.border, background:C.header }}>
         <SymbolSearch onSelect={selectSym} />
-        <div className="flex-1" />
+
+        {/* Live index ticker strip */}
+        <div className="flex items-center gap-0 flex-1 overflow-hidden mx-1">
+          {["SPY","QQQ","^KS11","BTC-USD","GC=F","CL=F","JPY=X"].map((sym, i) => {
+            const q = stocks[sym];
+            if (!q) return null;
+            const up = (q.changePercent ?? 0) >= 0;
+            return (
+              <div key={sym} className="flex items-center gap-1 px-2 shrink-0"
+                style={{ borderLeft: i > 0 ? `1px solid ${C.border}` : "none" }}>
+                <span className="text-[9px] font-mono" style={{ color:C.muted }}>
+                  {INDEX_LBL[sym] || sym}
+                </span>
+                <span className="text-[9px] font-mono font-bold"
+                  style={{ color: up ? C.up : C.down }}>
+                  {up ? "▲" : "▼"}{Math.abs(q.changePercent ?? 0).toFixed(2)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
         <QuestBar />
         <div className="w-px h-4 shrink-0" style={{ background:C.border }} />
         <TerminalClock />
         {user && (
-          <div className="flex items-center gap-1.5 text-[10px] font-mono ml-2 shrink-0"
+          <div className="flex items-center gap-1.5 text-[10px] font-mono ml-1 shrink-0"
             style={{ color:C.muted }}>
             <span style={{ color:C.up }}>Lv.{user.level}</span>
             <span>{user.nickname}</span>
@@ -1928,66 +1948,67 @@ export default function DinoTerminal() {
         )}
       </div>
 
-      {/* 3-column body */}
+      {/* ── 4-COLUMN BLOOMBERG GRID ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT */}
-        <div className="w-[200px] shrink-0 border-r overflow-y-auto flex flex-col"
+        {/* ▌COL 1 (170px) — Watchlist + Sectors + Fear/Greed ▐ */}
+        <div className="w-[170px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
           <SectorMap />
-          <FlowRadar stocks={stocks} />
         </div>
 
-        {/* CENTER */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* ▌COL 2 (flex) — Chart (fixed 190px) + metrics below ▐ */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <SymbolHeader symbol={selected} quote={quote} />
 
-          {/* Period tabs */}
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0"
+          {/* Period tabs row */}
+          <div className="flex items-center gap-1.5 px-2 py-1 border-b shrink-0"
             style={{ borderColor:C.border, background:C.header }}>
-            <span className="text-[9px] font-mono font-bold uppercase" style={{ color:C.muted }}>
-              PRICE ACTION
-            </span>
-            <div className="w-px h-3" style={{ background:C.border }} />
-            <div className="flex gap-1">
-              {PERIODS.map((p, i) => (
-                <button key={p.label} onClick={() => setPIdx(i)}
-                  className="px-2 py-0.5 rounded text-[9px] font-mono font-bold"
-                  style={{
-                    background: pIdx===i ? C.info+"33" : "transparent",
-                    color:      pIdx===i ? C.info       : C.muted,
-                    border:    `1px solid ${pIdx===i ? C.info+"60" : "transparent"}`,
-                  }}>{p.label}</button>
-              ))}
-            </div>
+            {PERIODS.map((p, i) => (
+              <button key={p.label} onClick={() => setPIdx(i)}
+                className="px-2 py-0.5 rounded text-[9px] font-mono font-bold"
+                style={{
+                  background: pIdx===i ? C.info+"33" : "transparent",
+                  color:      pIdx===i ? C.info       : C.muted,
+                  border:    `1px solid ${pIdx===i ? C.info+"50" : "transparent"}`,
+                }}>{p.label}</button>
+            ))}
             <div className="flex-1" />
             <Link href={`/stock/${selected}`} className="text-[9px] font-mono"
-              style={{ color:C.info }}>고급 차트 →</Link>
+              style={{ color:C.info }}>
+              {lang === "ko" ? "고급 차트→" : lang === "ja" ? "詳細チャート→" : "Full Chart→"}
+            </Link>
           </div>
 
-          {/* Chart */}
-          <div className="flex-1 p-2 overflow-hidden" style={{ minHeight:0 }}>
+          {/* Chart — FIXED HEIGHT (not flex-1) */}
+          <div style={{ height:195, flexShrink:0, padding:"4px 4px 0" }}>
             <PriceChart symbol={selected} periodIdx={pIdx} />
           </div>
 
-          {/* Bottom metrics */}
-          <div className="border-t overflow-y-auto" style={{ borderColor:C.border, maxHeight:220 }}>
+          {/* Scrollable metrics below chart */}
+          <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
             <CrossAssetTable stocks={stocks} />
+            <FlowRadar stocks={stocks} />
           </div>
         </div>
 
-        {/* RIGHT */}
-        <div className="w-[230px] shrink-0 border-l overflow-y-auto flex flex-col"
+        {/* ▌COL 3 (195px) — Fundamentals + Analyst + Insider + Institutional ▐ */}
+        <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <FundamentalsPanel symbol={selected} quote={quote} />
           <AnalystPanel symbol={selected} lang={lang} />
           <InsiderPanel symbol={selected} lang={lang} />
           <InstitutionalPanel symbol={selected} lang={lang} />
-          <CalendarPanel />
+        </div>
+
+        {/* ▌COL 4 (200px) — News (toggle) + Calendar + AI ▐ */}
+        <div className="w-[200px] shrink-0 border-l overflow-y-auto flex flex-col"
+          style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+          <CalendarPanel />
           <AIPanel symbol={selected} lang={lang} />
         </div>
       </div>
@@ -2001,19 +2022,35 @@ export default function DinoTerminal() {
     <div className="flex md:hidden flex-col"
       style={{ minHeight:"60vh", background:C.bg, color:C.text }}>
 
-      {/* Mobile control bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0"
+      {/* Mobile top bar: symbol + price + search */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0"
         style={{ borderColor:C.border, background:C.header }}>
-        <div className="flex-1 flex items-center gap-2">
-          <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>
-            {selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
-          </span>
-          {quote && (
-            <span className={cn("text-[10px] font-mono font-bold",
-              isUp(quote.changePercent) ? "text-[#00c896]" : "text-[#ff4757]")}>
-              {fmtPct(quote.changePercent)}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-mono font-bold" style={{ color:C.info }}>
+              {selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
             </span>
-          )}
+            {quote && (
+              <span className="text-[11px] font-mono font-bold"
+                style={{ color: isUp(quote.changePercent) ? C.up : C.down }}>
+                {fmtPct(quote.changePercent)}
+              </span>
+            )}
+          </div>
+          {/* Mini index ticker row */}
+          <div className="flex items-center gap-3 mt-0.5 overflow-x-auto" style={{ scrollbarWidth:"none" }}>
+            {["SPY","QQQ","^KS11","BTC-USD"].map(sym => {
+              const q = stocks[sym];
+              if (!q) return null;
+              const up = (q.changePercent ?? 0) >= 0;
+              return (
+                <span key={sym} className="text-[9px] font-mono shrink-0"
+                  style={{ color: up ? C.up : C.down }}>
+                  {INDEX_LBL[sym]||sym} {up?"▲":"▼"}{Math.abs(q.changePercent??0).toFixed(1)}%
+                </span>
+              );
+            })}
+          </div>
         </div>
         <SymbolSearch onSelect={selectSym} />
       </div>
@@ -2023,8 +2060,28 @@ export default function DinoTerminal() {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" }}>
 
+        {/* ── MARKET TAB: dense index grid + fear/greed + sectors + watchlist ── */}
         {mTab === "market" && (
           <>
+            {/* 2×4 index snapshot grid */}
+            <div className="grid grid-cols-4 border-b" style={{ borderColor:C.border }}>
+              {["SPY","QQQ","^KS11","BTC-USD","GC=F","CL=F","JPY=X","^IXIC"].map(sym => {
+                const q = stocks[sym];
+                const up = (q?.changePercent ?? 0) >= 0;
+                return (
+                  <div key={sym} className="p-2 border-r border-b last:border-r-0"
+                    style={{ borderColor:C.border }}>
+                    <div className="text-[8px] font-mono" style={{ color:C.muted }}>
+                      {INDEX_LBL[sym]||sym}
+                    </div>
+                    <div className="text-[10px] font-mono font-bold"
+                      style={{ color: up ? C.up : C.down }}>
+                      {q ? (up?"▲":"▼")+Math.abs(q.changePercent??0).toFixed(1)+"%" : "—"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             <MarketPulseWidget liveStocks={stocks} />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
             <SectorMap />
@@ -2032,25 +2089,27 @@ export default function DinoTerminal() {
           </>
         )}
 
+        {/* ── CHART TAB: chart (220px) + tech + cross-asset + stock news ── */}
         {mTab === "chart" && (
           <>
             <SymbolHeader symbol={selected} quote={quote} />
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b"
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b flex-wrap"
               style={{ borderColor:C.border, background:C.header }}>
               {PERIODS.map((p, i) => (
                 <button key={p.label} onClick={() => setPIdx(i)}
-                  className="px-2.5 py-1 rounded text-[10px] font-mono font-bold"
+                  className="px-2 py-0.5 rounded text-[9px] font-mono font-bold"
                   style={{
                     background: pIdx===i ? C.info+"33" : C.panel2,
                     color:      pIdx===i ? C.info       : C.muted,
-                    border:    `1px solid ${pIdx===i ? C.info+"60" : C.border}`,
+                    border:    `1px solid ${pIdx===i ? C.info+"50" : C.border}`,
                   }}>{p.label}</button>
               ))}
               <div className="flex-1" />
-              <Link href={`/stock/${selected}`} className="text-[9px] font-mono"
-                style={{ color:C.info }}>고급→</Link>
+              <Link href={`/stock/${selected}`} className="text-[9px] font-mono" style={{ color:C.info }}>
+                {lang==="ko"?"고급→":lang==="ja"?"詳細→":"Full→"}
+              </Link>
             </div>
-            <div style={{ height:280, padding:"8px 4px" }}>
+            <div style={{ height:220, padding:"4px" }}>
               <PriceChart symbol={selected} periodIdx={pIdx} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
@@ -2059,6 +2118,7 @@ export default function DinoTerminal() {
           </>
         )}
 
+        {/* ── NEWS TAB: market + company news toggle + calendar ── */}
         {mTab === "news" && (
           <>
             <NewsPanel lang={lang} symbol={selected} showToggle={true} />
@@ -2066,36 +2126,19 @@ export default function DinoTerminal() {
           </>
         )}
 
+        {/* ── INFO TAB: fundamentals + analyst + insider (no duplicate nav links) ── */}
         {mTab === "fund" && (
           <>
             <FundamentalsPanel symbol={selected} quote={quote} />
             <AnalystPanel symbol={selected} lang={lang} />
             <InsiderPanel symbol={selected} lang={lang} />
             <InstitutionalPanel symbol={selected} lang={lang} />
-            <div className="p-3 grid grid-cols-3 gap-2">
-              {[
-                {label:"투자자",  href:"/investors",    icon:<Briefcase className="w-4 h-4"/>},
-                {label:"추천종목",href:"/recommended",  icon:<Star className="w-4 h-4"/>},
-                {label:"시장동향",href:"/market-trends",icon:<Globe className="w-4 h-4"/>},
-                {label:"실적Live",href:"/earnings",     icon:<BarChart2 className="w-4 h-4"/>},
-                {label:"RRG",    href:"/rrg",           icon:<Radio className="w-4 h-4"/>},
-                {label:"프로",   href:"/pro",           icon:<MonitorPlay className="w-4 h-4"/>},
-              ].map(({label,href,icon}) => (
-                <Link key={href} href={href}
-                  className="flex flex-col items-center gap-1 py-3 rounded"
-                  style={{ background:C.panel2, border:`1px solid ${C.border}`, color:C.text }}>
-                  <span style={{ color:C.info }}>{icon}</span>
-                  <span className="text-[10px] font-mono">{label}</span>
-                </Link>
-              ))}
-            </div>
           </>
         )}
 
+        {/* ── AI TAB: market analysis panel ── */}
         {mTab === "ai" && (
-          <>
-            <AIPanel symbol={selected} lang={lang} />
-          </>
+          <AIPanel symbol={selected} lang={lang} />
         )}
       </div>
 
