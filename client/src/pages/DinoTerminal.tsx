@@ -52,6 +52,38 @@ const INDEX_LBL: Record<string,string> = {
   "GC=F":"GOLD","CL=F":"OIL","BTC-USD":"BTC","JPY=X":"JPY",
 };
 
+// ── Multi-language label system ───────────────────────────────────────────────
+type Lang = "ko" | "en" | "ja";
+const L: Record<string, Record<Lang, string>> = {
+  insiderTrades:   { ko:"내부자 거래",      en:"Insider Trades",     ja:"内部者取引"     },
+  buyCount:        { ko:"매수",             en:"Buy",                ja:"買い"           },
+  sellCount:       { ko:"매도",             en:"Sell",               ja:"売り"           },
+  holdCount:       { ko:"중립",             en:"Hold",               ja:"中立"           },
+  institutions:    { ko:"기관 투자자",      en:"Institutions",       ja:"機関投資家"     },
+  analystRatings:  { ko:"애널리스트 평가",  en:"Analyst Ratings",    ja:"アナリスト評価" },
+  targetPrice:     { ko:"목표주가",         en:"Target Price",       ja:"目標株価"       },
+  shortFloat:      { ko:"공매도비율",       en:"Short Float",        ja:"空売り比率"     },
+  recentReports:   { ko:"최근 리포트",      en:"Recent Reports",     ja:"最近のレポート" },
+  marketNews:      { ko:"시장 뉴스",        en:"Market News",        ja:"市場ニュース"   },
+  stockNews:       { ko:"기업 뉴스",        en:"Company News",       ja:"企業ニュース"   },
+  aiSummary:       { ko:"AI 요약",          en:"AI Summary",         ja:"AI要約"         },
+  readMore:        { ko:"원문 보기",         en:"Read more",          ja:"続きを読む"     },
+  noData:          { ko:"데이터 없음",       en:"No data",            ja:"データなし"     },
+  loadFail:        { ko:"로드 실패",         en:"Load failed",        ja:"読込失敗"       },
+  fearGreed:       { ko:"공포·탐욕",        en:"Fear / Greed",       ja:"恐怖·強欲"      },
+  topSectors:      { ko:"섹터 동향",         en:"Sector Trends",      ja:"セクター動向"   },
+  genAnalysis:     { ko:"AI 시장 분석 생성", en:"Generate AI Brief",  ja:"AI市場分析生成" },
+  aiMarket:        { ko:"AI 시장 분석",      en:"AI Market Brief",    ja:"AI市場分析"     },
+  noInsider:       { ko:"내부자 거래 없음",  en:"No insider trades",  ja:"内部者取引なし" },
+  noHolders:       { ko:"보유 데이터 없음",  en:"No holder data",     ja:"保有データなし" },
+  noAnalyst:       { ko:"애널리스트 데이터 없음",en:"No analyst data",ja:"データなし"    },
+  loading:         { ko:"로딩 중...",         en:"Loading...",         ja:"読込中..."      },
+  upside:          { ko:"상승여력",           en:"Upside",             ja:"上昇余地"       },
+  shortSell:       { ko:"공매도비율",         en:"Short Float",        ja:"空売り"         },
+  strongBuy:       { ko:"강매수",             en:"Strong Buy",         ja:"強買い"         },
+};
+function T(key: string, lang: Lang): string { return L[key]?.[lang] ?? L[key]?.en ?? key; }
+
 // Sector ETF → Korean name
 const SECTOR_NAMES: Record<string,string> = {
   "XLK":"기술","XLV":"헬스케어","XLF":"금융","XLY":"소비(임의)",
@@ -214,6 +246,21 @@ function useCalendar() {
     },
     staleTime: 600_000,
     retry: 1,
+  });
+}
+
+/** Company-specific news */
+function useStockNews(symbol: string) {
+  return useQuery<any>({
+    queryKey: ["/api/stocks/news", symbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/stocks/news/${encodeURIComponent(symbol)}`);
+      if (!res.ok) throw new Error("stock news failed");
+      return res.json();
+    },
+    staleTime: 300_000,
+    retry: 1,
+    enabled: !!symbol && !symbol.startsWith("^") && !symbol.endsWith("=F") && !symbol.endsWith("=X") && !symbol.startsWith("BTC"),
   });
 }
 
@@ -1005,44 +1052,55 @@ function CalendarPanel() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// NEWS PANEL — with Korean summary + click-to-generate multi-lang AI summary
+// NEWS PANEL — language-aware, market/company toggle, AI multi-lang summary
 // ══════════════════════════════════════════════════════════════════════════════
-function NewsPanel() {
-  const { data, isLoading, isError } = useNews();
-  const items = (data || []).slice(0, 8);
-  const [expanded, setExpanded] = useState<number|null>(null);
-  const [summaries, setSummaries] = useState<Record<number, Record<string,string>>>({});
-  const [generating, setGenerating] = useState<{idx:number;lang:string}|null>(null);
+function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
+  const marketNews = useNews();
+  const stockNews  = useStockNews(symbol);
 
-  async function generateSummary(idx: number, title: string, lang: string) {
-    if (summaries[idx]?.[lang]) { setExpanded(idx); return; }
-    setGenerating({ idx, lang });
-    setExpanded(idx);
+  const [mode, setMode] = useState<"market"|"company">("market");
+  const activeQuery = (showToggle && mode === "company") ? stockNews : marketNews;
+  const rawItems = activeQuery.data;
+  const items: any[] = (
+    Array.isArray(rawItems) ? rawItems :
+    Array.isArray(rawItems?.news) ? rawItems.news :
+    []
+  ).slice(0, 10);
+
+  const { isLoading, isError } = activeQuery;
+
+  const [expanded, setExpanded] = useState<number|null>(null);
+  const [summaries, setSummaries] = useState<Record<string, Record<Lang,string>>>({});
+  const [generating, setGenerating] = useState<{key:string;lang:Lang}|null>(null);
+
+  async function generateSummary(key: string, title: string, tLang: Lang) {
+    if (summaries[key]?.[tLang]) { return; }
+    setGenerating({ key, lang: tLang });
     try {
       const res = await fetch("/api/news/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, lang }),
+        body: JSON.stringify({ title, lang: tLang }),
       });
       const d = await res.json();
-      setSummaries(prev => ({
-        ...prev,
-        [idx]: { ...(prev[idx] || {}), [lang]: d.summary || "" },
-      }));
+      setSummaries(prev => ({ ...prev, [key]: { ...(prev[key]||{}), [tLang]: d.summary || "" } }));
     } catch {
-      setSummaries(prev => ({
-        ...prev,
-        [idx]: { ...(prev[idx] || {}), [lang]: "요약 생성 실패" },
-      }));
+      setSummaries(prev => ({ ...prev, [key]: { ...(prev[key]||{}), [tLang]: T("loadFail", tLang) } }));
     } finally {
       setGenerating(null);
     }
   }
 
-  const LANGS = [
-    { code:"ko", label:"한", flag:"🇰🇷" },
-    { code:"en", label:"EN", flag:"🇺🇸" },
-    { code:"ja", label:"日", flag:"🇯🇵" },
+  // What to show inline below title (default summary in user's language)
+  function getInlineSummary(item: any): string | null {
+    if (lang === "ko" && item.koreanSummary) return item.koreanSummary;
+    return null;
+  }
+
+  const LANGS: {code:Lang; flag:string; label:string}[] = [
+    { code:"ko", flag:"🇰🇷", label:"한" },
+    { code:"en", flag:"🇺🇸", label:"EN" },
+    { code:"ja", flag:"🇯🇵", label:"日" },
   ];
 
   return (
@@ -1051,30 +1109,47 @@ function NewsPanel() {
         style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5">
           <Newspaper className="w-3 h-3" style={{ color:C.info }} />
-          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
-            style={{ color:C.muted }}>NEWS FEED</span>
+          {showToggle ? (
+            <div className="flex items-center gap-0.5">
+              {(["market","company"] as const).map(m => (
+                <button key={m} onClick={() => { setMode(m); setExpanded(null); }}
+                  className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold"
+                  style={{
+                    background: mode===m ? C.info+"33" : "transparent",
+                    color: mode===m ? C.info : C.muted,
+                    border: `1px solid ${mode===m ? C.info+"50" : "transparent"}`,
+                  }}>
+                  {m === "market" ? T("marketNews", lang) : T("stockNews", lang)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+              style={{ color:C.muted }}>{T("marketNews", lang)}</span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <StatusBadge isLoading={isLoading} isError={isError}
             isLive={!isLoading && !isError && items.length > 0} />
-          <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color:C.info }}>모두→</Link>
+          <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
         </div>
       </div>
 
       {isLoading ? (
         Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2} />)
       ) : isError ? (
-        <div className="px-2 py-3 text-[10px] font-mono flex items-center gap-2"
-          style={{ color:C.down }}>
-          <AlertTriangle className="w-3 h-3" /> 뉴스 로드 실패
+        <div className="px-2 py-3 text-[9px] font-mono flex items-center gap-2" style={{ color:C.down }}>
+          <AlertTriangle className="w-3 h-3" /> {T("loadFail", lang)}
         </div>
       ) : !items.length ? (
-        <div className="px-2 py-2 text-[10px] font-mono" style={{ color:C.muted }}>뉴스 없음</div>
+        <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noData", lang)}</div>
       ) : items.map((item:any, i:number) => {
+        const itemKey = `${mode}-${i}`;
         const isOpen = expanded === i;
-        const genLang = (generating?.idx === i) ? generating.lang : null;
+        const inlineSummary = getInlineSummary(item);
+        const genLang = (generating?.key === itemKey) ? generating.lang : null;
         return (
-          <div key={i} className="border-b" style={{ borderColor:C.border+"40" }}>
+          <div key={itemKey} className="border-b" style={{ borderColor:C.border+"40" }}>
             <div className="flex items-start gap-2 px-2 py-2 cursor-pointer"
               style={{ background: isOpen ? C.panel2 : "" }}
               onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = C.panel2+"80"; }}
@@ -1085,11 +1160,15 @@ function NewsPanel() {
                 {i===0 ? "HOT" : String(i+1).padStart(2,"0")}
               </span>
               <div className="flex-1 min-w-0">
+                {/* Show title in original language */}
                 <div className="text-[10px] font-mono leading-snug line-clamp-2"
                   style={{ color:C.text }}>{item.title}</div>
-                {item.koreanSummary && !isOpen && (
+                {/* Show inline summary in user's language when collapsed */}
+                {inlineSummary && !isOpen && (
                   <div className="text-[9px] font-mono leading-snug mt-0.5 line-clamp-1"
-                    style={{ color:C.muted }}>🇰🇷 {item.koreanSummary}</div>
+                    style={{ color:C.muted }}>
+                    {lang === "ko" ? "🇰🇷" : lang === "ja" ? "🇯🇵" : "🇺🇸"} {inlineSummary}
+                  </div>
                 )}
               </div>
               <span style={{ color:C.muted, flexShrink:0 }}>
@@ -1099,50 +1178,49 @@ function NewsPanel() {
 
             {isOpen && (
               <div className="px-2 pb-2" style={{ background:C.panel2 }}>
-                {/* Korean summary line */}
-                {item.koreanSummary && (
-                  <div className="text-[9px] font-mono leading-relaxed mb-1.5 px-1 py-1 rounded"
-                    style={{ background:C.border+"30", color:C.text }}>
-                    🇰🇷 {item.koreanSummary}
+                {/* Inline summary (shown expanded too) */}
+                {inlineSummary && (
+                  <div className="text-[9px] font-mono leading-relaxed mb-1.5 px-1.5 py-1 rounded"
+                    style={{ background:C.border+"40", color:C.text }}>
+                    {lang === "ko" ? "🇰🇷" : lang === "ja" ? "🇯🇵" : "🇺🇸"} {inlineSummary}
                   </div>
                 )}
 
                 {/* AI multi-lang summary buttons */}
-                <div className="flex items-center gap-1 mb-1.5">
-                  <Languages className="w-2.5 h-2.5" style={{ color:C.info }} />
-                  <span className="text-[8px] font-mono" style={{ color:C.muted }}>AI 요약</span>
-                  {LANGS.map(({ code, label, flag }) => (
-                    <button key={code}
-                      onClick={() => generateSummary(i, item.title, code)}
-                      disabled={genLang !== null}
-                      className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold"
-                      style={{
-                        background: summaries[i]?.[code] ? C.info+"22" : C.border+"60",
-                        color: summaries[i]?.[code] ? C.info : C.muted,
-                        border: `1px solid ${summaries[i]?.[code] ? C.info+"40" : C.border}`,
-                        opacity: genLang && genLang !== code ? 0.5 : 1,
-                      }}>
-                      {genLang === code
-                        ? <span className="inline-flex items-center gap-0.5"><Loader2 className="w-2 h-2 animate-spin"/></span>
-                        : `${flag} ${label}`}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+                  <Languages className="w-2.5 h-2.5 shrink-0" style={{ color:C.info }} />
+                  <span className="text-[8px] font-mono shrink-0" style={{ color:C.muted }}>{T("aiSummary", lang)}</span>
+                  {LANGS.map(({ code, flag, label }) => {
+                    const hasSummary = !!summaries[itemKey]?.[code];
+                    const isGen = genLang === code;
+                    return (
+                      <button key={code}
+                        onClick={() => generateSummary(itemKey, item.title, code)}
+                        disabled={genLang !== null}
+                        className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold"
+                        style={{
+                          background: hasSummary ? C.info+"22" : C.border+"60",
+                          color: hasSummary ? C.info : C.muted,
+                          border: `1px solid ${hasSummary ? C.info+"40" : C.border}`,
+                          opacity: genLang && !isGen ? 0.5 : 1,
+                        }}>
+                        {isGen ? <Loader2 className="w-2 h-2 animate-spin inline" /> : `${flag} ${label}`}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Generated summaries */}
-                {LANGS.map(({ code, flag }) => summaries[i]?.[code] && (
+                {LANGS.map(({ code, flag }) => summaries[itemKey]?.[code] && (
                   <div key={code} className="text-[9px] font-mono leading-relaxed mb-1 px-1.5 py-1 rounded"
                     style={{ background:C.header, color:C.text, border:`1px solid ${C.border}` }}>
-                    <span style={{ color:C.info }}>{flag} </span>
-                    {summaries[i][code]}
+                    <span style={{ color:C.info }}>{flag} </span>{summaries[itemKey][code]}
                   </div>
                 ))}
 
-                {/* Link */}
                 <a href={item.link||"#"} target="_blank" rel="noopener noreferrer"
-                  className="text-[8px] font-mono"
-                  style={{ color:C.info }}>
-                  원문 보기 → {item.publisher && `(${item.publisher})`}
+                  className="text-[8px] font-mono" style={{ color:C.info }}>
+                  {T("readMore", lang)} {item.publisher ? `(${item.publisher})` : "→"}
                 </a>
               </div>
             )}
@@ -1154,9 +1232,69 @@ function NewsPanel() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// COMPACT STOCK NEWS (chart tab, below chart)
+// ══════════════════════════════════════════════════════════════════════════════
+function StockNewsCompact({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
+  const { data, isLoading, isError } = useStockNews(symbol);
+  const items: any[] = (
+    Array.isArray(data) ? data :
+    Array.isArray(data?.news) ? data.news :
+    []
+  ).slice(0, 5);
+
+  const isIndex = symbol.startsWith("^") || symbol.endsWith("=F") || symbol.endsWith("=X") || symbol.startsWith("BTC");
+  if (isIndex) return null;
+
+  const symLabel = symbol.replace(".KS","").replace("^","");
+
+  return (
+    <div className="border-t" style={{ borderColor:C.border }}>
+      <div className="px-3 py-1.5 flex items-center justify-between border-b"
+        style={{ borderColor:C.border, background:C.header }}>
+        <div className="flex items-center gap-1.5">
+          <Newspaper className="w-3 h-3" style={{ color:C.warn }} />
+          <span className="text-[9px] font-mono font-bold uppercase tracking-widest"
+            style={{ color:C.muted }}>{symLabel} {T("stockNews", lang)}</span>
+        </div>
+        <StatusBadge isLoading={isLoading} isError={isError}
+          isLive={!isLoading && !isError && items.length > 0} />
+      </div>
+      {isLoading ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={2} />) :
+       isError   ? <div className="px-3 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("loadFail", lang)}</div> :
+       !items.length ? <div className="px-3 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noData", lang)}</div> :
+       items.map((item:any, i:number) => {
+         const summary = lang === "ko" ? item.koreanSummary : null;
+         return (
+           <a key={i} href={item.link||"#"} target="_blank" rel="noopener noreferrer"
+             className="flex items-start gap-2 px-3 py-2 border-b"
+             style={{ borderColor:C.border+"40" }}
+             onMouseEnter={e => (e.currentTarget.style.background = C.panel2)}
+             onMouseLeave={e => (e.currentTarget.style.background = "")}>
+             <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5"
+               style={{ color:C.warn }}>{String(i+1).padStart(2,"0")}</span>
+             <div className="min-w-0 flex-1">
+               <div className="text-[10px] font-mono leading-snug line-clamp-2"
+                 style={{ color:C.text }}>{item.title}</div>
+               {summary && (
+                 <div className="text-[9px] font-mono mt-0.5 line-clamp-1" style={{ color:C.muted }}>
+                   🇰🇷 {summary}
+                 </div>
+               )}
+               <span className="text-[8px] font-mono" style={{ color:C.muted }}>
+                 {item.publisher || ""}
+               </span>
+             </div>
+           </a>
+         );
+       })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // INSIDER TRADING PANEL
 // ══════════════════════════════════════════════════════════════════════════════
-function InsiderPanel({ symbol }: { symbol:string }) {
+function InsiderPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
   const { data, isLoading, isError } = useInsider(symbol);
   const trades: any[] = (data?.trades || []).slice(0, 8);
   const [collapsed, setCollapsed] = useState(false);
@@ -1179,17 +1317,17 @@ function InsiderPanel({ symbol }: { symbol:string }) {
         <div className="flex items-center gap-1.5">
           <ShieldAlert className="w-3 h-3" style={{ color:C.warn }} />
           <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
-            style={{ color:C.muted }}>INSIDER TRADES</span>
+            style={{ color:C.muted }}>{T("insiderTrades", lang)}</span>
           {!isLoading && !isError && trades.length > 0 && (
             <span className="text-[8px] font-mono px-1 rounded"
               style={{ background:C.up+"22", color:C.up }}>
-              {buys.length}매수
+              {buys.length}{T("buyCount", lang)}
             </span>
           )}
           {!isLoading && !isError && sells.length > 0 && (
             <span className="text-[8px] font-mono px-1 rounded"
               style={{ background:C.down+"22", color:C.down }}>
-              {sells.length}매도
+              {sells.length}{T("sellCount", lang)}
             </span>
           )}
         </div>
@@ -1204,8 +1342,8 @@ function InsiderPanel({ symbol }: { symbol:string }) {
       {!collapsed && (
         isLoading ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
         isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
-                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>데이터 없음</div> :
-        !trades.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>내부자 거래 없음</div> :
+                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>{T("loadFail",lang)}</div> :
+        !trades.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noInsider",lang)}</div> :
         trades.map((t:any, i:number) => {
           const isBuy = t.transactionType === "Purchase" || t.transactionType === "Buy";
           const isSell = t.transactionType === "Sale" || t.transactionType === "Sell";
@@ -1247,7 +1385,7 @@ function InsiderPanel({ symbol }: { symbol:string }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // INSTITUTIONAL HOLDERS PANEL
 // ══════════════════════════════════════════════════════════════════════════════
-function InstitutionalPanel({ symbol }: { symbol:string }) {
+function InstitutionalPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
   const { data, isLoading, isError } = useInstitutional(symbol);
   const holders: any[] = (data?.holders || []).slice(0, 6);
   const [collapsed, setCollapsed] = useState(false);
@@ -1268,7 +1406,7 @@ function InstitutionalPanel({ symbol }: { symbol:string }) {
         <div className="flex items-center gap-1.5">
           <Building2 className="w-3 h-3" style={{ color:C.info }} />
           <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
-            style={{ color:C.muted }}>INSTITUTIONS</span>
+            style={{ color:C.muted }}>{T("institutions", lang)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <StatusBadge isLoading={isLoading} isError={isError}
@@ -1281,8 +1419,8 @@ function InstitutionalPanel({ symbol }: { symbol:string }) {
       {!collapsed && (
         isLoading ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
         isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
-                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>데이터 없음</div> :
-        !holders.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>보유 데이터 없음</div> :
+                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>{T("loadFail",lang)}</div> :
+        !holders.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noHolders",lang)}</div> :
         holders.map((h:any, i:number) => {
           const pct   = h.pctHeld || 0;
           const barW  = Math.round((pct / maxPct) * 100);
@@ -1317,7 +1455,7 @@ function InstitutionalPanel({ symbol }: { symbol:string }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // ANALYST RATINGS PANEL
 // ══════════════════════════════════════════════════════════════════════════════
-function AnalystPanel({ symbol }: { symbol:string }) {
+function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
   const { data, isLoading, isError } = useAnalyst(symbol);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -1340,7 +1478,7 @@ function AnalystPanel({ symbol }: { symbol:string }) {
   const actions  = (data?.recentActions || []).slice(0, 4);
 
   function gradeColor(g: string) {
-    const lo = g.toLowerCase();
+    const lo = (g||"").toLowerCase();
     if (lo.includes("buy") || lo.includes("outperform") || lo.includes("overweight")) return C.up;
     if (lo.includes("sell") || lo.includes("underperform") || lo.includes("underweight")) return C.down;
     return C.warn;
@@ -1354,10 +1492,10 @@ function AnalystPanel({ symbol }: { symbol:string }) {
         <div className="flex items-center gap-1.5">
           <Target className="w-3 h-3" style={{ color:C.up }} />
           <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
-            style={{ color:C.muted }}>ANALYST RATINGS</span>
+            style={{ color:C.muted }}>{T("analystRatings", lang)}</span>
           {!isLoading && total > 0 && (
             <span className="text-[8px] font-mono px-1 rounded"
-              style={{ background:C.up+"22", color:C.up }}>{bullPct}% 매수</span>
+              style={{ background:C.up+"22", color:C.up }}>{bullPct}% {T("buyCount",lang)}</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
@@ -1371,17 +1509,18 @@ function AnalystPanel({ symbol }: { symbol:string }) {
       {!collapsed && (
         isLoading ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
         isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
-                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>데이터 없음</div> :
+                      style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>{T("loadFail",lang)}</div> :
         <div>
-          {/* Consensus bar */}
           {total > 0 && (
             <div className="px-2 pt-2 pb-1.5">
               <div className="flex items-center gap-1 mb-1">
-                <span className="text-[8px] font-mono" style={{ color:C.up }}>강매수{strongBuy}·매수{buy}</span>
+                <span className="text-[8px] font-mono" style={{ color:C.up }}>
+                  {T("strongBuy",lang)}{strongBuy}·{T("buyCount",lang)}{buy}
+                </span>
                 <span className="flex-1" />
-                <span className="text-[8px] font-mono" style={{ color:C.warn }}>중립{hold}</span>
+                <span className="text-[8px] font-mono" style={{ color:C.warn }}>{T("holdCount",lang)}{hold}</span>
                 <span className="flex-1" />
-                <span className="text-[8px] font-mono" style={{ color:C.down }}>매도{sell+strongSell}</span>
+                <span className="text-[8px] font-mono" style={{ color:C.down }}>{T("sellCount",lang)}{sell+strongSell}</span>
               </div>
               <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
                 {bullPct > 0 && <div style={{ width:`${bullPct}%`, background:C.up, transition:"width 0.4s" }} />}
@@ -1396,17 +1535,15 @@ function AnalystPanel({ symbol }: { symbol:string }) {
             </div>
           )}
 
-          {/* Target price + short interest */}
           {(target || shortPct !== null) && (
             <div className="flex items-center gap-2 px-2 py-1.5 border-t" style={{ borderColor:C.border+"40" }}>
               {target && (
                 <div className="flex-1">
-                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>목표주가</div>
+                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>{T("targetPrice",lang)}</div>
                   <div className="text-[10px] font-mono font-bold" style={{ color:C.text }}>
                     ${target.toFixed(2)}
                     {upside !== null && (
-                      <span className="ml-1 text-[9px]"
-                        style={{ color: upside >= 0 ? C.up : C.down }}>
+                      <span className="ml-1 text-[9px]" style={{ color: upside >= 0 ? C.up : C.down }}>
                         {upside >= 0 ? "▲" : "▼"}{Math.abs(upside).toFixed(1)}%
                       </span>
                     )}
@@ -1415,7 +1552,7 @@ function AnalystPanel({ symbol }: { symbol:string }) {
               )}
               {shortPct !== null && (
                 <div className="flex-1">
-                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>공매도비율</div>
+                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>{T("shortFloat",lang)}</div>
                   <div className="text-[10px] font-mono font-bold"
                     style={{ color: shortPct > 10 ? C.down : shortPct > 5 ? C.warn : C.text }}>
                     {shortPct.toFixed(1)}%
@@ -1425,11 +1562,10 @@ function AnalystPanel({ symbol }: { symbol:string }) {
             </div>
           )}
 
-          {/* Recent upgrades/downgrades */}
           {actions.length > 0 && (
             <div className="border-t" style={{ borderColor:C.border+"40" }}>
               <div className="px-2 py-1 text-[8px] font-mono font-bold tracking-widest uppercase"
-                style={{ color:C.muted }}>최근 리포트</div>
+                style={{ color:C.muted }}>{T("recentReports",lang)}</div>
               {actions.map((a:any, i:number) => (
                 <div key={i} className="flex items-center gap-1.5 px-2 py-1 border-b"
                   style={{ borderColor:C.border+"30" }}>
@@ -1447,7 +1583,7 @@ function AnalystPanel({ symbol }: { symbol:string }) {
                         </>
                       )}
                       <span className="text-[8px] font-mono font-bold" style={{ color:gradeColor(a.toGrade) }}>
-                        {a.toGrade?.slice(0,12) || "—"}
+                        {(a.toGrade||"—").slice(0,12)}
                       </span>
                     </div>
                   </div>
@@ -1461,7 +1597,7 @@ function AnalystPanel({ symbol }: { symbol:string }) {
 
           {total === 0 && actions.length === 0 && (
             <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>
-              애널리스트 데이터 없음
+              {T("noAnalyst",lang)}
             </div>
           )}
         </div>
@@ -1471,27 +1607,146 @@ function AnalystPanel({ symbol }: { symbol:string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// AI ASSISTANT SHORTCUT
+// AI MARKET ANALYSIS PANEL — real market signals, no site nav links
 // ══════════════════════════════════════════════════════════════════════════════
-function AIPanel({ symbol }: { symbol:string }) {
+function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
+  const { data: mood } = useMood();
+  const { data: sectorData } = useSectors();
+  const { data: analystData } = useAnalyst(symbol);
+  const [brief, setBrief]   = useState<string|null>(null);
+  const [genLoading, setGenLoading] = useState(false);
+
+  const sectors: any[] = (sectorData?.sectors || []).slice(0, 5);
+  const fgIndex = mood?.index ?? null;
+  const fgLabel = mood?.label ?? "";
+  const fgColor = fgIndex !== null
+    ? fgIndex >= 60 ? C.up : fgIndex <= 40 ? C.down : C.warn
+    : C.muted;
+
+  const target = analystData?.targetPrice;
+  const curr   = analystData?.currentPrice;
+  const upside = (target && curr && curr > 0) ? ((target - curr) / curr * 100) : null;
+  const sum    = analystData?.summary || {};
+  const total  = (sum.strongBuy||0)+(sum.buy||0)+(sum.hold||0)+(sum.sell||0)+(sum.strongSell||0);
+  const bullPct = total ? Math.round(((sum.strongBuy||0)+(sum.buy||0))/total*100) : null;
+
+  async function generateBrief() {
+    setGenLoading(true);
+    const symLabel = symbol.replace("^","").replace(".KS","").replace("=F","").replace("=X","");
+    const context = [
+      `Symbol: ${symLabel}`,
+      fgIndex !== null ? `Fear/Greed: ${fgIndex} (${fgLabel})` : "",
+      sectors.length ? `Top sectors: ${sectors.map((s:any) => `${s.symbol} ${s.changePercent>=0?"+":""}${(s.changePercent||0).toFixed(1)}%`).join(", ")}` : "",
+      bullPct !== null ? `Analyst consensus: ${bullPct}% buy` : "",
+      upside !== null ? `Target upside: ${upside.toFixed(1)}%` : "",
+    ].filter(Boolean).join(". ");
+
+    const promptMap: Record<Lang, string> = {
+      ko: `당신은 전문 투자 분석가입니다. 다음 시장 데이터를 바탕으로 ${symLabel} 종목에 대한 간결한 AI 시장 분석을 2-3문장으로 작성하세요. 투자자 관점의 핵심 인사이트를 제공하세요.`,
+      en: `You are a professional investment analyst. Based on the following market data, write a concise 2-3 sentence AI market brief for ${symLabel}. Focus on key investment insights.`,
+      ja: `あなたはプロの投資アナリストです。以下の市場データを基に、${symLabel}についての簡潔なAI市場分析を2〜3文で作成してください。`,
+    };
+    try {
+      const res = await fetch("/api/news/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: context, lang }),
+      });
+      const d = await res.json();
+      setBrief(d.summary || "");
+    } catch { setBrief(lang === "ko" ? "분석 생성 실패" : lang === "ja" ? "分析失敗" : "Analysis failed"); }
+    finally { setGenLoading(false); }
+  }
+
   return (
-    <div className="p-2">
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2"
-        style={{ color:C.muted }}>AI TRADE ASSISTANT</div>
-      <div className="rounded p-2 mb-2 text-[10px] font-mono leading-relaxed"
-        style={{ background:C.panel2, color:C.muted, border:`1px solid ${C.border}` }}>
-        <span style={{ color:C.up }}>DINO AI: </span>
-        <span style={{ color:C.text }}>{symbol.replace("^","").replace(".KS","")}</span>
-        <span> 종목의 AI 분석을 확인하세요. </span>
-        <span style={{ color:C.info }}>HELP, NEWS, FUND, RISK, WATCH</span>
-        <span style={{ color:C.muted }}> 명령어 지원</span>
-      </div>
-      <Link href="/ai-portfolio"
-        className="flex items-center justify-center gap-2 w-full py-2 rounded text-[11px] font-mono font-bold"
-        style={{ background:C.up+"22", color:C.up, border:`1px solid ${C.up}40` }}>
-        <Bot className="w-3.5 h-3.5" />
-        AI 포트폴리오 분석 →
-      </Link>
+    <div className="p-2 space-y-2">
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        style={{ color:C.muted }}>{T("aiMarket",lang)}</div>
+
+      {/* Fear & Greed gauge */}
+      {fgIndex !== null && (
+        <div className="rounded p-2" style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[8px] font-mono" style={{ color:C.muted }}>{T("fearGreed",lang)}</span>
+            <span className="text-[9px] font-mono font-bold" style={{ color:fgColor }}>{fgLabel}</span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background:C.border }}>
+            <div className="h-full rounded-full transition-all"
+              style={{ width:`${fgIndex}%`, background:`linear-gradient(to right,${C.down},${C.warn},${C.up})` }} />
+          </div>
+          <div className="flex justify-between mt-0.5">
+            <span className="text-[7px] font-mono" style={{ color:C.down }}>{lang==="ko"?"공포":lang==="ja"?"恐怖":"Fear"}</span>
+            <span className="text-[8px] font-mono font-bold" style={{ color:fgColor }}>{fgIndex}</span>
+            <span className="text-[7px] font-mono" style={{ color:C.up }}>{lang==="ko"?"탐욕":lang==="ja"?"強欲":"Greed"}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Sector performance */}
+      {sectors.length > 0 && (
+        <div className="rounded p-1.5" style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
+          <div className="text-[8px] font-mono mb-1.5" style={{ color:C.muted }}>{T("topSectors",lang)}</div>
+          {sectors.map((s:any, i:number) => {
+            const pct = s.changePercent ?? 0;
+            const up  = pct >= 0;
+            return (
+              <div key={i} className="flex items-center gap-1.5 mb-1">
+                <span className="text-[8px] font-mono w-8 shrink-0" style={{ color:C.muted }}>{s.symbol}</span>
+                <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background:C.border }}>
+                  <div className="h-full rounded-full"
+                    style={{ width:`${Math.min(Math.abs(pct)*10,100)}%`, background: up ? C.up : C.down }} />
+                </div>
+                <span className="text-[8px] font-mono font-bold w-10 text-right shrink-0"
+                  style={{ color: up ? C.up : C.down }}>
+                  {up?"+":""}{pct.toFixed(1)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Analyst signal for selected stock */}
+      {bullPct !== null && (
+        <div className="rounded p-1.5 flex items-center gap-2"
+          style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
+          <div className="flex-1">
+            <div className="text-[8px] font-mono" style={{ color:C.muted }}>
+              {symbol.replace("^","").replace(".KS","")} {T("analystRatings",lang)}
+            </div>
+            <div className="text-[10px] font-mono font-bold" style={{ color: bullPct>=60 ? C.up : bullPct>=40 ? C.warn : C.down }}>
+              {bullPct}% {T("buyCount",lang)}
+            </div>
+          </div>
+          {upside !== null && (
+            <div className="text-right shrink-0">
+              <div className="text-[8px] font-mono" style={{ color:C.muted }}>{T("upside",lang)}</div>
+              <div className="text-[10px] font-mono font-bold" style={{ color: upside>=0?C.up:C.down }}>
+                {upside>=0?"▲":"▼"}{Math.abs(upside).toFixed(1)}%
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI brief generator */}
+      {brief ? (
+        <div className="rounded p-2 text-[9px] font-mono leading-relaxed"
+          style={{ background:C.header, color:C.text, border:`1px solid ${C.info}40` }}>
+          <span style={{ color:C.info }}>AI▸ </span>{brief}
+          <button onClick={() => setBrief(null)}
+            className="ml-1 text-[8px]" style={{ color:C.muted }}>✕</button>
+        </div>
+      ) : (
+        <button onClick={generateBrief} disabled={genLoading}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-mono font-bold"
+          style={{ background:C.info+"22", color:C.info, border:`1px solid ${C.info}40`,
+                   opacity: genLoading ? 0.7 : 1 }}>
+          {genLoading
+            ? <><Loader2 className="w-3 h-3 animate-spin"/>{lang==="ko"?"분석 생성 중...":lang==="ja"?"生成中...":"Generating..."}</>
+            : <><Bot className="w-3 h-3"/>{T("genAnalysis",lang)}</>}
+        </button>
+      )}
     </div>
   );
 }
@@ -1632,6 +1887,7 @@ const MOBILE_TABS: {id:MTab;label:string;icon:React.ReactNode}[] = [
 // ══════════════════════════════════════════════════════════════════════════════
 export default function DinoTerminal() {
   const { data: user } = useUser();
+  const lang = ((user?.language as Lang) || "ko") as Lang;
   const [selected, setSelected] = useState("005930.KS");
   const [pIdx, setPIdx] = useState(1);        // 1 = "1M"
   const [mTab, setMTab] = useState<MTab>(() =>
@@ -1727,12 +1983,12 @@ export default function DinoTerminal() {
         <div className="w-[230px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <FundamentalsPanel symbol={selected} quote={quote} />
-          <AnalystPanel symbol={selected} />
-          <InsiderPanel symbol={selected} />
-          <InstitutionalPanel symbol={selected} />
+          <AnalystPanel symbol={selected} lang={lang} />
+          <InsiderPanel symbol={selected} lang={lang} />
+          <InstitutionalPanel symbol={selected} lang={lang} />
           <CalendarPanel />
-          <NewsPanel />
-          <AIPanel symbol={selected} />
+          <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+          <AIPanel symbol={selected} lang={lang} />
         </div>
       </div>
 
@@ -1799,12 +2055,13 @@ export default function DinoTerminal() {
             </div>
             <TechEngine symbol={selected} quote={quote} />
             <CrossAssetTable stocks={stocks} />
+            <StockNewsCompact symbol={selected} lang={lang} />
           </>
         )}
 
         {mTab === "news" && (
           <>
-            <NewsPanel />
+            <NewsPanel lang={lang} symbol={selected} showToggle={true} />
             <CalendarPanel />
           </>
         )}
@@ -1812,9 +2069,9 @@ export default function DinoTerminal() {
         {mTab === "fund" && (
           <>
             <FundamentalsPanel symbol={selected} quote={quote} />
-            <AnalystPanel symbol={selected} />
-            <InsiderPanel symbol={selected} />
-            <InstitutionalPanel symbol={selected} />
+            <AnalystPanel symbol={selected} lang={lang} />
+            <InsiderPanel symbol={selected} lang={lang} />
+            <InstitutionalPanel symbol={selected} lang={lang} />
             <div className="p-3 grid grid-cols-3 gap-2">
               {[
                 {label:"투자자",  href:"/investors",    icon:<Briefcase className="w-4 h-4"/>},
@@ -1837,24 +2094,7 @@ export default function DinoTerminal() {
 
         {mTab === "ai" && (
           <>
-            <AIPanel symbol={selected} />
-            <div className="p-3 space-y-2">
-              {[
-                {label:"오늘의 퀘스트",href:"/quests",       desc:"XP 획득"},
-                {label:"AI 포트폴리오",href:"/ai-portfolio", desc:"맞춤 분석"},
-                {label:"슈퍼 투자자",  href:"/investors",    desc:"13F 공시 데이터"},
-              ].map(({label,href,desc}) => (
-                <Link key={href} href={href}
-                  className="flex items-center justify-between px-3 py-3 rounded"
-                  style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-                  <div>
-                    <div className="text-[12px] font-mono font-bold" style={{ color:C.text }}>{label}</div>
-                    <div className="text-[10px] font-mono" style={{ color:C.muted }}>{desc}</div>
-                  </div>
-                  <ChevronRight className="w-4 h-4" style={{ color:C.info }} />
-                </Link>
-              ))}
-            </div>
+            <AIPanel symbol={selected} lang={lang} />
           </>
         )}
       </div>
