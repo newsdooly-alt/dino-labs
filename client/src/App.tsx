@@ -3,8 +3,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
+import { TerminalTopBar } from "@/components/layout/TerminalTopBar";
+import { IndexStrip } from "@/components/layout/IndexStrip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeColorProvider } from "@/contexts/ThemeColorContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
@@ -12,6 +12,7 @@ import { TimezoneProvider } from "@/contexts/TimezoneContext";
 import { useAuth } from "@/hooks/use-auth";
 
 // Pages
+import TerminalMarkets from "@/pages/TerminalMarkets";
 import Dashboard from "@/pages/Dashboard";
 import Quests from "@/pages/Quests";
 import Watchlist from "@/pages/Watchlist";
@@ -32,9 +33,38 @@ import AIPortfolio from "@/pages/AIPortfolio";
 import StockChat from "@/pages/StockChat";
 import ChartMaster from "@/pages/ChartMaster";
 import NotFound from "@/pages/not-found";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 
-function Router() {
+// Desktop router (terminal tab routes)
+function DesktopRouter() {
+  return (
+    <Switch>
+      <Route path="/" component={TerminalMarkets} />
+      <Route path="/quests" component={Quests} />
+      <Route path="/watchlist" component={Watchlist} />
+      <Route path="/market-trends" component={MarketTrends} />
+      <Route path="/calendar" component={EconomicCalendar} />
+      <Route path="/investors" component={SuperInvestors} />
+      <Route path="/settings" component={Settings} />
+      <Route path="/eggs" component={Collection} />
+      <Route path="/collection" component={Collection} />
+      <Route path="/recommended" component={Recommended} />
+      <Route path="/search" component={GlobalSearch} />
+      <Route path="/stock/:symbol" component={StockDetail} />
+      <Route path="/pro" component={AdvancedDashboard} />
+      <Route path="/hot-issues" component={HotIssues} />
+      <Route path="/earnings" component={EarningsLive} />
+      <Route path="/ai-portfolio" component={AIPortfolio} />
+      <Route path="/chat" component={StockChat} />
+      <Route path="/chart-master" component={ChartMaster} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+// Mobile router (same pages but scrollable)
+function MobileRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -60,14 +90,12 @@ function Router() {
   );
 }
 
-function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+function AuthenticatedLayout({ children }: { children?: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const complete = localStorage.getItem("onboarding_complete");
-    if (!complete) {
-      setShowOnboarding(true);
-    }
+    if (!complete) setShowOnboarding(true);
   }, []);
 
   const handleOnboardingComplete = () => {
@@ -76,16 +104,26 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 max-w-[100vw] overflow-x-hidden">
+    <>
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
-      <Sidebar />
-      <div className="md:pl-64 flex flex-col min-h-screen w-full max-w-full overflow-x-hidden">
-        <Header />
-        <main className="flex-1 overflow-x-hidden w-full">
-          {children}
+
+      {/* ─── DESKTOP: Terminal layout (full-height, no scroll on outer) ─── */}
+      <div className="hidden md:flex flex-col h-screen overflow-hidden bg-background text-foreground">
+        <TerminalTopBar />
+        <IndexStrip />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <DesktopRouter />
         </main>
       </div>
-    </div>
+
+      {/* ─── MOBILE: Classic scrollable layout ──────────────────────────── */}
+      <div className="md:hidden min-h-screen bg-background text-foreground">
+        <TerminalTopBar />
+        <main className="flex-1">
+          <MobileRouter />
+        </main>
+      </div>
+    </>
   );
 }
 
@@ -107,11 +145,7 @@ function AppContent() {
     return <Landing />;
   }
 
-  return (
-    <AuthenticatedLayout>
-      <Router />
-    </AuthenticatedLayout>
-  );
+  return <AuthenticatedLayout />;
 }
 
 function App() {
