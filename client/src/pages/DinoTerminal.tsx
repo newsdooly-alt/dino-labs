@@ -1,128 +1,265 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
-  AreaChart, Area, LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart,
-  ReferenceLine
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, ComposedChart, ReferenceLine,
 } from "recharts";
 import {
-  Search, RefreshCw, TrendingUp, TrendingDown, ChevronRight,
-  Newspaper, Bot, Star, BarChart2, Zap, Flame, Activity,
-  Globe, DollarSign, Calendar, ExternalLink, ArrowUpRight,
-  ArrowDownRight, MonitorPlay, Shield, Cpu, Radio, Briefcase
+  Search, RefreshCw, Newspaper, Bot, Star, BarChart2,
+  Zap, Flame, Activity, Globe, DollarSign, Calendar,
+  ArrowUpRight, Briefcase, Radio, MonitorPlay,
+  ChevronRight, AlertTriangle, Clock,
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TERMINAL THEME CONSTANTS
+// THEME
 // ══════════════════════════════════════════════════════════════════════════════
-const T = {
-  bg: "#0a0e14",
-  panel: "#0f1620",
-  panel2: "#111a26",
-  border: "#1e2d40",
-  borderHover: "#2a3f58",
-  text: "#c8d3e0",
-  muted: "#566880",
-  up: "#00c896",
-  down: "#ff4757",
-  info: "#3d9bff",
-  yellow: "#ffc107",
-  header: "#080c12",
-};
-
-const UP = "text-[#00c896]";
-const DOWN = "text-[#ff4757]";
-const INFO = "text-[#3d9bff]";
-const MUTED = "text-[#566880]";
-
-// ══════════════════════════════════════════════════════════════════════════════
-// DATA CONSTANTS
-// ══════════════════════════════════════════════════════════════════════════════
-const WATCH_SYMS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "005930.KS", "^KS11", "^IXIC", "BTC-USD", "GC=F", "JPY=X"];
-const WATCH_NAMES: Record<string, string> = {
-  "AAPL": "Apple", "NVDA": "NVIDIA", "TSLA": "Tesla", "MSFT": "Microsoft",
-  "AMZN": "Amazon", "META": "Meta", "005930.KS": "삼성전자",
-  "^KS11": "KOSPI", "^IXIC": "NASDAQ", "BTC-USD": "Bitcoin",
-  "GC=F": "Gold", "JPY=X": "USD/JPY",
-};
-const INDEX_SYMS = ["SPY", "QQQ", "^KS11", "^IXIC", "GC=F", "CL=F", "BTC-USD", "JPY=X"];
-const INDEX_LBL: Record<string, string> = {
-  "SPY": "SPY", "QQQ": "QQQ", "^KS11": "KOSPI", "^IXIC": "NDX",
-  "GC=F": "GOLD", "CL=F": "OIL", "BTC-USD": "BTC", "JPY=X": "¥",
+const C = {
+  bg:      "#0a0e14",
+  panel:   "#0f1620",
+  panel2:  "#111a26",
+  border:  "#1e2d40",
+  text:    "#c8d3e0",
+  muted:   "#566880",
+  up:      "#00c896",
+  down:    "#ff4757",
+  info:    "#3d9bff",
+  warn:    "#ffc107",
+  header:  "#080c12",
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// UTILITY FUNCTIONS
+// CONSTANTS
 // ══════════════════════════════════════════════════════════════════════════════
-function fmtPrice(v: number | undefined, sym?: string): string {
+const WATCH_SYMS = [
+  "AAPL","NVDA","TSLA","MSFT","AMZN","META",
+  "005930.KS","^KS11","^IXIC","BTC-USD","GC=F","CL=F",
+];
+const WATCH_NAMES: Record<string,string> = {
+  "AAPL":"Apple","NVDA":"NVIDIA","TSLA":"Tesla","MSFT":"Microsoft",
+  "AMZN":"Amazon","META":"Meta","005930.KS":"삼성전자",
+  "^KS11":"KOSPI","^IXIC":"NASDAQ","BTC-USD":"Bitcoin",
+  "GC=F":"Gold","CL=F":"Crude Oil",
+};
+const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","JPY=X"];
+const INDEX_LBL: Record<string,string> = {
+  "SPY":"SPY","QQQ":"QQQ","^KS11":"KOSPI","^IXIC":"NDX",
+  "GC=F":"GOLD","CL=F":"OIL","BTC-USD":"BTC","JPY=X":"JPY",
+};
+
+// Sector ETF → Korean name
+const SECTOR_NAMES: Record<string,string> = {
+  "XLK":"기술","XLV":"헬스케어","XLF":"금융","XLY":"소비(임의)",
+  "XLE":"에너지","XLU":"유틸리티","XLB":"소재","XLI":"산업재",
+  "XLC":"통신서비스","XLRE":"부동산","XLP":"필수소비",
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FORMAT HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function fmtPrice(v: number|undefined, sym?: string): string {
   if (v == null) return "—";
   if (sym === "BTC-USD") return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  if (sym?.includes(".KS") || sym === "^KS11") return Math.round(v).toLocaleString();
-  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (sym?.endsWith(".KS") || sym === "^KS11") return Math.round(v).toLocaleString();
+  return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function fmtChange(v: number | undefined): string {
+function fmtPct(v: number|undefined): string {
   if (v == null) return "—";
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
-function fmtVol(v: number | undefined): string {
+function fmtVol(v: number|undefined): string {
   if (!v) return "—";
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
-  return v.toString();
+  if (v >= 1_000_000_000) return `${(v/1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000)     return `${(v/1_000_000).toFixed(1)}M`;
+  if (v >= 1_000)         return `${(v/1_000).toFixed(0)}K`;
+  return String(v);
 }
-function fmtMktCap(v: number | undefined): string {
+function fmtMktCap(v: number|undefined, currency?: string): string {
   if (!v) return "—";
-  if (v >= 1_000_000_000_000) return `$${(v / 1_000_000_000_000).toFixed(2)}T`;
-  if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(0)}M`;
-  return `$${v}`;
+  if (currency === "KRW") {
+    if (v >= 1_000_000_000_000) return `₩${(v/1_000_000_000_000).toFixed(1)}조`;
+    return `₩${(v/100_000_000).toFixed(0)}억`;
+  }
+  if (v >= 1_000_000_000_000) return `$${(v/1_000_000_000_000).toFixed(2)}T`;
+  if (v >= 1_000_000_000)     return `$${(v/1_000_000_000).toFixed(1)}B`;
+  return `$${(v/1_000_000).toFixed(0)}M`;
 }
-function isUp(pct?: number) { return (pct || 0) >= 0; }
+function isUp(pct?: number) { return (pct ?? 0) >= 0; }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// HOOKS
+// DATA HOOKS  (all with correct API field names)
 // ══════════════════════════════════════════════════════════════════════════════
+
+/** Batch live prices → { [symbol]: quoteObj } */
 function useLivePrices(symbols: string[]) {
-  return useQuery<any>({
-    queryKey: ["/api/stocks/live", symbols.join(",")],
+  return useQuery<Record<string,any>>({
+    queryKey: ["/api/stocks/live", symbols.sort().join(",")],
     queryFn: async () => {
       const res = await fetch(`/api/stocks/live?symbols=${symbols.join(",")}`);
-      return res.json();
-    },
-    refetchInterval: 12000,
-    staleTime: 8000,
-  });
-}
-
-function useHistory(symbol: string, period = "1mo") {
-  return useQuery<any[]>({
-    queryKey: ["/api/stocks/history", symbol, period],
-    queryFn: async () => {
-      const res = await fetch(`/api/stocks/history/${encodeURIComponent(symbol)}?period=${period}&interval=1d`);
+      if (!res.ok) throw new Error("live prices failed");
       const data = await res.json();
-      if (Array.isArray(data)) return data;
-      return data?.history || data?.data || [];
+      const quotes: any[] = data.quotes || (Array.isArray(data) ? data : []);
+      const map: Record<string,any> = {};
+      for (const q of quotes) if (q?.symbol) map[q.symbol] = q;
+      return map;
     },
-    staleTime: 60000,
-    refetchInterval: 120000,
+    refetchInterval: 15_000,
+    staleTime:  10_000,
+    retry: 2,
   });
 }
 
-function useFundamentals(symbol: string) {
+/** Single stock detail info (fundamentals) */
+function useStockInfo(symbol: string) {
   return useQuery<any>({
-    queryKey: ["/api/stocks/live", symbol, "single"],
+    queryKey: ["/api/stocks/info", symbol],
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/live/${encodeURIComponent(symbol)}`);
+      const res = await fetch(`/api/stocks/info/${encodeURIComponent(symbol)}`);
+      if (!res.ok) throw new Error("info failed");
       return res.json();
     },
-    staleTime: 30000,
-    refetchInterval: 60000,
+    staleTime:  60_000,
+    refetchInterval: 120_000,
     enabled: !!symbol,
+    retry: 1,
   });
+}
+
+/** Historical OHLCV — returns the .data[] array directly */
+function useHistory(symbol: string, period: string, interval: string) {
+  return useQuery<any[]>({
+    queryKey: ["/api/stocks/history", symbol, period, interval],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/stocks/history/${encodeURIComponent(symbol)}?period=${period}&interval=${interval}`
+      );
+      if (!res.ok) throw new Error("history failed");
+      const d = await res.json();
+      return Array.isArray(d) ? d : (d?.data || []);
+    },
+    staleTime:  60_000,
+    refetchInterval: 120_000,
+    enabled: !!symbol,
+    retry: 1,
+  });
+}
+
+/** Fear & Greed — returns { index, label, dinoAdvice } */
+function useMood() {
+  return useQuery<any>({
+    queryKey: ["/api/market/mood"],
+    staleTime:  120_000,
+    refetchInterval: 180_000,
+    retry: 1,
+  });
+}
+
+/** Sector returns — returns { sectors: [{symbol:"XLK", changePercent:1.3}] } */
+function useSectors() {
+  return useQuery<any>({
+    queryKey: ["/api/sector-returns"],
+    staleTime:  120_000,
+    refetchInterval: 300_000,
+    retry: 1,
+  });
+}
+
+/** Market gainers — returns array of quote objects */
+function useGainers() {
+  return useQuery<any[]>({
+    queryKey: ["/api/market/gainers"],
+    queryFn: async () => {
+      const res = await fetch("/api/market/gainers");
+      if (!res.ok) throw new Error("gainers failed");
+      const d = await res.json();
+      return Array.isArray(d) ? d : (d?.gainers || []);
+    },
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    retry: 1,
+  });
+}
+
+/** News — returns [{ title, link, publisher, publishedAt, thumbnail }] */
+function useNews() {
+  return useQuery<any[]>({
+    queryKey: ["/api/news"],
+    queryFn: async () => {
+      const res = await fetch("/api/news");
+      if (!res.ok) throw new Error("news failed");
+      const d = await res.json();
+      return Array.isArray(d) ? d : (d?.news || []);
+    },
+    staleTime: 180_000,
+    refetchInterval: 300_000,
+    retry: 1,
+  });
+}
+
+/** Economic calendar */
+function useCalendar() {
+  return useQuery<any[]>({
+    queryKey: ["/api/economic-calendar", "current"],
+    queryFn: async () => {
+      const now = new Date();
+      const res = await fetch(`/api/economic-calendar?year=${now.getFullYear()}&month=${now.getMonth()+1}`);
+      if (!res.ok) throw new Error("calendar failed");
+      const d = await res.json();
+      return d?.events || [];
+    },
+    staleTime: 600_000,
+    retry: 1,
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STATUS BADGE
+// ══════════════════════════════════════════════════════════════════════════════
+function StatusBadge({ isLoading, isError, isStale, isLive }: {
+  isLoading?: boolean; isError?: boolean; isStale?: boolean; isLive?: boolean;
+}) {
+  if (isLoading) return (
+    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+      style={{ background: C.muted+"22", color: C.muted }}>
+      <RefreshCw className="w-2 h-2 animate-spin" /> LOADING
+    </span>
+  );
+  if (isError) return (
+    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+      style={{ background: C.down+"22", color: C.down }}>
+      <AlertTriangle className="w-2 h-2" /> ERROR
+    </span>
+  );
+  if (isStale) return (
+    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+      style={{ background: C.warn+"22", color: C.warn }}>
+      <Clock className="w-2 h-2" /> DELAYED
+    </span>
+  );
+  if (isLive) return (
+    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+      style={{ background: C.up+"22", color: C.up }}>
+      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.up }} />
+      LIVE
+    </span>
+  );
+  return null;
+}
+
+// Skeleton row for tables
+function SkeletonRow({ cols = 4 }: { cols?: number }) {
+  return (
+    <div className="flex gap-2 px-2 py-1.5 border-b" style={{ borderColor: C.border+"50" }}>
+      {Array.from({ length: cols }).map((_, i) => (
+        <div key={i} className="h-2.5 rounded animate-pulse" style={{
+          background: C.border, flex: i === 0 ? "0 0 60px" : 1
+        }} />
+      ))}
+    </div>
+  );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -134,21 +271,15 @@ function TerminalClock() {
     const id = setInterval(() => setT(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const kst = t.toLocaleTimeString("ko-KR", {
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-    timeZone: "Asia/Seoul", hour12: false
-  });
-  const us = t.toLocaleTimeString("en-US", {
-    hour: "2-digit", minute: "2-digit", hour12: false,
-    timeZone: "America/New_York"
-  });
+  const kst = t.toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit", second:"2-digit", timeZone:"Asia/Seoul", hour12:false });
+  const ny  = t.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:"America/New_York" });
   return (
     <div className="flex items-center gap-2 text-[10px] font-mono shrink-0">
-      <span className={MUTED}>KST</span>
-      <span style={{ color: T.text }}>{kst}</span>
-      <span className="w-px h-3 bg-[#1e2d40]" />
-      <span className={MUTED}>NY</span>
-      <span style={{ color: T.text }}>{us}</span>
+      <span style={{ color: C.muted }}>KST</span>
+      <span style={{ color: C.text }}>{kst}</span>
+      <span className="w-px h-3" style={{ background: C.border }} />
+      <span style={{ color: C.muted }}>NY</span>
+      <span style={{ color: C.text }}>{ny}</span>
     </div>
   );
 }
@@ -157,242 +288,275 @@ function TerminalClock() {
 // INDEX TICKER STRIP
 // ══════════════════════════════════════════════════════════════════════════════
 function IndexStrip() {
-  const { data } = useLivePrices(INDEX_SYMS);
-  const stocks = data?.stocks || {};
+  const { data: stocks, isLoading } = useLivePrices(INDEX_SYMS);
   const items = [...INDEX_SYMS, ...INDEX_SYMS];
 
   return (
-    <div
-      className="flex items-center overflow-hidden border-b"
-      style={{ background: T.header, borderColor: T.border, height: 26 }}
-    >
-      <div className="flex items-center gap-5 animate-[ticker_25s_linear_infinite] whitespace-nowrap px-3">
-        {items.map((sym, i) => {
-          const s = stocks[sym];
-          const up = isUp(s?.changePercent);
-          return (
-            <span key={`${sym}-${i}`} className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] font-mono" style={{ color: T.muted }}>{INDEX_LBL[sym]}</span>
-              <span className="text-[10px] font-mono font-bold" style={{ color: T.text }}>
-                {s ? fmtPrice(s.price, sym) : "···"}
-              </span>
-              {s && (
-                <span className={cn("text-[10px] font-mono font-semibold", up ? UP : DOWN)}>
-                  {fmtChange(s.changePercent)}
+    <div className="flex items-center overflow-hidden border-b shrink-0"
+      style={{ background: C.header, borderColor: C.border, height: 26 }}>
+      {isLoading ? (
+        <div className="flex items-center gap-4 px-3">
+          {INDEX_SYMS.map(s => (
+            <span key={s} className="text-[10px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[s]} ···</span>
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-5 animate-[ticker_25s_linear_infinite] whitespace-nowrap px-3">
+          {items.map((sym, i) => {
+            const q = stocks?.[sym];
+            const up = isUp(q?.changePercent);
+            return (
+              <span key={`${sym}-${i}`} className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[sym]}</span>
+                <span className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                  {q ? fmtPrice(q.price, sym) : "—"}
                 </span>
-              )}
-            </span>
-          );
-        })}
-      </div>
+                {q && (
+                  <span className={cn("text-[10px] font-mono font-semibold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                    {fmtPct(q.changePercent)}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MARKET PULSE WIDGET
+// MARKET PULSE WIDGET  (fear/greed = mood.index, not fearGreedIndex)
 // ══════════════════════════════════════════════════════════════════════════════
-function MarketPulseWidget({ stocks }: { stocks: Record<string, any> }) {
-  const { data: mood } = useQuery<any>({
-    queryKey: ["/api/market/mood"],
-    staleTime: 60000,
-    refetchInterval: 120000,
-  });
-  const fg = mood?.fearGreedIndex;
-  const fgColor = fg == null ? T.muted : fg > 65 ? T.up : fg > 45 ? "#ffc107" : fg > 25 ? "#ff8c00" : T.down;
-  const fgLabel = fg == null ? "—" : fg > 65 ? "GREED" : fg > 45 ? "NEUTRAL" : fg > 25 ? "FEAR" : "EXT FEAR";
+function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
+  const { data: mood, isLoading, isError } = useMood();
 
-  const spy = stocks["SPY"];
-  const adv = mood?.advancing ?? "—";
-  const dec = mood?.declining ?? "—";
+  // mood.index is 0-100, mood.label is Korean string
+  const fg    = mood?.index;
+  const label = mood?.label ?? (fg == null ? "—" : fg > 65 ? "탐욕" : fg > 45 ? "중립" : fg > 25 ? "공포" : "극공포");
+  const fgClr = fg == null ? C.muted : fg > 65 ? C.up : fg > 45 ? C.warn : fg > 25 ? "#ff8c00" : C.down;
+  const spy   = liveStocks["SPY"];
 
   return (
-    <div className="p-2 border-b" style={{ borderColor: T.border }}>
+    <div className="p-2 border-b" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: T.muted }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           MARKET PULSE
         </span>
-        <div className="flex items-center gap-1">
-          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: spy ? T.up : T.muted }} />
-          <span className="text-[9px] font-mono" style={{ color: T.muted }}>MIXED LIVE</span>
-        </div>
+        <StatusBadge isLoading={isLoading} isError={isError}
+          isLive={!isLoading && !isError && fg != null} />
       </div>
 
-      {/* Fear & Greed */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="shrink-0 text-center">
-          <div className="text-[10px] font-mono" style={{ color: T.muted }}>F&G</div>
-          <div className="text-2xl font-black font-mono leading-none" style={{ color: fgColor }}>
-            {fg ?? "—"}
-          </div>
-          <div className="text-[9px] font-mono font-bold" style={{ color: fgColor }}>{fgLabel}</div>
+      {isLoading ? (
+        <div className="space-y-2">
+          <div className="h-8 rounded animate-pulse" style={{ background: C.border }} />
+          <div className="h-4 rounded animate-pulse" style={{ background: C.border }} />
         </div>
-        <div className="flex-1">
-          <div
-            className="relative h-2 rounded-full overflow-hidden"
-            style={{ background: "linear-gradient(to right, #ff4757, #ffc107, #00c896)" }}
-          >
-            {fg != null && (
-              <div
-                className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-white"
-                style={{ left: `${fg}%`, transform: "translate(-50%, -50%)", background: fgColor, boxShadow: `0 0 6px ${fgColor}` }}
-              />
-            )}
-          </div>
-          <div className="grid grid-cols-3 gap-1 mt-1.5">
-            {[["ADV", adv, T.up], ["DEC", dec, T.down], ["SPY", spy ? fmtChange(spy.changePercent) : "—", isUp(spy?.changePercent) ? T.up : T.down]].map(([l, v, c]) => (
-              <div key={l as string} className="text-center">
-                <div className="text-[8px] font-mono" style={{ color: T.muted }}>{l}</div>
-                <div className="text-[11px] font-bold font-mono" style={{ color: c as string }}>{v}</div>
+      ) : isError ? (
+        <div className="text-[10px] font-mono py-2" style={{ color: C.down }}>
+          데이터 로드 실패
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="shrink-0 text-center w-14">
+              <div className="text-[9px] font-mono" style={{ color: C.muted }}>공포&탐욕</div>
+              <div className="text-2xl font-black font-mono leading-none" style={{ color: fgClr }}>
+                {fg ?? "—"}
               </div>
-            ))}
+              <div className="text-[9px] font-mono font-bold" style={{ color: fgClr }}>{label}</div>
+            </div>
+            <div className="flex-1">
+              <div className="relative h-2 rounded-full overflow-hidden mb-1.5"
+                style={{ background: "linear-gradient(to right,#ff4757,#ffc107,#00c896)" }}>
+                {fg != null && (
+                  <div className="absolute w-2.5 h-2.5 rounded-full border-2 border-white"
+                    style={{ left:`${fg}%`, top:"50%", transform:"translate(-50%,-50%)",
+                      background: fgClr, boxShadow:`0 0 6px ${fgClr}` }} />
+                )}
+              </div>
+              <div className="flex justify-between text-[8px] font-mono" style={{ color: C.muted }}>
+                <span>극공포</span><span>극탐욕</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+          {/* Index snapshot */}
+          <div className="grid grid-cols-3 gap-1">
+            {(["SPY","QQQ","^KS11"] as const).map(sym => {
+              const q = liveStocks[sym];
+              const up = isUp(q?.changePercent);
+              return (
+                <div key={sym} className="rounded px-1.5 py-1 text-center"
+                  style={{ background: q ? (up ? C.up+"0d" : C.down+"0d") : C.border+"30",
+                    border:`1px solid ${q ? (up ? C.up+"30" : C.down+"30") : C.border}` }}>
+                  <div className="text-[8px] font-mono" style={{ color: C.muted }}>{sym.replace("^","")}</div>
+                  <div className={cn("text-[11px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                    {q ? fmtPct(q.changePercent) : "—"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// WATCH GRID WIDGET
+// WATCH GRID  (real live data, selected symbol highlight)
 // ══════════════════════════════════════════════════════════════════════════════
-function WatchGrid({ stocks, onSelect, selected }: {
-  stocks: Record<string, any>;
-  onSelect: (sym: string) => void;
+function WatchGrid({ stocks, onSelect, selected, isLoading }: {
+  stocks: Record<string,any>;
+  onSelect: (s:string)=>void;
   selected: string;
+  isLoading: boolean;
 }) {
   return (
-    <div className="border-b" style={{ borderColor: T.border }}>
-      <div className="flex items-center justify-between px-2 py-1.5 border-b" style={{ borderColor: T.border, background: T.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: T.muted }}>WATCH GRID</span>
-        <Link href="/watchlist" className="text-[9px] font-mono" style={{ color: T.info }}>편집</Link>
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="flex items-center justify-between px-2 py-1.5 border-b"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          WATCH GRID
+        </span>
+        <Link href="/watchlist" className="text-[9px] font-mono" style={{ color: C.info }}>편집</Link>
       </div>
-      {/* Column headers */}
-      <div className="grid px-2 py-1" style={{ gridTemplateColumns: "1fr 70px 52px 40px" }}>
-        {["TICKER", "LAST", "CHG%", "VOL"].map(h => (
-          <span key={h} className="text-[8px] font-mono uppercase text-right first:text-left" style={{ color: T.muted }}>{h}</span>
+      {/* Header */}
+      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 68px 52px 38px" }}>
+        {["TICKER","LAST","CHG%","VOL"].map(h => (
+          <span key={h} className="text-[8px] font-mono uppercase text-right first:text-left"
+            style={{ color: C.muted }}>{h}</span>
         ))}
       </div>
       {/* Rows */}
-      {WATCH_SYMS.map(sym => {
-        const s = stocks[sym];
-        const up = isUp(s?.changePercent);
-        const isSel = sym === selected;
-        return (
-          <button
-            key={sym}
-            onClick={() => onSelect(sym)}
-            className="w-full grid px-2 py-1 text-right transition-colors"
-            style={{
-              gridTemplateColumns: "1fr 70px 52px 40px",
-              background: isSel ? "#1a2d42" : "transparent",
-              borderLeft: isSel ? `2px solid ${T.info}` : "2px solid transparent",
-            }}
-          >
-            <div className="text-left">
-              <div className="text-[11px] font-mono font-bold" style={{ color: isSel ? T.info : T.text }}>
-                {sym.replace(".KS", "").replace("^", "").replace("=X", "")}
-              </div>
-            </div>
-            <div className="text-[11px] font-mono" style={{ color: T.text }}>
-              {s ? fmtPrice(s.price, sym) : <span style={{ color: T.muted }}>···</span>}
-            </div>
-            <div className={cn("text-[11px] font-mono font-bold", up ? UP : DOWN)}>
-              {s ? fmtChange(s.changePercent) : <span style={{ color: T.muted }}>—</span>}
-            </div>
-            <div className="text-[10px] font-mono" style={{ color: T.muted }}>
-              {s ? fmtVol(s.volume) : "—"}
-            </div>
-          </button>
-        );
-      })}
+      {isLoading
+        ? Array.from({length:6}).map((_,i) => <SkeletonRow key={i} />)
+        : WATCH_SYMS.map(sym => {
+            const q = stocks[sym];
+            const up = isUp(q?.changePercent);
+            const sel = sym === selected;
+            return (
+              <button key={sym} onClick={() => onSelect(sym)}
+                className="w-full grid px-2 py-1 text-right transition-all"
+                style={{
+                  gridTemplateColumns:"1fr 68px 52px 38px",
+                  background: sel ? "#1a2d42" : "transparent",
+                  borderLeft:`2px solid ${sel ? C.info : "transparent"}`,
+                }}>
+                <div className="text-left">
+                  <div className="text-[11px] font-mono font-bold"
+                    style={{ color: sel ? C.info : C.text }}>
+                    {sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","")}
+                  </div>
+                </div>
+                <div className="text-[11px] font-mono" style={{ color: C.text }}>
+                  {q ? fmtPrice(q.price, sym) : <span style={{ color: C.muted }}>—</span>}
+                </div>
+                <div className={cn("text-[11px] font-mono font-bold",
+                  q ? (up ? "text-[#00c896]" : "text-[#ff4757]") : "")}>
+                  {q ? fmtPct(q.changePercent) : <span style={{ color: C.muted }}>—</span>}
+                </div>
+                <div className="text-[10px] font-mono" style={{ color: C.muted }}>
+                  {q ? fmtVol(q.volume) : "—"}
+                </div>
+              </button>
+            );
+          })
+      }
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SECTOR MAP WIDGET
+// SECTOR MAP  (ETF symbols: XLK, XLV, … + changePercent field)
 // ══════════════════════════════════════════════════════════════════════════════
 function SectorMap() {
-  const { data } = useQuery<any>({
-    queryKey: ["/api/sector-returns"],
-    staleTime: 60000,
-    refetchInterval: 300000,
-  });
+  const { data, isLoading, isError } = useSectors();
   const sectors: any[] = data?.sectors || [];
-  const KO: Record<string, string> = {
-    "Technology": "기술", "Healthcare": "헬스케어", "Financials": "금융",
-    "Consumer Discretionary": "소비재", "Energy": "에너지", "Utilities": "유틸리티",
-    "Materials": "소재", "Industrials": "산업재", "Communication Services": "통신",
-    "Real Estate": "부동산", "Consumer Staples": "필수소비",
-  };
 
   return (
-    <div className="border-b" style={{ borderColor: T.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between" style={{ borderColor: T.border, background: T.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: T.muted }}>SECTOR MAP</span>
-        <Link href="/market-trends" className="text-[9px] font-mono" style={{ color: T.info }}>→</Link>
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          SECTOR MAP
+        </span>
+        <div className="flex items-center gap-2">
+          <StatusBadge isLoading={isLoading} isError={isError}
+            isLive={!isLoading && !isError && sectors.length > 0} />
+          <Link href="/market-trends" className="text-[9px] font-mono" style={{ color: C.info }}>→</Link>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-px p-1.5" style={{ background: T.border }}>
-        {sectors.slice(0, 10).map((sec: any) => {
-          const up = (sec.change || 0) >= 0;
-          const abs = Math.abs(sec.change || 0);
-          const intensity = Math.min(abs / 3, 1);
-          const bg = up
-            ? `rgba(0, 200, 150, ${0.08 + intensity * 0.25})`
-            : `rgba(255, 71, 87, ${0.08 + intensity * 0.25})`;
-          return (
-            <div key={sec.sector} className="flex flex-col p-1.5 rounded-sm" style={{ background: bg }}>
-              <span className="text-[9px] font-mono truncate" style={{ color: T.muted }}>
-                {KO[sec.sector] || sec.sector}
-              </span>
-              <span className={cn("text-[11px] font-mono font-bold", up ? UP : DOWN)}>
-                {up ? "+" : ""}{(sec.change || 0).toFixed(2)}%
-              </span>
-            </div>
-          );
-        })}
-      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-px m-1.5" style={{ background: C.border }}>
+          {Array.from({length:8}).map((_,i) => (
+            <div key={i} className="h-10 animate-pulse" style={{ background: C.panel2 }} />
+          ))}
+        </div>
+      ) : isError || sectors.length === 0 ? (
+        <div className="px-2 py-3 text-[10px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-px p-1.5" style={{ background: C.border }}>
+          {sectors.map((sec: any) => {
+            const name = SECTOR_NAMES[sec.symbol] || sec.symbol;
+            const pct  = sec.changePercent ?? 0;   // ← correct field name
+            const up   = pct >= 0;
+            const intensity = Math.min(Math.abs(pct) / 3, 1);
+            const bg = up
+              ? `rgba(0,200,150,${0.08 + intensity*0.25})`
+              : `rgba(255,71,87,${0.08 + intensity*0.25})`;
+            return (
+              <div key={sec.symbol} className="flex flex-col p-1.5 rounded-sm" style={{ background: bg }}>
+                <span className="text-[9px] font-mono truncate" style={{ color: C.muted }}>{name}</span>
+                <span className={cn("text-[11px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                  {fmtPct(pct)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FLOW RADAR WIDGET (simplified)
+// FLOW RADAR  (derived from live prices)
 // ══════════════════════════════════════════════════════════════════════════════
-function FlowRadar({ stocks }: { stocks: Record<string, any> }) {
+function FlowRadar({ stocks }: { stocks: Record<string,any> }) {
   const flows = [
-    { label: "Equity", sym: "SPY", factor: 1 },
-    { label: "FX", sym: "JPY=X", factor: -1 },
-    { label: "Bond", sym: "GC=F", factor: 0.5 },
-    { label: "Credit", sym: "QQQ", factor: 1 },
-    { label: "Crypto", sym: "BTC-USD", factor: 1 },
+    { label:"Equity",  sym:"SPY",    factor: 1   },
+    { label:"Tech",    sym:"QQQ",    factor: 1   },
+    { label:"KR Mkt",  sym:"^KS11",  factor: 1   },
+    { label:"Gold",    sym:"GC=F",   factor: 1   },
+    { label:"Crypto",  sym:"BTC-USD",factor: 0.1 },
   ];
   return (
-    <div className="p-2 border-b" style={{ borderColor: T.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5" style={{ color: T.muted }}>
-        FLOW RADAR
-      </div>
+    <div className="p-2 border-b" style={{ borderColor: C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+        style={{ color: C.muted }}>FLOW RADAR</div>
       {flows.map(({ label, sym, factor }) => {
-        const s = stocks[sym];
-        const pct = (s?.changePercent || 0) * factor;
-        const up = pct >= 0;
-        const barW = Math.min(Math.abs(pct) * 8, 100);
+        const q   = stocks[sym];
+        const pct = (q?.changePercent ?? null);
+        const val = pct != null ? pct * factor : null;
+        const up  = val == null ? true : val >= 0;
+        const barW = val != null ? Math.min(Math.abs(val) * 8, 48) : 0;
         return (
           <div key={label} className="flex items-center gap-2 mb-1">
-            <span className="w-12 text-[9px] font-mono shrink-0" style={{ color: T.muted }}>{label}</span>
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#1a2030" }}>
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${barW}%`,
-                  marginLeft: up ? "50%" : `${50 - barW}%`,
-                  background: up ? T.up : T.down,
-                }}
-              />
+            <span className="w-14 text-[9px] font-mono shrink-0" style={{ color: C.muted }}>{label}</span>
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden flex items-center"
+              style={{ background: "#1a2030" }}>
+              <div className="h-full rounded-full" style={{
+                width:`${barW}%`,
+                marginLeft: val != null && val >= 0 ? "50%" : `${50 - barW}%`,
+                background: up ? C.up : C.down,
+              }} />
             </div>
-            <span className={cn("w-10 text-right text-[9px] font-mono font-semibold shrink-0", up ? UP : DOWN)}>
-              {pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
+            <span className={cn("w-12 text-right text-[9px] font-mono font-semibold shrink-0",
+              val == null ? "" : up ? "text-[#00c896]" : "text-[#ff4757]")}
+              style={val == null ? { color: C.muted } : {}}>
+              {val != null ? fmtPct(val) : "—"}
             </span>
           </div>
         );
@@ -402,96 +566,91 @@ function FlowRadar({ stocks }: { stocks: Record<string, any> }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PRICE ACTION CHART (center main)
+// PRICE CHART  (history.data[] → close/date/volume)
 // ══════════════════════════════════════════════════════════════════════════════
-const PERIODS = ["5D", "1M", "3M", "6M", "1Y"];
-const PERIOD_MAP: Record<string, { period: string; interval: string }> = {
-  "5D": { period: "5d", interval: "1h" },
-  "1M": { period: "1mo", interval: "1d" },
-  "3M": { period: "3mo", interval: "1d" },
-  "6M": { period: "6mo", interval: "1d" },
-  "1Y": { period: "1y", interval: "1wk" },
-};
+const PERIODS: {label:string; period:string; interval:string}[] = [
+  { label:"5D",  period:"5d",   interval:"1h"  },
+  { label:"1M",  period:"1mo",  interval:"1d"  },
+  { label:"3M",  period:"3mo",  interval:"1d"  },
+  { label:"6M",  period:"6mo",  interval:"1d"  },
+  { label:"1Y",  period:"1y",   interval:"1wk" },
+];
 
-function PriceChart({ symbol, period }: { symbol: string; period: string }) {
-  const cfg = PERIOD_MAP[period] || PERIOD_MAP["1M"];
-  const { data: raw, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/stocks/history", symbol, cfg.period],
-    queryFn: async () => {
-      const res = await fetch(`/api/stocks/history/${encodeURIComponent(symbol)}?period=${cfg.period}&interval=${cfg.interval}`);
-      const d = await res.json();
-      return Array.isArray(d) ? d : d?.history || d?.data || [];
-    },
-    staleTime: 60000,
-    refetchInterval: 120000,
-    enabled: !!symbol,
-  });
+function PriceChart({ symbol, periodIdx }: { symbol:string; periodIdx:number }) {
+  const { period, interval } = PERIODS[periodIdx];
+  const { data: raw, isLoading, isError } = useHistory(symbol, period, interval);
 
-  const chartData = (raw || []).map((d: any) => ({
-    t: d.date || d.timestamp || d.t,
-    close: d.close ?? d.c ?? d.price,
-    volume: d.volume ?? d.v ?? 0,
-    open: d.open ?? d.o,
-    high: d.high ?? d.h,
-    low: d.low ?? d.l,
-  })).filter((d: any) => d.close != null);
+  const rows = (raw || []).map((d:any) => ({
+    t:     (d.date || "").slice(0,10),
+    close: d.close,
+    vol:   d.volume ?? 0,
+  })).filter((d:any) => d.close != null && d.close > 0);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ color: T.muted }}>
-        <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-        <span className="text-[11px] font-mono">로딩중...</span>
-      </div>
-    );
-  }
-  if (!chartData.length) {
-    return <div className="flex items-center justify-center h-full text-[11px] font-mono" style={{ color: T.muted }}>데이터 없음</div>;
-  }
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-full gap-2" style={{ color: C.muted }}>
+      <RefreshCw className="w-4 h-4 animate-spin" />
+      <span className="text-[11px] font-mono">차트 로딩중...</span>
+    </div>
+  );
+  if (isError) return (
+    <div className="flex items-center justify-center h-full gap-2" style={{ color: C.down }}>
+      <AlertTriangle className="w-4 h-4" />
+      <span className="text-[11px] font-mono">차트 로드 실패</span>
+    </div>
+  );
+  if (!rows.length) return (
+    <div className="flex items-center justify-center h-full text-[11px] font-mono"
+      style={{ color: C.muted }}>데이터 없음</div>
+  );
 
-  const prices = chartData.map((d: any) => d.close);
-  const minP = Math.min(...prices) * 0.998;
-  const maxP = Math.max(...prices) * 1.002;
-  const startP = chartData[0]?.close;
-  const endP = chartData[chartData.length - 1]?.close;
-  const totalPct = startP ? ((endP - startP) / startP * 100) : 0;
-  const chartUp = totalPct >= 0;
+  const prices   = rows.map(r => r.close);
+  const minP     = Math.min(...prices) * 0.997;
+  const maxP     = Math.max(...prices) * 1.003;
+  const startP   = rows[0].close;
+  const endP     = rows[rows.length-1].close;
+  const totalPct = startP ? ((endP-startP)/startP*100) : 0;
+  const up       = totalPct >= 0;
+  const stroke   = up ? C.up : C.down;
 
   return (
     <div className="h-full flex flex-col">
-      {/* Mini return badge */}
-      <div className="flex items-center gap-2 px-2 pb-1">
-        <span className="text-[9px] font-mono" style={{ color: T.muted }}>기간수익률</span>
-        <span className={cn("text-[10px] font-mono font-bold", chartUp ? UP : DOWN)}>
-          {totalPct >= 0 ? "+" : ""}{totalPct.toFixed(2)}%
+      <div className="flex items-center gap-2 px-2 pb-1 shrink-0">
+        <span className="text-[9px] font-mono" style={{ color: C.muted }}>기간수익률</span>
+        <span className={cn("text-[10px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+          {fmtPct(totalPct)}
+        </span>
+        <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+          ({rows.length}개 데이터)
         </span>
       </div>
-      <div className="flex-1">
-        <ResponsiveContainer width="100%" height="70%">
-          <ComposedChart data={chartData} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="72%">
+          <ComposedChart data={rows} margin={{ top:2, right:4, left:0, bottom:0 }}>
             <defs>
-              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={chartUp ? T.up : T.down} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={chartUp ? T.up : T.down} stopOpacity={0} />
+              <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={stroke} stopOpacity={0.2} />
+                <stop offset="95%" stopColor={stroke} stopOpacity={0}   />
               </linearGradient>
             </defs>
             <XAxis dataKey="t" hide />
             <YAxis domain={[minP, maxP]} hide />
             <Tooltip
-              contentStyle={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
-              labelStyle={{ color: T.muted, fontSize: 9 }}
-              formatter={(v: any) => [fmtPrice(v, symbol), "종가"]}
-              labelFormatter={(t) => String(t).substring(0, 10)}
+              contentStyle={{ background:C.panel2, border:`1px solid ${C.border}`,
+                borderRadius:4, fontSize:10, fontFamily:"monospace" }}
+              labelStyle={{ color:C.muted, fontSize:9 }}
+              formatter={(v:any) => [fmtPrice(v, symbol), "종가"]}
+              labelFormatter={(t:any) => String(t)}
             />
-            <ReferenceLine y={startP} stroke={T.muted} strokeDasharray="3 3" strokeWidth={1} />
-            <Area type="monotone" dataKey="close" stroke={chartUp ? T.up : T.down} strokeWidth={1.5}
-              fill="url(#chartGrad)" dot={false} />
+            <ReferenceLine y={startP} stroke={C.muted} strokeDasharray="3 3" strokeWidth={1} />
+            <Area type="monotone" dataKey="close" stroke={stroke} strokeWidth={1.5}
+              fill={`url(#cg-${symbol})`} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
-        <ResponsiveContainer width="100%" height="28%">
-          <BarChart data={chartData} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
+        <ResponsiveContainer width="100%" height="26%">
+          <BarChart data={rows} margin={{ top:0, right:4, left:0, bottom:0 }}>
             <XAxis dataKey="t" hide />
             <YAxis hide />
-            <Bar dataKey="volume" fill={chartUp ? T.up : T.down} opacity={0.5} radius={[1, 1, 0, 0]} />
+            <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1,1,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -500,57 +659,66 @@ function PriceChart({ symbol, period }: { symbol: string; period: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SYMBOL HEADER (big price display)
+// SYMBOL HEADER  (live quote data)
 // ══════════════════════════════════════════════════════════════════════════════
-function SymbolHeader({ symbol, stock }: { symbol: string; stock: any }) {
-  const up = isUp(stock?.changePercent);
-  const isLive = !!stock;
-
+function SymbolHeader({ symbol, quote }: { symbol:string; quote:any }) {
+  const up = isUp(quote?.changePercent);
   return (
-    <div className="px-3 py-2 border-b flex items-start justify-between gap-3" style={{ borderColor: T.border, background: T.panel }}>
+    <div className="px-3 py-2 border-b flex items-start justify-between gap-3"
+      style={{ borderColor: C.border, background: C.panel }}>
       <div>
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-base font-mono font-black" style={{ color: T.info }}>{symbol.replace("^", "")}</span>
-          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style={{
-            background: isLive ? "rgba(0,200,150,0.15)" : "rgba(86,104,128,0.2)",
-            color: isLive ? T.up : T.muted
-          }}>
-            {isLive ? "● LIVE" : "— OFFLINE"}
+          <span className="text-base font-mono font-black" style={{ color: C.info }}>
+            {symbol.replace("^","")}
           </span>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-black font-mono" style={{ color: T.text }}>
-            {stock ? fmtPrice(stock.price, symbol) : "——"}
-          </span>
-          {stock && (
-            <span className={cn("text-sm font-mono font-bold", up ? UP : DOWN)}>
-              {up ? "▲" : "▼"} {fmtChange(stock.changePercent)}
-            </span>
+          {quote?.name && (
+            <span className="text-[10px] font-mono truncate max-w-[120px]"
+              style={{ color: C.muted }}>{quote.name}</span>
           )}
+          <StatusBadge
+            isLive={quote?.isMarketOpen === true && !quote?.isStale}
+            isStale={quote?.isStale === true}
+          />
         </div>
-        {stock && (
-          <div className="flex gap-3 mt-1">
-            {[
-              ["O", stock.open], ["H", stock.dayHigh || stock.high],
-              ["L", stock.dayLow || stock.low], ["C", stock.previousClose]
-            ].map(([l, v]) => (
-              <div key={l as string} className="flex items-center gap-1">
-                <span className="text-[8px] font-mono" style={{ color: T.muted }}>{l}</span>
-                <span className="text-[10px] font-mono" style={{ color: T.text }}>{fmtPrice(v as number, symbol)}</span>
-              </div>
-            ))}
-            <div className="flex items-center gap-1">
-              <span className="text-[8px] font-mono" style={{ color: T.muted }}>VOL</span>
-              <span className="text-[10px] font-mono" style={{ color: T.text }}>{fmtVol(stock.volume)}</span>
+
+        {quote ? (
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black font-mono" style={{ color: C.text }}>
+                {fmtPrice(quote.price, symbol)}
+              </span>
+              <span className={cn("text-sm font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                {up ? "▲" : "▼"} {Math.abs(quote.change ?? 0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+              </span>
+              <span className={cn("text-sm font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                ({fmtPct(quote.changePercent)})
+              </span>
             </div>
-          </div>
+            <div className="flex gap-3 mt-1 flex-wrap">
+              {quote.volume != null && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[8px] font-mono" style={{ color: C.muted }}>VOL</span>
+                  <span className="text-[10px] font-mono" style={{ color: C.text }}>{fmtVol(quote.volume)}</span>
+                </div>
+              )}
+              {quote.lastUpdated && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5" style={{ color: C.muted }} />
+                  <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+                    {String(quote.lastUpdated).slice(11,16)} 기준
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-sm font-mono" style={{ color: C.muted }}>데이터 없음</div>
         )}
       </div>
-      <Link
-        href={`/stock/${symbol}`}
+
+      <Link href={`/stock/${symbol}`}
         className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold shrink-0"
-        style={{ background: T.info + "22", color: T.info, border: `1px solid ${T.info}40` }}
-      >
+        style={{ background:C.info+"22", color:C.info, border:`1px solid ${C.info}40` }}>
         풀차트 <ArrowUpRight className="w-3 h-3" />
       </Link>
     </div>
@@ -558,93 +726,95 @@ function SymbolHeader({ symbol, stock }: { symbol: string; stock: any }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TECH / RISK ENGINE
+// TECH ENGINE  (from stock info endpoint — correct field names)
 // ══════════════════════════════════════════════════════════════════════════════
-function TechEngine({ symbol, stock }: { symbol: string; stock: any }) {
-  const { data: hist } = useQuery<any[]>({
-    queryKey: ["/api/stocks/history", symbol, "3mo_tech"],
-    queryFn: async () => {
-      const res = await fetch(`/api/stocks/history/${encodeURIComponent(symbol)}?period=3mo&interval=1d`);
-      const d = await res.json();
-      return Array.isArray(d) ? d : d?.history || [];
-    },
-    staleTime: 120000,
-    enabled: !!symbol,
-  });
+function TechEngine({ symbol, quote }: { symbol:string; quote:any }) {
+  const { data: info, isLoading } = useStockInfo(symbol);
 
-  // Compute SMA20, SMA50 from history
-  const closes = (hist || []).map((d: any) => d.close ?? d.c).filter(Boolean);
-  const sma20 = closes.length >= 20 ? closes.slice(-20).reduce((a: number, b: number) => a + b, 0) / 20 : null;
-  const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a: number, b: number) => a + b, 0) / 50 : null;
-  const price = stock?.price;
+  // Compute approx RSI from recent change (rough heuristic — labeled clearly)
+  const rsiApprox = quote
+    ? Math.max(20, Math.min(80, 50 + (quote.changePercent ?? 0) * 2.5))
+    : null;
 
-  // Fake RSI estimate from recent momentum
-  const recentPct = stock?.changePercent || 0;
-  const rsiEst = Math.max(20, Math.min(80, 50 + recentPct * 3));
-
-  const metrics = [
-    ["PRICE", price ? fmtPrice(price, symbol) : "—", T.text],
-    ["CHG%", stock ? fmtChange(stock.changePercent) : "—", isUp(stock?.changePercent) ? T.up : T.down],
-    ["SMA20", sma20 ? fmtPrice(sma20, symbol) : "—", price && sma20 ? (price > sma20 ? T.up : T.down) : T.muted],
-    ["SMA50", sma50 ? fmtPrice(sma50, symbol) : "—", price && sma50 ? (price > sma50 ? T.up : T.down) : T.muted],
-    ["RSI~", rsiEst.toFixed(0), rsiEst > 70 ? T.down : rsiEst < 30 ? T.up : T.text],
-    ["52W H", stock?.fiftyTwoWeekHigh ? fmtPrice(stock.fiftyTwoWeekHigh, symbol) : "—", T.muted],
-    ["52W L", stock?.fiftyTwoWeekLow ? fmtPrice(stock.fiftyTwoWeekLow, symbol) : "—", T.muted],
-    ["BETA", stock?.beta ? stock.beta.toFixed(2) : "—", T.muted],
+  const metrics: [string, string, string][] = [
+    ["PRICE",   quote ? fmtPrice(quote.price, symbol) : "—",               C.text  ],
+    ["CHG%",    quote ? fmtPct(quote.changePercent) : "—",
+                quote ? (isUp(quote.changePercent) ? C.up : C.down) : C.muted],
+    ["52W HIGH", info?.["52WeekHigh"] ? fmtPrice(info["52WeekHigh"], symbol) : "—",  C.muted ],
+    ["52W LOW",  info?.["52WeekLow"]  ? fmtPrice(info["52WeekLow"],  symbol) : "—",  C.muted ],
+    ["P/E",      info?.peRatio       ? info.peRatio.toFixed(1)  : "—",      C.text  ],
+    ["P/B",      info?.pbRatio       ? info.pbRatio.toFixed(2)  : "—",      C.text  ],
+    ["BETA",     info?.beta          ? info.beta.toFixed(2)      : "—",      C.muted ],
+    ["RSI~",     rsiApprox           ? rsiApprox.toFixed(0)     : "—",
+                rsiApprox ? (rsiApprox > 70 ? C.down : rsiApprox < 30 ? C.up : C.text) : C.muted],
   ];
 
   return (
-    <div className="p-2">
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2" style={{ color: T.muted }}>
-        TECH / RISK ENGINE
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color: C.muted }}>TECH / RISK ENGINE</div>
+        {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
-      <div className="grid grid-cols-4 gap-px" style={{ background: T.border }}>
-        {metrics.map(([l, v, c]) => (
-          <div key={l as string} className="px-2 py-1.5" style={{ background: T.panel2 }}>
-            <div className="text-[8px] font-mono" style={{ color: T.muted }}>{l}</div>
-            <div className="text-[11px] font-mono font-bold" style={{ color: c as string }}>{v}</div>
+      <div className="grid grid-cols-4 gap-px" style={{ background: C.border }}>
+        {metrics.map(([l, v, clr]) => (
+          <div key={l} className="px-2 py-1.5" style={{ background: C.panel2 }}>
+            <div className="text-[8px] font-mono" style={{ color: C.muted }}>{l}</div>
+            <div className="text-[11px] font-mono font-bold" style={{ color: clr }}>{v}</div>
           </div>
         ))}
       </div>
+      {rsiApprox != null && (
+        <div className="mt-1 text-[8px] font-mono" style={{ color: C.muted }}>
+          * RSI는 당일 변동률 기반 추정치입니다
+        </div>
+      )}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CROSS ASSET MATRIX (simplified — 5D performance comparison)
+// CROSS ASSET TABLE  (real data from batch live)
 // ══════════════════════════════════════════════════════════════════════════════
-function CrossAssetMatrix({ stocks }: { stocks: Record<string, any> }) {
-  const syms = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META"];
+function CrossAssetTable({ stocks }: { stocks: Record<string,any> }) {
+  const syms = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
   return (
-    <div className="p-2 border-t" style={{ borderColor: T.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2" style={{ color: T.muted }}>
-        CROSS ASSET SNAPSHOT
-      </div>
-      <div className="overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        <table className="w-full" style={{ minWidth: 320 }}>
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2"
+        style={{ color: C.muted }}>CROSS ASSET SNAPSHOT</div>
+      <div className="overflow-x-auto" style={{ scrollbarWidth:"none" }}>
+        <table className="w-full" style={{ minWidth:300, borderCollapse:"collapse" }}>
           <thead>
             <tr>
-              <td className="text-[8px] font-mono pb-1 pr-2" style={{ color: T.muted }}>SYMBOL</td>
-              {["LAST", "CHG%", "VOL", "52WH%"].map(h => (
-                <td key={h} className="text-[8px] font-mono pb-1 text-right pr-1" style={{ color: T.muted }}>{h}</td>
+              {["SYMBOL","LAST","CHG%","VOL"].map(h => (
+                <td key={h} className={cn("text-[8px] font-mono pb-1",
+                  h === "SYMBOL" ? "" : "text-right")}
+                  style={{ color:C.muted }}>{h}</td>
               ))}
             </tr>
           </thead>
           <tbody>
             {syms.map(sym => {
-              const s = stocks[sym];
-              const up = isUp(s?.changePercent);
-              const from52H = s?.price && s?.fiftyTwoWeekHigh
-                ? ((s.price - s.fiftyTwoWeekHigh) / s.fiftyTwoWeekHigh * 100)
-                : null;
+              const q  = stocks[sym];
+              const up = isUp(q?.changePercent);
               return (
-                <tr key={sym} className="border-t" style={{ borderColor: T.border + "60" }}>
-                  <td className="text-[10px] font-mono font-bold py-1 pr-2" style={{ color: T.info }}>{sym}</td>
-                  <td className="text-[10px] font-mono text-right pr-1" style={{ color: T.text }}>{s ? fmtPrice(s.price, sym) : "—"}</td>
-                  <td className={cn("text-[10px] font-mono font-bold text-right pr-1", up ? UP : DOWN)}>{s ? fmtChange(s.changePercent) : "—"}</td>
-                  <td className="text-[10px] font-mono text-right pr-1" style={{ color: T.muted }}>{s ? fmtVol(s.volume) : "—"}</td>
-                  <td className={cn("text-[10px] font-mono text-right pr-1", from52H != null && from52H < -10 ? UP : MUTED)}>
-                    {from52H != null ? `${from52H.toFixed(1)}%` : "—"}
+                <tr key={sym} className="border-t" style={{ borderColor:C.border+"50" }}>
+                  <td>
+                    <Link href={`/stock/${sym}`}
+                      className="text-[10px] font-mono font-bold hover:underline"
+                      style={{ color:C.info }}>{sym}</Link>
+                  </td>
+                  <td className="text-[10px] font-mono text-right py-1"
+                    style={{ color:C.text }}>
+                    {q ? fmtPrice(q.price, sym) : <span style={{ color:C.muted }}>—</span>}
+                  </td>
+                  <td className={cn("text-[10px] font-mono font-bold text-right",
+                    q ? (up ? "text-[#00c896]" : "text-[#ff4757]") : "")}>
+                    {q ? fmtPct(q.changePercent) : <span style={{ color:C.muted }}>—</span>}
+                  </td>
+                  <td className="text-[10px] font-mono text-right"
+                    style={{ color:C.muted }}>
+                    {q ? fmtVol(q.volume) : "—"}
                   </td>
                 </tr>
               );
@@ -657,92 +827,130 @@ function CrossAssetMatrix({ stocks }: { stocks: Record<string, any> }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FUNDAMENTALS PANEL (right sidebar)
+// FUNDAMENTALS PANEL  (stock info endpoint — correct field names)
 // ══════════════════════════════════════════════════════════════════════════════
-function FundamentalsPanel({ symbol, stock }: { symbol: string; stock: any }) {
-  const rows = [
-    ["시가총액", fmtMktCap(stock?.marketCap)],
-    ["P/E", stock?.pe ? stock.pe.toFixed(2) : "—"],
-    ["P/B", stock?.pb ? stock.pb.toFixed(2) : stock?.priceToBook ? stock.priceToBook.toFixed(2) : "—"],
-    ["EPS", stock?.eps ? `$${stock.eps.toFixed(2)}` : "—"],
-    ["배당수익률", stock?.dividendYield ? `${(stock.dividendYield * 100).toFixed(2)}%` : "—"],
-    ["베타", stock?.beta ? stock.beta.toFixed(2) : "—"],
-    ["52W 고", stock?.fiftyTwoWeekHigh ? fmtPrice(stock.fiftyTwoWeekHigh, symbol) : "—"],
-    ["52W 저", stock?.fiftyTwoWeekLow ? fmtPrice(stock.fiftyTwoWeekLow, symbol) : "—"],
-    ["평균거래량", fmtVol(stock?.avgVolume || stock?.averageVolume)],
+function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
+  const { data: info, isLoading, isError } = useStockInfo(symbol);
+
+  const hi    = info?.["52WeekHigh"];
+  const lo    = info?.["52WeekLow"];
+  const price = quote?.price;
+  const rangePct = (hi && lo && price && hi !== lo)
+    ? ((price - lo) / (hi - lo) * 100)
+    : null;
+
+  const rows: [string, string][] = [
+    ["시가총액",   fmtMktCap(info?.marketCap, info?.currency)],
+    ["P/E",        info?.peRatio       ? info.peRatio.toFixed(1) : "—"],
+    ["P/B",        info?.pbRatio       ? info.pbRatio.toFixed(2) : "—"],
+    ["EPS",        info?.eps           ? (info.currency === "KRW" ? `₩${Math.round(info.eps).toLocaleString()}` : `$${info.eps.toFixed(2)}`) : "—"],
+    ["배당수익률", info?.dividendYield  ? `${(info.dividendYield*100).toFixed(2)}%` : "—"],
+    ["베타",       info?.beta          ? info.beta.toFixed(2) : "—"],
+    ["52W 고가",   hi                  ? fmtPrice(hi, symbol)  : "—"],
+    ["52W 저가",   lo                  ? fmtPrice(lo, symbol)  : "—"],
+    ["평균거래량", fmtVol(info?.avgVolume)],
+    ["통화",       info?.currency      || "—"],
+    ["섹터",       info?.sector        || "—"],
   ];
 
-  // 52-week range slider
-  const hi = stock?.fiftyTwoWeekHigh;
-  const lo = stock?.fiftyTwoWeekLow;
-  const price = stock?.price;
-  const rangePos = hi && lo && price ? ((price - lo) / (hi - lo) * 100) : null;
-
   return (
-    <div className="border-b" style={{ borderColor: T.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between" style={{ borderColor: T.border, background: T.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: T.muted }}>FUNDAMENTALS</span>
-        <Link href={`/stock/${symbol}`} className="text-[9px] font-mono" style={{ color: T.info }}>→</Link>
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color:C.muted }}>FUNDAMENTALS</span>
+        <div className="flex items-center gap-2">
+          <StatusBadge isLoading={isLoading} isError={isError}
+            isLive={!isLoading && !isError && !!info} />
+          <Link href={`/stock/${symbol}`} className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+        </div>
       </div>
-      {/* 52-week range */}
-      {rangePos != null && (
-        <div className="px-2 py-2 border-b" style={{ borderColor: T.border }}>
-          <div className="flex justify-between text-[8px] font-mono mb-1" style={{ color: T.muted }}>
+
+      {/* 52-week range bar */}
+      {!isLoading && rangePct != null && (
+        <div className="px-2 py-2 border-b" style={{ borderColor:C.border }}>
+          <div className="flex justify-between text-[8px] font-mono mb-1" style={{ color:C.muted }}>
             <span>{fmtPrice(lo, symbol)}</span>
             <span>52W RANGE</span>
             <span>{fmtPrice(hi, symbol)}</span>
           </div>
-          <div className="relative h-1.5 rounded-full" style={{ background: T.border }}>
-            <div className="absolute h-full rounded-full" style={{ width: `${rangePos}%`, background: `linear-gradient(to right, ${T.down}, ${T.up})` }} />
-            <div className="absolute w-2 h-2 rounded-full -translate-y-1/4 border border-white" style={{ left: `${rangePos}%`, background: T.text }} />
+          <div className="relative h-1.5 rounded-full" style={{ background:C.border }}>
+            <div className="absolute h-full rounded-full"
+              style={{ width:`${rangePct}%`, background:`linear-gradient(to right,${C.down},${C.up})` }} />
+            <div className="absolute w-2 h-2 rounded-full -translate-y-1/4 border border-white"
+              style={{ left:`${rangePct}%`, background:C.text }} />
           </div>
         </div>
       )}
-      {rows.map(([l, v]) => (
-        <div key={l} className="flex items-center justify-between px-2 py-1 border-b" style={{ borderColor: T.border + "50" }}>
-          <span className="text-[9px] font-mono" style={{ color: T.muted }}>{l}</span>
-          <span className="text-[10px] font-mono font-bold" style={{ color: T.text }}>{v}</span>
+
+      {isLoading ? (
+        Array.from({length:6}).map((_,i) => <SkeletonRow key={i} cols={2} />)
+      ) : isError ? (
+        <div className="px-2 py-3 text-[10px] font-mono flex items-center gap-2"
+          style={{ color:C.down }}>
+          <AlertTriangle className="w-3 h-3" /> 펀더멘탈 로드 실패
         </div>
-      ))}
+      ) : (
+        rows.map(([l, v]) => (
+          <div key={l} className="flex items-center justify-between px-2 py-1 border-b"
+            style={{ borderColor:C.border+"40" }}>
+            <span className="text-[9px] font-mono" style={{ color:C.muted }}>{l}</span>
+            <span className="text-[10px] font-mono font-bold" style={{ color:C.text }}>{v}</span>
+          </div>
+        ))
+      )}
+
+      {/* Description snippet */}
+      {info?.description && (
+        <div className="px-2 py-2">
+          <p className="text-[9px] font-mono leading-relaxed line-clamp-3"
+            style={{ color:C.muted }}>{info.description}</p>
+        </div>
+      )}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// EARNINGS / DIVIDENDS PANEL
+// EARNINGS / CALENDAR PANEL (lazy loaded)
 // ══════════════════════════════════════════════════════════════════════════════
-function EarningsPanel() {
-  const { data: calData } = useQuery<any>({
-    queryKey: ["/api/economic-calendar"],
-    queryFn: async () => {
-      const now = new Date();
-      const res = await fetch(`/api/economic-calendar?year=${now.getFullYear()}&month=${now.getMonth() + 1}`);
-      return res.json();
-    },
-    staleTime: 300000,
-  });
+function CalendarPanel() {
+  const { data, isLoading, isError } = useCalendar();
   const today = new Date().getDate();
-  const events: any[] = (calData?.events || [])
-    .filter((e: any) => new Date(e.date || "").getDate() >= today)
-    .slice(0, 5);
+  const events = (data || [])
+    .filter((e:any) => new Date(e.date||"").getDate() >= today)
+    .slice(0, 6);
 
   return (
-    <div className="border-b" style={{ borderColor: T.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between" style={{ borderColor: T.border, background: T.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: T.muted }}>CALENDAR</span>
-        <Link href="/calendar" className="text-[9px] font-mono" style={{ color: T.info }}>→</Link>
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color:C.muted }}>CALENDAR</span>
+        <Link href="/calendar" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
       </div>
-      {events.length === 0 ? (
-        <div className="px-2 py-3 text-[10px] font-mono" style={{ color: T.muted }}>이벤트 없음</div>
-      ) : events.map((ev: any, i: number) => (
-        <div key={i} className="flex items-start gap-2 px-2 py-1.5 border-b" style={{ borderColor: T.border + "40" }}>
+      {isLoading ? (
+        Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={2} />)
+      ) : isError || !events.length ? (
+        <div className="px-2 py-2 text-[10px] font-mono" style={{ color:C.muted }}>이벤트 없음</div>
+      ) : events.map((ev:any, i:number) => (
+        <div key={i} className="flex items-start gap-2 px-2 py-1.5 border-b"
+          style={{ borderColor:C.border+"40" }}>
           <div className="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0" style={{
-            background: ev.importance === "high" ? T.down : ev.importance === "medium" ? "#ffc107" : T.info
+            background: ev.importance==="high" ? C.down : ev.importance==="medium" ? C.warn : C.info
           }} />
-          <div className="min-w-0">
-            <div className="text-[10px] font-mono truncate" style={{ color: T.text }}>{ev.name || ev.title}</div>
-            <div className="text-[9px] font-mono" style={{ color: T.muted }}>{ev.date}</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-mono truncate" style={{ color:C.text }}>
+              {ev.name||ev.title}
+            </div>
+            <div className="text-[9px] font-mono" style={{ color:C.muted }}>{ev.date}</div>
           </div>
+          <span className="text-[8px] font-mono shrink-0 px-1 py-0.5 rounded" style={{
+            background: ev.importance==="high" ? C.down+"22" : ev.importance==="medium" ? C.warn+"22" : C.info+"22",
+            color:      ev.importance==="high" ? C.down      : ev.importance==="medium" ? C.warn      : C.info,
+          }}>
+            {ev.importance?.toUpperCase()||"LOW"}
+          </span>
         </div>
       ))}
     </div>
@@ -750,24 +958,70 @@ function EarningsPanel() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// AI TRADE ASSISTANT (mini)
+// NEWS PANEL (lazy loaded)
 // ══════════════════════════════════════════════════════════════════════════════
-function AIAssistant({ symbol }: { symbol: string }) {
+function NewsPanel() {
+  const { data, isLoading, isError } = useNews();
+  const items = (data || []).slice(0, 10);
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color:C.muted }}>NEWS FEED</span>
+        <div className="flex items-center gap-2">
+          <StatusBadge isLoading={isLoading} isError={isError}
+            isLive={!isLoading && !isError && items.length > 0} />
+          <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+        </div>
+      </div>
+      {isLoading ? (
+        Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2} />)
+      ) : isError ? (
+        <div className="px-2 py-3 text-[10px] font-mono flex items-center gap-2"
+          style={{ color:C.down }}>
+          <AlertTriangle className="w-3 h-3" /> 뉴스 로드 실패
+        </div>
+      ) : !items.length ? (
+        <div className="px-2 py-2 text-[10px] font-mono" style={{ color:C.muted }}>뉴스 없음</div>
+      ) : items.map((item:any, i:number) => (
+        <a key={i} href={item.link||"#"} target="_blank" rel="noopener noreferrer"
+          className="flex items-start gap-2 px-2 py-2 border-b group"
+          style={{ borderColor:C.border+"40" }}
+          onMouseEnter={e => (e.currentTarget.style.background = C.panel2)}
+          onMouseLeave={e => (e.currentTarget.style.background = "")}>
+          <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5"
+            style={{ color: i===0 ? C.down : C.muted }}>
+            {i===0 ? "HOT" : String(i+1).padStart(2,"0")}
+          </span>
+          <span className="text-[10px] font-mono leading-snug line-clamp-2"
+            style={{ color:C.text }}>{item.title}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AI ASSISTANT SHORTCUT
+// ══════════════════════════════════════════════════════════════════════════════
+function AIPanel({ symbol }: { symbol:string }) {
   return (
     <div className="p-2">
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2" style={{ color: T.muted }}>
-        AI TRADE ASSISTANT
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2"
+        style={{ color:C.muted }}>AI TRADE ASSISTANT</div>
+      <div className="rounded p-2 mb-2 text-[10px] font-mono leading-relaxed"
+        style={{ background:C.panel2, color:C.muted, border:`1px solid ${C.border}` }}>
+        <span style={{ color:C.up }}>DINO AI: </span>
+        <span style={{ color:C.text }}>{symbol.replace("^","").replace(".KS","")}</span>
+        <span> 종목의 AI 분석을 확인하세요. </span>
+        <span style={{ color:C.info }}>HELP, NEWS, FUND, RISK, WATCH</span>
+        <span style={{ color:C.muted }}> 명령어 지원</span>
       </div>
-      <div className="rounded p-2 mb-2 text-[10px] font-mono leading-relaxed" style={{ background: T.panel2, color: T.muted, border: `1px solid ${T.border}` }}>
-        <span style={{ color: T.up }}>DINO AI:</span> {symbol.replace("^", "").replace(".KS", "")} 분석을 위해
-        명령어를 입력하세요.{" "}
-        <span style={{ color: T.info }}>HELP, NEWS, SEC, FUND, RISK, WATCH, REFRESH</span> 등의 명령을 사용할 수 있습니다.
-      </div>
-      <Link
-        href="/ai-portfolio"
+      <Link href="/ai-portfolio"
         className="flex items-center justify-center gap-2 w-full py-2 rounded text-[11px] font-mono font-bold"
-        style={{ background: T.up + "22", color: T.up, border: `1px solid ${T.up}40` }}
-      >
+        style={{ background:C.up+"22", color:C.up, border:`1px solid ${C.up}40` }}>
         <Bot className="w-3.5 h-3.5" />
         AI 포트폴리오 분석 →
       </Link>
@@ -776,166 +1030,86 @@ function AIAssistant({ symbol }: { symbol: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// NEWS FEED (right)
+// QUEST MINI BAR
 // ══════════════════════════════════════════════════════════════════════════════
-function NewsFeedPanel() {
-  const { data: newsData } = useQuery<any[]>({
-    queryKey: ["/api/news"],
-    staleTime: 120000,
-    refetchInterval: 180000,
-  });
-  const news = Array.isArray(newsData) ? newsData.slice(0, 8) : [];
-
-  return (
-    <div className="border-b" style={{ borderColor: T.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between" style={{ borderColor: T.border, background: T.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: T.muted }}>NEWS FEED</span>
-        <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color: T.info }}>→</Link>
-      </div>
-      {news.map((item: any, i: number) => (
-        <a
-          key={i}
-          href={item.url || item.link || "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-start gap-2 px-2 py-2 border-b transition-colors"
-          style={{ borderColor: T.border + "40" }}
-          onMouseEnter={e => (e.currentTarget.style.background = T.panel2)}
-          onMouseLeave={e => (e.currentTarget.style.background = "")}
-        >
-          <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5" style={{
-            color: i === 0 ? T.down : T.muted
-          }}>{i === 0 ? "HOT" : `${String(i + 1).padStart(2, "0")}`}</span>
-          <span className="text-[10px] font-mono leading-snug line-clamp-2" style={{ color: T.text }}>
-            {item.title}
-          </span>
-        </a>
-      ))}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// MOBILE QUEST STATUS
-// ══════════════════════════════════════════════════════════════════════════════
-function QuestMini() {
+function QuestBar() {
+  const { data: user } = useUser();
   const { data: quests } = useQuery<any[]>({
     queryKey: ["/api/quests/daily"],
-    staleTime: 60000,
+    staleTime: 60_000,
+    retry: 1,
   });
-  const { data: user } = useUser();
-  const total = quests?.length || 6;
-  const done = quests?.filter((q: any) => q.isCompleted).length || 0;
-  const pct = Math.round(done / total * 100);
+  const total  = quests?.length || 6;
+  const done   = quests?.filter((q:any) => q.isCompleted).length || 0;
+  const pct    = total ? Math.round(done/total*100) : 0;
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border-b" style={{ borderColor: T.border, background: T.panel }}>
+    <div className="flex items-center gap-3 px-3 py-1.5 border-b shrink-0"
+      style={{ borderColor:C.border, background:C.panel }}>
       <div className="flex-1">
-        <div className="flex justify-between mb-1">
-          <span className="text-[9px] font-mono" style={{ color: T.muted }}>오늘의 퀘스트</span>
-          <span className="text-[9px] font-mono font-bold" style={{ color: T.up }}>{done}/{total} 완료</span>
+        <div className="flex justify-between mb-0.5">
+          <span className="text-[9px] font-mono" style={{ color:C.muted }}>오늘의 퀘스트</span>
+          <span className="text-[9px] font-mono font-bold" style={{ color:C.up }}>{done}/{total} 완료</span>
         </div>
-        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: T.border }}>
-          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: T.up }} />
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1">
-          <Zap className="w-3 h-3" style={{ color: "#ffc107" }} />
-          <span className="text-[10px] font-mono font-bold" style={{ color: "#ffc107" }}>{user?.xp || 0}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Flame className="w-3 h-3" style={{ color: "#ff6b35" }} />
-          <span className="text-[10px] font-mono font-bold" style={{ color: "#ff6b35" }}>{user?.streak || 0}일</span>
+        <div className="h-1 rounded-full overflow-hidden" style={{ background:C.border }}>
+          <div className="h-full rounded-full transition-all" style={{ width:`${pct}%`, background:C.up }} />
         </div>
       </div>
-      <Link href="/quests" className="text-[9px] font-mono px-2 py-1 rounded font-bold" style={{ background: T.up + "22", color: T.up }}>→</Link>
+      {user && (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Zap className="w-3 h-3" style={{ color:C.warn }} />
+            <span className="text-[10px] font-mono font-bold" style={{ color:C.warn }}>{user.xp}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Flame className="w-3 h-3" style={{ color:"#ff6b35" }} />
+            <span className="text-[10px] font-mono font-bold" style={{ color:"#ff6b35" }}>{user.streak}일</span>
+          </div>
+        </div>
+      )}
+      <Link href="/quests" className="text-[9px] font-mono px-2 py-0.5 rounded font-bold"
+        style={{ background:C.up+"22", color:C.up }}>GO</Link>
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FUNCTION KEY STRIP (bottom)
+// SYMBOL SEARCH
 // ══════════════════════════════════════════════════════════════════════════════
-const FKEYS = [
-  { key: "F2", label: "CHART", href: "/pro" },
-  { key: "F3", label: "QUESTS", href: "/quests" },
-  { key: "F4", label: "NEWS", href: "/hot-issues" },
-  { key: "F5", label: "INVESTORS", href: "/investors" },
-  { key: "F6", label: "CALENDAR", href: "/calendar" },
-  { key: "F7", label: "AI", href: "/ai-portfolio" },
-  { key: "F8", label: "WATCHLIST", href: "/watchlist" },
-  { key: "F9", label: "PRO", href: "/pro" },
-];
-
-function FKeyStrip() {
-  return (
-    <div className="flex items-stretch border-t overflow-x-auto shrink-0" style={{ borderColor: T.border, background: T.header, scrollbarWidth: "none" }}>
-      {FKEYS.map(({ key, label, href }) => (
-        <Link
-          key={key}
-          href={href}
-          className="flex items-center gap-1 px-3 py-1.5 border-r text-[9px] font-mono shrink-0 transition-colors"
-          style={{ borderColor: T.border }}
-          onMouseEnter={e => (e.currentTarget.style.background = T.panel2)}
-          onMouseLeave={e => (e.currentTarget.style.background = "")}
-        >
-          <span className="font-bold" style={{ color: T.info }}>{key}</span>
-          <span style={{ color: T.muted }}>{label}</span>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SEARCH BAR
-// ══════════════════════════════════════════════════════════════════════════════
-function SymbolSearch({ onSelect }: { onSelect: (sym: string) => void }) {
+function SymbolSearch({ onSelect }: { onSelect:(s:string)=>void }) {
   const [query, setQuery] = useState("");
-  const [, navigate] = useLocation();
   const [focused, setFocused] = useState(false);
-
-  const QUICK = ["AAPL", "NVDA", "TSLA", "MSFT", "005930.KS", "^KS11", "BTC-USD", "AMZN"];
+  const QUICK = ["AAPL","NVDA","TSLA","MSFT","005930.KS","^KS11","BTC-USD","AMZN","META","GOOGL"];
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim().toUpperCase();
-    if (q) {
-      onSelect(q);
-      setQuery("");
-      setFocused(false);
-    }
+    if (q) { onSelect(q); setQuery(""); setFocused(false); }
   }
 
   return (
     <div className="relative shrink-0">
-      <form onSubmit={submit} className="flex items-center">
-        <div className="flex items-center px-2 gap-1.5" style={{ background: T.panel2, border: `1px solid ${T.border}`, borderRadius: 4, minWidth: 160 }}>
-          <Search className="w-3 h-3 shrink-0" style={{ color: T.muted }} />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
+      <form onSubmit={submit} className="flex items-center gap-1">
+        <div className="flex items-center px-2 gap-1.5 rounded"
+          style={{ background:C.panel2, border:`1px solid ${C.border}`, minWidth:150 }}>
+          <Search className="w-3 h-3 shrink-0" style={{ color:C.muted }} />
+          <input value={query} onChange={e => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
-            onBlur={() => setTimeout(() => setFocused(false), 200)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
             placeholder="종목 검색..."
             className="bg-transparent text-[11px] font-mono py-1 outline-none w-24"
-            style={{ color: T.text, caretColor: T.info }}
-          />
+            style={{ color:C.text, caretColor:C.info }} />
         </div>
-        <button type="submit" className="px-2 py-1 ml-1 text-[10px] font-mono font-bold rounded" style={{ background: T.info, color: "#fff" }}>GO</button>
+        <button type="submit" className="px-2 py-1 text-[10px] font-mono font-bold rounded"
+          style={{ background:C.info, color:"#fff" }}>GO</button>
       </form>
       {focused && (
-        <div className="absolute top-full left-0 z-50 rounded shadow-xl mt-1 py-1 min-w-[180px]" style={{ background: T.panel2, border: `1px solid ${T.border}` }}>
-          {QUICK.filter(s => !query || s.includes(query.toUpperCase())).map(sym => (
-            <button
-              key={sym}
-              onMouseDown={() => { onSelect(sym); setQuery(""); setFocused(false); }}
-              className="block w-full text-left px-3 py-1.5 text-[10px] font-mono transition-colors"
-              style={{ color: T.text }}
-              onMouseEnter={e => (e.currentTarget.style.color = T.info)}
-              onMouseLeave={e => (e.currentTarget.style.color = T.text)}
-            >
+        <div className="absolute top-full left-0 z-50 rounded shadow-xl mt-1 py-1 min-w-[180px]"
+          style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
+          {QUICK.filter(s => !query || s.startsWith(query.toUpperCase())).map(sym => (
+            <button key={sym} onMouseDown={() => { onSelect(sym); setQuery(""); setFocused(false); }}
+              className="block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-[#1a2d42]"
+              style={{ color:C.text }}>
               {sym}
             </button>
           ))}
@@ -946,15 +1120,44 @@ function SymbolSearch({ onSelect }: { onSelect: (sym: string) => void }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// F-KEY STRIP
+// ══════════════════════════════════════════════════════════════════════════════
+const FKEYS = [
+  {key:"F2",label:"CHART",href:"/pro"},
+  {key:"F3",label:"QUESTS",href:"/quests"},
+  {key:"F4",label:"NEWS",href:"/hot-issues"},
+  {key:"F5",label:"INVESTORS",href:"/investors"},
+  {key:"F6",label:"CALENDAR",href:"/calendar"},
+  {key:"F7",label:"AI",href:"/ai-portfolio"},
+  {key:"F8",label:"WATCHLIST",href:"/watchlist"},
+  {key:"F9",label:"PRO",href:"/pro"},
+];
+function FKeyStrip() {
+  return (
+    <div className="flex items-stretch border-t overflow-x-auto shrink-0"
+      style={{ borderColor:C.border, background:C.header, scrollbarWidth:"none" }}>
+      {FKEYS.map(({ key, label, href }) => (
+        <Link key={key} href={href}
+          className="flex items-center gap-1 px-3 py-1.5 border-r text-[9px] font-mono shrink-0 hover:bg-[#111a26]"
+          style={{ borderColor:C.border }}>
+          <span className="font-bold" style={{ color:C.info }}>{key}</span>
+          <span style={{ color:C.muted }}>{label}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MOBILE TABS
 // ══════════════════════════════════════════════════════════════════════════════
-type MobileTab = "market" | "chart" | "news" | "fund" | "ai";
-const MOBILE_TABS: { id: MobileTab; label: string; icon: React.ReactNode }[] = [
-  { id: "market", label: "시장", icon: <Activity className="w-4 h-4" /> },
-  { id: "chart", label: "차트", icon: <BarChart2 className="w-4 h-4" /> },
-  { id: "news", label: "뉴스", icon: <Newspaper className="w-4 h-4" /> },
-  { id: "fund", label: "정보", icon: <DollarSign className="w-4 h-4" /> },
-  { id: "ai", label: "AI", icon: <Bot className="w-4 h-4" /> },
+type MTab = "market"|"chart"|"news"|"fund"|"ai";
+const MOBILE_TABS: {id:MTab;label:string;icon:React.ReactNode}[] = [
+  {id:"market", label:"시장", icon:<Activity className="w-4 h-4"/>},
+  {id:"chart",  label:"차트", icon:<BarChart2 className="w-4 h-4"/>},
+  {id:"news",   label:"뉴스", icon:<Newspaper className="w-4 h-4"/>},
+  {id:"fund",   label:"정보", icon:<DollarSign className="w-4 h-4"/>},
+  {id:"ai",     label:"AI",  icon:<Bot className="w-4 h-4"/>},
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -962,268 +1165,254 @@ const MOBILE_TABS: { id: MobileTab; label: string; icon: React.ReactNode }[] = [
 // ══════════════════════════════════════════════════════════════════════════════
 export default function DinoTerminal() {
   const { data: user } = useUser();
-  const [selectedSym, setSelectedSym] = useState("005930.KS");
-  const [chartPeriod, setChartPeriod] = useState("1M");
-  const [mobileTab, setMobileTab] = useState<MobileTab>(() => {
-    return (localStorage.getItem("dino-terminal-tab") as MobileTab) || "market";
-  });
+  const [selected, setSelected] = useState("005930.KS");
+  const [pIdx, setPIdx] = useState(1);        // 1 = "1M"
+  const [mTab, setMTab] = useState<MTab>(() =>
+    (localStorage.getItem("dino-terminal-tab") as MTab) || "market"
+  );
 
-  useEffect(() => {
-    localStorage.setItem("dino-terminal-tab", mobileTab);
-  }, [mobileTab]);
+  useEffect(() => { localStorage.setItem("dino-terminal-tab", mTab); }, [mTab]);
 
-  // All live prices in one big batch
-  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, selectedSym]));
-  const { data: liveData } = useLivePrices(allSyms);
-  const stocks: Record<string, any> = liveData?.stocks || {};
-  const selectedStock = stocks[selectedSym];
+  // ─── FAST FIRST LOAD: only batch live prices ───────────────────────────────
+  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, selected]));
+  const { data: stocks = {}, isLoading: liveLdg, isError: liveErr } = useLivePrices(allSyms);
+  const quote = stocks[selected];
 
-  const selectSym = useCallback((sym: string) => {
-    setSelectedSym(sym);
-    setMobileTab("chart");
+  const selectSym = useCallback((s: string) => {
+    setSelected(s);
+    setMTab("chart");
   }, []);
 
-  // ── DESKTOP LAYOUT ─────────────────────────────────────────────────────────
-  const DesktopLayout = (
-    <div className="hidden lg:flex flex-col h-full overflow-hidden" style={{ background: T.bg, color: T.text }}>
-      {/* Header bar */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-b shrink-0" style={{ borderColor: T.border, background: T.header }}>
+  // ─── DESKTOP ───────────────────────────────────────────────────────────────
+  const Desktop = (
+    <div className="hidden lg:flex flex-col h-full overflow-hidden"
+      style={{ background:C.bg, color:C.text }}>
+
+      {/* Top bar */}
+      <div className="flex items-center gap-3 px-3 py-1.5 border-b shrink-0"
+        style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-black" style={{ background: T.info, color: "#fff" }}>ST</div>
-          <span className="text-[11px] font-mono font-black" style={{ color: T.info }}>SnapTerminal</span>
-          <span className="text-[9px] font-mono" style={{ color: T.muted }}>US/KR TRANSLATION</span>
+          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black"
+            style={{ background:C.info, color:"#fff" }}>ST</div>
+          <span className="text-[11px] font-mono font-black" style={{ color:C.info }}>DinoTerminal</span>
+          <span className="text-[9px] font-mono" style={{ color:C.muted }}>US/KR LIVE</span>
         </div>
-        <div className="w-px h-4 shrink-0" style={{ background: T.border }} />
+        <div className="w-px h-4 shrink-0" style={{ background:C.border }} />
         <SymbolSearch onSelect={selectSym} />
         <div className="flex-1" />
-        <QuestMini />
-        <div className="w-px h-4 shrink-0" style={{ background: T.border }} />
+        <QuestBar />
+        <div className="w-px h-4 shrink-0" style={{ background:C.border }} />
         <TerminalClock />
         {user && (
-          <div className="flex items-center gap-1.5 text-[10px] font-mono" style={{ color: T.muted }}>
-            <span style={{ color: T.up }}>Lv.{user.level}</span>
+          <div className="flex items-center gap-1.5 text-[10px] font-mono ml-2"
+            style={{ color:C.muted }}>
+            <span style={{ color:C.up }}>Lv.{user.level}</span>
             <span>{user.nickname}</span>
           </div>
         )}
       </div>
 
-      {/* Index strip */}
       <IndexStrip />
 
-      {/* 3-panel main area */}
+      {/* 3-column body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* LEFT PANEL */}
-        <div className="w-[200px] shrink-0 border-r overflow-y-auto flex flex-col" style={{ borderColor: T.border, scrollbarWidth: "none" }}>
-          <MarketPulseWidget stocks={stocks} />
-          <WatchGrid stocks={stocks} onSelect={selectSym} selected={selectedSym} />
+
+        {/* LEFT */}
+        <div className="w-[200px] shrink-0 border-r overflow-y-auto flex flex-col"
+          style={{ borderColor:C.border, scrollbarWidth:"none" }}>
+          <MarketPulseWidget liveStocks={stocks} />
+          <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
           <SectorMap />
           <FlowRadar stocks={stocks} />
         </div>
 
-        {/* CENTER PANEL */}
+        {/* CENTER */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <SymbolHeader symbol={selectedSym} stock={selectedStock} />
+          <SymbolHeader symbol={selected} quote={quote} />
 
-          {/* Period selector + indicator toggles */}
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: T.border, background: T.header }}>
-            <span className="text-[9px] font-mono font-bold uppercase" style={{ color: T.muted }}>PRICE ACTION</span>
-            <div className="w-px h-3" style={{ background: T.border }} />
+          {/* Period tabs */}
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0"
+            style={{ borderColor:C.border, background:C.header }}>
+            <span className="text-[9px] font-mono font-bold uppercase" style={{ color:C.muted }}>
+              PRICE ACTION
+            </span>
+            <div className="w-px h-3" style={{ background:C.border }} />
             <div className="flex gap-1">
-              {PERIODS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setChartPeriod(p)}
-                  className="px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-colors"
+              {PERIODS.map((p, i) => (
+                <button key={p.label} onClick={() => setPIdx(i)}
+                  className="px-2 py-0.5 rounded text-[9px] font-mono font-bold"
                   style={{
-                    background: chartPeriod === p ? T.info + "33" : "transparent",
-                    color: chartPeriod === p ? T.info : T.muted,
-                    border: `1px solid ${chartPeriod === p ? T.info + "60" : "transparent"}`,
-                  }}
-                >
-                  {p}
-                </button>
+                    background: pIdx===i ? C.info+"33" : "transparent",
+                    color:      pIdx===i ? C.info       : C.muted,
+                    border:    `1px solid ${pIdx===i ? C.info+"60" : "transparent"}`,
+                  }}>{p.label}</button>
               ))}
             </div>
             <div className="flex-1" />
-            <Link href={`/stock/${selectedSym}`} className="text-[9px] font-mono" style={{ color: T.info }}>
-              고급 차트 →
-            </Link>
+            <Link href={`/stock/${selected}`} className="text-[9px] font-mono"
+              style={{ color:C.info }}>고급 차트 →</Link>
           </div>
 
-          {/* Chart area */}
-          <div className="flex-1 p-2 overflow-hidden" style={{ minHeight: 0 }}>
-            <PriceChart symbol={selectedSym} period={chartPeriod} />
+          {/* Chart */}
+          <div className="flex-1 p-2 overflow-hidden" style={{ minHeight:0 }}>
+            <PriceChart symbol={selected} periodIdx={pIdx} />
           </div>
 
           {/* Bottom metrics */}
-          <div className="border-t overflow-y-auto" style={{ borderColor: T.border, maxHeight: 220 }}>
-            <TechEngine symbol={selectedSym} stock={selectedStock} />
-            <CrossAssetMatrix stocks={stocks} />
+          <div className="border-t overflow-y-auto" style={{ borderColor:C.border, maxHeight:220 }}>
+            <TechEngine symbol={selected} quote={quote} />
+            <CrossAssetTable stocks={stocks} />
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="w-[200px] shrink-0 border-l overflow-y-auto flex flex-col" style={{ borderColor: T.border, scrollbarWidth: "none" }}>
-          <FundamentalsPanel symbol={selectedSym} stock={selectedStock} />
-          <EarningsPanel />
-          <NewsFeedPanel />
-          <AIAssistant symbol={selectedSym} />
+        {/* RIGHT */}
+        <div className="w-[210px] shrink-0 border-l overflow-y-auto flex flex-col"
+          style={{ borderColor:C.border, scrollbarWidth:"none" }}>
+          <FundamentalsPanel symbol={selected} quote={quote} />
+          <CalendarPanel />
+          <NewsPanel />
+          <AIPanel symbol={selected} />
         </div>
       </div>
 
-      {/* F-key strip */}
       <FKeyStrip />
     </div>
   );
 
-  // ── MOBILE LAYOUT ──────────────────────────────────────────────────────────
-  const MobileLayout = (
-    <div
-      className="flex lg:hidden flex-col"
-      style={{ height: "calc(100vh - 57px)", background: T.bg, color: T.text }}
-    >
-      {/* Mobile header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0" style={{ borderColor: T.border, background: T.header }}>
+  // ─── MOBILE ────────────────────────────────────────────────────────────────
+  const Mobile = (
+    <div className="flex lg:hidden flex-col"
+      style={{ height:"calc(100vh - 57px)", background:C.bg, color:C.text }}>
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0"
+        style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black" style={{ background: T.info, color: "#fff" }}>ST</div>
-          <span className="text-[11px] font-mono font-bold" style={{ color: T.info }}>DinoTerminal</span>
+          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black"
+            style={{ background:C.info, color:"#fff" }}>ST</div>
+          <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>DinoTerminal</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 justify-end">
-            <span className="text-[11px] font-mono font-bold" style={{ color: T.info }}>{selectedSym.replace("^", "").replace(".KS", "")}</span>
-            {selectedStock && (
-              <span className={cn("text-[10px] font-mono font-bold", isUp(selectedStock.changePercent) ? UP : DOWN)}>
-                {fmtChange(selectedStock.changePercent)}
-              </span>
-            )}
-          </div>
+        <div className="flex-1 flex items-center justify-end gap-2">
+          <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>
+            {selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
+          </span>
+          {quote && (
+            <span className={cn("text-[10px] font-mono font-bold",
+              isUp(quote.changePercent) ? "text-[#00c896]" : "text-[#ff4757]")}>
+              {fmtPct(quote.changePercent)}
+            </span>
+          )}
         </div>
         <SymbolSearch onSelect={selectSym} />
       </div>
 
-      {/* Index strip */}
       <IndexStrip />
-
-      {/* Quest mini bar */}
-      <QuestMini />
+      <QuestBar />
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-        {/* MARKET TAB */}
-        {mobileTab === "market" && (
-          <div>
-            <MarketPulseWidget stocks={stocks} />
-            <WatchGrid stocks={stocks} onSelect={selectSym} selected={selectedSym} />
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" }}>
+
+        {mTab === "market" && (
+          <>
+            <MarketPulseWidget liveStocks={stocks} />
+            <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
             <SectorMap />
             <FlowRadar stocks={stocks} />
-          </div>
+          </>
         )}
 
-        {/* CHART TAB */}
-        {mobileTab === "chart" && (
-          <div className="flex flex-col h-full">
-            <SymbolHeader symbol={selectedSym} stock={selectedStock} />
-            {/* Period selector */}
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ borderColor: T.border, background: T.header }}>
-              {PERIODS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setChartPeriod(p)}
+        {mTab === "chart" && (
+          <>
+            <SymbolHeader symbol={selected} quote={quote} />
+            <div className="flex items-center gap-1.5 px-3 py-2 border-b"
+              style={{ borderColor:C.border, background:C.header }}>
+              {PERIODS.map((p, i) => (
+                <button key={p.label} onClick={() => setPIdx(i)}
                   className="px-2.5 py-1 rounded text-[10px] font-mono font-bold"
                   style={{
-                    background: chartPeriod === p ? T.info + "33" : T.panel2,
-                    color: chartPeriod === p ? T.info : T.muted,
-                    border: `1px solid ${chartPeriod === p ? T.info + "60" : T.border}`,
-                  }}
-                >
-                  {p}
-                </button>
+                    background: pIdx===i ? C.info+"33" : C.panel2,
+                    color:      pIdx===i ? C.info       : C.muted,
+                    border:    `1px solid ${pIdx===i ? C.info+"60" : C.border}`,
+                  }}>{p.label}</button>
               ))}
               <div className="flex-1" />
-              <Link href={`/stock/${selectedSym}`} className="text-[9px] font-mono" style={{ color: T.info }}>고급→</Link>
+              <Link href={`/stock/${selected}`} className="text-[9px] font-mono"
+                style={{ color:C.info }}>고급→</Link>
             </div>
-            {/* Chart */}
-            <div style={{ height: 280, padding: "8px 4px" }}>
-              <PriceChart symbol={selectedSym} period={chartPeriod} />
+            <div style={{ height:280, padding:"8px 4px" }}>
+              <PriceChart symbol={selected} periodIdx={pIdx} />
             </div>
-            {/* Tech engine */}
-            <TechEngine symbol={selectedSym} stock={selectedStock} />
-            <CrossAssetMatrix stocks={stocks} />
-          </div>
+            <TechEngine symbol={selected} quote={quote} />
+            <CrossAssetTable stocks={stocks} />
+          </>
         )}
 
-        {/* NEWS TAB */}
-        {mobileTab === "news" && (
-          <div>
-            <NewsFeedPanel />
-            <EarningsPanel />
-          </div>
+        {mTab === "news" && (
+          <>
+            <NewsPanel />
+            <CalendarPanel />
+          </>
         )}
 
-        {/* FUND TAB */}
-        {mobileTab === "fund" && (
-          <div>
-            <FundamentalsPanel symbol={selectedSym} stock={selectedStock} />
-            {/* Quick nav */}
+        {mTab === "fund" && (
+          <>
+            <FundamentalsPanel symbol={selected} quote={quote} />
             <div className="p-3 grid grid-cols-3 gap-2">
               {[
-                { label: "투자자", href: "/investors", icon: <Briefcase className="w-4 h-4" /> },
-                { label: "추천종목", href: "/recommended", icon: <Star className="w-4 h-4" /> },
-                { label: "실적Live", href: "/earnings", icon: <BarChart2 className="w-4 h-4" /> },
-                { label: "시장동향", href: "/market-trends", icon: <Globe className="w-4 h-4" /> },
-                { label: "RRG차트", href: "/rrg", icon: <Radio className="w-4 h-4" /> },
-                { label: "프로", href: "/pro", icon: <MonitorPlay className="w-4 h-4" /> },
-              ].map(({ label, href, icon }) => (
+                {label:"투자자",  href:"/investors",    icon:<Briefcase className="w-4 h-4"/>},
+                {label:"추천종목",href:"/recommended",  icon:<Star className="w-4 h-4"/>},
+                {label:"시장동향",href:"/market-trends",icon:<Globe className="w-4 h-4"/>},
+                {label:"실적Live",href:"/earnings",     icon:<BarChart2 className="w-4 h-4"/>},
+                {label:"RRG",    href:"/rrg",           icon:<Radio className="w-4 h-4"/>},
+                {label:"프로",   href:"/pro",           icon:<MonitorPlay className="w-4 h-4"/>},
+              ].map(({label,href,icon}) => (
                 <Link key={href} href={href}
                   className="flex flex-col items-center gap-1 py-3 rounded"
-                  style={{ background: T.panel2, border: `1px solid ${T.border}`, color: T.text }}
-                >
-                  <span style={{ color: T.info }}>{icon}</span>
+                  style={{ background:C.panel2, border:`1px solid ${C.border}`, color:C.text }}>
+                  <span style={{ color:C.info }}>{icon}</span>
                   <span className="text-[10px] font-mono">{label}</span>
                 </Link>
               ))}
             </div>
-          </div>
+          </>
         )}
 
-        {/* AI TAB */}
-        {mobileTab === "ai" && (
-          <div>
-            <AIAssistant symbol={selectedSym} />
-            {/* Quest links */}
+        {mTab === "ai" && (
+          <>
+            <AIPanel symbol={selected} />
             <div className="p-3 space-y-2">
               {[
-                { label: "오늘의 퀘스트", href: "/quests", desc: "XP 획득" },
-                { label: "AI 포트폴리오", href: "/ai-portfolio", desc: "맞춤 분석" },
-                { label: "뉴스 퀴즈", href: "/quests", desc: "실전 훈련" },
-              ].map(({ label, href, desc }) => (
+                {label:"오늘의 퀘스트",href:"/quests",       desc:"XP 획득"},
+                {label:"AI 포트폴리오",href:"/ai-portfolio", desc:"맞춤 분석"},
+                {label:"슈퍼 투자자",  href:"/investors",    desc:"13F 공시 데이터"},
+              ].map(({label,href,desc}) => (
                 <Link key={href} href={href}
                   className="flex items-center justify-between px-3 py-3 rounded"
-                  style={{ background: T.panel2, border: `1px solid ${T.border}` }}
-                >
+                  style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
                   <div>
-                    <div className="text-[12px] font-mono font-bold" style={{ color: T.text }}>{label}</div>
-                    <div className="text-[10px] font-mono" style={{ color: T.muted }}>{desc}</div>
+                    <div className="text-[12px] font-mono font-bold" style={{ color:C.text }}>{label}</div>
+                    <div className="text-[10px] font-mono" style={{ color:C.muted }}>{desc}</div>
                   </div>
-                  <ChevronRight className="w-4 h-4" style={{ color: T.info }} />
+                  <ChevronRight className="w-4 h-4" style={{ color:C.info }} />
                 </Link>
               ))}
             </div>
-          </div>
+          </>
         )}
       </div>
 
       {/* Bottom tab bar */}
-      <div className="flex items-stretch border-t shrink-0" style={{ borderColor: T.border, background: T.header }}>
+      <div className="flex items-stretch border-t shrink-0"
+        style={{ borderColor:C.border, background:C.header }}>
         {MOBILE_TABS.map(tab => {
-          const active = mobileTab === tab.id;
+          const active = mTab === tab.id;
           return (
-            <button
-              key={tab.id}
-              onClick={() => setMobileTab(tab.id)}
+            <button key={tab.id} onClick={() => setMTab(tab.id)}
               className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
-              style={{ color: active ? T.info : T.muted, borderTop: active ? `2px solid ${T.info}` : "2px solid transparent" }}
-            >
+              style={{
+                color:      active ? C.info : C.muted,
+                borderTop: `2px solid ${active ? C.info : "transparent"}`,
+              }}>
               {tab.icon}
               <span className="text-[9px] font-mono font-bold">{tab.label}</span>
             </button>
@@ -1234,10 +1423,9 @@ export default function DinoTerminal() {
   );
 
   return (
-    <div style={{ background: T.bg }}>
-      {DesktopLayout}
-      {MobileLayout}
+    <div style={{ background:C.bg }}>
+      {Desktop}
+      {Mobile}
     </div>
   );
 }
-
