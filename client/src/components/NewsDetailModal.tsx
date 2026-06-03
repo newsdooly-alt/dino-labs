@@ -206,14 +206,15 @@ export function NewsDetailModal({ item, onClose }: Props) {
             data-testid="news-modal-backdrop"
           />
 
-          {/* Panel — full-screen on mobile, tall scrollable sheet on desktop */}
+          {/* Panel centering wrapper — bottom on mobile, center on desktop */}
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-6 pointer-events-none">
           <motion.div
             key="panel"
-            initial={{ opacity: 0, y: "100%" }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: "60%" }}
+            exit={{ opacity: 0, y: 40 }}
             transition={{ type: "spring", damping: 30, stiffness: 320 }}
-            className="fixed inset-x-0 bottom-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[640px] max-h-[calc(100dvh-48px)] md:max-h-[90vh] z-50 flex flex-col bg-background rounded-t-[28px] md:rounded-2xl shadow-2xl overflow-hidden"
+            className="pointer-events-auto w-full md:max-w-[640px] max-h-[calc(100dvh-48px)] md:max-h-[88vh] flex flex-col bg-background rounded-t-[28px] md:rounded-2xl shadow-2xl overflow-hidden"
             data-testid="news-detail-modal"
           >
             {/* Drag pill (mobile) */}
@@ -407,6 +408,7 @@ export function NewsDetailModal({ item, onClose }: Props) {
               </div>
             </div>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
