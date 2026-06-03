@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import {
+  KOREAN_STOCK_ALIASES,
+  containsKorean,
+  searchByKoreanAlias,
+} from "@/lib/stockNames";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ComposedChart, ReferenceLine,
@@ -46,9 +51,11 @@ const WATCH_NAMES: Record<string,string> = {
   "GC=F":"Gold","CL=F":"Crude Oil",
 };
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","JPY=X"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","GC=F","CL=F","JPY=X"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"KOSPI","^IXIC":"NDX",
   "GC=F":"GOLD","CL=F":"OIL","BTC-USD":"BTC","JPY=X":"JPY",
+  "^TNX":"10Y","^VIX":"VIX","^IRX":"3M",
 };
 
 // ── Multi-language label system ───────────────────────────────────────────────
@@ -184,6 +191,11 @@ function useHistory(symbol: string, period: string, interval: string) {
 function useMood() {
   return useQuery<any>({
     queryKey: ["/api/market/mood"],
+    queryFn: async () => {
+      const res = await fetch("/api/market/mood");
+      if (!res.ok) throw new Error("mood failed");
+      return res.json();
+    },
     staleTime:  120_000,
     refetchInterval: 180_000,
     retry: 1,
@@ -194,6 +206,11 @@ function useMood() {
 function useSectors() {
   return useQuery<any>({
     queryKey: ["/api/sector-returns"],
+    queryFn: async () => {
+      const res = await fetch("/api/sector-returns");
+      if (!res.ok) return { sectors: [] };
+      return res.json();
+    },
     staleTime:  120_000,
     refetchInterval: 300_000,
     retry: 1,
@@ -1795,47 +1812,147 @@ function QuestBar() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SYMBOL SEARCH
+// SYMBOL SEARCH  — supports Korean names + English names + tickers
 // ══════════════════════════════════════════════════════════════════════════════
-function SymbolSearch({ onSelect }: { onSelect:(s:string)=>void }) {
+const QUICK_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META","005930.KS","^KS11","BTC-USD","GOOGL","QQQ","SPY"];
+
+function SymbolSearch({ onSelect, stocks = {} }: {
+  onSelect:(s:string)=>void;
+  stocks?: Record<string,any>;
+}) {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
-  const QUICK = ["AAPL","NVDA","TSLA","MSFT","005930.KS","^KS11","BTC-USD","AMZN","META","GOOGL"];
+
+  const results: {ticker:string; name:string}[] = useMemo(() => {
+    const q = query.trim();
+    if (!q) {
+      return QUICK_SYMS.map(t => {
+        const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
+        return { ticker: t, name: a?.ko || a?.en || t };
+      });
+    }
+    if (containsKorean(q)) {
+      return searchByKoreanAlias(q).slice(0, 8).map(a => ({ ticker: a.ticker, name: a.ko }));
+    }
+    const up = q.toUpperCase();
+    const tickerHits = QUICK_SYMS.filter(s => s.startsWith(up));
+    const nameHits = KOREAN_STOCK_ALIASES
+      .filter(a =>
+        a.en.toLowerCase().includes(q.toLowerCase()) &&
+        !tickerHits.includes(a.ticker)
+      )
+      .slice(0, 6)
+      .map(a => a.ticker);
+    return Array.from(new Set([...tickerHits, ...nameHits])).slice(0, 9).map(t => {
+      const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
+      return { ticker: t, name: a?.ko || a?.en || t };
+    });
+  }, [query]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const q = query.trim().toUpperCase();
-    if (q) { onSelect(q); setQuery(""); setFocused(false); }
+    const q = query.trim();
+    if (!q) return;
+    if (containsKorean(q)) {
+      const found = searchByKoreanAlias(q);
+      if (found.length > 0) { onSelect(found[0].ticker); setQuery(""); setFocused(false); return; }
+    }
+    onSelect(q.toUpperCase());
+    setQuery(""); setFocused(false);
   }
 
   return (
     <div className="relative shrink-0">
-      <form onSubmit={submit} className="flex items-center gap-1">
+      <form onSubmit={submit} className="flex items-center">
         <div className="flex items-center px-2 gap-1.5 rounded"
-          style={{ background:C.panel2, border:`1px solid ${C.border}`, minWidth:150 }}>
+          style={{ background:C.panel2, border:`1px solid ${C.border}`, minWidth:170 }}>
           <Search className="w-3 h-3 shrink-0" style={{ color:C.muted }} />
           <input value={query} onChange={e => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
-            placeholder="종목 검색..."
-            className="bg-transparent text-[11px] font-mono py-1 outline-none w-24"
+            placeholder="티커·한글·이름 검색..."
+            className="bg-transparent text-[11px] font-mono py-1 outline-none w-32"
             style={{ color:C.text, caretColor:C.info }} />
         </div>
-        <button type="submit" className="px-2 py-1 text-[10px] font-mono font-bold rounded"
-          style={{ background:C.info, color:"#fff" }}>GO</button>
       </form>
-      {focused && (
-        <div className="absolute top-full left-0 z-50 rounded shadow-xl mt-1 py-1 min-w-[180px]"
+      {focused && results.length > 0 && (
+        <div className="absolute top-full left-0 z-50 rounded shadow-xl mt-1 py-1 min-w-[220px]"
           style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-          {QUICK.filter(s => !query || s.startsWith(query.toUpperCase())).map(sym => (
-            <button key={sym} onMouseDown={() => { onSelect(sym); setQuery(""); setFocused(false); }}
-              className="block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-[#1a2d42]"
-              style={{ color:C.text }}>
-              {sym}
-            </button>
-          ))}
+          {results.map(({ ticker, name }) => {
+            const q = stocks[ticker];
+            const up = isUp(q?.changePercent);
+            return (
+              <button key={ticker}
+                onMouseDown={() => { onSelect(ticker); setQuery(""); setFocused(false); }}
+                className="flex items-center justify-between w-full px-3 py-1.5 hover:bg-[#1a2d42]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-mono font-bold shrink-0" style={{ color:C.info }}>
+                    {ticker.replace(".KS","").replace("^","")}
+                  </span>
+                  <span className="text-[9px] font-mono truncate" style={{ color:C.muted }}>{name}</span>
+                </div>
+                {q?.changePercent != null && (
+                  <span className={cn("text-[9px] font-mono font-bold shrink-0 ml-2",
+                    up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                    {fmtPct(q.changePercent)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MACRO PANEL — Bond yields, volatility index, commodities
+// ══════════════════════════════════════════════════════════════════════════════
+const MACRO_DEF = [
+  { sym:"^TNX",  label:"미10Y",   unit:"%", toFix:3 },
+  { sym:"^VIX",  label:"VIX",    unit:"",  toFix:2 },
+  { sym:"^IRX",  label:"3M금리",  unit:"%", toFix:3 },
+  { sym:"GC=F",  label:"금(Gold)",unit:"$", toFix:0 },
+  { sym:"CL=F",  label:"WTI유가", unit:"$", toFix:2 },
+  { sym:"JPY=X", label:"USD/JPY", unit:"",  toFix:2 },
+];
+
+function MacroPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="p-2 border-t" style={{ borderColor:C.border }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color:C.muted }}>MACRO / RATES</span>
+        <Link href="/calendar" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+      </div>
+      <div className="grid grid-cols-3 gap-px" style={{ background:C.border }}>
+        {MACRO_DEF.map(({ sym, label, unit, toFix }) => {
+          const q = stocks[sym];
+          const price = q?.price;
+          const pct = q?.changePercent;
+          const up = (pct ?? 0) >= 0;
+          // VIX is inverse (higher = more fear = bad)
+          const clr = price != null
+            ? (sym === "^VIX" ? (up ? C.down : C.up) : (up ? C.up : C.down))
+            : C.muted;
+          return (
+            <div key={sym} className="px-1.5 py-1.5" style={{ background:C.panel2 }}>
+              <div className="text-[7px] font-mono truncate" style={{ color:C.muted }}>{label}</div>
+              <div className="text-[11px] font-mono font-bold" style={{ color: clr }}>
+                {price != null
+                  ? `${unit === "$" ? "$" : ""}${price.toFixed(toFix)}${unit === "%" ? "%" : ""}`
+                  : "—"}
+              </div>
+              {pct != null && (
+                <div className="text-[8px] font-mono" style={{ color: clr }}>
+                  {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1844,14 +1961,14 @@ function SymbolSearch({ onSelect }: { onSelect:(s:string)=>void }) {
 // F-KEY STRIP
 // ══════════════════════════════════════════════════════════════════════════════
 const FKEYS = [
-  {key:"F2",label:"CHART",href:"/pro"},
-  {key:"F3",label:"QUESTS",href:"/quests"},
-  {key:"F4",label:"NEWS",href:"/hot-issues"},
+  {key:"F2",label:"PRO",      href:"/pro"},
+  {key:"F3",label:"QUESTS",   href:"/quests"},
+  {key:"F4",label:"NEWS",     href:"/hot-issues"},
   {key:"F5",label:"INVESTORS",href:"/investors"},
-  {key:"F6",label:"CALENDAR",href:"/calendar"},
-  {key:"F7",label:"AI",href:"/ai-portfolio"},
+  {key:"F6",label:"CALENDAR", href:"/calendar"},
+  {key:"F7",label:"TRENDS",   href:"/market-trends"},
   {key:"F8",label:"WATCHLIST",href:"/watchlist"},
-  {key:"F9",label:"PRO",href:"/pro"},
+  {key:"F9",label:"RRG",      href:"/rrg"},
 ];
 function FKeyStrip() {
   return (
@@ -1896,7 +2013,7 @@ export default function DinoTerminal() {
   useEffect(() => { localStorage.setItem("dino-terminal-tab", mTab); }, [mTab]);
 
   // ─── FAST FIRST LOAD: only batch live prices ───────────────────────────────
-  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, selected]));
+  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, ...MACRO_SYMS, selected]));
   const { data: stocks = {}, isLoading: liveLdg, isError: liveErr } = useLivePrices(allSyms);
   const quote = stocks[selected];
 
@@ -1910,42 +2027,56 @@ export default function DinoTerminal() {
     <div className="hidden md:flex flex-col h-full overflow-hidden"
       style={{ background:C.bg, color:C.text }}>
 
-      {/* ── TOP BAR: search + live ticker strip + quest + clock ── */}
-      <div className="flex items-center gap-2 px-2 py-1 border-b shrink-0"
-        style={{ borderColor:C.border, background:C.header }}>
-        <SymbolSearch onSelect={selectSym} />
+      {/* ── TOP BAR: search | live tickers | clock | user stats ── */}
+      <div className="flex items-center gap-0 border-b shrink-0"
+        style={{ borderColor:C.border, background:C.header, height:36 }}>
 
-        {/* Live index ticker strip */}
-        <div className="flex items-center gap-0 flex-1 overflow-hidden mx-1">
-          {["SPY","QQQ","^KS11","BTC-USD","GC=F","CL=F","JPY=X"].map((sym, i) => {
+        {/* Search */}
+        <div className="px-2 border-r shrink-0" style={{ borderColor:C.border }}>
+          <SymbolSearch onSelect={selectSym} stocks={stocks} />
+        </div>
+
+        {/* Live index tickers */}
+        <div className="flex items-center flex-1 overflow-hidden">
+          {["SPY","QQQ","^KS11","BTC-USD","^TNX","^VIX","GC=F","CL=F"].map((sym) => {
             const q = stocks[sym];
             if (!q) return null;
             const up = (q.changePercent ?? 0) >= 0;
+            const isRate = sym === "^TNX" || sym === "^IRX";
+            const isVix  = sym === "^VIX";
             return (
-              <div key={sym} className="flex items-center gap-1 px-2 shrink-0"
-                style={{ borderLeft: i > 0 ? `1px solid ${C.border}` : "none" }}>
+              <div key={sym} className="flex items-center gap-1.5 px-2.5 border-r h-full shrink-0"
+                style={{ borderColor:C.border }}>
                 <span className="text-[9px] font-mono" style={{ color:C.muted }}>
-                  {INDEX_LBL[sym] || sym}
+                  {INDEX_LBL[sym] || sym.replace("^","")}
                 </span>
-                <span className="text-[9px] font-mono font-bold"
-                  style={{ color: up ? C.up : C.down }}>
-                  {up ? "▲" : "▼"}{Math.abs(q.changePercent ?? 0).toFixed(2)}%
+                <span className="text-[9px] font-mono font-bold" style={{
+                  color: isVix ? (up ? C.down : C.up) : (up ? C.up : C.down)
+                }}>
+                  {isRate
+                    ? `${q.price?.toFixed(3)}%`
+                    : isVix
+                    ? q.price?.toFixed(2)
+                    : `${up?"▲":"▼"}${Math.abs(q.changePercent??0).toFixed(2)}%`}
                 </span>
               </div>
             );
           })}
         </div>
 
-        <QuestBar />
-        <div className="w-px h-4 shrink-0" style={{ background:C.border }} />
-        <TerminalClock />
-        {user && (
-          <div className="flex items-center gap-1.5 text-[10px] font-mono ml-1 shrink-0"
-            style={{ color:C.muted }}>
-            <span style={{ color:C.up }}>Lv.{user.level}</span>
-            <span>{user.nickname}</span>
-          </div>
-        )}
+        {/* Clock + user stats */}
+        <div className="flex items-center gap-3 px-3 border-l shrink-0"
+          style={{ borderColor:C.border }}>
+          <TerminalClock />
+          {user && (
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+              <span style={{ color:C.warn }}>⚡{user.xp}</span>
+              <span style={{ color:"#ff6b35" }}>🔥{user.streak}일</span>
+              <span className="px-1.5 py-0.5 rounded font-bold"
+                style={{ background:C.up+"22", color:C.up }}>Lv.{user.level}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── 4-COLUMN BLOOMBERG GRID ── */}
@@ -1982,14 +2113,15 @@ export default function DinoTerminal() {
             </Link>
           </div>
 
-          {/* Chart — FIXED HEIGHT (not flex-1) */}
-          <div style={{ height:195, flexShrink:0, padding:"4px 4px 0" }}>
+          {/* Chart — FIXED HEIGHT */}
+          <div style={{ height:145, flexShrink:0, padding:"4px 4px 0" }}>
             <PriceChart symbol={selected} periodIdx={pIdx} />
           </div>
 
           {/* Scrollable metrics below chart */}
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
+            <MacroPanel stocks={stocks} />
             <CrossAssetTable stocks={stocks} />
             <FlowRadar stocks={stocks} />
           </div>
@@ -2109,7 +2241,7 @@ export default function DinoTerminal() {
                 {lang==="ko"?"고급→":lang==="ja"?"詳細→":"Full→"}
               </Link>
             </div>
-            <div style={{ height:220, padding:"4px" }}>
+            <div style={{ height:180, padding:"4px" }}>
               <PriceChart symbol={selected} periodIdx={pIdx} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
