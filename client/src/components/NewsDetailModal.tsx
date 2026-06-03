@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ExternalLink, Loader2, Sparkles, Clock, Globe2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -189,7 +190,7 @@ export function NewsDetailModal({ item, onClose }: Props) {
     ja: "分析内容がありません。",
   }[activeLang];
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {item && (
         <>
@@ -408,6 +409,7 @@ export function NewsDetailModal({ item, onClose }: Props) {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
