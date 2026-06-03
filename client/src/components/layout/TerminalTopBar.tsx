@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 
 const TABS = [
-  { label: "시장",       en: "Markets",     ja: "市場",        href: "/" },
   { label: "시장동향",   en: "Trends",      ja: "トレンド",    href: "/market-trends" },
   { label: "뉴스",       en: "News",        ja: "ニュース",    href: "/hot-issues" },
   { label: "차트",       en: "Pro Chart",   ja: "チャート",    href: "/pro" },

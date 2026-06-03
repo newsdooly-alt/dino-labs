@@ -36,7 +36,7 @@ function DesktopRouter() {
   return (
     <Switch>
       <Route path="/terminal" component={DinoTerminal} />
-      <Route path="/" component={TerminalMarkets} />
+      <Route path="/" component={DinoTerminal} />
       <Route path="/quests" component={Quests} />
       <Route path="/watchlist" component={Watchlist} />
       <Route path="/market-trends" component={MarketTrends} />
@@ -65,7 +65,7 @@ function MobileRouter() {
   return (
     <Switch>
       <Route path="/terminal" component={DinoTerminal} />
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={DinoTerminal} />
       <Route path="/quests" component={Quests} />
       <Route path="/watchlist" component={Watchlist} />
       <Route path="/market-trends" component={MarketTrends} />

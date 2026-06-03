@@ -210,7 +210,7 @@ export default function HotIssues() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-8">
+    <div className="w-full max-w-3xl mx-auto px-4 py-8">
       {/* ── Header ── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
