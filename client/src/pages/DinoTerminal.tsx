@@ -2172,13 +2172,13 @@ function FKeyStrip() {
 // ══════════════════════════════════════════════════════════════════════════════
 // MOBILE TABS
 // ══════════════════════════════════════════════════════════════════════════════
-type MTab = "market"|"chart"|"news"|"fund"|"ai";
+type MTab = "market"|"macro"|"chart"|"news"|"fund";
 const MOBILE_TABS: {id:MTab;label:string;icon:React.ReactNode}[] = [
   {id:"market", label:"시장", icon:<Activity className="w-4 h-4"/>},
+  {id:"macro",  label:"거시", icon:<TrendingUp className="w-4 h-4"/>},
   {id:"chart",  label:"차트", icon:<BarChart2 className="w-4 h-4"/>},
   {id:"news",   label:"뉴스", icon:<Newspaper className="w-4 h-4"/>},
   {id:"fund",   label:"정보", icon:<DollarSign className="w-4 h-4"/>},
-  {id:"ai",     label:"AI",  icon:<Bot className="w-4 h-4"/>},
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2262,18 +2262,18 @@ export default function DinoTerminal() {
         </div>
       </div>
 
-      {/* ── 4-COLUMN BLOOMBERG GRID ── */}
+      {/* ── 5-COLUMN BLOOMBERG GRID ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ▌COL 1 (170px) — Watchlist + Sectors + Fear/Greed ▐ */}
-        <div className="w-[170px] shrink-0 border-r overflow-y-auto flex flex-col"
+        {/* ▌COL 1 (160px) — Watchlist + Sectors + Fear/Greed ▐ */}
+        <div className="w-[160px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
           <SectorMap />
         </div>
 
-        {/* ▌COL 2 (flex) — Chart (fixed 190px) + metrics below ▐ */}
+        {/* ▌COL 2 (flex) — Chart + TechEngine + MacroPanel ▐ */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <SymbolHeader symbol={selected} quote={quote} />
 
@@ -2297,22 +2297,27 @@ export default function DinoTerminal() {
           </div>
 
           {/* Chart — FIXED HEIGHT */}
-          <div style={{ height:145, flexShrink:0, padding:"4px 4px 0" }}>
+          <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
             <PriceChart symbol={selected} periodIdx={pIdx} />
           </div>
 
-          {/* Scrollable metrics below chart */}
+          {/* Scrollable: TechEngine + Macro rates ▶ compact, no more 3 hidden panels */}
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
             <MacroPanel stocks={stocks} />
-            <YieldCurvePanel stocks={stocks} />
-            <GlobalMarketsPanel stocks={stocks} />
-            <CommodityFXPanel stocks={stocks} />
           </div>
         </div>
 
-        {/* ▌COL 3 (195px) — Fundamentals + Analyst + Insider + Institutional ▐ */}
-        <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
+        {/* ▌COL 3 (155px) — Yield Curve + Global Markets + Commodities/FX ▐ */}
+        <div className="w-[155px] shrink-0 border-l overflow-y-auto flex flex-col"
+          style={{ borderColor:C.border, scrollbarWidth:"none" }}>
+          <YieldCurvePanel stocks={stocks} />
+          <GlobalMarketsPanel stocks={stocks} />
+          <CommodityFXPanel stocks={stocks} />
+        </div>
+
+        {/* ▌COL 4 (175px) — Fundamentals + Analyst + Insider + Institutional ▐ */}
+        <div className="w-[175px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <FundamentalsPanel symbol={selected} quote={quote} />
           <AnalystPanel symbol={selected} lang={lang} />
@@ -2320,8 +2325,8 @@ export default function DinoTerminal() {
           <InstitutionalPanel symbol={selected} lang={lang} />
         </div>
 
-        {/* ▌COL 4 (200px) — News (toggle) + Calendar + AI ▐ */}
-        <div className="w-[200px] shrink-0 border-l overflow-y-auto flex flex-col"
+        {/* ▌COL 5 (195px) — News + Calendar + AI ▐ */}
+        <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <NewsPanel lang={lang} symbol={selected} showToggle={true} />
           <CalendarPanel />
@@ -2399,11 +2404,8 @@ export default function DinoTerminal() {
               })}
             </div>
             <MarketPulseWidget liveStocks={stocks} />
-            <YieldCurvePanel stocks={stocks} />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
             <SectorMap />
-            <GlobalMarketsPanel stocks={stocks} />
-            <CommodityFXPanel stocks={stocks} />
           </>
         )}
 
@@ -2444,19 +2446,25 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── INFO TAB: fundamentals + analyst + insider (no duplicate nav links) ── */}
+        {/* ── MACRO TAB: rates + yield curve + global markets + commodities/FX ── */}
+        {mTab === "macro" && (
+          <>
+            <MacroPanel stocks={stocks} />
+            <YieldCurvePanel stocks={stocks} />
+            <GlobalMarketsPanel stocks={stocks} />
+            <CommodityFXPanel stocks={stocks} />
+          </>
+        )}
+
+        {/* ── INFO TAB: fundamentals + analyst + insider + AI ── */}
         {mTab === "fund" && (
           <>
             <FundamentalsPanel symbol={selected} quote={quote} />
             <AnalystPanel symbol={selected} lang={lang} />
             <InsiderPanel symbol={selected} lang={lang} />
             <InstitutionalPanel symbol={selected} lang={lang} />
+            <AIPanel symbol={selected} lang={lang} />
           </>
-        )}
-
-        {/* ── AI TAB: market analysis panel ── */}
-        {mTab === "ai" && (
-          <AIPanel symbol={selected} lang={lang} />
         )}
       </div>
 
