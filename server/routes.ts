@@ -38,11 +38,11 @@ export async function registerRoutes(
   };
 
     // Super Investor Portfolios
-    app.get("/api/super-investors", isAuthenticated, (_req, res) => {
+    app.get("/api/super-investors", (_req, res) => {
       res.json(SUPER_INVESTORS);
     });
 
-    app.get("/api/super-investors/:id", isAuthenticated, (req, res) => {
+    app.get("/api/super-investors/:id", (req, res) => {
       const investor = getSuperInvestorById(req.params.id);
       if (!investor) {
         return res.status(404).json({ message: "Investor not found" });
@@ -52,7 +52,7 @@ export async function registerRoutes(
 
     // ─── 13F Database System ────────────────────────────────────────────────────
     // GET /api/13f/:investorId — DB-only: serve from DB instantly. Returns 202 if not yet synced.
-    app.get("/api/13f/:investorId", isAuthenticated, async (req, res) => {
+    app.get("/api/13f/:investorId", async (req, res) => {
       const { investorId } = req.params;
       if (!INVESTOR_CIK_MAP[investorId]) {
         return res.status(404).json({
@@ -101,7 +101,7 @@ export async function registerRoutes(
     });
 
     // GET /api/13f-db-status — list all investors with DB sync status
-    app.get("/api/13f-db-status", isAuthenticated, async (_req, res) => {
+    app.get("/api/13f-db-status", async (_req, res) => {
       const portfolios = await storage.getAllInvestorPortfolios();
       const knownIds = Object.keys(INVESTOR_CIK_MAP);
       const statusMap = Object.fromEntries(portfolios.map(p => [p.investorId, p]));
@@ -120,7 +120,7 @@ export async function registerRoutes(
     });
 
     // GET /api/13f-status — legacy support
-    app.get("/api/13f-status", isAuthenticated, (_req, res) => {
+    app.get("/api/13f-status", (_req, res) => {
       res.json({
         supportedInvestors: Object.keys(INVESTOR_CIK_MAP),
         cikMap: INVESTOR_CIK_MAP,
@@ -133,18 +133,30 @@ export async function registerRoutes(
       res.json({ message: "Use POST /api/13f-sync/:investorId to re-sync individual investors." });
     });
 
-    // === User Profiles (authenticated) ===
-  app.get(api.profiles.get.path, isAuthenticated, async (req: any, res) => {
+    // === User Profiles ===
+  app.get(api.profiles.get.path, async (req: any, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    // Return guest profile for unauthenticated visitors
+    if (!userId) {
+      return res.json({
+        id: "guest",
+        nickname: "Guest",
+        totalXp: 0,
+        level: 1,
+        streak: 0,
+        hearts: 5,
+        language: "ko",
+        skillLevel: "beginner",
+        favoriteStocks: [],
+        authType: "guest",
+      });
+    }
     
     let profile = await storage.getUserProfile(userId);
     if (!profile) {
-      // Get language and skill level from session (set during registration/guest login)
       const sessionLanguage = req.user?.language || "ko";
       const sessionLevel = req.user?.level || "beginner";
-      
-      // Auto-create profile for new users (use upsert to handle race conditions)
       profile = await storage.upsertUserProfile({
         id: userId,
         nickname: req.user?.claims?.first_name || "Player",
@@ -154,7 +166,6 @@ export async function registerRoutes(
       });
     }
     
-    // Get user's authType from users table (if authenticated via local/guest)
     const user = await storage.getUser(userId);
     const authType = user?.authType || "oidc";
     
@@ -223,7 +234,7 @@ export async function registerRoutes(
   });
 
   // Leaderboard
-  app.get("/api/leaderboard", isAuthenticated, async (req: any, res) => {
+  app.get("/api/leaderboard", async (req: any, res) => {
     const userId = getUserId(req);
     const profiles = await storage.getLeaderboard(50);
     
@@ -240,9 +251,9 @@ export async function registerRoutes(
   });
 
   // Level info endpoint
-  app.get("/api/profiles/level-info", isAuthenticated, async (req: any, res) => {
+  app.get("/api/profiles/level-info", async (req: any, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.json({ level: 1, totalXp: 0, xpInCurrentLevel: 0, xpForNextLevel: 100, streak: 0 });
     
     const profile = await storage.getUserProfile(userId);
     if (!profile) return res.status(404).json({ message: "Profile not found" });
@@ -266,13 +277,13 @@ export async function registerRoutes(
   });
 
   // Check if current user is a guest
-  app.get("/api/auth/status", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/status", async (req: any, res) => {
     const userId = getUserId(req);
-    const isGuest = userId?.startsWith("guest_") || req.user?.authType === "guest";
-    res.json({ 
-      isGuest, 
-      userId,
-      authType: req.user?.authType || "oidc"
+    const isGuest = !userId || userId?.startsWith("guest_") || req.user?.authType === "guest";
+    res.json({
+      isGuest,
+      userId: userId || null,
+      authType: userId ? (req.user?.authType || "oidc") : "guest",
     });
   });
 
@@ -626,9 +637,9 @@ export async function registerRoutes(
   });
 
   // === Watchlist ===
-  app.get(api.watchlist.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.watchlist.list.path, async (req, res) => {
       const userId = getUserId(req);
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) return res.json([]);
       
       const watchlist = await storage.getWatchlist(userId);
       const enriched = await Promise.all(watchlist.map(async (item) => {
@@ -1710,9 +1721,9 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/news/read-count", isAuthenticated, async (req: any, res) => {
+  app.get("/api/news/read-count", async (req: any, res) => {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.json({ count: 0 });
     res.json({ count: getUserNewsCount(userId) });
   });
 
@@ -2821,7 +2832,7 @@ Return EXACTLY this JSON:
   });
 
   // === Economic Actuals (FRED) ===
-  app.get("/api/economic-actuals", isAuthenticated, async (req, res) => {
+  app.get("/api/economic-actuals", async (req, res) => {
     try {
       const pythonRes = await fetch("http://127.0.0.1:5001/economic_actuals", {
         signal: AbortSignal.timeout(20000),
@@ -2835,7 +2846,7 @@ Return EXACTLY this JSON:
   });
 
   // === Earnings Live ===
-  app.get("/api/earnings/upcoming", isAuthenticated, async (_req, res) => {
+  app.get("/api/earnings/upcoming", async (_req, res) => {
     try {
       const data = await fetch("http://127.0.0.1:5001/earnings_upcoming", {
         signal: AbortSignal.timeout(50000),
@@ -3037,7 +3048,7 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
   });
 
   // === Economic Calendar ===
-  app.get("/api/economic-calendar", isAuthenticated, (req, res) => {
+  app.get("/api/economic-calendar", (req, res) => {
     try {
       const yearParam = parseInt(req.query.year as string);
       const monthParam = parseInt(req.query.month as string);

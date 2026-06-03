@@ -9,8 +9,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeColorProvider } from "@/contexts/ThemeColorContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { TimezoneProvider } from "@/contexts/TimezoneContext";
-import { useAuth } from "@/hooks/use-auth";
-
 // Pages
 import TerminalMarkets from "@/pages/TerminalMarkets";
 import DinoTerminal from "@/pages/DinoTerminal";
@@ -22,8 +20,6 @@ import StockDetail from "@/pages/StockDetail";
 import Recommended from "@/pages/Recommended";
 import Settings from "@/pages/Settings";
 import Collection from "@/pages/Collection";
-import Onboarding from "@/pages/Onboarding";
-import Landing from "@/pages/Landing";
 import EconomicCalendar from "@/pages/EconomicCalendar";
 import SuperInvestors from "@/pages/SuperInvestors";
 import GlobalSearch from "@/pages/GlobalSearch";
@@ -34,7 +30,6 @@ import AIPortfolio from "@/pages/AIPortfolio";
 import StockChat from "@/pages/StockChat";
 import ChartMaster from "@/pages/ChartMaster";
 import NotFound from "@/pages/not-found";
-import { useState, useEffect } from "react";
 
 // Desktop router (terminal tab routes)
 function DesktopRouter() {
@@ -94,22 +89,8 @@ function MobileRouter() {
 }
 
 function AuthenticatedLayout({ children }: { children?: React.ReactNode }) {
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    const complete = localStorage.getItem("onboarding_complete");
-    if (!complete) setShowOnboarding(true);
-  }, []);
-
-  const handleOnboardingComplete = () => {
-    localStorage.setItem("onboarding_complete", "true");
-    setShowOnboarding(false);
-  };
-
   return (
     <>
-      {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
-
       {/* ─── DESKTOP: Terminal layout (full-height, no scroll on outer) ─── */}
       <div className="hidden md:flex flex-col h-screen overflow-hidden bg-background text-foreground">
         <TerminalTopBar />
@@ -131,23 +112,6 @@ function AuthenticatedLayout({ children }: { children?: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { user, isLoading, isAuthenticated } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Landing />;
-  }
-
   return <AuthenticatedLayout />;
 }
 
