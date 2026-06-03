@@ -273,6 +273,11 @@ export function GlobalMacroDashboard() {
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery<MacroDashboardData>({
     queryKey: ["/api/macro/dashboard"],
+    queryFn: async () => {
+      const res = await fetch("/api/macro/dashboard");
+      if (!res.ok) throw new Error(`macro/dashboard failed: ${res.status}`);
+      return res.json();
+    },
     staleTime: 1000 * 55,
     refetchInterval: 1000 * 60,
     gcTime: 1000 * 120,

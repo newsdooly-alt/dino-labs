@@ -1,97 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
-import { useAuth } from "@/hooks/use-auth";
-import { useState, useRef } from "react";
-import { Flame, Zap, User, Search, Bot, Settings, LogOut, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { Flame, Zap, User, Search, Bot } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileMenu } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 
 const TABS = [
-  { label: "시장", en: "Markets", ja: "市場", href: "/" },
-  { label: "모니터", en: "Monitor", ja: "モニター", href: "/watchlist" },
-  { label: "차트", en: "Chart", ja: "チャート", href: "/pro" },
-  { label: "뉴스", en: "News", ja: "ニュース", href: "/hot-issues" },
-  { label: "포트폴리오", en: "Portfolio", ja: "ポートフォリオ", href: "/ai-portfolio" },
-  { label: "투자자", en: "Investors", ja: "投資家", href: "/investors" },
-  { label: "퀘스트", en: "Quests", ja: "クエスト", href: "/quests" },
-  { label: "AI", en: "AI", ja: "AI", href: "/chat" },
-  { label: "다이노터미널", en: "DinoTerminal", ja: "DinoTerminal", href: "/terminal", highlight: true },
+  { label: "시장",       en: "Markets",     ja: "市場",        href: "/" },
+  { label: "시장동향",   en: "Trends",      ja: "トレンド",    href: "/market-trends" },
+  { label: "뉴스",       en: "News",        ja: "ニュース",    href: "/hot-issues" },
+  { label: "차트",       en: "Pro Chart",   ja: "チャート",    href: "/pro" },
+  { label: "캘린더",     en: "Calendar",    ja: "カレンダー",  href: "/calendar" },
+  { label: "실적",       en: "Earnings",    ja: "決算",        href: "/earnings" },
+  { label: "투자자",     en: "Investors",   ja: "投資家",      href: "/investors" },
+  { label: "퀘스트",     en: "Quests",      ja: "クエスト",    href: "/quests" },
+  { label: "다이노터미널", en: "Terminal",  ja: "ターミナル",  href: "/terminal", highlight: true },
 ];
-
-const TOP_MENUS = [
-  {
-    label: "Markets",
-    items: [
-      { label: "시장 대시보드", href: "/" },
-      { label: "시장 동향", href: "/market-trends" },
-      { label: "핫 이슈", href: "/hot-issues" },
-      { label: "실적 Live", href: "/earnings" },
-      { label: "경제 캘린더", href: "/calendar" },
-    ]
-  },
-  {
-    label: "Portfolio",
-    items: [
-      { label: "관심 종목", href: "/watchlist" },
-      { label: "AI 포트폴리오", href: "/ai-portfolio" },
-      { label: "추천 종목", href: "/recommended" },
-    ]
-  },
-  {
-    label: "Research",
-    items: [
-      { label: "슈퍼 투자자", href: "/investors" },
-      { label: "종목 검색", href: "/search" },
-      { label: "프로 대시보드", href: "/pro" },
-    ]
-  },
-  {
-    label: "Tools",
-    items: [
-      { label: "차트 마스터", href: "/chart-master" },
-      { label: "경제 캘린더", href: "/calendar" },
-      { label: "설정", href: "/settings" },
-    ]
-  },
-  {
-    label: "AI",
-    items: [
-      { label: "AI 주식 챗봇", href: "/chat" },
-      { label: "AI 포트폴리오", href: "/ai-portfolio" },
-      { label: "퀘스트 (AI 퀴즈)", href: "/quests" },
-    ]
-  },
-];
-
-function DropdownMenu({ menu }: { menu: typeof TOP_MENUS[0] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  return (
-    <div
-      ref={ref}
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button className="flex items-center gap-0.5 px-2.5 h-full text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wide">
-        {menu.label}
-        <ChevronDown className="w-2.5 h-2.5" />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-0 w-44 bg-card border border-border rounded-lg shadow-xl z-[200] py-1 overflow-hidden">
-          {menu.items.map(item => (
-            <Link key={item.href} href={item.href} className="block px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" onClick={() => setOpen(false)}>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function TerminalTopBar() {
   const [location] = useLocation();
@@ -124,11 +50,6 @@ export function TerminalTopBar() {
         <div className="flex items-center gap-2 px-3 border-r border-border shrink-0">
           <div className="w-5 h-5 bg-primary/20 rounded flex items-center justify-center text-primary text-[10px] font-black">D</div>
           <span className="text-[11px] font-bold tracking-widest uppercase text-foreground font-mono">DinoInvest</span>
-        </div>
-
-        {/* Top-level dropdown menus */}
-        <div className="flex items-stretch border-r border-border shrink-0">
-          {TOP_MENUS.map(m => <DropdownMenu key={m.label} menu={m} />)}
         </div>
 
         {/* Tab strip */}
@@ -197,7 +118,7 @@ export function TerminalTopBar() {
         </div>
       </header>
 
-      {/* ── MOBILE header (unchanged experience) ────────────────────── */}
+      {/* ── MOBILE header ────────────────────────────────────────────── */}
       <header className="md:hidden sticky top-0 z-40 w-full bg-background/80 backdrop-blur-lg border-b border-border px-3 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <button

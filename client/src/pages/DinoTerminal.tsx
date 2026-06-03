@@ -51,11 +51,15 @@ const WATCH_NAMES: Record<string,string> = {
   "GC=F":"Gold","CL=F":"Crude Oil",
 };
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","JPY=X"];
-const MACRO_SYMS = ["^TNX","^VIX","^IRX","GC=F","CL=F","JPY=X"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X"];
+const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"KOSPI","^IXIC":"NDX",
-  "GC=F":"GOLD","CL=F":"OIL","BTC-USD":"BTC","JPY=X":"JPY",
+  "GC=F":"GOLD","CL=F":"OIL","BTC-USD":"BTC","JPY=X":"USD/JPY",
   "^TNX":"10Y","^VIX":"VIX","^IRX":"3M",
+  "^FVX":"5Y","^TYX":"30Y","SI=F":"SILVER","HG=F":"COPPER",
+  "NG=F":"NATGAS","EURUSD=X":"EUR/USD","GBPUSD=X":"GBP/USD",
+  "^GDAXI":"DAX","^FTSE":"FTSE","^HSI":"HSI","^N225":"NKY",
 };
 
 // ── Multi-language label system ───────────────────────────────────────────────
@@ -932,6 +936,179 @@ function CrossAssetTable({ stocks }: { stocks: Record<string,any> }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// YIELD CURVE PANEL  — Treasury yields 3M / 5Y / 10Y / 30Y
+// ══════════════════════════════════════════════════════════════════════════════
+function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
+  const pts = [
+    { label:"3M",  sym:"^IRX" },
+    { label:"5Y",  sym:"^FVX" },
+    { label:"10Y", sym:"^TNX" },
+    { label:"30Y", sym:"^TYX" },
+  ];
+  const vals = pts.map(p => ({ ...p, y: stocks[p.sym]?.price as number|undefined }));
+  const y10  = stocks["^TNX"]?.price as number|undefined;
+  const y3m  = stocks["^IRX"]?.price as number|undefined;
+  const inverted = y10 != null && y3m != null && y10 < y3m;
+  const maxY = Math.max(...vals.map(v => v.y ?? 0), 0.01);
+
+  return (
+    <div className="p-2 border-t" style={{ borderColor:C.border }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color:C.muted }}>YIELD CURVE</span>
+        {inverted && (
+          <span className="text-[7px] font-mono px-1.5 py-0.5 rounded font-bold"
+            style={{ background:C.down+"33", color:C.down }}>
+            ⚠ INVERTED
+          </span>
+        )}
+      </div>
+      <div className="flex items-end gap-2 h-16">
+        {vals.map(({ label, sym, y }) => {
+          const h   = y && maxY ? Math.max(6, (y/maxY)*52) : 4;
+          const clr = inverted && sym === "^IRX" ? C.down : C.info;
+          return (
+            <div key={sym} className="flex-1 flex flex-col items-center gap-0.5">
+              <span className="text-[8px] font-mono font-bold" style={{ color:clr }}>
+                {y != null ? y.toFixed(2)+"%" : "—"}
+              </span>
+              <div className="w-full rounded-sm transition-all duration-700"
+                style={{ height:h, background: clr+(inverted && sym==="^IRX" ? "bb" : "55") }} />
+              <span className="text-[7px] font-mono" style={{ color:C.muted }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+      {y10 != null && y3m != null && (
+        <div className="mt-1.5 text-[8px] font-mono" style={{ color:C.muted }}>
+          10Y-3M 스프레드:{" "}
+          <span style={{ color:(y10-y3m)>=0 ? C.up : C.down }}>
+            {(y10-y3m)>=0?"+":" "}{(y10-y3m).toFixed(2)}%
+          </span>
+          {inverted && <span className="ml-1" style={{ color:C.down }}>경기침체 신호</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBAL MARKETS PANEL  — world indices table
+// ══════════════════════════════════════════════════════════════════════════════
+const WORLD_INDICES = [
+  { sym:"SPY",    label:"S&P 500",  flag:"🇺🇸" },
+  { sym:"QQQ",    label:"NASDAQ",   flag:"🇺🇸" },
+  { sym:"^KS11",  label:"KOSPI",    flag:"🇰🇷" },
+  { sym:"^N225",  label:"NIKKEI",   flag:"🇯🇵" },
+  { sym:"^GDAXI", label:"DAX",      flag:"🇩🇪" },
+  { sym:"^FTSE",  label:"FTSE 100", flag:"🇬🇧" },
+  { sym:"^HSI",   label:"HSI",      flag:"🇭🇰" },
+];
+
+function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="p-2 border-t" style={{ borderColor:C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+        style={{ color:C.muted }}>GLOBAL MARKETS</div>
+      <table className="w-full" style={{ borderCollapse:"collapse" }}>
+        <thead>
+          <tr>
+            <td className="text-[7px] font-mono pb-1" style={{ color:C.muted }}>INDEX</td>
+            <td className="text-[7px] font-mono pb-1 text-right" style={{ color:C.muted }}>LAST</td>
+            <td className="text-[7px] font-mono pb-1 text-right" style={{ color:C.muted }}>CHG%</td>
+          </tr>
+        </thead>
+        <tbody>
+          {WORLD_INDICES.map(({ sym, label, flag }) => {
+            const q  = stocks[sym];
+            const up = isUp(q?.changePercent);
+            return (
+              <tr key={sym} className="border-t" style={{ borderColor:C.border+"40" }}>
+                <td className="py-0.5">
+                  <span className="text-[9px] font-mono" style={{ color:C.muted }}>
+                    {flag} {label}
+                  </span>
+                </td>
+                <td className="text-right text-[9px] font-mono" style={{ color:C.text }}>
+                  {q ? fmtPrice(q.price, sym) : "—"}
+                </td>
+                <td className="text-right text-[9px] font-mono font-bold"
+                  style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+                  {q ? fmtPct(q.changePercent) : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COMMODITY & FX PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+const COMM_DEF = [
+  { sym:"GC=F",  label:"Gold",    emoji:"🥇" },
+  { sym:"SI=F",  label:"Silver",  emoji:"🥈" },
+  { sym:"CL=F",  label:"WTI",     emoji:"🛢️" },
+  { sym:"HG=F",  label:"Copper",  emoji:"🔶" },
+  { sym:"NG=F",  label:"NatGas",  emoji:"🔥" },
+];
+const FX_DEF = [
+  { sym:"EURUSD=X", label:"EUR/USD" },
+  { sym:"GBPUSD=X", label:"GBP/USD" },
+  { sym:"JPY=X",    label:"USD/JPY" },
+];
+
+function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="p-2 border-t" style={{ borderColor:C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+        style={{ color:C.muted }}>COMMODITIES</div>
+      <div className="grid grid-cols-2 gap-1 mb-3">
+        {COMM_DEF.map(({ sym, label, emoji }) => {
+          const q  = stocks[sym];
+          const up = isUp(q?.changePercent);
+          return (
+            <div key={sym} className="rounded px-1.5 py-1"
+              style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
+              <div className="text-[8px] font-mono" style={{ color:C.muted }}>{emoji} {label}</div>
+              <div className="text-[10px] font-mono font-bold" style={{ color:C.text }}>
+                {q ? `$${q.price?.toFixed(sym==="GC=F"||sym==="SI=F" ? 2 : (sym==="HG=F"?4:2))}` : "—"}
+              </div>
+              <div className="text-[8px] font-mono font-bold"
+                style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+                {q ? fmtPct(q.changePercent) : "—"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1"
+        style={{ color:C.muted }}>FX RATES</div>
+      {FX_DEF.map(({ sym, label }) => {
+        const q  = stocks[sym];
+        const up = isUp(q?.changePercent);
+        return (
+          <div key={sym} className="flex items-center justify-between py-0.5 border-t"
+            style={{ borderColor:C.border+"40" }}>
+            <span className="text-[9px] font-mono" style={{ color:C.muted }}>{label}</span>
+            <span className="text-[9px] font-mono" style={{ color:C.text }}>
+              {q ? q.price?.toFixed(sym==="JPY=X" ? 2 : 4) : "—"}
+            </span>
+            <span className="text-[8px] font-mono font-bold"
+              style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+              {q ? fmtPct(q.changePercent) : "—"}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2019,7 +2196,7 @@ export default function DinoTerminal() {
   useEffect(() => { localStorage.setItem("dino-terminal-tab", mTab); }, [mTab]);
 
   // ─── FAST FIRST LOAD: only batch live prices ───────────────────────────────
-  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, ...MACRO_SYMS, selected]));
+  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, ...MACRO_SYMS, ...GLOBAL_SYMS, selected]));
   const { data: stocks = {}, isLoading: liveLdg, isError: liveErr } = useLivePrices(allSyms);
   const quote = stocks[selected];
 
@@ -2128,8 +2305,9 @@ export default function DinoTerminal() {
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
             <MacroPanel stocks={stocks} />
-            <CrossAssetTable stocks={stocks} />
-            <FlowRadar stocks={stocks} />
+            <YieldCurvePanel stocks={stocks} />
+            <GlobalMarketsPanel stocks={stocks} />
+            <CommodityFXPanel stocks={stocks} />
           </div>
         </div>
 
@@ -2221,9 +2399,11 @@ export default function DinoTerminal() {
               })}
             </div>
             <MarketPulseWidget liveStocks={stocks} />
+            <YieldCurvePanel stocks={stocks} />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
             <SectorMap />
-            <FlowRadar stocks={stocks} />
+            <GlobalMarketsPanel stocks={stocks} />
+            <CommodityFXPanel stocks={stocks} />
           </>
         )}
 
