@@ -1193,11 +1193,11 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
             </div>
 
             {isOpen && (
-              <div className="px-2 pb-2" style={{ background:C.panel2 }}>
-                {/* Inline summary (shown expanded too) */}
+              <div className="px-2 pb-2 overflow-hidden" style={{ background:C.panel2 }}>
+                {/* Inline Korean summary */}
                 {inlineSummary && (
-                  <div className="text-[9px] font-mono leading-relaxed mb-1.5 px-1.5 py-1 rounded"
-                    style={{ background:C.border+"40", color:C.text }}>
+                  <div className="text-[9px] font-mono leading-relaxed mb-1.5 px-1.5 py-1 rounded break-words"
+                    style={{ background:C.border+"40", color:C.text, wordBreak:"break-word" }}>
                     {lang === "ko" ? "🇰🇷" : lang === "ja" ? "🇯🇵" : "🇺🇸"} {inlineSummary}
                   </div>
                 )}
@@ -1205,7 +1205,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                 {/* AI multi-lang summary buttons */}
                 <div className="flex items-center gap-1 mb-1.5 flex-wrap">
                   <Languages className="w-2.5 h-2.5 shrink-0" style={{ color:C.info }} />
-                  <span className="text-[8px] font-mono shrink-0" style={{ color:C.muted }}>{T("aiSummary", lang)}</span>
+                  <span className="text-[8px] font-mono" style={{ color:C.muted }}>{T("aiSummary", lang)}</span>
                   {LANGS.map(({ code, flag, label }) => {
                     const hasSummary = !!summaries[itemKey]?.[code];
                     const isGen = genLang === code;
@@ -1226,17 +1226,23 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                   })}
                 </div>
 
-                {/* Generated summaries */}
+                {/* Generated summaries — each fully visible, text wraps */}
                 {LANGS.map(({ code, flag }) => summaries[itemKey]?.[code] && (
-                  <div key={code} className="text-[9px] font-mono leading-relaxed mb-1 px-1.5 py-1 rounded"
-                    style={{ background:C.header, color:C.text, border:`1px solid ${C.border}` }}>
+                  <div key={code}
+                    className="text-[9px] font-mono leading-relaxed mb-1 px-1.5 py-1 rounded break-words"
+                    style={{
+                      background:C.header, color:C.text,
+                      border:`1px solid ${C.border}`,
+                      wordBreak:"break-word", overflowWrap:"anywhere",
+                    }}>
                     <span style={{ color:C.info }}>{flag} </span>{summaries[itemKey][code]}
                   </div>
                 ))}
 
                 <a href={item.link||"#"} target="_blank" rel="noopener noreferrer"
-                  className="text-[8px] font-mono" style={{ color:C.info }}>
-                  {T("readMore", lang)} {item.publisher ? `(${item.publisher})` : "→"}
+                  className="text-[8px] font-mono mt-0.5 block truncate"
+                  style={{ color:C.info }}>
+                  {T("readMore", lang)} {item.publisher ? `· ${item.publisher}` : "→"}
                 </a>
               </div>
             )}
