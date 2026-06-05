@@ -575,14 +575,26 @@ function WatchGrid({ stocks, onSelect, selected, isLoading }: {
                   borderLeft:`2px solid ${sel ? C.info : "transparent"}`,
                 }}>
                 <div className="text-left min-w-0">
-                  <div className="text-[10px] font-mono font-bold leading-tight"
-                    style={{ color: sel ? C.info : C.text }}>
-                    {sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","")}
-                  </div>
-                  <div className="text-[8px] font-mono truncate leading-tight"
-                    style={{ color: C.muted }}>
-                    {WATCH_NAMES[sym] || ""}
-                  </div>
+                  {(() => {
+                    const isKR = sym.endsWith(".KS");
+                    const koName = WATCH_NAMES[sym] || "";
+                    const ticker = sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","");
+                    return isKR && koName ? (
+                      <>
+                        <div className="text-[10px] font-mono font-bold leading-tight truncate"
+                          style={{ color: sel ? C.info : C.text }}>{koName}</div>
+                        <div className="text-[8px] font-mono leading-tight"
+                          style={{ color: C.muted }}>{ticker}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[10px] font-mono font-bold leading-tight"
+                          style={{ color: sel ? C.info : C.text }}>{ticker}</div>
+                        {koName && <div className="text-[8px] font-mono truncate leading-tight"
+                          style={{ color: C.muted }}>{koName}</div>}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="text-[11px] font-mono" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : <span style={{ color: C.muted }}>—</span>}
@@ -2131,9 +2143,11 @@ function SymbolSearch({ onSelect, stocks = {} }: {
                 className="flex items-center justify-between w-full px-3 py-1.5 hover:bg-[#1a2d42]">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-[10px] font-mono font-bold shrink-0" style={{ color:C.info }}>
-                    {ticker.replace(".KS","").replace("^","")}
+                    {ticker.endsWith(".KS") && name ? name : ticker.replace(".KS","").replace("^","")}
                   </span>
-                  <span className="text-[9px] font-mono truncate" style={{ color:C.muted }}>{name}</span>
+                  <span className="text-[9px] font-mono truncate" style={{ color:C.muted }}>
+                    {ticker.endsWith(".KS") && name ? ticker.replace(".KS","") : name}
+                  </span>
                 </div>
                 {q?.changePercent != null && (
                   <span className={cn("text-[9px] font-mono font-bold shrink-0 ml-2",
@@ -2410,7 +2424,9 @@ export default function DinoTerminal() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-mono font-bold" style={{ color:C.info }}>
-              {selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
+              {selected.endsWith(".KS") && WATCH_NAMES[selected]
+                ? WATCH_NAMES[selected]
+                : selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
             </span>
             {quote && (
               <span className="text-[11px] font-mono font-bold"

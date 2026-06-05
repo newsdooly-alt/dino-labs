@@ -3063,7 +3063,7 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
   });
 
   // === AI Portfolio Builder ===
-  app.post("/api/portfolio/generate", isAuthenticated, async (req, res) => {
+  app.post("/api/portfolio/generate", async (req, res) => {
     try {
       const {
         riskTolerance = 5, horizon = "medium", returnTarget = 5,
