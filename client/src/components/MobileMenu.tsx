@@ -12,7 +12,6 @@ interface MobileMenuProps {
 
 const menuItems = [
   { path: "/terminal",     icon: Terminal,  translationKey: "mobile_menu_terminal" as const, highlight: true },
-  { path: "/",             icon: Home,     translationKey: "mobile_menu_dashboard" as const },
   { path: "/quests",       icon: Target,   translationKey: "mobile_menu_quests" as const },
   { path: "/market-trends",icon: TrendingUp,translationKey: "mobile_menu_trends" as const },
   { path: "/search",       icon: Search,   translationKey: "mobile_menu_search" as const },

@@ -1328,7 +1328,7 @@ def get_market_news():
         return jsonify({"news": _news_cache["data"], "count": len(_news_cache["data"]), "fetchedAt": datetime.now().isoformat(), "cached": True})
     try:
         # Get news from major market ETFs and stocks
-        tickers_for_news = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA']
+        tickers_for_news = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA', 'TSLA', 'META', 'AMZN', 'GOOGL', 'BRK-B']
         all_news = []
         seen_titles = set()
         
@@ -1338,7 +1338,7 @@ def get_market_news():
                 news = ticker.news
                 
                 if news:
-                    for item in news[:3]:  # Get top 3 from each
+                    for item in news[:5]:  # Get top 5 from each
                         # Handle both old and new yfinance news structure
                         content = item.get('content', item)
                         title = content.get('title', item.get('title', ''))
@@ -1397,9 +1397,9 @@ def get_market_news():
                 print(f"Error fetching news for {symbol}: {e}")
                 continue
         
-        # Sort by publish time (newest first) and limit to 10
+        # Sort by publish time (newest first) and limit to 30
         all_news.sort(key=lambda x: x['publishedAt'], reverse=True)
-        all_news = all_news[:10]
+        all_news = all_news[:30]
 
         _news_cache["data"] = all_news
         _news_cache["ts"] = _t.time()

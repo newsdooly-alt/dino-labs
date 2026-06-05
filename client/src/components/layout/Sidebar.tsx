@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Target, LineChart, Settings, LogOut, TrendingUp, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle, BookOpen } from "lucide-react";
+import { Terminal, Target, LineChart, Settings, LogOut, TrendingUp, Sparkles, Calendar, Briefcase, Search, Zap, Newspaper, BarChart2, Brain, MessageCircle, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translations } from "@/lib/translations";
 
@@ -13,7 +13,7 @@ export function Sidebar() {
   const t = translations[lang];
 
   const navItems = [
-    { href: "/", label: lang === "ko" ? "대시보드" : t.dashboard, icon: LayoutDashboard },
+    { href: "/", label: lang === "ko" ? "다이노터미널" : lang === "ja" ? "ターミナル" : "DinoTerminal", icon: Terminal },
     { href: "/quests", label: lang === "ko" ? "퀘스트" : t.quests, icon: Target },
     { href: "/market-trends", label: lang === "ko" ? "시장 동향" : t.market_trends, icon: TrendingUp },
     { href: "/search", label: lang === "ko" ? "종목 검색" : t.search_tab, icon: Search },

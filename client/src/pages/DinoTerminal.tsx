@@ -238,11 +238,11 @@ function useGainers() {
 }
 
 /** News — returns [{ title, link, publisher, publishedAt, thumbnail }] */
-function useNews() {
+function useNews(lang: Lang = "ko") {
   return useQuery<any[]>({
-    queryKey: ["/api/news"],
+    queryKey: ["/api/news", lang],
     queryFn: async () => {
-      const res = await fetch("/api/news");
+      const res = await fetch(`/api/news?lang=${lang}&limit=20`);
       if (!res.ok) throw new Error("news failed");
       const d = await res.json();
       return Array.isArray(d) ? d : (d?.news || []);
@@ -326,6 +326,23 @@ function useAnalyst(symbol: string) {
     staleTime: 3_600_000,
     retry: 1,
     enabled: !!symbol,
+  });
+}
+
+/** Live stock search via Yahoo Finance API */
+function useStockSearch(query: string) {
+  return useQuery<{ticker:string; name:string}[]>({
+    queryKey: ["/api/stocks/search", query],
+    queryFn: async () => {
+      if (query.length < 2) return [];
+      const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return [];
+      const d = await res.json();
+      return (d.results || []).map((r: any) => ({ ticker: r.symbol, name: r.name }));
+    },
+    enabled: query.length >= 2,
+    staleTime: 60_000,
+    retry: false,
   });
 }
 
@@ -551,16 +568,20 @@ function WatchGrid({ stocks, onSelect, selected, isLoading }: {
             const sel = sym === selected;
             return (
               <button key={sym} onClick={() => onSelect(sym)}
-                className="w-full grid px-2 py-1 text-right transition-all"
+                className="w-full grid px-2 py-0.5 text-right transition-all"
                 style={{
                   gridTemplateColumns:"1fr 68px 52px 38px",
                   background: sel ? "#1a2d42" : "transparent",
                   borderLeft:`2px solid ${sel ? C.info : "transparent"}`,
                 }}>
-                <div className="text-left">
-                  <div className="text-[11px] font-mono font-bold"
+                <div className="text-left min-w-0">
+                  <div className="text-[10px] font-mono font-bold leading-tight"
                     style={{ color: sel ? C.info : C.text }}>
                     {sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","")}
+                  </div>
+                  <div className="text-[8px] font-mono truncate leading-tight"
+                    style={{ color: C.muted }}>
+                    {WATCH_NAMES[sym] || ""}
                   </div>
                 </div>
                 <div className="text-[11px] font-mono" style={{ color: C.text }}>
@@ -683,6 +704,7 @@ function FlowRadar({ stocks }: { stocks: Record<string,any> }) {
 // PRICE CHART  (history.data[] → close/date/volume)
 // ══════════════════════════════════════════════════════════════════════════════
 const PERIODS: {label:string; period:string; interval:string}[] = [
+  { label:"1D",  period:"1d",   interval:"5m"  },
   { label:"5D",  period:"5d",   interval:"1h"  },
   { label:"1M",  period:"1mo",  interval:"1d"  },
   { label:"3M",  period:"3mo",  interval:"1d"  },
@@ -850,17 +872,33 @@ function TechEngine({ symbol, quote }: { symbol:string; quote:any }) {
     ? Math.max(20, Math.min(80, 50 + (quote.changePercent ?? 0) * 2.5))
     : null;
 
+  // 52-week range position %
+  const hi = info?.["52WeekHigh"];
+  const lo = info?.["52WeekLow"];
+  const range52 = (hi && lo && quote && hi > lo)
+    ? ((quote.price - lo) / (hi - lo) * 100).toFixed(0) + "%"
+    : "—";
+
+  const currency = symbol.endsWith(".KS") || symbol === "^KS11" ? "KRW" : "USD";
+
   const metrics: [string, string, string][] = [
-    ["PRICE",   quote ? fmtPrice(quote.price, symbol) : "—",               C.text  ],
-    ["CHG%",    quote ? fmtPct(quote.changePercent) : "—",
-                quote ? (isUp(quote.changePercent) ? C.up : C.down) : C.muted],
-    ["52W HIGH", info?.["52WeekHigh"] ? fmtPrice(info["52WeekHigh"], symbol) : "—",  C.muted ],
-    ["52W LOW",  info?.["52WeekLow"]  ? fmtPrice(info["52WeekLow"],  symbol) : "—",  C.muted ],
-    ["P/E",      info?.peRatio       ? info.peRatio.toFixed(1)  : "—",      C.text  ],
-    ["P/B",      info?.pbRatio       ? info.pbRatio.toFixed(2)  : "—",      C.text  ],
-    ["BETA",     info?.beta          ? info.beta.toFixed(2)      : "—",      C.muted ],
-    ["RSI~",     rsiApprox           ? rsiApprox.toFixed(0)     : "—",
-                rsiApprox ? (rsiApprox > 70 ? C.down : rsiApprox < 30 ? C.up : C.text) : C.muted],
+    ["PRICE",    quote ? fmtPrice(quote.price, symbol) : "—",
+                 C.text],
+    ["CHG%",     quote ? fmtPct(quote.changePercent) : "—",
+                 quote ? (isUp(quote.changePercent) ? C.up : C.down) : C.muted],
+    ["52W↑",     hi ? fmtPrice(hi, symbol) : "—",    C.muted],
+    ["52W↓",     lo ? fmtPrice(lo, symbol) : "—",    C.muted],
+    ["P/E",      info?.peRatio  ? info.peRatio.toFixed(1) : "—",  C.text],
+    ["P/B",      info?.pbRatio  ? info.pbRatio.toFixed(2) : "—",  C.text],
+    ["BETA",     info?.beta     ? info.beta.toFixed(2)    : "—",  C.muted],
+    ["RSI~",     rsiApprox      ? rsiApprox.toFixed(0)    : "—",
+                 rsiApprox ? (rsiApprox > 70 ? C.down : rsiApprox < 30 ? C.up : C.text) : C.muted],
+    ["MKTCAP",   fmtMktCap(info?.marketCap, currency),  C.text],
+    ["DIV%",     info?.dividendYield
+                   ? (info.dividendYield * 100).toFixed(2) + "%"
+                   : "—",  C.up],
+    ["EPS",      info?.eps ? info.eps.toFixed(2) : "—",  C.text],
+    ["52W%",     range52,  C.muted],
   ];
 
   return (
@@ -1248,7 +1286,7 @@ function CalendarPanel() {
 // NEWS PANEL — language-aware, market/company toggle, AI multi-lang summary
 // ══════════════════════════════════════════════════════════════════════════════
 function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
-  const marketNews = useNews();
+  const marketNews = useNews(lang as Lang);
   const stockNews  = useStockNews(symbol);
 
   const [mode, setMode] = useState<"market"|"company">("market");
@@ -1258,7 +1296,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
     Array.isArray(rawItems) ? rawItems :
     Array.isArray(rawItems?.news) ? rawItems.news :
     []
-  ).slice(0, 10);
+  ).slice(0, 20);
 
   const { isLoading, isError } = activeQuery;
 
@@ -1287,6 +1325,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
   // What to show inline below title (default summary in user's language)
   function getInlineSummary(item: any): string | null {
     if (lang === "ko" && item.koreanSummary) return item.koreanSummary;
+    if (lang === "ja" && item.japaneseSummary) return item.japaneseSummary;
     return null;
   }
 
@@ -2005,8 +2044,19 @@ function SymbolSearch({ onSelect, stocks = {} }: {
 }) {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const [debouncedQ, setDebouncedQ] = useState("");
 
-  const results: {ticker:string; name:string}[] = useMemo(() => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(query.trim()), 400);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Live API search (for non-Korean queries, covers Japanese, US, etc.)
+  const { data: liveResults = [] } = useStockSearch(
+    debouncedQ.length >= 2 && !containsKorean(debouncedQ) ? debouncedQ : ""
+  );
+
+  const staticResults: {ticker:string; name:string}[] = useMemo(() => {
     const q = query.trim();
     if (!q) {
       return QUICK_SYMS.map(t => {
@@ -2015,7 +2065,7 @@ function SymbolSearch({ onSelect, stocks = {} }: {
       });
     }
     if (containsKorean(q)) {
-      return searchByKoreanAlias(q).slice(0, 8).map(a => ({ ticker: a.ticker, name: a.ko }));
+      return searchByKoreanAlias(q).slice(0, 10).map(a => ({ ticker: a.ticker, name: a.ko }));
     }
     const up = q.toUpperCase();
     const tickerHits = QUICK_SYMS.filter(s => s.startsWith(up));
@@ -2031,6 +2081,17 @@ function SymbolSearch({ onSelect, stocks = {} }: {
       return { ticker: t, name: a?.ko || a?.en || t };
     });
   }, [query]);
+
+  // Merge static + live, deduplicate
+  const results: {ticker:string; name:string; isLive?:boolean}[] = useMemo(() => {
+    const q = query.trim();
+    if (!q || containsKorean(q)) return staticResults;
+    const staticTickers = new Set(staticResults.map(r => r.ticker));
+    const liveOnly = liveResults
+      .filter(r => !staticTickers.has(r.ticker))
+      .map(r => ({ ...r, isLive: true }));
+    return [...staticResults, ...liveOnly].slice(0, 12);
+  }, [staticResults, liveResults, query]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -2188,7 +2249,7 @@ export default function DinoTerminal() {
   const { data: user } = useUser();
   const lang = ((user?.language as Lang) || "ko") as Lang;
   const [selected, setSelected] = useState("005930.KS");
-  const [pIdx, setPIdx] = useState(1);        // 1 = "1M"
+  const [pIdx, setPIdx] = useState(2);        // 2 = "1M" (0=1D,1=5D,2=1M...)
   const [mTab, setMTab] = useState<MTab>(() =>
     (localStorage.getItem("dino-terminal-tab") as MTab) || "market"
   );
