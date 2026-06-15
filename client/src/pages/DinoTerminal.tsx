@@ -576,9 +576,9 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const r = await fetch(`/api/stocks/search?q=${encodeURIComponent(query.trim())}`);
+        const r = await fetch(`/api/stocks/search?query=${encodeURIComponent(query.trim())}`);
         const d = await r.json();
-        setSearchResults((d.results || []).slice(0, 8));
+        setSearchResults((Array.isArray(d) ? d : (d.results || [])).slice(0, 8));
       } catch { setSearchResults([]); }
       setSearching(false);
     }, 300);

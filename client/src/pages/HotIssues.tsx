@@ -93,19 +93,18 @@ function detectCategory(item: HotIssueItem): RawCategory {
   const full = (title + " " + (item.summary || "")).toLowerCase();
   const ageHours = item.publishedAt ? (Date.now() / 1000 - item.publishedAt) / 3600 : 999;
 
-  // 1. Economy — macro data & Fed policy FIRST (before market, so "Fed cuts rates" → 경제)
-  if (/\bgdp\b|inflation\b|cpi\b|\bpce\b|unemployment rate|nonfarm|jobs report|consumer price index|trade (war|deal|deficit)|tariff|import (duty|tariff)|fiscal policy|federal budget|national debt|federal reserve|the fed\b|\bfomc\b|interest rate (hike|cut|hold|rise|fall)|rate (hike|cut|pause|decision)|monetary policy|quantitative (easing|tightening)|rate cut|rate hike|treasury yield/.test(full)) return "economy";
+  // 1. Economy — macro data, Fed policy, trade, fiscal (checked first)
+  if (/\bgdp\b|\binflation\b|\bcpi\b|\bpce\b|unemployment rate|nonfarm|jobs report|consumer price index|trade (war|deal|deficit|tension)|tariff|import (duty|tariff)|fiscal policy|federal budget|national debt|federal reserve|the fed\b|\bfomc\b|interest rate|rate (hike|cut|pause|decision|rise|fall)|monetary policy|quantitative (easing|tightening)|rate cut|rate hike|treasury yield|debt ceiling|recession|economic growth|us economy|global economy|fed chair|jerome powell|janet yellen|treasury secretary|yield curve|10-year yield|bond yield/.test(full)) return "economy";
 
-  // 2. Market — broad market movement & indices
-  if (item.isMarketImpact ||
-    /\bs&p 500\b|\bnasdaq\b|\bdow jones\b|\bdow industrials\b|\bkospi\b|\bnikkei\b|stock market (rises?|falls?|rallies|drops?|surges?|tumbles?|gains?|loses?|climbs?|slides?)|wall street|broad market|market (rally|selloff|sell-off|crash|correction|pullback|rebound|rout)|equity markets?|global markets?|markets (open|close|rise|fall)/.test(full)) return "market";
+  // 2. Analysis — analyst actions, ratings, price targets, earnings estimates (before market)
+  if (/\banalyst\b|\banalysts\b|upgrade[sd]?|downgrade[sd]?|price target|buy rating|sell rating|overweight|underweight|outperform|underperform|neutral rating|hold rating|initiates? coverage|reiterates?|maintains? (a )?(buy|sell|hold|neutral)|raises? (its |a )?price target|cuts? (its |a )?price target|research note|\bpt\b raised|\bpt\b cut|eps (forecast|estimate|beat|miss|surprise)|earnings (estimate|forecast|beat|miss|preview|surprise|growth)|revenue (guidance|forecast|estimate|beat|miss)|outlook (raised|lowered|maintained|cut)|raises? guidance|cuts? guidance|consensus estimate|wall street expects?|target price|fair value|valuation|q[1-4] (earnings|results|revenue|eps)|full.year (guidance|outlook)|fiscal (year|quarter)/.test(full)) return "analysis";
 
-  // 3. Analysis — analyst actions, ratings, price targets, earnings estimates
-  if (/\banalyst\b|upgrades? (to|from)|downgrades? (to|from)|price target|buy rating|sell rating|overweight|underweight|outperform|underperform|initiates? coverage|reiterates?|maintains? (buy|sell|hold|neutral)|raises? (price target|\bpt\b)|cuts? (price target|\bpt\b)|research note|eps (forecast|estimate|beat|miss|surprise)|earnings (estimate|forecast|beat|miss|preview|surprise)|revenue (guidance|forecast|estimate|beat|miss)|outlook (raised|lowered|maintained|cut)|raises? guidance|cuts? guidance|consensus estimate|price target raised|price target cut/.test(full)) return "analysis";
+  // 3. Market — broad market movement & indices (isMarketImpact catches macro articles from backend)
+  if (/\bs&p 500\b|\bnasdaq\b|\bdow jones\b|\bdow industrials\b|\bkospi\b|\bnikkei\b|stock market (rises?|falls?|rallies|drops?|surges?|tumbles?|gains?|loses?|climbs?|slides?)|wall street|broad market|market (rally|selloff|sell-off|crash|correction|pullback|rebound|rout)|equity markets?|global markets?|markets (open|close|rise|fall)|futures (rise|fall|climb|drop|surge)|index (rises?|falls?|gains?|drops?)/.test(full)) return "market";
 
-  // 4. Breaking — recent news with genuinely urgent/significant event language
-  if (ageHours < 4 &&
-    /\bbreaking\b|just in\b|deal\b|merger\b|acquisition\b|takeover\b|buyout\b|recall\b|investigation\b|fined?\b|penalty\b|lawsuit\b|bankruptcy\b|layoffs?\b|job cuts?\b|\bceo\b resigns?|appointed? (ceo|cfo|chairman)|names? (ceo|cfo)|announces? deal|signs? deal/.test(full)) return "breaking";
+  // 4. Breaking — recent urgent/significant events
+  if (ageHours < 6 &&
+    /\bbreaking\b|just in\b|merger\b|acquisition\b|takeover\b|buyout\b|recall\b|investigation\b|fined?\b|penalty\b|lawsuit\b|bankruptcy\b|chapter 11|layoffs?\b|job cuts?\b|resigns?\b|fired\b|appointed? (ceo|cfo|chairman)|names? (ceo|cfo)|announces? (deal|merger|acquisition)|signs? (deal|agreement)/.test(full)) return "breaking";
 
   // 5. Default — company-specific news
   return "corporate";
