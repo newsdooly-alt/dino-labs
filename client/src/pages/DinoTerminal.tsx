@@ -3229,9 +3229,7 @@ export default function DinoTerminal() {
   const lang = ((user?.language as Lang) || "ko") as Lang;
   const [selected, setSelected] = useState("005930.KS");
   const [pIdx, setPIdx] = useState(2);        // 2 = "1M" (0=1D,1=5D,2=1M...)
-  const [mTab, setMTab] = useState<MTab>(() =>
-    (localStorage.getItem("dino-terminal-tab") as MTab) || "market"
-  );
+  const [mTab, setMTab] = useState<MTab>("market");
   const [watchSyms, setWatchSyms] = useState<string[]>(loadWatchSyms);
   const [watchNames, setWatchNames] = useState<Record<string,string>>(loadWatchNames);
   const [showEditModal, setShowEditModal] = useState(false);
