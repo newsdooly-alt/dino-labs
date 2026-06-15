@@ -7,12 +7,7 @@ export function useQuests() {
     queryKey: ["/api/quests"],
     queryFn: async () => {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await fetch(`/api/quests?tz=${encodeURIComponent(tz)}`, { credentials: "include" });
-      
-      if (res.status === 401) {
-        return [];
-      }
-      
+      const res = await fetch(`/api/quests/daily?tz=${encodeURIComponent(tz)}`, { credentials: "include" });
       if (!res.ok) throw new Error('Failed to fetch quests');
       return res.json();
     },

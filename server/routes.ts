@@ -589,9 +589,8 @@ export async function registerRoutes(
     });
   });
 
-  app.post(api.quests.complete.path, isAuthenticated, async (req, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  app.post(api.quests.complete.path, async (req, res) => {
+    const userId = getUserId(req) || "guest";
     
     const questId = Number(req.params.id);
     const { answerIndex } = req.body;
