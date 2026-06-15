@@ -41,7 +41,8 @@ const _infoCache   = new Map<string, CacheEntry<any>>();
 
 const QUOTE_TTL   = 60_000;    // 60 s  – live prices
 const NEWS_TTL    = 600_000;   // 10 min – market news
-const HISTORY_TTL = 900_000;   // 15 min – chart data
+const HISTORY_TTL    = 900_000;   // 15 min – chart data (non-intraday)
+const HISTORY_TTL_1D = 120_000;   //  2 min – 1D intraday chart (live market)
 const INFO_TTL    = 1_800_000; // 30 min – fundamentals
 
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string, ttl: number): T | null {
@@ -228,7 +229,10 @@ export async function getStockHistory(
   const upperSymbol = symbol.toUpperCase();
   const cacheKey = `${upperSymbol}|${period}|${interval}|${start || ''}|${end || ''}`;
 
-  const cached = cacheGet(_historyCache, cacheKey, HISTORY_TTL);
+  // Use shorter TTL for 1D intraday so new candles appear quickly during trading hours
+  const is1DIntraday = (period === '1d' && ['1m','2m','5m','10m','15m','30m'].includes(interval));
+  const ttl = is1DIntraday ? HISTORY_TTL_1D : HISTORY_TTL;
+  const cached = cacheGet(_historyCache, cacheKey, ttl);
   if (cached) {
     console.log(`[yfinance] History cache hit: ${cacheKey}`);
     return cached;

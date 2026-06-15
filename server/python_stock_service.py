@@ -744,8 +744,21 @@ def get_history(symbol):
     
     try:
         ticker = yf.Ticker(symbol.upper())
+        
+        # For 1D intraday charts: fetch 2 days and keep only the latest trading date.
+        # yfinance period='1d' with interval='5m' often returns just 1–2 bars at market
+        # open because it covers the last 24h of trading time, not the full current session.
+        # Using period='2d' guarantees we get the complete current session.
+        is_1d_intraday = (period == '1d' and interval in ('1m', '2m', '5m', '10m', '15m', '30m'))
+        
         if start:
             hist = ticker.history(start=start, end=end, interval=interval)
+        elif is_1d_intraday:
+            hist = ticker.history(period='2d', interval=interval)
+            if not hist.empty:
+                # Keep only the most recent trading date
+                latest_date = hist.index[-1].date()
+                hist = hist[hist.index.map(lambda x: x.date()) == latest_date]
         else:
             hist = ticker.history(period=period, interval=interval)
         
