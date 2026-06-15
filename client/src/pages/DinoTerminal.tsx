@@ -75,7 +75,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
   localStorage.setItem(LS_NAMES_KEY, JSON.stringify(names));
 }
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","ETH-USD","SOL-USD","XRP-USD","JPY=X","^VIX"];
-const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"KOSPI","^IXIC":"NDX",
@@ -1545,8 +1545,8 @@ function TechEngine({ symbol, quote }: { symbol:string; quote:any }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // CROSS ASSET TABLE  (real data from batch live)
 // ══════════════════════════════════════════════════════════════════════════════
-function CrossAssetTable({ stocks }: { stocks: Record<string,any> }) {
-  const syms = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
+function CrossAssetTable({ stocks, onSelect }: { stocks: Record<string,any>; onSelect?: (s:string)=>void }) {
+  const syms = ["AAPL","NVDA","TSLA","MSFT","AMZN","META","SPY","QQQ","GC=F","BTC-USD"];
   return (
     <div className="p-2 border-t" style={{ borderColor: C.border }}>
       <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2"
@@ -1567,11 +1567,14 @@ function CrossAssetTable({ stocks }: { stocks: Record<string,any> }) {
               const q  = stocks[sym];
               const up = isUp(q?.changePercent);
               return (
-                <tr key={sym} className="border-t" style={{ borderColor:C.border+"50" }}>
-                  <td>
-                    <Link href={`/stock/${sym}`}
-                      className="text-[10px] font-mono font-bold hover:underline"
-                      style={{ color:C.info }}>{sym}</Link>
+                <tr key={sym} className="border-t cursor-pointer"
+                  style={{ borderColor:C.border+"50" }}
+                  onClick={() => onSelect?.(sym)}
+                  onMouseEnter={e => (e.currentTarget.style.background = C.accent+"10")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <td className="py-1">
+                    <span className="text-[10px] font-mono font-bold"
+                      style={{ color:C.info }}>{sym.replace("=F","").replace("-USD","")}</span>
                   </td>
                   <td className="text-[10px] font-mono text-right py-1"
                     style={{ color:C.text }}>
@@ -1765,6 +1768,362 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MACRO SIGNAL PANEL  — 4 key derived macro signals
+// ══════════════════════════════════════════════════════════════════════════════
+function MacroSignalPanel({ stocks }: { stocks: Record<string,any> }) {
+  const vix   = stocks["^VIX"]?.price as number|undefined;
+  const tnx   = stocks["^TNX"]?.price as number|undefined;
+  const irx   = stocks["^IRX"]?.price as number|undefined;
+  const dxy   = stocks["DX-Y.NYB"]?.price as number|undefined;
+  const dxyC  = stocks["DX-Y.NYB"]?.changePercent as number|undefined;
+  const hyg   = stocks["HYG"]?.changePercent as number|undefined;
+  const lqd   = stocks["LQD"]?.changePercent as number|undefined;
+  const spread = tnx != null && irx != null ? +(tnx - irx).toFixed(2) : null;
+  const creditStress = hyg != null && lqd != null ? +(hyg - lqd).toFixed(2) : null;
+
+  const signals: { label: string; value: string; sub: string; color: string }[] = [
+    {
+      label: "수익률 곡선",
+      value: spread != null ? `${spread >= 0 ? "+" : ""}${spread}%` : "—",
+      sub:   spread != null ? (spread < 0 ? "⚠ 역전 (침체 신호)" : spread < 0.5 ? "평탄화" : "정상") : "",
+      color: spread != null ? (spread < 0 ? C.down : spread < 0.5 ? C.warn : C.up) : C.muted,
+    },
+    {
+      label: "VIX 공포지수",
+      value: vix != null ? vix.toFixed(1) : "—",
+      sub:   vix != null ? (vix > 30 ? "극단적 공포" : vix > 20 ? "불안정" : vix > 15 ? "보통" : "안정") : "",
+      color: vix != null ? (vix > 30 ? C.down : vix > 20 ? C.warn : C.up) : C.muted,
+    },
+    {
+      label: "신용 스프레드",
+      value: creditStress != null ? `${creditStress >= 0 ? "+" : ""}${creditStress}%` : "—",
+      sub:   creditStress != null ? (creditStress < -0.3 ? "⚠ 신용 긴축" : creditStress > 0.3 ? "신용 이완" : "중립") : "HYG vs LQD",
+      color: creditStress != null ? (creditStress < -0.3 ? C.down : creditStress > 0.3 ? C.up : C.muted) : C.muted,
+    },
+    {
+      label: "달러 강도(DXY)",
+      value: dxy != null ? dxy.toFixed(2) : "—",
+      sub:   dxyC != null ? `${dxyC >= 0 ? "▲" : "▼"}${Math.abs(dxyC).toFixed(2)}% 오늘` : "",
+      color: dxyC != null ? (dxyC > 0.5 ? C.down : dxyC < -0.5 ? C.up : C.muted) : C.muted,
+    },
+  ];
+
+  return (
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+        style={{ color: C.muted }}>거시 신호 · MACRO SIGNALS</div>
+      <div className="grid grid-cols-2 gap-1">
+        {signals.map(s => (
+          <div key={s.label} className="rounded px-2 py-1.5"
+            style={{ background: C.panel2, border: `1px solid ${s.color}30` }}>
+            <div className="text-[7px] font-mono mb-0.5" style={{ color: C.muted }}>{s.label}</div>
+            <div className="text-[13px] font-mono font-black" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-[7px] font-mono mt-0.5" style={{ color: s.color + "cc" }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BOND ETF PANEL  — duration ladder + credit
+// ══════════════════════════════════════════════════════════════════════════════
+const BOND_ETFS = [
+  { sym:"TLT",  label:"TLT",  desc:"미 20Y+",      cat:"dur" },
+  { sym:"IEF",  label:"IEF",  desc:"미 7-10Y",     cat:"dur" },
+  { sym:"SHY",  label:"SHY",  desc:"미 1-3Y",      cat:"dur" },
+  { sym:"TIP",  label:"TIP",  desc:"물가연동채",   cat:"infl" },
+  { sym:"HYG",  label:"HYG",  desc:"하이일드",     cat:"credit" },
+  { sym:"LQD",  label:"LQD",  desc:"투자등급",     cat:"credit" },
+  { sym:"EMB",  label:"EMB",  desc:"EM 채권",      cat:"em" },
+];
+
+function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color: C.muted }}>채권 ETF · BOND ETFs</span>
+        <span className="text-[7px] font-mono" style={{ color: C.muted }}>금리↑ = 채권↓</span>
+      </div>
+      {BOND_ETFS.map(({ sym, label, desc }) => {
+        const q   = stocks[sym];
+        const pct = q?.changePercent as number|undefined;
+        const up  = (pct ?? 0) >= 0;
+        const barW = Math.min(Math.abs(pct ?? 0) * 15, 100);
+        return (
+          <div key={sym} className="flex items-center gap-2 py-0.5 border-t"
+            style={{ borderColor: C.border + "30" }}>
+            <div className="w-[28px] shrink-0">
+              <span className="text-[9px] font-mono font-bold" style={{ color: C.info }}>{label}</span>
+            </div>
+            <div className="w-[52px] shrink-0">
+              <div className="text-[7px] font-mono" style={{ color: C.muted }}>{desc}</div>
+            </div>
+            <div className="flex-1 relative h-[4px] rounded-full overflow-hidden" style={{ background: C.border }}>
+              <div className="absolute h-full rounded-full"
+                style={{ width: `${barW}%`, background: up ? C.up : C.down, opacity: 0.7 }} />
+            </div>
+            <div className="w-[44px] text-right shrink-0">
+              <span className="text-[9px] font-mono font-bold"
+                style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
+                {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
+              </span>
+            </div>
+            <div className="w-[44px] text-right shrink-0">
+              <span className="text-[9px] font-mono" style={{ color: C.text }}>
+                {q?.price != null ? `$${q.price.toFixed(2)}` : "—"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+      <div className="mt-1.5 text-[7px] font-mono" style={{ color: C.muted }}>
+        * TIP 상승 = 기대 인플레이션 상승 신호
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DOLLAR & FX EXTENDED PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+const DOLLAR_FX_DEF = [
+  { sym:"DX-Y.NYB", label:"DXY",     desc:"달러 인덱스",  toFix:2 },
+  { sym:"EURUSD=X", label:"EUR/USD", desc:"유로",         toFix:4 },
+  { sym:"GBPUSD=X", label:"GBP/USD", desc:"파운드",       toFix:4 },
+  { sym:"JPY=X",    label:"USD/JPY", desc:"엔화",         toFix:2 },
+  { sym:"KRW=X",    label:"USD/KRW", desc:"원화",         toFix:0 },
+  { sym:"CNY=X",    label:"USD/CNY", desc:"위안화",       toFix:4 },
+  { sym:"AUDUSD=X", label:"AUD/USD", desc:"호주달러",     toFix:4 },
+];
+
+function DollarFXPanel({ stocks }: { stocks: Record<string,any> }) {
+  const dxy    = stocks["DX-Y.NYB"]?.price as number|undefined;
+  const dxyChg = stocks["DX-Y.NYB"]?.changePercent as number|undefined;
+  const dxyStrength = dxy != null
+    ? (dxy > 106 ? "매우 강세" : dxy > 103 ? "강세" : dxy > 99 ? "보통" : "약세")
+    : "—";
+
+  return (
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          style={{ color: C.muted }}>달러 & 통화 · FX</span>
+        {dxy != null && (
+          <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded"
+            style={{
+              color: (dxyChg ?? 0) > 0 ? C.down : C.up,
+              background: ((dxyChg ?? 0) > 0 ? C.down : C.up) + "20"
+            }}>
+            DXY {dxy.toFixed(2)} {dxyStrength}
+          </span>
+        )}
+      </div>
+      {DOLLAR_FX_DEF.map(({ sym, label, desc, toFix }) => {
+        const q   = stocks[sym];
+        const pct = q?.changePercent as number|undefined;
+        const up  = (pct ?? 0) >= 0;
+        // DXY up = USD strong = bad for EM/commodities; for FX pairs it's inverted
+        const isDXY = sym === "DX-Y.NYB";
+        const clr = pct != null
+          ? (isDXY
+              ? (up ? C.down : C.up)   // DXY up = dollar strong = risk off
+              : (sym.startsWith("USD") || sym === "JPY=X" || sym === "KRW=X" || sym === "CNY=X"
+                  ? (up ? C.down : C.up)
+                  : (up ? C.up : C.down)))
+          : C.muted;
+        return (
+          <div key={sym} className="flex items-center justify-between py-0.5 border-t"
+            style={{ borderColor: C.border + "30" }}>
+            <div className="min-w-0">
+              <span className="text-[9px] font-mono font-bold" style={{ color: C.text }}>{label}</span>
+              <span className="text-[7px] font-mono ml-1" style={{ color: C.muted }}>{desc}</span>
+            </div>
+            <div className="text-right flex items-center gap-2 shrink-0">
+              <span className="text-[9px] font-mono" style={{ color: C.text }}>
+                {q?.price != null ? q.price.toFixed(toFix) : "—"}
+              </span>
+              <span className="text-[8px] font-mono font-bold w-[44px] text-right" style={{ color: clr }}>
+                {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+      <div className="mt-1.5 text-[7px] font-mono" style={{ color: C.muted }}>
+        * DXY↑ = 달러강세 → 원자재↓·신흥국↓ 압박
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COMMODITY EXTENDED PANEL  — energy, metals, agriculture
+// ══════════════════════════════════════════════════════════════════════════════
+const COMM_EXT_DEF = [
+  // Energy
+  { sym:"CL=F",  label:"WTI유가",   group:"에너지", unit:"$", toFix:2 },
+  { sym:"BZ=F",  label:"브렌트유",  group:"에너지", unit:"$", toFix:2 },
+  { sym:"NG=F",  label:"천연가스",  group:"에너지", unit:"$", toFix:3 },
+  // Metals
+  { sym:"GC=F",  label:"금",       group:"귀금속", unit:"$", toFix:0 },
+  { sym:"SI=F",  label:"은",       group:"귀금속", unit:"$", toFix:3 },
+  { sym:"HG=F",  label:"구리",     group:"산업금속", unit:"$", toFix:4 },
+  // Agriculture
+  { sym:"ZW=F",  label:"밀",       group:"농산물", unit:"¢", toFix:0 },
+  { sym:"ZC=F",  label:"옥수수",   group:"농산물", unit:"¢", toFix:0 },
+];
+
+function CommExtPanel({ stocks }: { stocks: Record<string,any> }) {
+  const groups = ["에너지","귀금속","산업금속","농산물"];
+  return (
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+        style={{ color: C.muted }}>원자재 · COMMODITIES</div>
+      {groups.map(grp => {
+        const items = COMM_EXT_DEF.filter(c => c.group === grp);
+        return (
+          <div key={grp} className="mb-2">
+            <div className="text-[7px] font-mono mb-0.5" style={{ color: C.muted + "cc" }}>{grp}</div>
+            <div className="grid grid-cols-3 gap-px" style={{ background: C.border }}>
+              {items.map(({ sym, label, unit, toFix }) => {
+                const q   = stocks[sym];
+                const pct = q?.changePercent as number|undefined;
+                const up  = (pct ?? 0) >= 0;
+                return (
+                  <div key={sym} className="px-1.5 py-1" style={{ background: C.panel2 }}>
+                    <div className="text-[7px] font-mono" style={{ color: C.muted }}>{label}</div>
+                    <div className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                      {q?.price != null ? `${unit}${q.price.toFixed(toFix)}` : "—"}
+                    </div>
+                    <div className="text-[8px] font-mono font-bold"
+                      style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
+                      {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {/* Brent-WTI spread */}
+      {(() => {
+        const brent = stocks["BZ=F"]?.price as number|undefined;
+        const wti   = stocks["CL=F"]?.price as number|undefined;
+        if (!brent || !wti) return null;
+        const spread = +(brent - wti).toFixed(2);
+        return (
+          <div className="mt-1 text-[7px] font-mono" style={{ color: C.muted }}>
+            브렌트-WTI 스프레드: <span style={{ color: C.info }}>${spread >= 0 ? "+" : ""}{spread}</span>
+            <span className="ml-1">{spread > 3 ? "(공급 우려)" : spread < 1 ? "(정상범위)" : "(보통)"}</span>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INTEREST RATE DETAIL PANEL  — global rates + SKEW
+// ══════════════════════════════════════════════════════════════════════════════
+function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
+  const yields = [
+    { sym:"^IRX", label:"미 3개월",  toFix:3 },
+    { sym:"^FVX", label:"미 5년",    toFix:3 },
+    { sym:"^TNX", label:"미 10년",   toFix:3 },
+    { sym:"^TYX", label:"미 30년",   toFix:3 },
+  ];
+  const tnx  = stocks["^TNX"]?.price as number|undefined;
+  const irx  = stocks["^IRX"]?.price as number|undefined;
+  const tyx  = stocks["^TYX"]?.price as number|undefined;
+  const fvx  = stocks["^FVX"]?.price as number|undefined;
+  const skew = stocks["^SKEW"]?.price as number|undefined;
+  const vix  = stocks["^VIX"]?.price as number|undefined;
+  const termPremium = tyx != null && tnx != null ? +(tyx - tnx).toFixed(2) : null;
+  const bellyCurve  = tnx != null && irx != null ? +(tnx - irx).toFixed(2) : null;
+  const twos5s = fvx != null && irx != null ? +(fvx - irx).toFixed(2) : null;
+
+  return (
+    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+        style={{ color: C.muted }}>금리 상세 · RATES DETAIL</div>
+
+      {/* Yield bars */}
+      <div className="flex items-end gap-1.5 h-12 mb-1">
+        {yields.map(({ sym, label, toFix }) => {
+          const p = stocks[sym]?.price as number|undefined;
+          const maxY = Math.max(...yields.map(y => (stocks[y.sym]?.price as number|undefined) ?? 0), 0.01);
+          const h = p ? Math.max(6, (p/maxY)*44) : 4;
+          const up = (stocks[sym]?.changePercent ?? 0) >= 0;
+          return (
+            <div key={sym} className="flex-1 flex flex-col items-center gap-0.5">
+              <span className="text-[7px] font-mono font-bold" style={{ color: up ? C.up : C.down }}>
+                {p != null ? p.toFixed(toFix)+"%" : "—"}
+              </span>
+              <div className="w-full rounded-t transition-all"
+                style={{ height: h, background: C.info + "66" }} />
+              <span className="text-[6px] font-mono" style={{ color: C.muted }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Spreads */}
+      <div className="grid grid-cols-2 gap-px mt-1" style={{ background: C.border }}>
+        {[
+          { label:"3M-10Y 스프레드", val:bellyCurve, inv: bellyCurve != null && bellyCurve < 0 },
+          { label:"10Y-30Y 기간프리미엄", val:termPremium, inv:false },
+        ].map(({ label, val, inv }) => (
+          <div key={label} className="px-1.5 py-1" style={{ background: C.panel2 }}>
+            <div className="text-[7px] font-mono" style={{ color: C.muted }}>{label}</div>
+            <div className="text-[11px] font-mono font-bold"
+              style={{ color: val != null ? (inv ? C.down : val >= 0 ? C.up : C.down) : C.muted }}>
+              {val != null ? `${val >= 0 ? "+" : ""}${val}%` : "—"}
+            </div>
+            {inv && val != null && val < 0 && (
+              <div className="text-[7px] font-mono" style={{ color: C.down }}>⚠ 역전</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* SKEW + VIX ratio */}
+      {(skew != null || vix != null) && (
+        <div className="mt-1.5 grid grid-cols-2 gap-px" style={{ background: C.border }}>
+          {skew != null && (
+            <div className="px-1.5 py-1" style={{ background: C.panel2 }}>
+              <div className="text-[7px] font-mono" style={{ color: C.muted }}>SKEW 지수</div>
+              <div className="text-[11px] font-mono font-bold"
+                style={{ color: skew > 140 ? C.down : skew > 120 ? C.warn : C.up }}>
+                {skew.toFixed(1)}
+              </div>
+              <div className="text-[7px] font-mono" style={{ color: C.muted }}>
+                {skew > 140 ? "테일 리스크↑" : skew > 120 ? "주의" : "낮음"}
+              </div>
+            </div>
+          )}
+          {vix != null && skew != null && (
+            <div className="px-1.5 py-1" style={{ background: C.panel2 }}>
+              <div className="text-[7px] font-mono" style={{ color: C.muted }}>SKEW/VIX 비율</div>
+              <div className="text-[11px] font-mono font-bold"
+                style={{ color: (skew/vix) > 8 ? C.down : C.up }}>
+                {(skew/vix).toFixed(1)}×
+              </div>
+              <div className="text-[7px] font-mono" style={{ color: C.muted }}>
+                {(skew/vix) > 8 ? "꼬리위험 내재" : "정상 범위"}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -3120,7 +3479,7 @@ export default function DinoTerminal() {
                 prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
-            <CrossAssetTable stocks={stocks} />
+            <CrossAssetTable stocks={stocks} onSelect={sym => { selectSym(sym); }} />
             <StockNewsCompact symbol={selected} lang={lang} />
           </>
         )}
@@ -3133,12 +3492,16 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── MACRO TAB: rates + yield curve + global markets + commodities/FX ── */}
+        {/* ── MACRO TAB: full macro suite ── */}
         {mTab === "macro" && (
           <>
-            <MacroPanel stocks={stocks} />
+            <MacroSignalPanel stocks={stocks} />
+            <RatesDetailPanel stocks={stocks} />
             <YieldCurvePanel stocks={stocks} />
+            <BondETFPanel stocks={stocks} />
+            <DollarFXPanel stocks={stocks} />
             <GlobalMarketsPanel stocks={stocks} />
+            <CommExtPanel stocks={stocks} />
             <CommodityFXPanel stocks={stocks} />
           </>
         )}
