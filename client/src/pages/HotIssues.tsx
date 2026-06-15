@@ -90,23 +90,43 @@ const CATEGORY_META: Record<RawCategory, { ko: string; en: string; ja: string; c
 
 function detectCategory(item: HotIssueItem): RawCategory {
   const title = (item.title || "").toLowerCase();
-  const full = (title + " " + (item.summary || "")).toLowerCase();
+  const summary = (item.summary || "").toLowerCase();
+  const full = title + " " + summary;
+
+  // Extract URL slug for original English keyword matching
+  const slug = ((item.link || "").split("/").pop() || "").replace(/[-_]/g, " ").replace(/\.\w+$/, "").toLowerCase();
+  const eng = slug + " " + full; // combined English slug + Korean text
+
   const ageHours = item.publishedAt ? (Date.now() / 1000 - item.publishedAt) / 3600 : 999;
 
-  // 1. Economy — macro data, Fed policy, trade, fiscal (checked first)
-  if (/\bgdp\b|\binflation\b|\bcpi\b|\bpce\b|unemployment rate|nonfarm|jobs report|consumer price index|trade (war|deal|deficit|tension)|tariff|import (duty|tariff)|fiscal policy|federal budget|national debt|federal reserve|the fed\b|\bfomc\b|interest rate|rate (hike|cut|pause|decision|rise|fall)|monetary policy|quantitative (easing|tightening)|rate cut|rate hike|treasury yield|debt ceiling|recession|economic growth|us economy|global economy|fed chair|jerome powell|janet yellen|treasury secretary|yield curve|10-year yield|bond yield/.test(full)) return "economy";
+  // ── 1. ECONOMY ─────────────────────────────────────────────────────────────
+  // English slug patterns
+  const econEng = /\bgdp\b|inflation|cpi\b|pce\b|unemployment|nonfarm|jobs report|jobless|consumer price|trade war|trade deal|trade deficit|tariff|fiscal policy|federal budget|national debt|federal reserve|the fed\b|fomc|interest rate|rate hike|rate cut|monetary policy|quantitative easing|quantitative tightening|treasury yield|debt ceiling|recession|economic growth|us economy|global economy|fed chair|jerome powell|powell|yellen|treasury secretary|yield curve|10.year yield|bond yield|oil price|crude price|crude oil|energy price|commodity price|gold price|dollar index|dollar strength|usd|forex/.test(slug);
+  // Korean text patterns
+  const econKo = /유가|금리|인플레|물가|연준|연방준비|국채|gdp|무역|관세|경기|재정|기준금리|고용|실업|소비자물가|생산자물가|fomc|jerome powell|파월|옐런|재무부|수익률|채권|달러|달러화|원유|원자재|금값|환율|무역적자|수출입/.test(full);
+  if (econEng || econKo) return "economy";
 
-  // 2. Analysis — analyst actions, ratings, price targets, earnings estimates (before market)
-  if (/\banalyst\b|\banalysts\b|upgrade[sd]?|downgrade[sd]?|price target|buy rating|sell rating|overweight|underweight|outperform|underperform|neutral rating|hold rating|initiates? coverage|reiterates?|maintains? (a )?(buy|sell|hold|neutral)|raises? (its |a )?price target|cuts? (its |a )?price target|research note|\bpt\b raised|\bpt\b cut|eps (forecast|estimate|beat|miss|surprise)|earnings (estimate|forecast|beat|miss|preview|surprise|growth)|revenue (guidance|forecast|estimate|beat|miss)|outlook (raised|lowered|maintained|cut)|raises? guidance|cuts? guidance|consensus estimate|wall street expects?|target price|fair value|valuation|q[1-4] (earnings|results|revenue|eps)|full.year (guidance|outlook)|fiscal (year|quarter)/.test(full)) return "analysis";
+  // ── 2. ANALYSIS ────────────────────────────────────────────────────────────
+  // English slug patterns
+  const analEng = /analyst|upgrade|downgrade|price target|buy rating|sell rating|overweight|underweight|outperform|underperform|neutral|hold rating|initiates coverage|reiterates|raises target|cuts target|research note|eps estimate|earnings estimate|earnings beat|earnings miss|earnings preview|revenue guidance|outlook raised|outlook lowered|raises guidance|cuts guidance|consensus|wall street expects|target price|fair value|valuation|resets target|revisits target|sets target|stock target|lowers target|raises pt|cuts pt|jpmorgan|goldman sachs|morgan stanley|bank of america|citi|ubs|barclays|rbc|piper|bernstein|needham|wedbush|jefferies|cowen|stifel|mizuho|hsbc/.test(slug);
+  // Korean text patterns
+  const analKo = /목표가|투자의견|상향|하향|매수|매도|중립|보유|애널리스트|분석가|리서치|실적 전망|주가 목표|jp모건|골드만|모건스탠리|뱅크오브아메리카|씨티|목표 주가|분기 실적|연간 전망|eps|per|pbr|fair value|밸류에이션|주가수익/.test(full);
+  if (analEng || analKo) return "analysis";
 
-  // 3. Market — broad market movement & indices (isMarketImpact catches macro articles from backend)
-  if (/\bs&p 500\b|\bnasdaq\b|\bdow jones\b|\bdow industrials\b|\bkospi\b|\bnikkei\b|stock market (rises?|falls?|rallies|drops?|surges?|tumbles?|gains?|loses?|climbs?|slides?)|wall street|broad market|market (rally|selloff|sell-off|crash|correction|pullback|rebound|rout)|equity markets?|global markets?|markets (open|close|rise|fall)|futures (rise|fall|climb|drop|surge)|index (rises?|falls?|gains?|drops?)/.test(full)) return "market";
+  // ── 3. MARKET ──────────────────────────────────────────────────────────────
+  // English slug patterns
+  const mktEng = /s.p 500|nasdaq|dow jones|dow industrials|kospi|nikkei|stock market|wall street|broad market|market rally|market selloff|market crash|market correction|equity market|global market|futures rise|futures fall|stocks surge|stocks plunge|stocks rally|stocks drop|index gain|index fall|bull market|bear market/.test(slug);
+  // Korean text patterns (보강: 시장 전반 움직임)
+  const mktKo = /나스닥|s&p|코스피|닛케이|다우|증시|주식 시장|주가 급등|주가 급락|증시 상승|증시 하락|선물 시장|시장 전반|지수 상승|지수 하락|불마켓|베어마켓/.test(full);
+  // isMarketImpact from backend (macro articles)
+  if (mktEng || mktKo || item.isMarketImpact) return "market";
 
-  // 4. Breaking — recent urgent/significant events
-  if (ageHours < 6 &&
-    /\bbreaking\b|just in\b|merger\b|acquisition\b|takeover\b|buyout\b|recall\b|investigation\b|fined?\b|penalty\b|lawsuit\b|bankruptcy\b|chapter 11|layoffs?\b|job cuts?\b|resigns?\b|fired\b|appointed? (ceo|cfo|chairman)|names? (ceo|cfo)|announces? (deal|merger|acquisition)|signs? (deal|agreement)/.test(full)) return "breaking";
+  // ── 4. BREAKING ────────────────────────────────────────────────────────────
+  const brkEng = /merger|acquisition|takeover|buyout|recall|investigation|fine[sd]|penalty|lawsuit|bankruptcy|chapter 11|layoffs|job cuts|resigns|fired|ceo appointed|names ceo|deal announced|deal signed|deal agreed|ipo|spinoff|breakup/.test(slug);
+  const brkKo = /합병|인수|리콜|조사|벌금|소송|파산|해고|감원|사임|CEO 교체|CEO 임명|이사회|분사|스핀오프|상장|기업공개/.test(full);
+  if (ageHours < 12 && (brkEng || brkKo)) return "breaking";
 
-  // 5. Default — company-specific news
+  // ── 5. Default ─────────────────────────────────────────────────────────────
   return "corporate";
 }
 
