@@ -19,7 +19,7 @@ export function Sidebar() {
     { href: "/search", label: lang === "ko" ? "종목 검색" : t.search_tab, icon: Search },
     { href: "/watchlist", label: lang === "ko" ? "관심 종목" : t.watchlist, icon: LineChart },
     { href: "/recommended", label: lang === "ko" ? "추천 종목" : "Recommendations", icon: Sparkles },
-    { href: "/hot-issues", label: lang === "ko" ? "오늘의 이슈" : lang === "ja" ? "今日のニュース" : "Today's Issues", icon: Newspaper },
+    { href: "/hot-issues", label: lang === "ko" ? "실시간 뉴스" : lang === "ja" ? "ライブニュース" : "Live News", icon: Newspaper },
     { href: "/calendar", label: lang === "ko" ? "경제 캘린더" : "Economic Calendar", icon: Calendar },
     { href: "/investors", label: lang === "ko" ? "슈퍼 투자자" : t.super_investors, icon: Briefcase },
     { href: "/chart-master", label: lang === "ko" ? "차트 마스터" : lang === "ja" ? "チャートマスター" : "Chart Master", icon: BookOpen },

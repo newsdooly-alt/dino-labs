@@ -1782,13 +1782,26 @@ export async function registerRoutes(
   const TICKER_NAME_HINTS: Record<string, string[]> = {
     "AAPL": ["apple"], "MSFT": ["microsoft"], "GOOGL": ["google", "alphabet"],
     "AMZN": ["amazon"], "NVDA": ["nvidia"], "META": ["meta", "facebook"],
-    "TSLA": ["tesla"], "JPM": ["jpmorgan", "jp morgan", "jp morgan"],
+    "TSLA": ["tesla"], "JPM": ["jpmorgan", "jp morgan"],
     "V": ["visa"], "WMT": ["walmart", "wal-mart"],
     "JNJ": ["johnson"], "UNH": ["unitedhealth", "united health"],
     "XOM": ["exxon"], "CVX": ["chevron"], "GS": ["goldman sachs"],
-    "BA": ["boeing"], "005930.KS": ["samsung electronics", "samsung"],
+    "BA": ["boeing"], "AMD": ["amd", "advanced micro"],
+    "INTC": ["intel"], "CRM": ["salesforce"], "ORCL": ["oracle"],
+    "ADBE": ["adobe"], "QCOM": ["qualcomm"], "NFLX": ["netflix"],
+    "PYPL": ["paypal"], "COIN": ["coinbase"], "SQ": ["square", "block"],
+    "BAC": ["bank of america"], "WFC": ["wells fargo"], "MA": ["mastercard"],
+    "C": ["citigroup", "citi"], "PFE": ["pfizer"], "ABBV": ["abbvie"],
+    "MRK": ["merck"], "HD": ["home depot"], "COST": ["costco"],
+    "NKE": ["nike"], "MCD": ["mcdonald"], "SBUX": ["starbucks"],
+    "CAT": ["caterpillar"], "GE": ["ge aerospace", "general electric"],
+    "RTX": ["raytheon"], "LMT": ["lockheed"],
+    "COP": ["conocophillips", "conoco"],
+    "005930.KS": ["samsung electronics", "samsung"],
     "035420.KS": ["naver"], "000660.KS": ["sk hynix", "hynix"],
-    "6758.T": ["sony"], "7203.T": ["toyota"],
+    "005380.KS": ["hyundai motor", "hyundai"],
+    "051910.KS": ["lg chem"],
+    "6758.T": ["sony"], "7203.T": ["toyota"], "9984.T": ["softbank"],
   };
 
   // Macro/Geopolitical keywords — any match → Market Impact tag
@@ -1823,34 +1836,40 @@ export async function registerRoutes(
     "SPY":  { sector: "macro_index",     relatedSymbols: ["SPY", "QQQ"] },
   };
 
-  // Diversified symbol list covering multiple sectors — 3 items max per sector
+  // Diversified symbol list covering multiple sectors
   const HOT_SYMBOLS = [
-    // US Tech
+    // US Mega-cap Tech
     "NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN",
-    // US Auto/EV
-    "TSLA",
+    // US Growth Tech
+    "TSLA", "NFLX", "AMD", "INTC", "CRM", "ORCL", "ADBE", "QCOM",
+    // US Fintech / Crypto
+    "PYPL", "COIN", "SQ",
     // US Finance
-    "JPM", "GS", "V",
+    "JPM", "GS", "BAC", "WFC", "V", "MA", "C",
     // US Energy
-    "XOM", "CVX",
+    "XOM", "CVX", "COP",
     // US Healthcare
-    "JNJ", "UNH",
-    // US Consumer/Industrial
-    "WMT", "BA",
+    "JNJ", "UNH", "PFE", "ABBV", "MRK",
+    // US Consumer
+    "WMT", "HD", "COST", "NKE", "MCD", "SBUX",
+    // US Industrial / Defense
+    "BA", "CAT", "GE", "RTX", "LMT",
     // KR
-    "005930.KS", "000660.KS", "035420.KS",
+    "005930.KS", "000660.KS", "035420.KS", "005380.KS", "051910.KS",
     // JP
-    "7203.T", "6758.T",
+    "7203.T", "6758.T", "9984.T",
   ];
 
   // Confirmed large-cap symbols (market cap > $1B) — ONLY these get the 'Hot' badge
   const MAJOR_CAP_SYMBOLS = new Set([
     "NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "TSLA", "NFLX",
-    "JPM", "GS", "BAC", "V", "MA", "WFC",
+    "AMD", "INTC", "CRM", "ORCL", "ADBE", "QCOM",
+    "PYPL", "COIN", "SQ",
+    "JPM", "GS", "BAC", "V", "MA", "WFC", "C",
     "XOM", "CVX", "COP",
     "JNJ", "UNH", "PFE", "ABBV", "MRK",
-    "WMT", "HD", "COST", "MCD", "NKE",
-    "BA", "CAT", "GE", "HON",
+    "WMT", "HD", "COST", "MCD", "NKE", "SBUX",
+    "BA", "CAT", "GE", "HON", "RTX", "LMT",
     "005930.KS", "000660.KS", "035420.KS", "051910.KS", "005380.KS",
     "7203.T", "6758.T", "9984.T", "7751.T", "4502.T",
   ]);
@@ -1860,15 +1879,20 @@ export async function registerRoutes(
     "NVDA": "tech", "AAPL": "tech", "MSFT": "tech", "GOOGL": "tech",
     "META": "tech", "AMZN": "tech", "NFLX": "tech",
     "TSLA": "auto",
+    "AMD": "tech", "INTC": "tech", "CRM": "tech", "ORCL": "tech",
+    "ADBE": "tech", "QCOM": "tech",
+    "PYPL": "fintech", "COIN": "fintech", "SQ": "fintech",
     "JPM": "finance", "GS": "finance", "BAC": "finance", "V": "finance",
-    "MA": "finance", "WFC": "finance",
+    "MA": "finance", "WFC": "finance", "C": "finance",
     "XOM": "energy", "CVX": "energy", "COP": "energy",
     "JNJ": "healthcare", "UNH": "healthcare", "PFE": "healthcare",
     "ABBV": "healthcare", "MRK": "healthcare",
     "WMT": "consumer", "HD": "consumer", "COST": "consumer",
-    "MCD": "consumer", "NKE": "consumer",
+    "MCD": "consumer", "NKE": "consumer", "SBUX": "consumer",
     "BA": "industrial", "CAT": "industrial", "GE": "industrial",
+    "RTX": "industrial", "LMT": "industrial",
     "005930.KS": "tech", "000660.KS": "tech", "035420.KS": "tech",
+    "005380.KS": "auto", "051910.KS": "chemical",
     "7203.T": "auto", "6758.T": "tech", "9984.T": "tech",
   };
 
@@ -1885,7 +1909,7 @@ export async function registerRoutes(
       const newsPromises = allSymbols.map(async (sym) => {
         try {
           const encodedSym = encodeURIComponent(sym);
-          const r = await fetch(`http://127.0.0.1:5001/news/${encodedSym}?limit=3`, {
+          const r = await fetch(`http://127.0.0.1:5001/news/${encodedSym}?limit=5`, {
             signal: AbortSignal.timeout(8000),
           });
           if (!r.ok) return [];
@@ -1962,9 +1986,9 @@ export async function registerRoutes(
         diverse.push(item);
       }
 
-      // Pass 2: corporate news (max 37 total, max 2 per company, max 4 per sector)
+      // Pass 2: corporate news (max 97 total, max 2 per company, max 6 per sector)
       for (const item of scored) {
-        if (diverse.length >= 40) break;
+        if (diverse.length >= 100) break;
         if (item.isMarketImpact) continue;
         // Block macro asset symbols from appearing as corporate news items
         if (HOT_MACRO_SYMBOLS.includes(item.symbol as string)) continue;
@@ -1982,8 +2006,8 @@ export async function registerRoutes(
         const sector = SYMBOL_SECTOR[sym] || "other";
         const companyUsed = companyCount[sym] || 0;
         const sectorUsed = sectorCount[sector] || 0;
-        if (companyUsed >= 2) continue;
-        if (sectorUsed >= 4) continue;
+        if (companyUsed >= 3) continue;
+        if (sectorUsed >= 6) continue;
         companyCount[sym] = companyUsed + 1;
         sectorCount[sector] = sectorUsed + 1;
         diverse.push(item);

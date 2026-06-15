@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
-import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Flame, RefreshCw, Clock, Filter, ChevronRight, ChevronDown, Globe2 } from "lucide-react";
+import { RefreshCw, Clock, ChevronRight, ChevronDown, Radio, Globe2, Flame } from "lucide-react";
 import { NewsDetailModal, NewsItem } from "@/components/NewsDetailModal";
 
 interface HotIssueItem extends NewsItem {
   thumbnail: string | null;
+  isMarketImpact?: boolean;
 }
 
 interface HotIssuesResponse {
@@ -17,55 +17,9 @@ interface HotIssuesResponse {
   fetchedAt: number;
 }
 
-const SYMBOL_FLAGS: Record<string, string> = {
-  // US Tech
-  "NVDA": "🇺🇸", "AAPL": "🇺🇸", "TSLA": "🇺🇸", "MSFT": "🇺🇸",
-  "AMZN": "🇺🇸", "META": "🇺🇸", "GOOGL": "🇺🇸", "NFLX": "🇺🇸",
-  // US Finance
-  "JPM": "🇺🇸", "GS": "🇺🇸", "V": "🇺🇸", "MA": "🇺🇸", "BAC": "🇺🇸", "WFC": "🇺🇸",
-  // US Energy
-  "XOM": "🇺🇸", "CVX": "🇺🇸", "COP": "🇺🇸",
-  // US Healthcare
-  "JNJ": "🇺🇸", "UNH": "🇺🇸", "PFE": "🇺🇸", "ABBV": "🇺🇸", "MRK": "🇺🇸",
-  // US Consumer / Industrial
-  "WMT": "🇺🇸", "HD": "🇺🇸", "COST": "🇺🇸", "MCD": "🇺🇸", "NKE": "🇺🇸",
-  "BA": "🇺🇸", "CAT": "🇺🇸", "GE": "🇺🇸", "HON": "🇺🇸",
-  // KR
-  "005930.KS": "🇰🇷", "000660.KS": "🇰🇷", "035420.KS": "🇰🇷",
-  "051910.KS": "🇰🇷", "005380.KS": "🇰🇷",
-  // JP
-  "7203.T": "🇯🇵", "6758.T": "🇯🇵", "9984.T": "🇯🇵", "7751.T": "🇯🇵", "4502.T": "🇯🇵",
-  // Macro assets
-  "CL=F": "🛢️", "GC=F": "🥇", "^TNX": "🏛️", "SPY": "📊", "TLT": "📉",
-};
+type CategoryId = "all" | "breaking" | "market" | "analysis" | "corporate" | "economy";
 
-const SYMBOL_NAMES: Record<string, string> = {
-  // US Tech
-  "NVDA": "엔비디아", "AAPL": "애플", "TSLA": "테슬라", "MSFT": "마이크로소프트",
-  "AMZN": "아마존", "META": "메타", "GOOGL": "구글", "NFLX": "넷플릭스",
-  // US Finance
-  "JPM": "JP모건", "GS": "골드만삭스", "V": "비자", "MA": "마스터카드",
-  "BAC": "뱅크오브아메리카", "WFC": "웰스파고",
-  // US Energy
-  "XOM": "엑슨모빌", "CVX": "쉐브론", "COP": "코노코필립스",
-  // US Healthcare
-  "JNJ": "존슨앤존슨", "UNH": "유나이티드헬스", "PFE": "화이자",
-  "ABBV": "애브비", "MRK": "머크",
-  // US Consumer / Industrial
-  "WMT": "월마트", "HD": "홈디포", "COST": "코스트코", "MCD": "맥도날드", "NKE": "나이키",
-  "BA": "보잉", "CAT": "캐터필러", "GE": "GE에어로스페이스", "HON": "허니웰",
-  // KR
-  "005930.KS": "삼성전자", "000660.KS": "SK하이닉스", "035420.KS": "네이버",
-  "051910.KS": "LG화학", "005380.KS": "현대자동차",
-  // JP
-  "7203.T": "도요타", "6758.T": "소니", "9984.T": "소프트뱅크",
-  "7751.T": "캐논", "4502.T": "다케다제약",
-  // Macro assets
-  "CL=F": "WTI 원유", "GC=F": "금 (Gold)", "^TNX": "미국채 10년",
-  "SPY": "S&P 500 ETF", "TLT": "미국장기채 ETF",
-};
-
-const INITIAL_COUNT = 10;
+const BATCH = 20;
 
 function timeAgo(ts: number, lang: string): string {
   const diff = Math.floor((Date.now() - ts * 1000) / 1000);
@@ -82,81 +36,125 @@ function timeAgo(ts: number, lang: string): string {
   return lang === "ko" ? `${d}일 전` : lang === "ja" ? `${d}日前` : `${d}d ago`;
 }
 
-function formatFetchTime(ts: number, lang: string): string {
-  const d = new Date(ts);
-  const hh = d.getHours().toString().padStart(2, "0");
-  const mm = d.getMinutes().toString().padStart(2, "0");
-  if (lang === "ko") return `${hh}:${mm} 기준`;
-  if (lang === "ja") return `${hh}:${mm} 時点`;
-  return `as of ${hh}:${mm}`;
+function normalizePublisher(raw: string): string {
+  const s = (raw || "").toLowerCase().trim();
+  if (s.includes("reuters")) return "Reuters";
+  if (s.includes("bloomberg")) return "Bloomberg";
+  if (s.includes("cnbc")) return "CNBC";
+  if (s.includes("associated press") || s === "ap" || s.includes("ap news")) return "AP News";
+  if (s.includes("wall street journal") || s === "wsj") return "WSJ";
+  if (s.includes("financial times") || s === "ft.com" || s === "ft") return "FT";
+  if (s.includes("seeking alpha")) return "Seeking Alpha";
+  if (s.includes("motley fool")) return "Motley Fool";
+  if (s.includes("barron")) return "Barron's";
+  if (s.includes("marketwatch")) return "MarketWatch";
+  if (s.includes("benzinga")) return "Benzinga";
+  if (s.includes("yahoo")) return "Yahoo Finance";
+  if (s.includes("nikkei")) return "Nikkei";
+  if (s.includes("investing.com")) return "Investing.com";
+  if (s.includes("thestreet") || s.includes("the street")) return "TheStreet";
+  if (s.includes("zacks")) return "Zacks";
+  if (s.includes("investor") && s.includes("business")) return "IBD";
+  if (s.includes("fortune")) return "Fortune";
+  if (s.includes("forbes")) return "Forbes";
+  return raw || "Other";
 }
 
-function IssueCard({
-  issue, idx, lang, onClick,
-}: { issue: HotIssueItem; idx: number; lang: string; onClick: () => void }) {
+const PUBLISHER_BADGE: Record<string, string> = {
+  Reuters: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  Bloomberg: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  CNBC: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  "AP News": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  WSJ: "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300",
+  FT: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+  "Seeking Alpha": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  "Motley Fool": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  "Barron's": "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  MarketWatch: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  Benzinga: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+};
+
+function publisherBadgeClass(name: string): string {
+  return PUBLISHER_BADGE[name] || "bg-muted text-muted-foreground";
+}
+
+type RawCategory = Exclude<CategoryId, "all">;
+
+const CATEGORY_META: Record<RawCategory, { ko: string; en: string; ja: string; cls: string }> = {
+  breaking: { ko: "속보", en: "Breaking", ja: "速報", cls: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" },
+  market:   { ko: "시황", en: "Markets",  ja: "市況", cls: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" },
+  analysis: { ko: "분석", en: "Analysis", ja: "分析", cls: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" },
+  corporate:{ ko: "기업", en: "Corporate",ja: "企業", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
+  economy:  { ko: "경제", en: "Economy",  ja: "経済", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+};
+
+function detectCategory(item: HotIssueItem): RawCategory {
+  const text = ((item.title || "") + " " + (item.summary || "")).toLowerCase();
+  const ageHours = item.publishedAt ? (Date.now() / 1000 - item.publishedAt) / 3600 : 999;
+
+  if (ageHours < 2) return "breaking";
+  if (item.isMarketImpact) return "market";
+  if (/fed |federal reserve|fomc|interest rate|treasury yield|s&p 500|nasdaq|dow jones|stock market|market (rises|falls|rallies|drops|surges|tumbles)/.test(text)) return "market";
+  if (/gdp|inflation|cpi|pce|unemployment|nonfarm payroll|jobs report|consumer price|recession|economic growth|trade (war|deal|deficit)|tariff/.test(text)) return "economy";
+  if (/analyst|upgrade|downgrade|price target|buy rating|sell rating|earnings|eps|revenue|guidance|forecast|outlook|overweight|underweight|initiates|reiterates/.test(text)) return "analysis";
+  return "corporate";
+}
+
+function NewsCard({
+  item, idx, lang, onClick,
+}: { item: HotIssueItem & { _publisher: string; _category: RawCategory }; idx: number; lang: string; onClick: () => void }) {
   const isKo = lang === "ko";
   const isJa = lang === "ja";
+  const cat = CATEGORY_META[item._category];
+  const catLabel = isKo ? cat.ko : isJa ? cat.ja : cat.en;
+
   return (
     <motion.div
-      key={`${issue.symbol}-${idx}`}
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: idx * 0.04 }}
+      transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.4) }}
       onClick={onClick}
-      className={cn(
-        "group block rounded-2xl border p-5 transition-all duration-200 hover:shadow-lg active:scale-[0.99] cursor-pointer",
-        issue.isMarketImpact
-          ? "border-orange-400/40 bg-orange-500/5 hover:border-orange-400/70 hover:bg-orange-500/10 hover:shadow-orange-500/10"
-          : issue.isHot
-            ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/10 hover:shadow-primary/10"
-            : "border-border bg-card hover:border-border/80 hover:bg-muted/30"
-      )}
-      data-testid={`card-issue-${idx}`}
+      className="group flex flex-col gap-2 py-4 border-b border-border/60 last:border-0 cursor-pointer hover:bg-muted/30 px-1 rounded-lg transition-colors"
+      data-testid={`card-news-${idx}`}
     >
-      <div className="flex items-center gap-2 mb-2.5 flex-wrap">
-        {issue.isMarketImpact && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white">
-            <Globe2 className="w-2.5 h-2.5" />
-            {isKo ? "시장 영향" : isJa ? "市場影響" : "Market Impact"}
-          </span>
-        )}
-        {issue.isHot && !issue.isMarketImpact && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
-            <Flame className="w-2.5 h-2.5" />
-            HOT
-          </span>
-        )}
-        {issue.publishedAt && (Date.now() / 1000 - issue.publishedAt) < 1800 && (
-          <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
-            NEW
-          </span>
-        )}
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-foreground/80">
-          {SYMBOL_FLAGS[issue.symbol] || "🌐"}{" "}
-          {SYMBOL_NAMES[issue.symbol] || issue.symbol}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-md", publisherBadgeClass(item._publisher))}>
+          {item._publisher}
         </span>
-        <span className="text-[11px] text-muted-foreground ml-auto">
-          {timeAgo(issue.publishedAt, lang)}
+        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md", cat.cls)}>
+          {catLabel}
+        </span>
+        {item.isHot && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground">
+            <Flame className="w-2.5 h-2.5" />HOT
+          </span>
+        )}
+        {item.isMarketImpact && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-500 text-white">
+            <Globe2 className="w-2.5 h-2.5" />
+            {isKo ? "시장영향" : isJa ? "市場影響" : "Impact"}
+          </span>
+        )}
+        <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1">
+          <Clock className="w-2.5 h-2.5" />
+          {timeAgo(item.publishedAt, lang)}
         </span>
       </div>
 
-      <p className="text-base font-bold text-foreground leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
-        {issue.title}
+      <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+        {item.title}
       </p>
 
-      {issue.summary && (
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-          {issue.summary}
+      {item.summary && (
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+          {item.summary}
         </p>
       )}
 
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] text-muted-foreground truncate">
-          {issue.publisher}
-        </span>
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary shrink-0 group-hover:gap-2 transition-all">
-          {isKo ? "AI 분석 보기" : isJa ? "AI分析を見る" : "View AI Analysis"}
-          <ChevronRight className="w-3.5 h-3.5" />
+      <div className="flex items-center justify-end">
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-primary/70 group-hover:text-primary transition-colors">
+          {isKo ? "AI 분석" : isJa ? "AI分析" : "AI Analysis"}
+          <ChevronRight className="w-3 h-3" />
         </span>
       </div>
     </motion.div>
@@ -165,13 +163,13 @@ function IssueCard({
 
 export default function HotIssues() {
   const { data: user } = useUser();
-  const lang = (user?.language || "ko") as keyof typeof translations;
+  const lang = (user?.language || "ko") as string;
   const isKo = lang === "ko";
   const isJa = lang === "ja";
 
-  const [filterHot, setFilterHot] = useState(false);
-  const [displayCount, setDisplayCount] = useState(INITIAL_COUNT);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedPublisher, setSelectedPublisher] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>("all");
+  const [displayCount, setDisplayCount] = useState(BATCH);
   const [selectedIssue, setSelectedIssue] = useState<HotIssueItem | null>(null);
 
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery<HotIssuesResponse>({
@@ -187,197 +185,220 @@ export default function HotIssues() {
     retry: 1,
   });
 
-  const allIssues = (data?.issues || []).filter((i) => !filterHot || i.isHot);
-  const hotCount = (data?.issues || []).filter((i) => i.isHot).length;
+  const enriched = useMemo(() => {
+    return (data?.issues || []).map((item) => ({
+      ...item,
+      _publisher: normalizePublisher(item.publisher),
+      _category: detectCategory(item),
+    }));
+  }, [data]);
 
-  const visibleIssues = allIssues.slice(0, displayCount);
-  const hasMore = displayCount < allIssues.length;
-  const remaining = allIssues.length - displayCount;
+  const publishers = useMemo(() => {
+    const counts: Record<string, number> = {};
+    enriched.forEach((i) => { counts[i._publisher] = (counts[i._publisher] || 0) + 1; });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
+  }, [enriched]);
 
-  const pageTitle = isKo ? "오늘의 이슈" : isJa ? "今日のニュース" : "Today's Issues";
-  const pageSubtitle = isKo
-    ? "AI가 선별한 오늘의 주요 기업 뉴스"
-    : isJa
-    ? "AIが選んだ今日の注目ニュース"
-    : "AI-curated top corporate news today";
+  const filtered = useMemo(() => {
+    return enriched.filter((i) => {
+      if (selectedPublisher !== "all" && i._publisher !== selectedPublisher) return false;
+      if (selectedCategory !== "all" && i._category !== selectedCategory) return false;
+      return true;
+    });
+  }, [enriched, selectedPublisher, selectedCategory]);
 
-  function handleLoadMore() {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setDisplayCount(prev => prev + 10);
-      setIsLoadingMore(false);
-    }, 500);
-  }
+  const visible = filtered.slice(0, displayCount);
+  const hasMore = displayCount < filtered.length;
+
+  const pageTitle = isKo ? "실시간 뉴스" : isJa ? "ライブニュース" : "Live News";
+
+  const fmt = (ts: number) => {
+    const d = new Date(ts);
+    return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
+  };
+
+  const CATS: { id: CategoryId; ko: string; en: string; ja: string }[] = [
+    { id: "all",       ko: "전체",  en: "All",      ja: "全て" },
+    { id: "breaking",  ko: "속보",  en: "Breaking", ja: "速報" },
+    { id: "market",    ko: "시황",  en: "Markets",  ja: "市況" },
+    { id: "analysis",  ko: "분석",  en: "Analysis", ja: "分析" },
+    { id: "corporate", ko: "기업",  en: "Corporate",ja: "企業" },
+    { id: "economy",   ko: "경제",  en: "Economy",  ja: "経済" },
+  ];
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-8">
-      {/* ── Header ── */}
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="mb-6"
+        transition={{ duration: 0.3 }}
+        className="mb-5"
       >
-        <div className="flex items-start justify-between gap-4 mb-1">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/15 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-primary fill-primary" />
+              <Radio className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-display font-bold text-foreground" data-testid="text-hot-issues-title">
+              <h1 className="text-2xl font-display font-bold text-foreground" data-testid="text-live-news-title">
                 {pageTitle}
               </h1>
-              <p className="text-sm text-muted-foreground">{pageSubtitle}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {dataUpdatedAt
+                  ? (isKo ? `${fmt(dataUpdatedAt)} 기준` : isJa ? `${fmt(dataUpdatedAt)} 時点` : `as of ${fmt(dataUpdatedAt)}`)
+                  : "—"}
+                {enriched.length > 0 && (
+                  <span className="ml-1 text-primary font-semibold">
+                    {isKo ? `${enriched.length}건` : isJa ? `${enriched.length}件` : `${enriched.length} articles`}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1 shrink-0"
-            data-testid="button-refresh-hot-issues"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-refresh-news"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", isFetching && "animate-spin")} />
             {isKo ? "새로고침" : isJa ? "更新" : "Refresh"}
           </button>
         </div>
-
-        {/* Time + filter row */}
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            {dataUpdatedAt ? formatFetchTime(dataUpdatedAt, lang) : "—"}
-            {hotCount > 0 && (
-              <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">
-                <Flame className="w-2.5 h-2.5" />
-                {hotCount} HOT
-              </span>
-            )}
-          </div>
-          {hotCount > 0 && (
-            <button
-              onClick={() => setFilterHot((v) => !v)}
-              className={cn(
-                "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all",
-                filterHot
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-              )}
-              data-testid="button-filter-hot"
-            >
-              <Filter className="w-3 h-3" />
-              {isKo ? "HOT만 보기" : isJa ? "HOTのみ" : "HOT only"}
-            </button>
-          )}
-        </div>
       </motion.div>
 
-      {/* ── Issue List ── */}
+      {/* Publisher filter tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide -mx-1 px-1">
+        {["all", ...publishers].map((pub) => (
+          <button
+            key={pub}
+            onClick={() => { setSelectedPublisher(pub); setDisplayCount(BATCH); }}
+            className={cn(
+              "flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all whitespace-nowrap",
+              selectedPublisher === pub
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+            )}
+            data-testid={`tab-publisher-${pub}`}
+          >
+            {pub === "all"
+              ? (isKo ? "전체" : isJa ? "全て" : "All")
+              : pub}
+          </button>
+        ))}
+      </div>
+
+      {/* Category chips */}
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">
+        {CATS.map((cat) => {
+          const label = isKo ? cat.ko : isJa ? cat.ja : cat.en;
+          const isActive = selectedCategory === cat.id;
+          const meta = cat.id !== "all" ? CATEGORY_META[cat.id as RawCategory] : null;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => { setSelectedCategory(cat.id); setDisplayCount(BATCH); }}
+              className={cn(
+                "flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border transition-all whitespace-nowrap",
+                isActive
+                  ? meta ? cn(meta.cls, "border-transparent shadow-sm") : "bg-foreground text-background border-transparent"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+              )}
+              data-testid={`chip-category-${cat.id}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* News list */}
       {isLoading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-muted animate-pulse" />
+        <div className="space-y-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="py-4 border-b border-border/60">
+              <div className="flex gap-2 mb-2">
+                <div className="h-5 w-16 rounded-md bg-muted animate-pulse" />
+                <div className="h-5 w-12 rounded-md bg-muted animate-pulse" />
+                <div className="h-5 w-10 rounded-md bg-muted animate-pulse ml-auto" />
+              </div>
+              <div className="h-4 w-3/4 rounded bg-muted animate-pulse mb-1" />
+              <div className="h-4 w-1/2 rounded bg-muted animate-pulse" />
+            </div>
           ))}
         </div>
-      ) : allIssues.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center py-20 text-muted-foreground"
         >
-          <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <Radio className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">
-            {isKo ? "현재 이슈가 없습니다" : isJa ? "現在ニュースがありません" : "No issues right now"}
+            {isKo ? "해당 뉴스가 없습니다" : isJa ? "ニュースがありません" : "No news found"}
           </p>
-          <p className="text-xs mt-1">
-            {isKo ? "잠시 후 다시 확인해 주세요" : isJa ? "しばらくしてから再度ご確認ください" : "Check back soon"}
-          </p>
+          <button
+            onClick={() => { setSelectedPublisher("all"); setSelectedCategory("all"); }}
+            className="mt-3 text-sm text-primary underline"
+          >
+            {isKo ? "필터 초기화" : isJa ? "フィルターをリセット" : "Clear filters"}
+          </button>
         </motion.div>
       ) : (
-        <div className="space-y-3">
-          {/* Visible items — animated entry */}
-          <AnimatePresence mode="popLayout">
-            {visibleIssues.map((issue, idx) => (
-              <IssueCard
-                key={`issue-${idx}`}
-                issue={issue}
+        <div>
+          <AnimatePresence>
+            {visible.map((item, idx) => (
+              <NewsCard
+                key={`${item.publishedAt}-${idx}`}
+                item={item}
                 idx={idx}
                 lang={lang}
-                onClick={() => setSelectedIssue(issue)}
+                onClick={() => setSelectedIssue(item)}
               />
             ))}
           </AnimatePresence>
 
-          {/* Loading skeletons while fetching next batch */}
-          {isLoadingMore && (
-            <div className="space-y-3 pt-1">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-28 rounded-2xl bg-muted animate-pulse" />
-              ))}
-            </div>
-          )}
-
-          {/* Load More button */}
-          {hasMore && !isLoadingMore && (
+          {hasMore && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="pt-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="pt-4"
             >
               <button
-                onClick={handleLoadMore}
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-dashed transition-all duration-200 text-sm font-semibold",
-                  "border-primary/30 text-primary hover:border-primary hover:bg-primary/5 active:scale-[0.98]"
-                )}
-                data-testid="button-load-more-issues"
+                onClick={() => setDisplayCount((c) => c + BATCH)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-primary/30 text-sm font-semibold text-primary hover:border-primary hover:bg-primary/5 transition-all active:scale-[0.98]"
+                data-testid="button-load-more-news"
               >
                 <ChevronDown className="w-4 h-4" />
                 {isKo
-                  ? `뉴스 더보기 (${Math.min(remaining, 10)}건)`
+                  ? `뉴스 더보기 (${Math.min(filtered.length - displayCount, BATCH)}건 더)`
                   : isJa
-                  ? `ニュースをもっと見る（${Math.min(remaining, 10)}件）`
-                  : `Load ${Math.min(remaining, 10)} more articles`}
+                  ? `もっと見る（${Math.min(filtered.length - displayCount, BATCH)}件）`
+                  : `Load ${Math.min(filtered.length - displayCount, BATCH)} more`}
               </button>
-
               <p className="text-center text-[11px] text-muted-foreground mt-2">
                 {isKo
-                  ? `전체 ${allIssues.length}건 중 ${displayCount}건 표시`
+                  ? `전체 ${filtered.length}건 중 ${displayCount}건 표시`
                   : isJa
-                  ? `全${allIssues.length}件中${displayCount}件を表示`
-                  : `Showing ${displayCount} of ${allIssues.length} articles`}
+                  ? `全${filtered.length}件中${displayCount}件を表示`
+                  : `Showing ${displayCount} of ${filtered.length}`}
               </p>
             </motion.div>
           )}
 
-          {!hasMore && displayCount > INITIAL_COUNT && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center text-[11px] text-muted-foreground pt-2"
-            >
-              {isKo ? "✓ 모든 이슈를 불러왔습니다" : isJa ? "✓ すべてのニュースを読み込みました" : "✓ All issues loaded"}
-            </motion.p>
+          {!hasMore && visible.length > BATCH && (
+            <p className="text-center text-xs text-muted-foreground pt-4">
+              {isKo ? "✓ 모든 뉴스를 불러왔습니다" : isJa ? "✓ すべて読み込みました" : "✓ All news loaded"}
+            </p>
           )}
         </div>
       )}
 
-      {/* Footer note */}
-      {!isLoading && allIssues.length > 0 && (
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          {isKo
-            ? "* 뉴스 카드를 클릭하면 AI가 한국어·영어·일본어로 분석해 드립니다."
-            : isJa
-            ? "* ニュースカードをクリックするとAIが3言語で分析します。"
-            : "* Click any card for AI-powered trilingual analysis."}
-        </p>
-      )}
-
-      {/* In-app news detail modal */}
-      <NewsDetailModal
-        item={selectedIssue}
-        onClose={() => setSelectedIssue(null)}
-      />
+      <NewsDetailModal item={selectedIssue} onClose={() => setSelectedIssue(null)} />
     </div>
   );
 }
