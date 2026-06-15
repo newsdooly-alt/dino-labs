@@ -2469,7 +2469,8 @@ export default function DinoTerminal() {
 
           {/* Chart — FIXED HEIGHT */}
           <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
-            <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} prevClose={quote?.previousClose} />
+            <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
+              prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
           </div>
 
           {/* Scrollable: TechEngine + Macro rates ▶ compact, no more 3 hidden panels */}
@@ -2603,7 +2604,8 @@ export default function DinoTerminal() {
               </Link>
             </div>
             <div style={{ height:180, padding:"4px" }}>
-              <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} prevClose={quote?.previousClose} />
+              <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
+                prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
             <CrossAssetTable stocks={stocks} />
