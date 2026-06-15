@@ -828,6 +828,14 @@ export async function registerRoutes(
     catch { res.json([]); }
   });
 
+  app.get("/api/market/volume-pulse", async (req, res) => {
+    try {
+      const r = await fetch("http://127.0.0.1:5001/market/volume-pulse", { signal: AbortSignal.timeout(12000) });
+      if (!r.ok) throw new Error("volume-pulse error");
+      res.json(await r.json());
+    } catch { res.json([]); }
+  });
+
   app.get("/api/market/mood", async (req, res) => {
     const lang = (req.query.lang as string) || "ko";
     const isKorean = lang === "ko";

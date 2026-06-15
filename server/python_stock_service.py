@@ -208,7 +208,7 @@ def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
             currency = "USD"
         
         try:
-            vol = int(getattr(ticker.fast_info, 'last_volume', None) or ticker.fast_info.get('lastVolume', 0) or 0)
+            vol = int(getattr(ticker.fast_info, 'last_volume', None) or 0)
         except Exception:
             vol = 0
 
@@ -2866,6 +2866,9 @@ def _fetch_yf_screener(scr_id: str) -> list:
                 "changePercent": q.get("regularMarketChangePercent", 0),
                 "change": q.get("regularMarketChange", 0),
                 "marketCap": q.get("marketCap", None),
+                "volume": int(q.get("regularMarketVolume", 0) or 0),
+                "avgVolume": int(q.get("averageDailyVolume3Month", 0) or q.get("averageDailyVolume10Day", 0) or 1),
+                "volumeRatio": round((q.get("regularMarketVolume", 0) or 0) / max(int(q.get("averageDailyVolume3Month", 0) or q.get("averageDailyVolume10Day", 0) or 1), 1), 2),
                 "isPenny": (q.get("regularMarketPrice", 0) or 0) < 5.0,
                 "volatilityRank": abs(q.get("regularMarketChangePercent", 0) or 0),
             }
@@ -2908,6 +2911,36 @@ def screener_losers():
 @app.route('/screener/actives', methods=['GET'])
 def screener_actives():
     return jsonify(_fetch_yf_screener("most_actives"))
+
+
+@app.route('/market/volume-pulse', methods=['GET'])
+def market_volume_pulse():
+    """Return volume vs average for key market ETFs/indices."""
+    import time as _t
+    syms = ['SPY', 'QQQ', 'IWM', 'DIA', 'NVDA', 'TSLA', 'AAPL', 'MSFT']
+    result = []
+    for sym in syms:
+        try:
+            fi = yf.Ticker(sym).fast_info
+            vol = int(getattr(fi, 'last_volume', 0) or 0)
+            avg3m = int(getattr(fi, 'three_month_average_volume', 0) or 1)
+            ratio = round(vol / avg3m, 2) if avg3m > 0 and vol > 0 else 0.0
+            price = round(float(getattr(fi, 'last_price', 0) or 0), 2)
+            prev_close = round(float(getattr(fi, 'previous_close', 0) or 0), 2)
+            chg_pct = round((price - prev_close) / prev_close * 100, 2) if prev_close > 0 and price > 0 else 0.0
+            result.append({
+                'symbol': sym,
+                'volume': vol,
+                'avgVolume': avg3m,
+                'volumeRatio': ratio,
+                'price': price,
+                'changePercent': chg_pct,
+                'tradingValue': round(price * vol, 0),
+            })
+        except Exception as e:
+            print(f"[VolumePulse] {sym}: {e}")
+    result.sort(key=lambda x: x.get('volumeRatio', 0), reverse=True)
+    return jsonify(result)
 
 
 # ===== PEER COMPARISON =====

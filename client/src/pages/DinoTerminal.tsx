@@ -869,6 +869,192 @@ function SectorMap() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// MARKET MOVERS PANEL  — 급상승/급하락/거래량/거래대금
+// ══════════════════════════════════════════════════════════════════════════════
+type MoverTab = "up"|"down"|"vol"|"value";
+function MarketMoversPanel() {
+  const [tab, setTab] = useState<MoverTab>("up");
+
+  const { data: gainers = [], isLoading: gLd } = useQuery<any[]>({
+    queryKey: ["/api/market/gainers"],
+    staleTime: 3 * 60 * 1000,
+  });
+  const { data: losers = [], isLoading: lLd } = useQuery<any[]>({
+    queryKey: ["/api/market/losers"],
+    staleTime: 3 * 60 * 1000,
+  });
+  const { data: actives = [], isLoading: aLd } = useQuery<any[]>({
+    queryKey: ["/api/market/actives"],
+    staleTime: 3 * 60 * 1000,
+  });
+
+  const byValue = [...actives]
+    .filter(a => a.volume > 0 && a.price > 0)
+    .sort((a, b) => (b.price * b.volume) - (a.price * a.volume));
+
+  const rows: any[] = tab === "up" ? gainers.slice(0, 8)
+    : tab === "down" ? losers.slice(0, 8)
+    : tab === "vol"  ? actives.slice(0, 8)
+    : byValue.slice(0, 8);
+
+  const isLd = tab === "up" ? gLd : tab === "down" ? lLd : aLd;
+
+  const TABS: { id: MoverTab; ko: string; color: string }[] = [
+    { id:"up",    ko:"급상승", color: C.up },
+    { id:"down",  ko:"급하락", color: C.down },
+    { id:"vol",   ko:"거래량", color: C.info },
+    { id:"value", ko:"거래대금", color: C.warn },
+  ];
+
+  return (
+    <div className="border-b" style={{ borderColor: C.border }}>
+      {/* Header */}
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          실시간 대응
+        </span>
+      </div>
+      {/* Tabs */}
+      <div className="flex border-b" style={{ borderColor: C.border }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="flex-1 py-1 text-[9px] font-mono font-bold transition-colors"
+            style={{
+              color:      tab === t.id ? t.color : C.muted,
+              borderBottom: `1.5px solid ${tab === t.id ? t.color : "transparent"}`,
+              background: tab === t.id ? t.color + "10" : "transparent",
+            }}>
+            {t.ko}
+          </button>
+        ))}
+      </div>
+      {/* Rows */}
+      <div style={{ minHeight: 120 }}>
+        {isLd ? (
+          <div className="flex items-center justify-center py-6">
+            <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="px-2 py-4 text-[9px] font-mono text-center" style={{ color: C.muted }}>
+            데이터 없음 (장 마감 후 갱신)
+          </div>
+        ) : rows.map(item => {
+          const up = (item.changePercent ?? 0) >= 0;
+          const ticker = (item.symbol || "").replace(".KS","").replace("^","");
+          const vol = item.volume || 0;
+          const val = (item.price || 0) * vol;
+          return (
+            <div key={item.symbol}
+              className="flex items-center justify-between px-2 py-0.5 border-t"
+              style={{ borderColor: C.border + "30" }}>
+              <div className="min-w-0 flex-1">
+                <div className="text-[9px] font-mono font-bold truncate"
+                  style={{ color: C.text }}>{ticker}</div>
+                <div className="text-[7px] font-mono truncate"
+                  style={{ color: C.muted }}>{(item.name||"").slice(0,16)}</div>
+              </div>
+              <div className="text-right ml-2 shrink-0">
+                <div className="text-[9px] font-mono font-bold"
+                  style={{ color: up ? C.up : C.down }}>
+                  {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}%
+                </div>
+                {(tab === "vol" || tab === "value") ? (
+                  <div className="text-[8px] font-mono" style={{ color: C.muted }}>
+                    {tab === "vol"
+                      ? (item.volumeRatio > 0 ? `×${item.volumeRatio.toFixed(1)}avg` : fmtVol(vol))
+                      : `$${val >= 1e9 ? (val/1e9).toFixed(1)+"B" : val >= 1e6 ? (val/1e6).toFixed(0)+"M" : fmtVol(val)}`
+                    }
+                  </div>
+                ) : (
+                  <div className="text-[8px] font-mono" style={{ color: C.muted }}>
+                    ${(item.price||0).toFixed(item.price < 5 ? 3 : 1)}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VOLUME PULSE PANEL  — 거래량 vs 3개월 평균 비교
+// ══════════════════════════════════════════════════════════════════════════════
+function VolumePulsePanel() {
+  const { data = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/market/volume-pulse"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return (
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          거래량 강도
+        </span>
+        <span className="text-[7px] font-mono" style={{ color: C.muted }}>vs 3개월평균</span>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />
+        </div>
+      ) : data.length === 0 ? (
+        <div className="px-2 py-3 text-[9px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
+      ) : (
+        <div className="p-2 space-y-1.5">
+          {data.slice(0, 6).map(item => {
+            const ratio = item.volumeRatio || 0;
+            const barW = Math.min(ratio * 50, 100);
+            const barColor = ratio >= 2 ? C.down : ratio >= 1.3 ? C.warn : ratio >= 0.8 ? C.up : C.muted;
+            const label = ratio >= 2 ? "폭증" : ratio >= 1.3 ? "증가" : ratio >= 0.8 ? "보통" : "감소";
+            const up = (item.changePercent ?? 0) >= 0;
+            return (
+              <div key={item.symbol}>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[9px] font-mono font-bold" style={{ color: C.text }}>
+                    {item.symbol}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[8px] font-mono font-bold"
+                      style={{ color: up ? C.up : C.down }}>
+                      {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}%
+                    </span>
+                    <span className="text-[8px] font-mono font-bold px-1 rounded"
+                      style={{ color: barColor, background: barColor + "20" }}>
+                      {ratio > 0 ? `×${ratio.toFixed(1)}` : "—"} {label}
+                    </span>
+                  </div>
+                </div>
+                <div className="relative h-1 rounded-full overflow-hidden"
+                  style={{ background: C.border }}>
+                  <div className="absolute h-full rounded-full transition-all"
+                    style={{ width: `${barW}%`, background: barColor, opacity: 0.8 }} />
+                  {/* 1× average line */}
+                  <div className="absolute top-0 bottom-0 w-px"
+                    style={{ left: "50%", background: C.muted, opacity: 0.5 }} />
+                </div>
+                <div className="flex justify-between mt-0.5">
+                  <span className="text-[7px] font-mono" style={{ color: C.muted }}>
+                    {fmtVol(item.volume)}
+                  </span>
+                  <span className="text-[7px] font-mono" style={{ color: C.muted }}>
+                    avg {fmtVol(item.avgVolume)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CRYPTO MINI PANEL  (in Market tab)
 // ══════════════════════════════════════════════════════════════════════════════
 const CRYPTO_DEF = [
@@ -2773,10 +2959,12 @@ export default function DinoTerminal() {
       {/* ── 5-COLUMN BLOOMBERG GRID ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ▌COL 1 (160px) — Market overview + Watchlist + Sectors ▐ */}
+        {/* ▌COL 1 (160px) — Market overview + Movers + Volume + Watchlist ▐ */}
         <div className="w-[160px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
+          <MarketMoversPanel />
+          <VolumePulsePanel />
           <GlobalMiniPanel stocks={stocks} />
           <CryptoMiniPanel stocks={stocks} />
           <RatesMiniPanel stocks={stocks} />
@@ -2896,10 +3084,12 @@ export default function DinoTerminal() {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" }}>
 
-        {/* ── MARKET TAB: dense index grid + fear/greed + sectors + watchlist ── */}
+        {/* ── MARKET TAB: dense index grid + movers + volume + sectors + watchlist ── */}
         {mTab === "market" && (
           <>
             <MarketPulseWidget liveStocks={stocks} />
+            <MarketMoversPanel />
+            <VolumePulsePanel />
             <GlobalMiniPanel stocks={stocks} />
             <CryptoMiniPanel stocks={stocks} />
             <RatesMiniPanel stocks={stocks} />
