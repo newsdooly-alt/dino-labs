@@ -89,14 +89,25 @@ const CATEGORY_META: Record<RawCategory, { ko: string; en: string; ja: string; c
 };
 
 function detectCategory(item: HotIssueItem): RawCategory {
-  const text = ((item.title || "") + " " + (item.summary || "")).toLowerCase();
+  const title = (item.title || "").toLowerCase();
+  const full = (title + " " + (item.summary || "")).toLowerCase();
   const ageHours = item.publishedAt ? (Date.now() / 1000 - item.publishedAt) / 3600 : 999;
 
-  if (ageHours < 2) return "breaking";
-  if (item.isMarketImpact) return "market";
-  if (/fed |federal reserve|fomc|interest rate|treasury yield|s&p 500|nasdaq|dow jones|stock market|market (rises|falls|rallies|drops|surges|tumbles)/.test(text)) return "market";
-  if (/gdp|inflation|cpi|pce|unemployment|nonfarm payroll|jobs report|consumer price|recession|economic growth|trade (war|deal|deficit)|tariff/.test(text)) return "economy";
-  if (/analyst|upgrade|downgrade|price target|buy rating|sell rating|earnings|eps|revenue|guidance|forecast|outlook|overweight|underweight|initiates|reiterates/.test(text)) return "analysis";
+  // 1. Economy — macro data & Fed policy FIRST (before market, so "Fed cuts rates" → 경제)
+  if (/\bgdp\b|inflation\b|cpi\b|\bpce\b|unemployment rate|nonfarm|jobs report|consumer price index|trade (war|deal|deficit)|tariff|import (duty|tariff)|fiscal policy|federal budget|national debt|federal reserve|the fed\b|\bfomc\b|interest rate (hike|cut|hold|rise|fall)|rate (hike|cut|pause|decision)|monetary policy|quantitative (easing|tightening)|rate cut|rate hike|treasury yield/.test(full)) return "economy";
+
+  // 2. Market — broad market movement & indices
+  if (item.isMarketImpact ||
+    /\bs&p 500\b|\bnasdaq\b|\bdow jones\b|\bdow industrials\b|\bkospi\b|\bnikkei\b|stock market (rises?|falls?|rallies|drops?|surges?|tumbles?|gains?|loses?|climbs?|slides?)|wall street|broad market|market (rally|selloff|sell-off|crash|correction|pullback|rebound|rout)|equity markets?|global markets?|markets (open|close|rise|fall)/.test(full)) return "market";
+
+  // 3. Analysis — analyst actions, ratings, price targets, earnings estimates
+  if (/\banalyst\b|upgrades? (to|from)|downgrades? (to|from)|price target|buy rating|sell rating|overweight|underweight|outperform|underperform|initiates? coverage|reiterates?|maintains? (buy|sell|hold|neutral)|raises? (price target|\bpt\b)|cuts? (price target|\bpt\b)|research note|eps (forecast|estimate|beat|miss|surprise)|earnings (estimate|forecast|beat|miss|preview|surprise)|revenue (guidance|forecast|estimate|beat|miss)|outlook (raised|lowered|maintained|cut)|raises? guidance|cuts? guidance|consensus estimate|price target raised|price target cut/.test(full)) return "analysis";
+
+  // 4. Breaking — recent news with genuinely urgent/significant event language
+  if (ageHours < 4 &&
+    /\bbreaking\b|just in\b|deal\b|merger\b|acquisition\b|takeover\b|buyout\b|recall\b|investigation\b|fined?\b|penalty\b|lawsuit\b|bankruptcy\b|layoffs?\b|job cuts?\b|\bceo\b resigns?|appointed? (ceo|cfo|chairman)|names? (ceo|cfo)|announces? deal|signs? deal/.test(full)) return "breaking";
+
+  // 5. Default — company-specific news
   return "corporate";
 }
 

@@ -1909,7 +1909,7 @@ export async function registerRoutes(
       const newsPromises = allSymbols.map(async (sym) => {
         try {
           const encodedSym = encodeURIComponent(sym);
-          const r = await fetch(`http://127.0.0.1:5001/news/${encodedSym}?limit=5`, {
+          const r = await fetch(`http://127.0.0.1:5001/news/${encodedSym}?limit=8`, {
             signal: AbortSignal.timeout(8000),
           });
           if (!r.ok) return [];
@@ -1986,9 +1986,9 @@ export async function registerRoutes(
         diverse.push(item);
       }
 
-      // Pass 2: corporate news (max 97 total, max 2 per company, max 6 per sector)
+      // Pass 2: corporate news (max 147 total, max 4 per company, max 20 per sector)
       for (const item of scored) {
-        if (diverse.length >= 100) break;
+        if (diverse.length >= 150) break;
         if (item.isMarketImpact) continue;
         // Block macro asset symbols from appearing as corporate news items
         if (HOT_MACRO_SYMBOLS.includes(item.symbol as string)) continue;
@@ -2007,8 +2007,8 @@ export async function registerRoutes(
         const sector = SYMBOL_SECTOR[sym] || "other";
         const companyUsed = companyCount[sym] || 0;
         const sectorUsed = sectorCount[sector] || 0;
-        if (companyUsed >= 4) continue;
-        if (sectorUsed >= 10) continue;
+        if (companyUsed >= 5) continue;
+        if (sectorUsed >= 20) continue;
         companyCount[sym] = companyUsed + 1;
         sectorCount[sector] = sectorUsed + 1;
         diverse.push(item);
