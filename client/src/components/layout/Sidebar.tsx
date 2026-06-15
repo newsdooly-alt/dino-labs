@@ -30,52 +30,53 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-card border-r border-border p-6 z-50">
-      <div className="flex items-center gap-3 mb-10 px-2">
-        <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary animate-bounce-slow">
-           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-             <path d="M16 16c0-4.4-3.6-8-8-8s-8 3.6-8 8" />
-             <path d="M2 16h12" />
-             <path d="M7 8V5a3 3 0 0 1 6 0v3" />
-             <path d="M12 8c4.4 0 8 3.6 8 8" />
-             <path d="M22 16h-2" />
-             <path d="M17 13l3-3 3 3" />
-           </svg>
+    <aside className="hidden md:flex flex-col w-60 h-screen fixed left-0 top-0 bg-sidebar border-r border-sidebar-border z-50">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-5 h-14 border-b border-sidebar-border shrink-0">
+        <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-[12px] font-black">
+          D
         </div>
-        <h1 className="text-2xl font-display font-bold text-foreground">DinoInvest</h1>
+        <h1 className="text-[15px] font-display font-bold text-foreground tracking-tight">DinoInvest</h1>
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto">
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href} className={cn(
-            "flex items-center gap-3 px-4 py-3 rounded-2xl text-base font-semibold transition-all duration-200 group",
-            location === item.href 
-              ? "bg-primary/10 text-primary shadow-[0_0_20px_rgba(34,197,94,0.15)]" 
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          )}>
-            <item.icon className={cn(
-              "w-5 h-5 transition-transform duration-200 group-hover:scale-110",
-              location === item.href && "fill-current"
-            )} />
-            {item.label}
-          </Link>
-        ))}
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
+        {navItems.map((item) => {
+          const active = item.href === "/hot-issues"
+            ? (location === "/" || location === "/hot-issues" || location.startsWith("/hot-issues"))
+            : location === item.href;
+          return (
+            <Link key={item.href} href={item.href} className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 group",
+              active
+                ? "bg-primary/12 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}>
+              <item.icon className={cn(
+                "w-4 h-4 shrink-0",
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )} />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
-      <div className="mt-auto space-y-2 border-t border-border pt-6">
-         <Link href="/settings" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium" data-testid="link-settings">
-            <Settings className="w-5 h-5" />
-            {t.settings}
-         </Link>
-         <button 
-           onClick={() => { localStorage.clear(); logout(); }}
-           disabled={isLoggingOut}
-           className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors font-medium disabled:opacity-50" 
-           data-testid="button-logout"
-         >
-            <LogOut className="w-5 h-5" />
-            {isLoggingOut ? "..." : t.logout}
-         </button>
+      {/* Footer */}
+      <div className="border-t border-sidebar-border px-3 py-3 space-y-0.5">
+        <Link href="/settings" className="flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all" data-testid="link-settings">
+          <Settings className="w-4 h-4 shrink-0" />
+          {t.settings}
+        </Link>
+        <button
+          onClick={() => { localStorage.clear(); logout(); }}
+          disabled={isLoggingOut}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all disabled:opacity-50"
+          data-testid="button-logout"
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          {isLoggingOut ? "..." : t.logout}
+        </button>
       </div>
     </aside>
   );
