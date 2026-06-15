@@ -74,7 +74,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
   localStorage.setItem(LS_SYMS_KEY, JSON.stringify(syms));
   localStorage.setItem(LS_NAMES_KEY, JSON.stringify(names));
 }
-const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","JPY=X"];
+const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","ETH-USD","SOL-USD","XRP-USD","JPY=X","^VIX"];
 const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
@@ -864,6 +864,133 @@ function SectorMap() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CRYPTO MINI PANEL  (in Market tab)
+// ══════════════════════════════════════════════════════════════════════════════
+const CRYPTO_DEF = [
+  { sym:"BTC-USD", label:"BTC", emoji:"₿" },
+  { sym:"ETH-USD", label:"ETH", emoji:"Ξ" },
+  { sym:"SOL-USD", label:"SOL", emoji:"◎" },
+  { sym:"XRP-USD", label:"XRP", emoji:"✕" },
+];
+function CryptoMiniPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          CRYPTO
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-px" style={{ background: C.border }}>
+        {CRYPTO_DEF.map(({ sym, label, emoji }) => {
+          const q  = stocks[sym];
+          const up = isUp(q?.changePercent);
+          return (
+            <div key={sym} className="p-1.5 flex flex-col" style={{ background: C.panel2 }}>
+              <span className="text-[8px] font-mono" style={{ color: C.muted }}>{emoji} {label}</span>
+              <span className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                {q ? `$${q.price >= 1000 ? q.price.toLocaleString(undefined,{maximumFractionDigits:0}) : q.price.toFixed(q.price < 1 ? 4 : 2)}` : "—"}
+              </span>
+              <span className="text-[9px] font-mono font-bold" style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+                {q ? fmtPct(q.changePercent) : "—"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RATES MINI PANEL  (in Market tab)
+// ══════════════════════════════════════════════════════════════════════════════
+const RATES_DEF = [
+  { sym:"^TNX",  label:"10Y",  desc:"미국 10년금리" },
+  { sym:"^FVX",  label:"5Y",   desc:"미국 5년금리" },
+  { sym:"^IRX",  label:"3M",   desc:"단기금리" },
+  { sym:"^VIX",  label:"VIX",  desc:"공포지수" },
+];
+function RatesMiniPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          RATES &amp; VOLATILITY
+        </span>
+      </div>
+      <div className="divide-y" style={{ borderColor: C.border }}>
+        {RATES_DEF.map(({ sym, label, desc }) => {
+          const q  = stocks[sym];
+          const up = isUp(q?.changePercent);
+          return (
+            <div key={sym} className="flex items-center justify-between px-2 py-1"
+              style={{ borderColor: C.border+"40" }}>
+              <div>
+                <span className="text-[9px] font-mono font-bold" style={{ color: C.info }}>{label}</span>
+                <span className="text-[8px] font-mono ml-1" style={{ color: C.muted }}>{desc}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                  {q ? q.price?.toFixed(2) : "—"}
+                </span>
+                <span className="text-[8px] font-mono font-bold w-14 text-right"
+                  style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+                  {q ? fmtPct(q.changePercent) : "—"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBAL INDICES MINI  (in Market tab — compact 3-col grid)
+// ══════════════════════════════════════════════════════════════════════════════
+const GLOBAL_MINI = [
+  { sym:"SPY",    label:"S&P500", flag:"🇺🇸" },
+  { sym:"QQQ",    label:"NASDAQ", flag:"🇺🇸" },
+  { sym:"^KS11",  label:"KOSPI",  flag:"🇰🇷" },
+  { sym:"^IXIC",  label:"NDX",    flag:"🇺🇸" },
+  { sym:"^N225",  label:"닛케이", flag:"🇯🇵" },
+  { sym:"^GDAXI", label:"DAX",    flag:"🇩🇪" },
+  { sym:"^FTSE",  label:"FTSE",   flag:"🇬🇧" },
+  { sym:"^HSI",   label:"항셍",   flag:"🇭🇰" },
+  { sym:"GC=F",   label:"Gold",   flag:"🥇" },
+];
+function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
+  return (
+    <div className="border-b" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center"
+        style={{ borderColor: C.border, background: C.header }}>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          GLOBAL INDICES
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-px" style={{ background: C.border }}>
+        {GLOBAL_MINI.map(({ sym, label, flag }) => {
+          const q  = stocks[sym];
+          const up = isUp(q?.changePercent);
+          return (
+            <div key={sym} className="p-1.5" style={{ background: C.panel2 }}>
+              <div className="text-[8px] font-mono" style={{ color: C.muted }}>{flag} {label}</div>
+              <div className="text-[9px] font-mono font-bold"
+                style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+                {q ? fmtPct(q.changePercent) : "—"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -2646,13 +2773,16 @@ export default function DinoTerminal() {
       {/* ── 5-COLUMN BLOOMBERG GRID ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ▌COL 1 (160px) — Watchlist + Sectors + Fear/Greed ▐ */}
+        {/* ▌COL 1 (160px) — Market overview + Watchlist + Sectors ▐ */}
         <div className="w-[160px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
+          <GlobalMiniPanel stocks={stocks} />
+          <CryptoMiniPanel stocks={stocks} />
+          <RatesMiniPanel stocks={stocks} />
+          <SectorMap />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
             watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
-          <SectorMap />
         </div>
 
         {/* ▌COL 2 (flex) — Chart + TechEngine + MacroPanel ▐ */}
@@ -2769,29 +2899,13 @@ export default function DinoTerminal() {
         {/* ── MARKET TAB: dense index grid + fear/greed + sectors + watchlist ── */}
         {mTab === "market" && (
           <>
-            {/* 2×4 index snapshot grid */}
-            <div className="grid grid-cols-4 border-b" style={{ borderColor:C.border }}>
-              {["SPY","QQQ","^KS11","BTC-USD","GC=F","CL=F","JPY=X","^IXIC"].map(sym => {
-                const q = stocks[sym];
-                const up = (q?.changePercent ?? 0) >= 0;
-                return (
-                  <div key={sym} className="p-2 border-r border-b last:border-r-0"
-                    style={{ borderColor:C.border }}>
-                    <div className="text-[8px] font-mono" style={{ color:C.muted }}>
-                      {INDEX_LBL[sym]||sym}
-                    </div>
-                    <div className="text-[10px] font-mono font-bold"
-                      style={{ color: up ? C.up : C.down }}>
-                      {q ? (up?"▲":"▼")+Math.abs(q.changePercent??0).toFixed(1)+"%" : "—"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
             <MarketPulseWidget liveStocks={stocks} />
+            <GlobalMiniPanel stocks={stocks} />
+            <CryptoMiniPanel stocks={stocks} />
+            <RatesMiniPanel stocks={stocks} />
+            <SectorMap />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
               watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
-            <SectorMap />
           </>
         )}
 
