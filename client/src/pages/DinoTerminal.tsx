@@ -724,12 +724,39 @@ const PERIODS: {label:string; period:string; interval:string}[] = [
   { label:"1Y",  period:"1y",   interval:"1wk" },
 ];
 
-function PriceChart({ symbol, periodIdx }: { symbol:string; periodIdx:number }) {
+/** Extract HH:MM from ISO date string for 1D time labels */
+function extractHHMM(isoDate: string): string {
+  if (!isoDate) return "";
+  const m = isoDate.match(/T(\d{2}:\d{2})/);
+  return m ? m[1] : isoDate.slice(11, 16);
+}
+
+function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
+  symbol:string; periodIdx:number; isMarketOpen?:boolean
+}) {
   const { period, interval } = PERIODS[periodIdx];
-  const { data: raw, isLoading, isError } = useHistory(symbol, period, interval);
+  const is1D    = periodIdx === 0;
+  const liveMode = is1D && isMarketOpen;
+
+  // Inline query so we can set per-period refetch rates
+  const { data: raw, isLoading, isError } = useQuery<any[]>({
+    queryKey: ["/api/stocks/history", symbol, period, interval],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/stocks/history/${encodeURIComponent(symbol)}?period=${period}&interval=${interval}`
+      );
+      if (!res.ok) throw new Error("history failed");
+      const d = await res.json();
+      return Array.isArray(d) ? d : (d?.data || []);
+    },
+    staleTime:      liveMode ? 0        : 60_000,
+    refetchInterval: liveMode ? 30_000  : 120_000,
+    enabled: !!symbol,
+    retry: 1,
+  });
 
   const rows = (raw || []).map((d:any) => ({
-    t:     (d.date || "").slice(0,10),
+    t:     is1D ? extractHHMM(d.date) : (d.date || "").slice(0,10),
     close: d.close,
     vol:   d.volume ?? 0,
   })).filter((d:any) => d.close != null && d.close > 0);
@@ -760,20 +787,32 @@ function PriceChart({ symbol, periodIdx }: { symbol:string; periodIdx:number }) 
   const up       = totalPct >= 0;
   const stroke   = up ? C.up : C.down;
 
+  // For 1D: show time ticks every 30 min = every 6 bars (5m interval)
+  const xTicks1D = is1D
+    ? rows.filter((_, i) => i === 0 || i % 6 === 0).map(r => r.t)
+    : [];
+
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 px-2 pb-1 shrink-0">
+      <div className="flex items-center gap-2 px-2 pb-0.5 shrink-0">
         <span className="text-[9px] font-mono" style={{ color: C.muted }}>기간수익률</span>
         <span className={cn("text-[10px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
           {fmtPct(totalPct)}
         </span>
+        {liveMode && (
+          <span className="flex items-center gap-0.5 text-[8px] font-mono px-1 py-0.5 rounded"
+            style={{ background: C.up+"22", color: C.up }}>
+            <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: C.up }} />
+            LIVE
+          </span>
+        )}
         <span className="text-[9px] font-mono" style={{ color: C.muted }}>
-          ({rows.length}개 데이터)
+          ({rows.length}개)
         </span>
       </div>
       <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="72%">
-          <ComposedChart data={rows} margin={{ top:2, right:4, left:0, bottom:0 }}>
+        <ResponsiveContainer width="100%" height={is1D ? "68%" : "72%"}>
+          <ComposedChart data={rows} margin={{ top:2, right:4, left:0, bottom: is1D ? 0 : 0 }}>
             <defs>
               <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor={stroke} stopOpacity={0.2} />
@@ -794,13 +833,37 @@ function PriceChart({ symbol, periodIdx }: { symbol:string; periodIdx:number }) 
               fill={`url(#cg-${symbol})`} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
-        <ResponsiveContainer width="100%" height="26%">
+        <ResponsiveContainer width="100%" height={is1D ? "18%" : "26%"}>
           <BarChart data={rows} margin={{ top:0, right:4, left:0, bottom:0 }}>
             <XAxis dataKey="t" hide />
             <YAxis hide />
             <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1,1,0,0]} />
           </BarChart>
         </ResponsiveContainer>
+        {/* 1D time axis — shows HH:MM labels every 30 min */}
+        {is1D && rows.length > 0 && (
+          <div className="h-[14%] flex items-start pt-0.5 overflow-hidden"
+            style={{ paddingLeft:0, paddingRight:4 }}>
+            <div className="relative w-full h-full">
+              {xTicks1D.map((tick, idx) => {
+                const dataIdx = rows.findIndex(r => r.t === tick);
+                const pct = dataIdx >= 0 ? (dataIdx / (rows.length - 1)) * 100 : 0;
+                return (
+                  <span key={idx}
+                    className="absolute text-[7px] font-mono"
+                    style={{
+                      left: `${pct}%`,
+                      transform: "translateX(-50%)",
+                      color: C.muted,
+                      whiteSpace: "nowrap",
+                    }}>
+                    {tick}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2373,7 +2436,7 @@ export default function DinoTerminal() {
 
           {/* Chart — FIXED HEIGHT */}
           <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
-            <PriceChart symbol={selected} periodIdx={pIdx} />
+            <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} />
           </div>
 
           {/* Scrollable: TechEngine + Macro rates ▶ compact, no more 3 hidden panels */}
@@ -2507,7 +2570,7 @@ export default function DinoTerminal() {
               </Link>
             </div>
             <div style={{ height:180, padding:"4px" }}>
-              <PriceChart symbol={selected} periodIdx={pIdx} />
+              <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
             <CrossAssetTable stocks={stocks} />

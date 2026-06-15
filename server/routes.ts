@@ -423,6 +423,38 @@ export async function registerRoutes(
   });
 
   // === Quests ===
+  // /api/quests/daily — guest-friendly alias (no auth required)
+  app.get("/api/quests/daily", async (req, res) => {
+    const userId = getUserId(req) || "guest";
+    let profile = await storage.getUserProfile(userId);
+    if (!profile) {
+      profile = await storage.upsertUserProfile({ id: userId, nickname: "Guest", language: "ko", favoriteStocks: [] });
+    }
+    let quests = await storage.getQuests(userId);
+    const userTz = (req.query.tz as string) || 'Asia/Seoul';
+    const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: userTz }));
+    nowInTz.setHours(0, 0, 0, 0);
+    const startOfTodayLocal = nowInTz.getTime();
+    const hasAnyTodayQuest = quests.some(q => {
+      if (!q.createdAt) return false;
+      const qDate = new Date(new Date(q.createdAt).toLocaleString('en-US', { timeZone: userTz }));
+      qDate.setHours(0, 0, 0, 0);
+      return qDate.getTime() >= startOfTodayLocal;
+    });
+    if (!hasAnyTodayQuest || quests.length === 0) {
+      const currentTypes = quests.map(q => q.type);
+      const existingRecent = profile.recentQuestTypes || [];
+      const updatedRecent = [...existingRecent, ...currentTypes].slice(-18);
+      if (currentTypes.length > 0) await storage.updateRecentQuestTypes(userId, updatedRecent);
+      await storage.clearQuests(userId);
+      const skillLevel = (profile.skillLevel as 'beginner' | 'intermediate' | 'advanced') || 'beginner';
+      const newQuests = await generateDailyQuests(userId, profile.language || 'ko', skillLevel, updatedRecent);
+      for (const q of newQuests) await storage.createQuest(q);
+      quests = await storage.getQuests(userId);
+    }
+    res.json(quests);
+  });
+
   app.get(api.quests.list.path, isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
