@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -735,10 +735,9 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
   symbol:string; periodIdx:number; isMarketOpen?:boolean
 }) {
   const { period, interval } = PERIODS[periodIdx];
-  const is1D    = periodIdx === 0;
+  const is1D     = periodIdx === 0;
   const liveMode = is1D && isMarketOpen;
 
-  // Inline query so we can set per-period refetch rates
   const { data: raw, isLoading, isError } = useQuery<any[]>({
     queryKey: ["/api/stocks/history", symbol, period, interval],
     queryFn: async () => {
@@ -749,10 +748,11 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
       const d = await res.json();
       return Array.isArray(d) ? d : (d?.data || []);
     },
-    staleTime:      liveMode ? 0        : 60_000,
-    refetchInterval: liveMode ? 30_000  : 120_000,
-    enabled: !!symbol,
-    retry: 1,
+    staleTime:       liveMode ? 0      : 60_000,
+    refetchInterval: liveMode ? 30_000 : 120_000,
+    enabled:  !!symbol,
+    retry:    1,
+    placeholderData: keepPreviousData,   // show previous chart while new symbol loads
   });
 
   const rows = (raw || []).map((d:any) => ({
@@ -761,13 +761,14 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
     vol:   d.volume ?? 0,
   })).filter((d:any) => d.close != null && d.close > 0);
 
-  if (isLoading) return (
+  // Only show full-spinner when there is truly no data yet
+  if (isLoading && rows.length === 0) return (
     <div className="flex items-center justify-center h-full gap-2" style={{ color: C.muted }}>
       <RefreshCw className="w-4 h-4 animate-spin" />
       <span className="text-[11px] font-mono">차트 로딩중...</span>
     </div>
   );
-  if (isError) return (
+  if (isError && rows.length === 0) return (
     <div className="flex items-center justify-center h-full gap-2" style={{ color: C.down }}>
       <AlertTriangle className="w-4 h-4" />
       <span className="text-[11px] font-mono">차트 로드 실패</span>
@@ -782,18 +783,19 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
   const minP     = Math.min(...prices) * 0.997;
   const maxP     = Math.max(...prices) * 1.003;
   const startP   = rows[0].close;
-  const endP     = rows[rows.length-1].close;
-  const totalPct = startP ? ((endP-startP)/startP*100) : 0;
+  const endP     = rows[rows.length - 1].close;
+  const totalPct = startP ? ((endP - startP) / startP * 100) : 0;
   const up       = totalPct >= 0;
   const stroke   = up ? C.up : C.down;
 
-  // For 1D: show time ticks every 30 min = every 6 bars (5m interval)
+  // 1D: time tick every 30 min = every 6 bars at 5m interval
   const xTicks1D = is1D
     ? rows.filter((_, i) => i === 0 || i % 6 === 0).map(r => r.t)
     : [];
 
   return (
     <div className="h-full flex flex-col">
+      {/* ── Header row ── */}
       <div className="flex items-center gap-2 px-2 pb-0.5 shrink-0">
         <span className="text-[9px] font-mono" style={{ color: C.muted }}>기간수익률</span>
         <span className={cn("text-[10px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
@@ -806,62 +808,71 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
             LIVE
           </span>
         )}
-        <span className="text-[9px] font-mono" style={{ color: C.muted }}>
-          ({rows.length}개)
-        </span>
+        <span className="text-[9px] font-mono" style={{ color: C.muted }}>({rows.length}개)</span>
       </div>
-      <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height={is1D ? "68%" : "72%"}>
-          <ComposedChart data={rows} margin={{ top:2, right:4, left:0, bottom: is1D ? 0 : 0 }}>
-            <defs>
-              <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={stroke} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={stroke} stopOpacity={0}   />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="t" hide />
-            <YAxis domain={[minP, maxP]} hide />
-            <Tooltip
-              contentStyle={{ background:C.panel2, border:`1px solid ${C.border}`,
-                borderRadius:4, fontSize:10, fontFamily:"monospace" }}
-              labelStyle={{ color:C.muted, fontSize:9 }}
-              formatter={(v:any) => [fmtPrice(v, symbol), "종가"]}
-              labelFormatter={(t:any) => String(t)}
-            />
-            <ReferenceLine y={startP} stroke={C.muted} strokeDasharray="3 3" strokeWidth={1} />
-            <Area type="monotone" dataKey="close" stroke={stroke} strokeWidth={1.5}
-              fill={`url(#cg-${symbol})`} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-        <ResponsiveContainer width="100%" height={is1D ? "18%" : "26%"}>
-          <BarChart data={rows} margin={{ top:0, right:4, left:0, bottom:0 }}>
-            <XAxis dataKey="t" hide />
-            <YAxis hide />
-            <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1,1,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-        {/* 1D time axis — shows HH:MM labels every 30 min */}
-        {is1D && rows.length > 0 && (
-          <div className="h-[14%] flex items-start pt-0.5 overflow-hidden"
-            style={{ paddingLeft:0, paddingRight:4 }}>
-            <div className="relative w-full h-full">
-              {xTicks1D.map((tick, idx) => {
-                const dataIdx = rows.findIndex(r => r.t === tick);
-                const pct = dataIdx >= 0 ? (dataIdx / (rows.length - 1)) * 100 : 0;
-                return (
-                  <span key={idx}
-                    className="absolute text-[7px] font-mono"
-                    style={{
-                      left: `${pct}%`,
-                      transform: "translateX(-50%)",
-                      color: C.muted,
-                      whiteSpace: "nowrap",
-                    }}>
-                    {tick}
-                  </span>
-                );
-              })}
-            </div>
+
+      {/* ── Chart area: flex-col so flex values work as proportional heights ── */}
+      <div className="flex-1 min-h-0 flex flex-col">
+
+        {/* Price chart — takes most of the space */}
+        <div style={{ flex: is1D ? "66 0 0%" : "72 0 0%", minHeight: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={rows} margin={{ top:2, right:4, left:0, bottom:0 }}>
+              <defs>
+                <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={stroke} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={stroke} stopOpacity={0}   />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="t" hide />
+              <YAxis domain={[minP, maxP]} hide />
+              <Tooltip
+                contentStyle={{ background:C.panel2, border:`1px solid ${C.border}`,
+                  borderRadius:4, fontSize:10, fontFamily:"monospace" }}
+                labelStyle={{ color:C.muted, fontSize:9 }}
+                formatter={(v:any) => [fmtPrice(v, symbol), "종가"]}
+                labelFormatter={(t:any) => String(t)}
+              />
+              <ReferenceLine y={startP} stroke={C.muted} strokeDasharray="3 3" strokeWidth={1} />
+              <Area type="monotone" dataKey="close" stroke={stroke} strokeWidth={1.5}
+                fill={`url(#cg-${symbol})`} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Volume bars */}
+        <div style={{ flex: is1D ? "18 0 0%" : "28 0 0%", minHeight: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} margin={{ top:0, right:4, left:0, bottom:0 }}>
+              <XAxis dataKey="t" hide />
+              <YAxis hide />
+              <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1,1,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 1D time axis — HH:MM every 30 min, absolutely positioned within fixed-height strip */}
+        {is1D && rows.length > 1 && (
+          <div style={{ flex: "0 0 16px", position: "relative", overflow: "visible", paddingRight: 4 }}>
+            {xTicks1D.map((tick, idx) => {
+              const dataIdx = rows.findIndex(r => r.t === tick);
+              const pct = (dataIdx / (rows.length - 1)) * 100;
+              return (
+                <span key={idx} style={{
+                  position: "absolute",
+                  top: 2,
+                  left: `${pct}%`,
+                  transform: "translateX(-50%)",
+                  fontSize: 7,
+                  fontFamily: "monospace",
+                  color: C.muted,
+                  whiteSpace: "nowrap",
+                  lineHeight: 1,
+                }}>
+                  {tick}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
