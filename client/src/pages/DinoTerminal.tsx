@@ -1835,16 +1835,20 @@ function MacroSignalPanel({ stocks }: { stocks: Record<string,any> }) {
 // BOND ETF PANEL  — duration ladder + credit
 // ══════════════════════════════════════════════════════════════════════════════
 const BOND_ETFS = [
-  { sym:"TLT",  label:"TLT",  desc:"미 20Y+",      cat:"dur" },
-  { sym:"IEF",  label:"IEF",  desc:"미 7-10Y",     cat:"dur" },
-  { sym:"SHY",  label:"SHY",  desc:"미 1-3Y",      cat:"dur" },
-  { sym:"TIP",  label:"TIP",  desc:"물가연동채",   cat:"infl" },
-  { sym:"HYG",  label:"HYG",  desc:"하이일드",     cat:"credit" },
-  { sym:"LQD",  label:"LQD",  desc:"투자등급",     cat:"credit" },
-  { sym:"EMB",  label:"EMB",  desc:"EM 채권",      cat:"em" },
+  { sym:"TLT", label:"TLT", ko:"미국 장기채(20Y+)",  note:"금리민감↑" },
+  { sym:"IEF", label:"IEF", ko:"미국 중기채(7-10Y)", note:"중간위험" },
+  { sym:"SHY", label:"SHY", ko:"미국 단기채(1-3Y)",  note:"금리민감↓" },
+  { sym:"TIP", label:"TIP", ko:"물가연동채(TIPS)",    note:"인플레 헤지" },
+  { sym:"HYG", label:"HYG", ko:"하이일드 회사채",     note:"신용위험↑" },
+  { sym:"LQD", label:"LQD", ko:"투자등급 회사채",     note:"신용위험↓" },
+  { sym:"EMB", label:"EMB", ko:"신흥국 채권",         note:"EM 리스크" },
 ];
 
 function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
+  // 상대 스케일: 가장 큰 절대변동을 기준으로 정규화
+  const pcts = BOND_ETFS.map(e => Math.abs(stocks[e.sym]?.changePercent ?? 0));
+  const maxPct = Math.max(...pcts, 0.2); // 최소 0.2% 기준선 유지
+
   return (
     <div className="p-2 border-t" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between mb-1.5">
@@ -1852,40 +1856,43 @@ function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
           style={{ color: C.muted }}>채권 ETF · BOND ETFs</span>
         <span className="text-[7px] font-mono" style={{ color: C.muted }}>금리↑ = 채권↓</span>
       </div>
-      {BOND_ETFS.map(({ sym, label, desc }) => {
+      {BOND_ETFS.map(({ sym, label, ko, note }) => {
         const q   = stocks[sym];
         const pct = q?.changePercent as number|undefined;
         const up  = (pct ?? 0) >= 0;
-        const barW = Math.min(Math.abs(pct ?? 0) * 15, 100);
+        // 상대 스케일: 최대값이 85%를 채우도록
+        const barW = pct != null ? Math.min((Math.abs(pct) / maxPct) * 85, 100) : 0;
         return (
-          <div key={sym} className="flex items-center gap-2 py-0.5 border-t"
-            style={{ borderColor: C.border + "30" }}>
-            <div className="w-[28px] shrink-0">
-              <span className="text-[9px] font-mono font-bold" style={{ color: C.info }}>{label}</span>
+          <div key={sym} className="grid gap-1 py-1 border-t"
+            style={{ borderColor: C.border + "30", gridTemplateColumns:"36px 1fr 48px 46px" }}>
+            {/* 티커 */}
+            <span className="text-[9px] font-mono font-bold self-center" style={{ color: C.info }}>{label}</span>
+            {/* 한글명 + 바 */}
+            <div className="flex flex-col justify-center gap-0.5 min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="text-[7px] font-mono truncate" style={{ color: C.muted }}>{ko}</span>
+                <span className="text-[6px] font-mono shrink-0 px-0.5 rounded"
+                  style={{ background: C.border, color: C.muted + "aa" }}>{note}</span>
+              </div>
+              <div className="relative h-[5px] rounded-full overflow-hidden w-full" style={{ background: C.border }}>
+                <div className="absolute left-0 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${barW}%`, background: up ? C.up : C.down }} />
+              </div>
             </div>
-            <div className="w-[52px] shrink-0">
-              <div className="text-[7px] font-mono" style={{ color: C.muted }}>{desc}</div>
-            </div>
-            <div className="flex-1 relative h-[4px] rounded-full overflow-hidden" style={{ background: C.border }}>
-              <div className="absolute h-full rounded-full"
-                style={{ width: `${barW}%`, background: up ? C.up : C.down, opacity: 0.7 }} />
-            </div>
-            <div className="w-[44px] text-right shrink-0">
-              <span className="text-[9px] font-mono font-bold"
-                style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
-                {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
-              </span>
-            </div>
-            <div className="w-[44px] text-right shrink-0">
-              <span className="text-[9px] font-mono" style={{ color: C.text }}>
-                {q?.price != null ? `$${q.price.toFixed(2)}` : "—"}
-              </span>
-            </div>
+            {/* 등락률 */}
+            <span className="text-[9px] font-mono font-bold text-right self-center"
+              style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
+              {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
+            </span>
+            {/* 가격 */}
+            <span className="text-[9px] font-mono text-right self-center" style={{ color: C.text }}>
+              {q?.price != null ? `$${q.price.toFixed(2)}` : "—"}
+            </span>
           </div>
         );
       })}
-      <div className="mt-1.5 text-[7px] font-mono" style={{ color: C.muted }}>
-        * TIP 상승 = 기대 인플레이션 상승 신호
+      <div className="mt-1 text-[7px] font-mono" style={{ color: C.muted }}>
+        ※ TIP↑=인플레 기대상승 · HYG↓=신용시장 긴축 신호
       </div>
     </div>
   );
@@ -3500,7 +3507,6 @@ export default function DinoTerminal() {
             <DollarFXPanel stocks={stocks} />
             <GlobalMarketsPanel stocks={stocks} />
             <CommExtPanel stocks={stocks} />
-            <CommodityFXPanel stocks={stocks} />
           </>
         )}
 
