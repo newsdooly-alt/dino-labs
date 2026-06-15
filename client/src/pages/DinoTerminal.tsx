@@ -1315,12 +1315,16 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
   const up       = totalPct >= 0;
   const stroke   = up ? C.up : C.down;
 
+  // Volume: set domain so bars occupy bottom ~22% of chart height
+  const maxVol   = Math.max(...rows.map(r => r.vol), 1);
+  const volDomainMax = maxVol * 4.5;   // bars fill ~1/4.5 ≈ 22% of chart
+
   // X-axis: ~5-6 labels regardless of bar count
   const xInterval = is1D
-    ? Math.max(6, Math.floor(rows.length / 6))   // 1D: ~every 30-60 min
-    : Math.max(1, Math.floor(rows.length / 5));   // others: ~5 labels
+    ? Math.max(6, Math.floor(rows.length / 6))
+    : Math.max(1, Math.floor(rows.length / 5));
 
-  const Y_W = 36;  // Y-axis width (right side)
+  const Y_W = 36;
   const tickStyle = { fill: C.muted, fontSize: 7, fontFamily: "monospace" } as const;
 
   return (
@@ -1341,63 +1345,67 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
         <span className="text-[9px] font-mono ml-auto" style={{ color: C.muted }}>({rows.length}개)</span>
       </div>
 
-      {/* ── Chart area ── */}
-      <div className="flex-1 min-h-0 flex flex-col">
-
-        {/* ① Price chart — Y-axis on right */}
-        <div style={{ flex: "72 0 0%", minHeight: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={rows} margin={{ top: 4, right: Y_W, left: 2, bottom: 0 }}>
-              <defs>
-                <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={stroke} stopOpacity={0.25} />
-                  <stop offset="95%" stopColor={stroke} stopOpacity={0}    />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} stroke={C.border} strokeOpacity={0.5} />
-              <XAxis dataKey="t" hide height={0} />
-              <YAxis
-                orientation="right"
-                width={Y_W}
-                tickCount={5}
-                tick={tickStyle}
-                axisLine={false}
-                tickLine={{ stroke: C.border, strokeWidth: 0.5 }}
-                tickFormatter={(v) => fmtYTick(v, symbol)}
-                domain={[minP, maxP]}
-              />
-              <Tooltip
-                contentStyle={{ background: C.panel2, border: `1px solid ${C.border}`,
-                  borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
-                labelStyle={{ color: C.muted, fontSize: 9 }}
-                formatter={(v:any) => [fmtPrice(v, symbol), "종가"]}
-                labelFormatter={(t:any) => String(t)}
-              />
-              <ReferenceLine y={baseP} stroke={stroke} strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.6} />
-              <Area type="monotone" dataKey="close" stroke={stroke} strokeWidth={1.5}
-                fill={`url(#cg-${symbol})`} dot={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* ② Volume bars — X-axis at bottom */}
-        <div style={{ flex: "28 0 0%", minHeight: 0 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} margin={{ top: 0, right: Y_W, left: 2, bottom: 0 }}>
-              <XAxis
-                dataKey="t"
-                tick={tickStyle}
-                axisLine={{ stroke: C.border, strokeWidth: 0.5 }}
-                tickLine={false}
-                tickFormatter={(t) => fmtXTick(t, is1D)}
-                interval={xInterval}
-                height={14}
-              />
-              <YAxis hide />
-              <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1, 1, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* ── Single ComposedChart: price area + volume bars share the same x-axis ── */}
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={rows} margin={{ top: 4, right: Y_W, left: 2, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={stroke} stopOpacity={0.25} />
+                <stop offset="95%" stopColor={stroke} stopOpacity={0}    />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke={C.border} strokeOpacity={0.5} />
+            <XAxis
+              dataKey="t"
+              tick={tickStyle}
+              axisLine={{ stroke: C.border, strokeWidth: 0.5 }}
+              tickLine={false}
+              tickFormatter={(t) => fmtXTick(t, is1D)}
+              interval={xInterval}
+              height={14}
+            />
+            {/* Price Y-axis — right */}
+            <YAxis
+              yAxisId="price"
+              orientation="right"
+              width={Y_W}
+              tickCount={5}
+              tick={tickStyle}
+              axisLine={false}
+              tickLine={{ stroke: C.border, strokeWidth: 0.5 }}
+              tickFormatter={(v) => fmtYTick(v, symbol)}
+              domain={[minP, maxP]}
+            />
+            {/* Volume Y-axis — hidden, left; domain scaled so bars sit in bottom ~22% */}
+            <YAxis
+              yAxisId="vol"
+              orientation="left"
+              hide
+              domain={[0, volDomainMax]}
+            />
+            <Tooltip
+              contentStyle={{ background: C.panel2, border: `1px solid ${C.border}`,
+                borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
+              labelStyle={{ color: C.muted, fontSize: 9 }}
+              formatter={(v: any, name: string) =>
+                name === "vol"
+                  ? [fmtVol(v as number), "거래량"]
+                  : [fmtPrice(v, symbol), "종가"]
+              }
+              labelFormatter={(t: any) => String(t)}
+            />
+            <ReferenceLine yAxisId="price" y={baseP} stroke={stroke}
+              strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.6} />
+            {/* Volume bars — rendered first so they sit behind the area */}
+            <Bar yAxisId="vol" dataKey="vol" fill={stroke} opacity={0.35}
+              radius={[1, 1, 0, 0]} isAnimationActive={false} />
+            {/* Price area — on top */}
+            <Area yAxisId="price" type="monotone" dataKey="close"
+              stroke={stroke} strokeWidth={1.5}
+              fill={`url(#cg-${symbol})`} dot={false} isAnimationActive={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
