@@ -83,6 +83,20 @@ export default function MarketTrends() {
         <p className="text-muted-foreground mt-2">{t.market_pulse}</p>
       </div>
 
+      {/* RRG Chart — 최상단 */}
+      <section>
+        <h2 className="text-xl font-bold flex items-center gap-3 mb-2">
+          <GitBranch className="w-6 h-6 text-indigo-500" />
+          {lang === "ko" ? "글로벌 섹터 순환 (RRG)" : "Global Sector Rotation (RRG)"}
+        </h2>
+        <p className="text-muted-foreground text-sm mb-5">
+          {lang === "ko"
+            ? "미국·한국·일본·유럽 — 자금이 어느 섹터로 이동하는지 추적하세요"
+            : "Track capital rotation across US, Korea, Japan & Europe"}
+        </p>
+        <RRGChart />
+      </section>
+
       {/* Fear & Greed + US Indices */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div>
@@ -172,20 +186,6 @@ export default function MarketTrends() {
         <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <LiveStockCard symbols={["ASML", "SAP", "NVO", "BP", "SHEL", "AZN", "UL", "GSK"]} />
         </div>
-      </section>
-
-      {/* RRG Chart */}
-      <section>
-        <h2 className="text-xl font-bold flex items-center gap-3 mb-2">
-          <GitBranch className="w-6 h-6 text-indigo-500" />
-          {lang === "ko" ? "글로벌 섹터 순환 (RRG)" : "Global Sector Rotation (RRG)"}
-        </h2>
-        <p className="text-muted-foreground text-sm mb-5">
-          {lang === "ko"
-            ? "미국·한국·일본·유럽 — 자금이 어느 섹터로 이동하는지 추적하세요"
-            : "Track capital rotation across US, Korea, Japan & Europe"}
-        </p>
-        <RRGChart />
       </section>
 
       {/* Global Macro Dashboard */}
