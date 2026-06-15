@@ -731,6 +731,31 @@ function extractHHMM(isoDate: string): string {
   return m ? m[1] : isoDate.slice(11, 16);
 }
 
+/** Price formatter for Y-axis — compact KRW/USD */
+function fmtYTick(v: number, sym: string): string {
+  const isKR = sym.endsWith(".KS") || sym.endsWith(".KQ");
+  if (isKR) {
+    if (v >= 1_000_000) return `${(v/1_000_000).toFixed(1)}M`;
+    if (v >= 1_000)     return `${(v/1_000).toFixed(0)}K`;
+    return String(Math.round(v));
+  }
+  if (v >= 100_000) return `$${(v/1_000).toFixed(0)}K`;
+  if (v >= 10_000)  return `$${(v/1_000).toFixed(0)}K`;
+  if (v >= 1_000)   return `$${(v/1_000).toFixed(1)}K`;
+  if (v >= 100)     return `$${v.toFixed(0)}`;
+  return `$${v.toFixed(1)}`;
+}
+
+/** Date formatter for X-axis — YYYY-MM-DD → M/D  |  HH:MM passthrough */
+function fmtXTick(t: string, is1D: boolean): string {
+  if (is1D || !t || t.length < 10) return t;
+  const parts = t.split("-");
+  if (parts.length >= 3) {
+    return `${parseInt(parts[1])}/${parseInt(parts[2].slice(0, 2))}`;
+  }
+  return t;
+}
+
 function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
   symbol:string; periodIdx:number; isMarketOpen?:boolean
 }) {
@@ -752,16 +777,15 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
     refetchInterval: liveMode ? 30_000 : 120_000,
     enabled:  !!symbol,
     retry:    1,
-    placeholderData: keepPreviousData,   // show previous chart while new symbol loads
+    placeholderData: keepPreviousData,
   });
 
   const rows = (raw || []).map((d:any) => ({
-    t:     is1D ? extractHHMM(d.date) : (d.date || "").slice(0,10),
+    t:     is1D ? extractHHMM(d.date) : (d.date || "").slice(0, 10),
     close: d.close,
     vol:   d.volume ?? 0,
   })).filter((d:any) => d.close != null && d.close > 0);
 
-  // Only show full-spinner when there is truly no data yet
   if (isLoading && rows.length === 0) return (
     <div className="flex items-center justify-center h-full gap-2" style={{ color: C.muted }}>
       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -788,10 +812,13 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
   const up       = totalPct >= 0;
   const stroke   = up ? C.up : C.down;
 
-  // 1D: time tick every 30 min = every 6 bars at 5m interval
-  const xTicks1D = is1D
-    ? rows.filter((_, i) => i === 0 || i % 6 === 0).map(r => r.t)
-    : [];
+  // X-axis: ~5-6 labels regardless of bar count
+  const xInterval = is1D
+    ? Math.max(6, Math.floor(rows.length / 6))   // 1D: ~every 30-60 min
+    : Math.max(1, Math.floor(rows.length / 5));   // others: ~5 labels
+
+  const Y_W = 36;  // Y-axis width (right side)
+  const tickStyle = { fill: C.muted, fontSize: 7, fontFamily: "monospace" } as const;
 
   return (
     <div className="h-full flex flex-col">
@@ -808,28 +835,37 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
             LIVE
           </span>
         )}
-        <span className="text-[9px] font-mono" style={{ color: C.muted }}>({rows.length}개)</span>
+        <span className="text-[9px] font-mono ml-auto" style={{ color: C.muted }}>({rows.length}개)</span>
       </div>
 
-      {/* ── Chart area: flex-col so flex values work as proportional heights ── */}
+      {/* ── Chart area ── */}
       <div className="flex-1 min-h-0 flex flex-col">
 
-        {/* Price chart — takes most of the space */}
-        <div style={{ flex: is1D ? "66 0 0%" : "72 0 0%", minHeight: 0 }}>
+        {/* ① Price chart — Y-axis on right */}
+        <div style={{ flex: "72 0 0%", minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={rows} margin={{ top:2, right:4, left:0, bottom:0 }}>
+            <ComposedChart data={rows} margin={{ top: 4, right: Y_W, left: 2, bottom: 0 }}>
               <defs>
                 <linearGradient id={`cg-${symbol}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={stroke} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={stroke} stopOpacity={0}   />
+                  <stop offset="5%"  stopColor={stroke} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={stroke} stopOpacity={0}    />
                 </linearGradient>
               </defs>
               <XAxis dataKey="t" hide />
-              <YAxis domain={[minP, maxP]} hide />
+              <YAxis
+                orientation="right"
+                width={Y_W}
+                tickCount={3}
+                tick={tickStyle}
+                axisLine={false}
+                tickLine={{ stroke: C.border, strokeWidth: 0.5 }}
+                tickFormatter={(v) => fmtYTick(v, symbol)}
+                domain={[minP, maxP]}
+              />
               <Tooltip
-                contentStyle={{ background:C.panel2, border:`1px solid ${C.border}`,
-                  borderRadius:4, fontSize:10, fontFamily:"monospace" }}
-                labelStyle={{ color:C.muted, fontSize:9 }}
+                contentStyle={{ background: C.panel2, border: `1px solid ${C.border}`,
+                  borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
+                labelStyle={{ color: C.muted, fontSize: 9 }}
                 formatter={(v:any) => [fmtPrice(v, symbol), "종가"]}
                 labelFormatter={(t:any) => String(t)}
               />
@@ -840,41 +876,24 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
           </ResponsiveContainer>
         </div>
 
-        {/* Volume bars */}
-        <div style={{ flex: is1D ? "18 0 0%" : "28 0 0%", minHeight: 0 }}>
+        {/* ② Volume bars — X-axis at bottom */}
+        <div style={{ flex: "28 0 0%", minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} margin={{ top:0, right:4, left:0, bottom:0 }}>
-              <XAxis dataKey="t" hide />
+            <BarChart data={rows} margin={{ top: 0, right: Y_W, left: 2, bottom: 0 }}>
+              <XAxis
+                dataKey="t"
+                tick={tickStyle}
+                axisLine={{ stroke: C.border, strokeWidth: 0.5 }}
+                tickLine={false}
+                tickFormatter={(t) => fmtXTick(t, is1D)}
+                interval={xInterval}
+                height={14}
+              />
               <YAxis hide />
-              <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1,1,0,0]} />
+              <Bar dataKey="vol" fill={stroke} opacity={0.4} radius={[1, 1, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        {/* 1D time axis — HH:MM every 30 min, absolutely positioned within fixed-height strip */}
-        {is1D && rows.length > 1 && (
-          <div style={{ flex: "0 0 16px", position: "relative", overflow: "visible", paddingRight: 4 }}>
-            {xTicks1D.map((tick, idx) => {
-              const dataIdx = rows.findIndex(r => r.t === tick);
-              const pct = (dataIdx / (rows.length - 1)) * 100;
-              return (
-                <span key={idx} style={{
-                  position: "absolute",
-                  top: 2,
-                  left: `${pct}%`,
-                  transform: "translateX(-50%)",
-                  fontSize: 7,
-                  fontFamily: "monospace",
-                  color: C.muted,
-                  whiteSpace: "nowrap",
-                  lineHeight: 1,
-                }}>
-                  {tick}
-                </span>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
