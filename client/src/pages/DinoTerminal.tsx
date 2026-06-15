@@ -10,7 +10,7 @@ import {
 } from "@/lib/stockNames";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, ComposedChart, ReferenceLine,
+  ResponsiveContainer, ComposedChart, ReferenceLine, CartesianGrid,
 } from "recharts";
 import {
   Search, RefreshCw, Newspaper, Bot, BarChart2,
@@ -756,8 +756,8 @@ function fmtXTick(t: string, is1D: boolean): string {
   return t;
 }
 
-function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
-  symbol:string; periodIdx:number; isMarketOpen?:boolean
+function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: {
+  symbol:string; periodIdx:number; isMarketOpen?:boolean; prevClose?:number
 }) {
   const { period, interval } = PERIODS[periodIdx];
   const is1D     = periodIdx === 0;
@@ -808,7 +808,9 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
   const maxP     = Math.max(...prices) * 1.003;
   const startP   = rows[0].close;
   const endP     = rows[rows.length - 1].close;
-  const totalPct = startP ? ((endP - startP) / startP * 100) : 0;
+  // 1D: color based on prevClose (yesterday's close) so +4% shows green even if intraday dipped
+  const baseP    = (is1D && prevClose > 0) ? prevClose : startP;
+  const totalPct = baseP ? ((endP - baseP) / baseP * 100) : 0;
   const up       = totalPct >= 0;
   const stroke   = up ? C.up : C.down;
 
@@ -851,11 +853,12 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
                   <stop offset="95%" stopColor={stroke} stopOpacity={0}    />
                 </linearGradient>
               </defs>
+              <CartesianGrid vertical={false} stroke={C.border} strokeOpacity={0.5} />
               <XAxis dataKey="t" hide />
               <YAxis
                 orientation="right"
                 width={Y_W}
-                tickCount={3}
+                tickCount={5}
                 tick={tickStyle}
                 axisLine={false}
                 tickLine={{ stroke: C.border, strokeWidth: 0.5 }}
@@ -869,7 +872,7 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false }: {
                 formatter={(v:any) => [fmtPrice(v, symbol), "종가"]}
                 labelFormatter={(t:any) => String(t)}
               />
-              <ReferenceLine y={startP} stroke={C.muted} strokeDasharray="3 3" strokeWidth={1} />
+              <ReferenceLine y={baseP} stroke={stroke} strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.6} />
               <Area type="monotone" dataKey="close" stroke={stroke} strokeWidth={1.5}
                 fill={`url(#cg-${symbol})`} dot={false} />
             </ComposedChart>
@@ -2466,7 +2469,7 @@ export default function DinoTerminal() {
 
           {/* Chart — FIXED HEIGHT */}
           <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
-            <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} />
+            <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} prevClose={quote?.previousClose} />
           </div>
 
           {/* Scrollable: TechEngine + Macro rates ▶ compact, no more 3 hidden panels */}
@@ -2600,7 +2603,7 @@ export default function DinoTerminal() {
               </Link>
             </div>
             <div style={{ height:180, padding:"4px" }}>
-              <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} />
+              <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true} prevClose={quote?.previousClose} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
             <CrossAssetTable stocks={stocks} />
