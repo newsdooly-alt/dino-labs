@@ -202,7 +202,7 @@ export function ThemeColorProvider({ children }: { children: React.ReactNode }) 
   const { data: user } = useUser();
   const [themeColor, setThemeColorState] = useState<ThemeColor>(() => {
     const saved = localStorage.getItem("dinolingo_theme_color");
-    return (saved as ThemeColor) || "green";
+    return (saved as ThemeColor) || "blue";
   });
 
   useEffect(() => {

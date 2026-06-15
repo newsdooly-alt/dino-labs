@@ -508,9 +508,8 @@ export async function registerRoutes(
   });
 
   // === Practice Mode Routes (MUST be before :id routes) ===
-  app.get("/api/quests/practice", isAuthenticated, async (req, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  app.get("/api/quests/practice", async (req, res) => {
+    const userId = getUserId(req) || "guest";
     
     const profile = await storage.getUserProfile(userId);
     
@@ -555,9 +554,8 @@ export async function registerRoutes(
     res.status(404).json({ message: "Profile not found" });
   });
 
-  app.post("/api/quests/practice/complete", isAuthenticated, async (req, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  app.post("/api/quests/practice/complete", async (req, res) => {
+    const userId = getUserId(req) || "guest";
     
     const { answerIndex, correctAnswer } = req.body;
     
@@ -3439,7 +3437,7 @@ ${sectorRecommendationJson}
 
   // ── AI Stock Chatbot ──────────────────────────────────────────────────────────
   // POST /api/chat/stock — Expert stock market AI that explains concepts simply
-  app.post("/api/chat/stock", isAuthenticated, async (req, res) => {
+  app.post("/api/chat/stock", async (req, res) => {
     const { message, history = [], lang = "ko" } = req.body;
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "message required" });

@@ -1,21 +1,25 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useState } from "react";
-import { Flame, Zap, User, Search, Bot } from "lucide-react";
+import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BarChart2, Calendar, Trophy, DollarSign, Users, BookOpen, Wallet, Star } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileMenu } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 
 const TABS = [
-  { label: "뉴스",        en: "Live News",   ja: "ニュース",    href: "/hot-issues", highlight: true },
-  { label: "다이노터미널", en: "Terminal",   ja: "ターミナル",  href: "/terminal" },
-  { label: "시장동향",    en: "Trends",      ja: "トレンド",    href: "/market-trends" },
-  { label: "차트",        en: "Pro Chart",   ja: "チャート",    href: "/pro" },
-  { label: "캘린더",      en: "Calendar",    ja: "カレンダー",  href: "/calendar" },
-  { label: "실적",        en: "Earnings",    ja: "決算",        href: "/earnings" },
-  { label: "투자자",      en: "Investors",   ja: "投資家",      href: "/investors" },
-  { label: "퀘스트",      en: "Quests",      ja: "クエスト",    href: "/quests" },
+  { label: "뉴스",    en: "News",      ja: "ニュース",  href: "/hot-issues",    icon: Newspaper,  highlight: true },
+  { label: "터미널",  en: "Terminal",  ja: "端末",      href: "/terminal",      icon: Terminal },
+  { label: "시장",    en: "Market",    ja: "市場",      href: "/market-trends", icon: TrendingUp },
+  { label: "차트",    en: "Chart",     ja: "チャート",  href: "/pro",           icon: BarChart2 },
+  { label: "캘린더",  en: "Calendar",  ja: "カレンダー",href: "/calendar",      icon: Calendar },
+  { label: "실적",    en: "Earnings",  ja: "決算",      href: "/earnings",      icon: DollarSign },
+  { label: "투자자",  en: "Investors", ja: "投資家",    href: "/investors",     icon: Users },
+  { label: "퀘스트",  en: "Quests",    ja: "クエスト",  href: "/quests",        icon: Trophy },
+  { label: "챗봇",    en: "AI Chat",   ja: "AIチャット",href: "/chat",          icon: Bot },
+  { label: "관심",    en: "Watchlist", ja: "ウォッチ",  href: "/watchlist",     icon: Star },
+  { label: "포트폴리오",en:"Portfolio",ja: "ポートフォリオ",href:"/ai-portfolio",icon: Wallet },
+  { label: "차트공부",en: "Charts",    ja: "チャート学習",href:"/chart-master",  icon: BookOpen },
 ];
 
 export function TerminalTopBar() {
@@ -43,12 +47,12 @@ export function TerminalTopBar() {
   return (
     <>
       {/* ── DESKTOP terminal bar ─────────────────────────────────────── */}
-      <header className="hidden md:flex h-11 items-stretch border-b border-border bg-card shrink-0 z-50 shadow-sm">
+      <header className="hidden md:flex h-10 items-stretch border-b border-border bg-card shrink-0 z-50 shadow-sm">
 
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 px-4 border-r border-border shrink-0 hover:bg-muted/40 transition-colors">
-          <div className="w-6 h-6 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-[11px] font-black tracking-tight">D</div>
-          <span className="text-[12px] font-bold tracking-widest uppercase text-foreground font-mono">DinoInvest</span>
+        <Link href="/" className="flex items-center gap-1.5 px-3 border-r border-border shrink-0 hover:bg-muted/40 transition-colors">
+          <div className="w-5 h-5 bg-primary rounded flex items-center justify-center text-primary-foreground text-[10px] font-black tracking-tight">D</div>
+          <span className="text-[11px] font-bold tracking-widest uppercase text-foreground font-mono hidden lg:block">DinoInvest</span>
         </Link>
 
         {/* Tab strip */}
@@ -58,12 +62,13 @@ export function TerminalTopBar() {
               ? (location === "/" || location === "/hot-issues" || location.startsWith("/hot-issues"))
               : location.startsWith(tab.href);
             const isHighlight = (tab as any).highlight;
+            const Icon = tab.icon;
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  "flex items-center gap-1.5 px-3.5 text-[12px] font-medium border-b-2 transition-all whitespace-nowrap shrink-0",
+                  "flex items-center gap-1 px-2.5 text-[11px] font-medium border-b-2 transition-all whitespace-nowrap shrink-0",
                   active
                     ? "border-primary text-primary bg-primary/8 font-semibold"
                     : isHighlight
@@ -71,13 +76,11 @@ export function TerminalTopBar() {
                     : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                {isHighlight && (
-                  <span className={cn(
-                    "w-1.5 h-1.5 rounded-full shrink-0",
-                    active ? "bg-primary animate-pulse" : "bg-primary/40"
-                  )} />
+                <Icon className={cn("w-3 h-3 shrink-0", active ? "text-primary" : "text-muted-foreground/70")} />
+                {isHighlight && !active && (
+                  <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0" />
                 )}
-                {getTabLabel(tab)}
+                <span>{getTabLabel(tab)}</span>
               </Link>
             );
           })}
@@ -87,32 +90,26 @@ export function TerminalTopBar() {
         <div className="flex-1 min-w-0" />
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="flex items-center px-3 border-l border-border shrink-0">
+        <form onSubmit={handleSearch} className="flex items-center px-2.5 border-l border-border shrink-0">
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
+            <Search className="w-3 h-3 absolute left-2 text-muted-foreground pointer-events-none" />
             <input
               value={searchVal}
               onChange={e => setSearchVal(e.target.value)}
-              placeholder={lang === "ko" ? "종목 검색... AAPL, 삼성" : lang === "ja" ? "銘柄検索... AAPL" : "Search symbol..."}
-              className="h-7 pl-7 pr-3 text-[12px] rounded-md border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 w-48 placeholder:text-muted-foreground/50 transition-all"
+              placeholder={lang === "ko" ? "종목... AAPL, 삼성" : lang === "ja" ? "銘柄..." : "Search..."}
+              className="h-6 pl-6 pr-2.5 text-[11px] rounded border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 w-36 placeholder:text-muted-foreground/50 transition-all"
             />
           </div>
         </form>
 
-        {/* AI button */}
-        <Link href="/chat" className="flex items-center gap-1.5 px-3.5 text-[12px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors border-l border-primary/20 shrink-0">
-          <Bot className="w-3.5 h-3.5" />
-          AI
-        </Link>
-
         {/* User stats */}
-        <div className="flex items-center gap-2.5 px-3.5 border-l border-border shrink-0">
-          <span className="flex items-center gap-1 text-[12px] font-semibold text-orange-500">
-            <Flame className="w-3.5 h-3.5 fill-current" />
+        <div className="flex items-center gap-2 px-2.5 border-l border-border shrink-0">
+          <span className="flex items-center gap-0.5 text-[11px] font-semibold text-orange-500">
+            <Flame className="w-3 h-3 fill-current" />
             {user?.streak || 0}
           </span>
-          <span className="flex items-center gap-1 text-[12px] font-semibold text-amber-500">
-            <Zap className="w-3.5 h-3.5 fill-current" />
+          <span className="flex items-center gap-0.5 text-[11px] font-semibold text-amber-500">
+            <Zap className="w-3 h-3 fill-current" />
             {(user?.xp || 0).toLocaleString()}
           </span>
           <button

@@ -75,7 +75,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
   localStorage.setItem(LS_NAMES_KEY, JSON.stringify(names));
 }
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","JPY=X"];
-const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"KOSPI","^IXIC":"NDX",
@@ -1407,6 +1407,7 @@ const COMM_DEF = [
   { sym:"NG=F",  label:"NatGas",  emoji:"🔥" },
 ];
 const FX_DEF = [
+  { sym:"KRW=X",    label:"USD/KRW" },
   { sym:"EURUSD=X", label:"EUR/USD" },
   { sym:"GBPUSD=X", label:"GBP/USD" },
   { sym:"JPY=X",    label:"USD/JPY" },
@@ -1446,7 +1447,7 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
             style={{ borderColor:C.border+"40" }}>
             <span className="text-[9px] font-mono" style={{ color:C.muted }}>{label}</span>
             <span className="text-[9px] font-mono" style={{ color:C.text }}>
-              {q ? q.price?.toFixed(sym==="JPY=X" ? 2 : 4) : "—"}
+              {q ? q.price?.toFixed(sym==="KRW=X" ? 0 : sym==="JPY=X" ? 2 : 4) : "—"}
             </span>
             <span className="text-[8px] font-mono font-bold"
               style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
