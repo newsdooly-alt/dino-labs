@@ -1758,6 +1758,79 @@ export async function registerRoutes(
     res.json({ count: getUserNewsCount(userId) });
   });
 
+  // ── News Detail Cache (prevent re-calling OpenAI for same article) ──────
+  const newsDetailCache = new Map<string, { data: any; expiresAt: number }>();
+  const NEWS_DETAIL_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
+  function getCachedDetail(title: string) {
+    const key = title.trim().toLowerCase().slice(0, 120);
+    const hit = newsDetailCache.get(key);
+    if (hit && hit.expiresAt > Date.now()) return hit.data;
+    newsDetailCache.delete(key);
+    return null;
+  }
+
+  function setCachedDetail(title: string, data: any) {
+    const key = title.trim().toLowerCase().slice(0, 120);
+    newsDetailCache.set(key, { data, expiresAt: Date.now() + NEWS_DETAIL_TTL });
+  }
+
+  async function generateNewsDetail(title: string, summary: string | undefined, publisher: string | undefined, symbol: string | undefined, isMarketImpact: boolean): Promise<any> {
+    const cached = getCachedDetail(title);
+    if (cached) return cached;
+
+    const context = [
+      `Headline: ${title}`,
+      summary ? `Summary: ${summary}` : "",
+      publisher ? `Source: ${publisher}` : "",
+      symbol ? `Asset: ${symbol}` : "",
+    ].filter(Boolean).join("\n");
+
+    const systemPrompt = isMarketImpact
+      ? `You are a trilingual macro financial analyst (Korean, English, Japanese).
+Given a macro/geopolitical/economic headline, explain how this global event impacts financial markets.
+Produce a JSON with EXACTLY these keys:
+- "bullets_ko": array of 3 Korean bullet points — focus on market impact: which sectors rise/fall, what assets are safe haven, what investors should watch
+- "bullets_en": array of 3 English bullet points — same market-impact focus
+- "bullets_ja": array of 3 Japanese bullet points — same market-impact focus
+- "ko": 2 paragraph Korean analysis: (1) what happened, (2) direct market impact and investment strategy for Korean retail investors
+- "en": 2 paragraph English analysis: (1) event summary, (2) sector/asset impact and investor takeaway
+- "ja": 2 paragraph Japanese analysis with sector impact focus for Japanese retail investors
+Do NOT include markdown. Return only the JSON object.`
+      : `You are a trilingual financial news analyst (Korean, English, Japanese).
+Given a stock/finance news headline and optional summary, produce a JSON object with EXACTLY these keys:
+- "bullets_ko": array of 3 Korean bullet point strings (key facts, concise, no prefix symbols)
+- "bullets_en": array of 3 English bullet point strings (key facts, concise, no prefix symbols)
+- "bullets_ja": array of 3 Japanese bullet point strings (key facts, concise, no prefix symbols)
+- "ko": 2 paragraph Korean analysis for Korean retail investors (focus on investment implications)
+- "en": 2 paragraph English analysis (focus on investment implications)
+- "ja": 2 paragraph Japanese analysis for Japanese retail investors
+Keep each language culturally appropriate. Do NOT include markdown. Return only the JSON object.`;
+
+    const aiRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: context },
+      ],
+      max_tokens: 1200,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = aiRes.choices[0]?.message?.content?.trim() || "{}";
+    const parsed = JSON.parse(raw);
+    const result = {
+      bullets_ko: (parsed.bullets_ko || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
+      bullets_en: (parsed.bullets_en || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
+      bullets_ja: (parsed.bullets_ja || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
+      ko: parsed.ko || "",
+      en: parsed.en || "",
+      ja: parsed.ja || "",
+    };
+    setCachedDetail(title, result);
+    return result;
+  }
+
   // ── Today's Hot Issues ──────────────────────────────────────────────────
   let hotIssuesCache: any = null;
   let hotIssuesCacheTime = 0;
@@ -2144,68 +2217,39 @@ Return ONLY valid JSON: {"title": "한국어 제목", "summary": "시장 영향 
       const hotSymbols = processed.filter((p: any) => p.isHot).map((p: any) => p.symbol).join(", ");
       console.log(`[Hot Issues] Generated ${processed.length} issues (${macroCount2} macro, ${hotCount} HOT) — HOT: [${hotSymbols}] — sectors: ${sectorBreakdown}`);
       res.json(result);
+
+      // ── Background pre-warm: generate AI details for top articles ────────
+      // Fire-and-forget so the HTTP response is not delayed
+      const topToPrewarm = processed
+        .filter((p: any) => p.isMarketImpact || p.isHot)
+        .slice(0, 6);
+      setImmediate(async () => {
+        for (const article of topToPrewarm) {
+          if (getCachedDetail(article.title)) continue; // already cached
+          try {
+            await generateNewsDetail(article.title, article.summary, article.publisher, article.symbol, article.isMarketImpact || false);
+            console.log(`[News Prewarm] Cached: ${article.title?.slice(0, 40)}`);
+          } catch (e: any) {
+            // ignore prewarm errors silently
+          }
+          await new Promise(r => setTimeout(r, 400)); // 400ms gap between calls
+        }
+      });
     } catch (error: any) {
       console.error("[Hot Issues] Error:", error.message);
       res.json({ issues: [], count: 0, fetchedAt: Date.now() });
     }
   });
 
-  // === In-App News Detail: AI Summary + Trilingual Analysis ===
+  // === In-App News Detail: AI Summary + Trilingual Analysis (cached) ===
   app.post("/api/news/detail", async (req, res) => {
     try {
       const { title, summary, publisher, symbol, isMarketImpact } = req.body as {
         title: string; summary?: string; publisher?: string; symbol?: string; isMarketImpact?: boolean;
       };
       if (!title) return res.status(400).json({ error: "title required" });
-
-      const context = [
-        `Headline: ${title}`,
-        summary ? `Summary: ${summary}` : "",
-        publisher ? `Source: ${publisher}` : "",
-        symbol ? `Asset: ${symbol}` : "",
-      ].filter(Boolean).join("\n");
-
-      const systemPrompt = isMarketImpact
-        ? `You are a trilingual macro financial analyst (Korean, English, Japanese).
-Given a macro/geopolitical/economic headline, explain how this global event impacts financial markets.
-Produce a JSON with EXACTLY these keys:
-- "bullets_ko": array of 3 Korean bullet points — focus on market impact: which sectors rise/fall, what assets are safe haven, what investors should watch
-- "bullets_en": array of 3 English bullet points — same market-impact focus
-- "bullets_ja": array of 3 Japanese bullet points — same market-impact focus
-- "ko": 2-3 paragraph Korean analysis: (1) what happened, (2) direct market impact by sector (방산/에너지/금융/채권 등), (3) investment strategy for Korean retail investors
-- "en": 2-3 paragraph English analysis: (1) event summary, (2) sector/asset impact (defense/energy/bonds/safe havens), (3) investor takeaway
-- "ja": 2-3 paragraph Japanese analysis with sector impact focus for Japanese retail investors
-Do NOT include markdown. Return only the JSON object.`
-        : `You are a trilingual financial news analyst (Korean, English, Japanese).
-Given a stock/finance news headline and optional summary, produce a JSON object with EXACTLY these keys:
-- "bullets_ko": array of 3 Korean bullet point strings (key facts, concise, no prefix symbols)
-- "bullets_en": array of 3 English bullet point strings (key facts, concise, no prefix symbols)
-- "bullets_ja": array of 3 Japanese bullet point strings (key facts, concise, no prefix symbols)
-- "ko": 2-3 paragraph Korean analysis for Korean retail investors (natural financial Korean, focus on investment implications)
-- "en": 2-3 paragraph English analysis for international investors (focus on investment implications)
-- "ja": 2-3 paragraph Japanese analysis for Japanese retail investors (natural financial Japanese, focus on investment implications)
-Keep each language culturally appropriate. Do NOT include markdown. Return only the JSON object.`;
-
-      const aiRes = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: context },
-        ],
-        max_tokens: 1800,
-        response_format: { type: "json_object" },
-      });
-
-      const raw = aiRes.choices[0]?.message?.content?.trim() || "{}";
-      const parsed = JSON.parse(raw);
-      res.json({
-        bullets_ko: (parsed.bullets_ko || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
-        bullets_en: (parsed.bullets_en || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
-        bullets_ja: (parsed.bullets_ja || []).map((s: string) => s.replace(/^[▸•\-\*]\s*/, "")),
-        ko: parsed.ko || "",
-        en: parsed.en || "",
-        ja: parsed.ja || "",
-      });
+      const result = await generateNewsDetail(title, summary, publisher, symbol, isMarketImpact || false);
+      res.json(result);
     } catch (error: any) {
       console.error("[News Detail]", error.message);
       res.status(500).json({ error: "Failed to generate analysis" });
