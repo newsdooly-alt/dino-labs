@@ -1054,7 +1054,7 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} stroke={C.border} strokeOpacity={0.5} />
-              <XAxis dataKey="t" hide />
+              <XAxis dataKey="t" hide height={0} />
               <YAxis
                 orientation="right"
                 width={Y_W}
