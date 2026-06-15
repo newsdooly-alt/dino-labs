@@ -40,16 +40,40 @@ const C = {
 // ══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════════════════════════════
-const WATCH_SYMS = [
+const DEFAULT_WATCH_SYMS = [
   "AAPL","NVDA","TSLA","MSFT","AMZN","META",
   "005930.KS","^KS11","^IXIC","BTC-USD","GC=F","CL=F",
 ];
-const WATCH_NAMES: Record<string,string> = {
+const DEFAULT_WATCH_NAMES: Record<string,string> = {
   "AAPL":"Apple","NVDA":"NVIDIA","TSLA":"Tesla","MSFT":"Microsoft",
   "AMZN":"Amazon","META":"Meta","005930.KS":"삼성전자",
   "^KS11":"KOSPI","^IXIC":"NASDAQ","BTC-USD":"Bitcoin",
   "GC=F":"Gold","CL=F":"Crude Oil",
 };
+// Keep legacy alias for components outside the main state
+const WATCH_NAMES = DEFAULT_WATCH_NAMES;
+
+const LS_SYMS_KEY  = "dino-watch-syms";
+const LS_NAMES_KEY = "dino-watch-names";
+
+function loadWatchSyms(): string[] {
+  try {
+    const raw = localStorage.getItem(LS_SYMS_KEY);
+    if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return arr; }
+  } catch {}
+  return [...DEFAULT_WATCH_SYMS];
+}
+function loadWatchNames(): Record<string,string> {
+  try {
+    const raw = localStorage.getItem(LS_NAMES_KEY);
+    if (raw) return { ...DEFAULT_WATCH_NAMES, ...JSON.parse(raw) };
+  } catch {}
+  return { ...DEFAULT_WATCH_NAMES };
+}
+function saveWatchSyms(syms: string[], names: Record<string,string>) {
+  localStorage.setItem(LS_SYMS_KEY, JSON.stringify(syms));
+  localStorage.setItem(LS_NAMES_KEY, JSON.stringify(names));
+}
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","JPY=X"];
 const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
@@ -535,13 +559,183 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// WATCH EDIT MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
+  watchSyms: string[];
+  watchNames: Record<string,string>;
+  onUpdate: (syms: string[], names: Record<string,string>) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) { setSearchResults([]); return; }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const r = await fetch(`/api/stocks/search?q=${encodeURIComponent(query.trim())}`);
+        const d = await r.json();
+        setSearchResults((d.results || []).slice(0, 8));
+      } catch { setSearchResults([]); }
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  function addSym(sym: string, name: string) {
+    if (watchSyms.includes(sym) || watchSyms.length >= 20) return;
+    const newSyms = [...watchSyms, sym];
+    const newNames = { ...watchNames, [sym]: name };
+    onUpdate(newSyms, newNames);
+  }
+
+  function removeSym(sym: string) {
+    if (watchSyms.length <= 1) return;
+    const newSyms = watchSyms.filter(s => s !== sym);
+    onUpdate(newSyms, watchNames);
+  }
+
+  function reset() {
+    onUpdate([...DEFAULT_WATCH_SYMS], { ...DEFAULT_WATCH_NAMES });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.7)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-[320px] max-h-[80vh] flex flex-col rounded-lg overflow-hidden"
+        style={{ background: C.panel, border: `1px solid ${C.border}` }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-b shrink-0"
+          style={{ borderColor: C.border, background: C.header }}>
+          <span className="text-[11px] font-mono font-bold tracking-widest uppercase"
+            style={{ color: C.text }}>WATCH GRID 편집</span>
+          <div className="flex items-center gap-2">
+            <button onClick={reset}
+              className="text-[9px] font-mono px-2 py-0.5 rounded"
+              style={{ background: C.border, color: C.muted }}>
+              초기화
+            </button>
+            <button onClick={onClose}
+              className="text-[11px] font-mono font-bold w-5 h-5 flex items-center justify-center rounded"
+              style={{ color: C.muted, background: C.border }}>✕</button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="px-3 py-2 border-b shrink-0" style={{ borderColor: C.border }}>
+          <div className="relative">
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="종목 검색 (AAPL, 삼성전자...)"
+              className="w-full px-2.5 py-1.5 text-[11px] font-mono rounded outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text,
+                "::placeholder": { color: C.muted } as any }}
+            />
+            {searching && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono"
+                style={{ color: C.muted }}>검색 중...</span>
+            )}
+          </div>
+          {searchResults.length > 0 && (
+            <div className="mt-1.5 rounded overflow-hidden"
+              style={{ border: `1px solid ${C.border}` }}>
+              {searchResults.map((r: any) => {
+                const already = watchSyms.includes(r.symbol);
+                const full = watchSyms.length >= 20;
+                return (
+                  <button key={r.symbol}
+                    disabled={already || full}
+                    onClick={() => { addSym(r.symbol, r.name || r.symbol); setQuery(""); setSearchResults([]); }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 text-left border-b last:border-0 transition-colors"
+                    style={{ borderColor: C.border, background: "transparent" }}
+                    onMouseEnter={e => !already && !full && ((e.currentTarget as HTMLElement).style.background = C.panel2)}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}>
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-mono font-bold"
+                        style={{ color: already ? C.muted : C.info }}>{r.symbol}</span>
+                      <span className="text-[9px] font-mono ml-1.5 truncate"
+                        style={{ color: C.muted }}>{r.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono shrink-0 ml-2"
+                      style={{ color: already ? C.muted : C.up }}>
+                      {already ? "✓" : full ? "max" : "+추가"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Current list */}
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+          <div className="px-3 py-1.5 border-b"
+            style={{ borderColor: C.border }}>
+            <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+              현재 {watchSyms.length}/20개 종목
+            </span>
+          </div>
+          {watchSyms.map((sym, idx) => {
+            const name = watchNames[sym] || "";
+            const ticker = sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","");
+            return (
+              <div key={sym}
+                className="flex items-center justify-between px-3 py-1.5 border-b"
+                style={{ borderColor: C.border + "60" }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[9px] font-mono w-4 text-center shrink-0"
+                    style={{ color: C.muted }}>{idx + 1}</span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-mono font-bold"
+                      style={{ color: C.text }}>{ticker}</div>
+                    {name && <div className="text-[9px] font-mono truncate"
+                      style={{ color: C.muted }}>{name}</div>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeSym(sym)}
+                  disabled={watchSyms.length <= 1}
+                  className="text-[11px] font-mono w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors"
+                  style={{ color: C.muted }}
+                  onMouseEnter={e => watchSyms.length > 1 && ((e.currentTarget as HTMLElement).style.color = C.down)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.muted)}>
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer hint */}
+        <div className="px-3 py-2 border-t shrink-0"
+          style={{ borderColor: C.border, background: C.header }}>
+          <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+            최대 20개 · 변경사항은 자동 저장됩니다
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // WATCH GRID  (real live data, selected symbol highlight)
 // ══════════════════════════════════════════════════════════════════════════════
-function WatchGrid({ stocks, onSelect, selected, isLoading }: {
+function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchNames, onEditOpen }: {
   stocks: Record<string,any>;
   onSelect: (s:string)=>void;
   selected: string;
   isLoading: boolean;
+  watchSyms: string[];
+  watchNames: Record<string,string>;
+  onEditOpen: () => void;
 }) {
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
@@ -550,7 +744,13 @@ function WatchGrid({ stocks, onSelect, selected, isLoading }: {
         <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           WATCH GRID
         </span>
-        <Link href="/watchlist" className="text-[9px] font-mono" style={{ color: C.info }}>편집</Link>
+        <button onClick={onEditOpen}
+          className="text-[9px] font-mono transition-colors"
+          style={{ color: C.info }}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = "#7ec8ff")}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.info)}>
+          ✏ 편집
+        </button>
       </div>
       {/* Header */}
       <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 68px 52px 38px" }}>
@@ -562,7 +762,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading }: {
       {/* Rows */}
       {isLoading
         ? Array.from({length:6}).map((_,i) => <SkeletonRow key={i} />)
-        : WATCH_SYMS.map(sym => {
+        : watchSyms.map(sym => {
             const q = stocks[sym];
             const up = isUp(q?.changePercent);
             const sel = sym === selected;
@@ -577,7 +777,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading }: {
                 <div className="text-left min-w-0">
                   {(() => {
                     const isKR = sym.endsWith(".KS");
-                    const koName = WATCH_NAMES[sym] || "";
+                    const koName = watchNames[sym] || "";
                     const ticker = sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","");
                     return isKR && koName ? (
                       <>
@@ -2363,11 +2563,20 @@ export default function DinoTerminal() {
   const [mTab, setMTab] = useState<MTab>(() =>
     (localStorage.getItem("dino-terminal-tab") as MTab) || "market"
   );
+  const [watchSyms, setWatchSyms] = useState<string[]>(loadWatchSyms);
+  const [watchNames, setWatchNames] = useState<Record<string,string>>(loadWatchNames);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => { localStorage.setItem("dino-terminal-tab", mTab); }, [mTab]);
 
+  function handleWatchUpdate(syms: string[], names: Record<string,string>) {
+    setWatchSyms(syms);
+    setWatchNames(names);
+    saveWatchSyms(syms, names);
+  }
+
   // ─── FAST FIRST LOAD: only batch live prices ───────────────────────────────
-  const allSyms = Array.from(new Set([...WATCH_SYMS, ...INDEX_SYMS, ...MACRO_SYMS, ...GLOBAL_SYMS, selected]));
+  const allSyms = Array.from(new Set([...watchSyms, ...INDEX_SYMS, ...MACRO_SYMS, ...GLOBAL_SYMS, selected]));
   const { data: stocks = {}, isLoading: liveLdg, isError: liveErr } = useLivePrices(allSyms);
   const quote = stocks[selected];
 
@@ -2440,7 +2649,8 @@ export default function DinoTerminal() {
         <div className="w-[160px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
-          <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
+          <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
+            watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
           <SectorMap />
         </div>
 
@@ -2521,8 +2731,8 @@ export default function DinoTerminal() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-mono font-bold" style={{ color:C.info }}>
-              {selected.endsWith(".KS") && WATCH_NAMES[selected]
-                ? WATCH_NAMES[selected]
+              {selected.endsWith(".KS") && watchNames[selected]
+                ? watchNames[selected]
                 : selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
             </span>
             {quote && (
@@ -2578,7 +2788,8 @@ export default function DinoTerminal() {
               })}
             </div>
             <MarketPulseWidget liveStocks={stocks} />
-            <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg} />
+            <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
+              watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
             <SectorMap />
           </>
         )}
@@ -2668,6 +2879,14 @@ export default function DinoTerminal() {
     <div style={{ background:C.bg }}>
       {Desktop}
       {Mobile}
+      {showEditModal && (
+        <WatchEditModal
+          watchSyms={watchSyms}
+          watchNames={watchNames}
+          onUpdate={handleWatchUpdate}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   );
 }
