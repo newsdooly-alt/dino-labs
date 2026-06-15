@@ -2915,11 +2915,17 @@ def screener_actives():
 
 @app.route('/market/volume-pulse', methods=['GET'])
 def market_volume_pulse():
-    """Return volume vs average for key market ETFs/indices."""
-    import time as _t
-    syms = ['SPY', 'QQQ', 'IWM', 'DIA', 'NVDA', 'TSLA', 'AAPL', 'MSFT']
+    """Return volume vs average for major market index ETFs."""
+    INDEX_MAP = [
+        ('SPY',  'S&P500'),
+        ('QQQ',  'NASDAQ'),
+        ('IWM',  'Russell'),
+        ('EWY',  'KOSPI'),
+        ('EWJ',  'NIKKEI'),
+        ('EWG',  'DAX'),
+    ]
     result = []
-    for sym in syms:
+    for sym, label in INDEX_MAP:
         try:
             fi = yf.Ticker(sym).fast_info
             vol = int(getattr(fi, 'last_volume', 0) or 0)
@@ -2930,16 +2936,15 @@ def market_volume_pulse():
             chg_pct = round((price - prev_close) / prev_close * 100, 2) if prev_close > 0 and price > 0 else 0.0
             result.append({
                 'symbol': sym,
+                'label': label,
                 'volume': vol,
                 'avgVolume': avg3m,
                 'volumeRatio': ratio,
                 'price': price,
                 'changePercent': chg_pct,
-                'tradingValue': round(price * vol, 0),
             })
         except Exception as e:
             print(f"[VolumePulse] {sym}: {e}")
-    result.sort(key=lambda x: x.get('volumeRatio', 0), reverse=True)
     return jsonify(result)
 
 

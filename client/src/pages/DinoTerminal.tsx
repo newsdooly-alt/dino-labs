@@ -871,9 +871,9 @@ function SectorMap() {
 // ══════════════════════════════════════════════════════════════════════════════
 // MARKET MOVERS PANEL  — 급상승/급하락/거래량/거래대금
 // ══════════════════════════════════════════════════════════════════════════════
-type MoverTab = "up"|"down"|"vol"|"value";
-function MarketMoversPanel() {
-  const [tab, setTab] = useState<MoverTab>("up");
+type MoverTab = "vol"|"value"|"up"|"down";
+function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
+  const [tab, setTab] = useState<MoverTab>("vol");
 
   const { data: gainers = [], isLoading: gLd } = useQuery<any[]>({
     queryKey: ["/api/market/gainers"],
@@ -892,27 +892,28 @@ function MarketMoversPanel() {
     .filter(a => a.volume > 0 && a.price > 0)
     .sort((a, b) => (b.price * b.volume) - (a.price * a.volume));
 
-  const rows: any[] = tab === "up" ? gainers.slice(0, 8)
-    : tab === "down" ? losers.slice(0, 8)
-    : tab === "vol"  ? actives.slice(0, 8)
+  const rows: any[] = tab === "up"    ? gainers.slice(0, 8)
+    : tab === "down"  ? losers.slice(0, 8)
+    : tab === "vol"   ? actives.slice(0, 8)
     : byValue.slice(0, 8);
 
   const isLd = tab === "up" ? gLd : tab === "down" ? lLd : aLd;
 
   const TABS: { id: MoverTab; ko: string; color: string }[] = [
-    { id:"up",    ko:"급상승", color: C.up },
-    { id:"down",  ko:"급하락", color: C.down },
-    { id:"vol",   ko:"거래량", color: C.info },
+    { id:"vol",   ko:"거래량",  color: C.info },
     { id:"value", ko:"거래대금", color: C.warn },
+    { id:"up",    ko:"급상승",  color: C.up },
+    { id:"down",  ko:"급하락",  color: C.down },
   ];
 
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
       {/* Header */}
-      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+      <div className="px-2 py-1 border-b flex items-center gap-1.5"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
-          실시간 대응
+        <span className="text-[9px] font-mono font-bold tracking-widest" style={{ color: C.accent }}>▶</span>
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.text }}>
+          MARKET SCAN
         </span>
       </div>
       {/* Tabs */}
@@ -923,21 +924,21 @@ function MarketMoversPanel() {
             style={{
               color:      tab === t.id ? t.color : C.muted,
               borderBottom: `1.5px solid ${tab === t.id ? t.color : "transparent"}`,
-              background: tab === t.id ? t.color + "10" : "transparent",
+              background: tab === t.id ? t.color + "15" : "transparent",
             }}>
             {t.ko}
           </button>
         ))}
       </div>
       {/* Rows */}
-      <div style={{ minHeight: 120 }}>
+      <div style={{ minHeight: 100 }}>
         {isLd ? (
-          <div className="flex items-center justify-center py-6">
+          <div className="flex items-center justify-center py-5">
             <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />
           </div>
         ) : rows.length === 0 ? (
-          <div className="px-2 py-4 text-[9px] font-mono text-center" style={{ color: C.muted }}>
-            데이터 없음 (장 마감 후 갱신)
+          <div className="px-2 py-3 text-[9px] font-mono text-center" style={{ color: C.muted }}>
+            장 마감 후 갱신
           </div>
         ) : rows.map(item => {
           const up = (item.changePercent ?? 0) >= 0;
@@ -945,34 +946,33 @@ function MarketMoversPanel() {
           const vol = item.volume || 0;
           const val = (item.price || 0) * vol;
           return (
-            <div key={item.symbol}
-              className="flex items-center justify-between px-2 py-0.5 border-t"
-              style={{ borderColor: C.border + "30" }}>
+            <button key={item.symbol} type="button"
+              onClick={() => onSelect?.(item.symbol)}
+              className="w-full flex items-center justify-between px-2 py-0.5 border-t text-left transition-colors"
+              style={{ borderColor: C.border + "25", cursor: onSelect ? "pointer" : "default" }}
+              onMouseEnter={e => (e.currentTarget.style.background = C.accent + "08")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               <div className="min-w-0 flex-1">
                 <div className="text-[9px] font-mono font-bold truncate"
                   style={{ color: C.text }}>{ticker}</div>
                 <div className="text-[7px] font-mono truncate"
-                  style={{ color: C.muted }}>{(item.name||"").slice(0,16)}</div>
+                  style={{ color: C.muted }}>{(item.name||"").slice(0,15)}</div>
               </div>
-              <div className="text-right ml-2 shrink-0">
+              <div className="text-right ml-1 shrink-0">
                 <div className="text-[9px] font-mono font-bold"
                   style={{ color: up ? C.up : C.down }}>
                   {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}%
                 </div>
-                {(tab === "vol" || tab === "value") ? (
-                  <div className="text-[8px] font-mono" style={{ color: C.muted }}>
-                    {tab === "vol"
-                      ? (item.volumeRatio > 0 ? `×${item.volumeRatio.toFixed(1)}avg` : fmtVol(vol))
-                      : `$${val >= 1e9 ? (val/1e9).toFixed(1)+"B" : val >= 1e6 ? (val/1e6).toFixed(0)+"M" : fmtVol(val)}`
-                    }
-                  </div>
-                ) : (
-                  <div className="text-[8px] font-mono" style={{ color: C.muted }}>
-                    ${(item.price||0).toFixed(item.price < 5 ? 3 : 1)}
-                  </div>
-                )}
+                <div className="text-[8px] font-mono" style={{ color: C.muted }}>
+                  {tab === "vol"
+                    ? (item.volumeRatio > 0 ? `×${item.volumeRatio.toFixed(1)}` : fmtVol(vol))
+                    : tab === "value"
+                    ? `$${val >= 1e9 ? (val/1e9).toFixed(1)+"B" : val >= 1e6 ? (val/1e6).toFixed(0)+"M" : fmtVol(val)}`
+                    : `$${(item.price||0).toFixed((item.price||0) < 5 ? 3 : 1)}`
+                  }
+                </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -981,7 +981,7 @@ function MarketMoversPanel() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// VOLUME PULSE PANEL  — 거래량 vs 3개월 평균 비교
+// VOLUME PULSE PANEL  — 주요 지수 거래량 강도 (compact)
 // ══════════════════════════════════════════════════════════════════════════════
 function VolumePulsePanel() {
   const { data = [], isLoading } = useQuery<any[]>({
@@ -991,60 +991,48 @@ function VolumePulsePanel() {
 
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+      <div className="px-2 py-1 border-b flex items-center justify-between"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
-          거래량 강도
+        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.text }}>
+          VOL PULSE
         </span>
-        <span className="text-[7px] font-mono" style={{ color: C.muted }}>vs 3개월평균</span>
+        <span className="text-[7px] font-mono" style={{ color: C.muted }}>vs 3M avg</span>
       </div>
       {isLoading ? (
-        <div className="flex items-center justify-center py-4">
+        <div className="flex items-center justify-center py-3">
           <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />
         </div>
       ) : data.length === 0 ? (
-        <div className="px-2 py-3 text-[9px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
+        <div className="px-2 py-2 text-[9px] font-mono" style={{ color: C.muted }}>—</div>
       ) : (
-        <div className="p-2 space-y-1.5">
-          {data.slice(0, 6).map(item => {
+        <div className="px-1.5 py-1 space-y-0.5">
+          {data.map(item => {
             const ratio = item.volumeRatio || 0;
-            const barW = Math.min(ratio * 50, 100);
             const barColor = ratio >= 2 ? C.down : ratio >= 1.3 ? C.warn : ratio >= 0.8 ? C.up : C.muted;
-            const label = ratio >= 2 ? "폭증" : ratio >= 1.3 ? "증가" : ratio >= 0.8 ? "보통" : "감소";
+            const label = ratio >= 2 ? "폭증" : ratio >= 1.3 ? "↑" : ratio >= 0.8 ? "─" : "↓";
             const up = (item.changePercent ?? 0) >= 0;
+            const barW = Math.min(Math.max(ratio / 2.5 * 100, 4), 100);
             return (
-              <div key={item.symbol}>
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[9px] font-mono font-bold" style={{ color: C.text }}>
-                    {item.symbol}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[8px] font-mono font-bold"
-                      style={{ color: up ? C.up : C.down }}>
-                      {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}%
-                    </span>
-                    <span className="text-[8px] font-mono font-bold px-1 rounded"
-                      style={{ color: barColor, background: barColor + "20" }}>
-                      {ratio > 0 ? `×${ratio.toFixed(1)}` : "—"} {label}
-                    </span>
-                  </div>
+              <div key={item.symbol} className="flex items-center gap-1">
+                {/* Label */}
+                <span className="text-[8px] font-mono font-bold w-[42px] shrink-0" style={{ color: C.text }}>
+                  {item.label || item.symbol}
+                </span>
+                {/* Bar */}
+                <div className="flex-1 relative h-[5px] rounded-full overflow-hidden" style={{ background: C.border }}>
+                  <div className="absolute h-full rounded-full"
+                    style={{ width: `${barW}%`, background: barColor, opacity: 0.75 }} />
                 </div>
-                <div className="relative h-1 rounded-full overflow-hidden"
-                  style={{ background: C.border }}>
-                  <div className="absolute h-full rounded-full transition-all"
-                    style={{ width: `${barW}%`, background: barColor, opacity: 0.8 }} />
-                  {/* 1× average line */}
-                  <div className="absolute top-0 bottom-0 w-px"
-                    style={{ left: "50%", background: C.muted, opacity: 0.5 }} />
-                </div>
-                <div className="flex justify-between mt-0.5">
-                  <span className="text-[7px] font-mono" style={{ color: C.muted }}>
-                    {fmtVol(item.volume)}
-                  </span>
-                  <span className="text-[7px] font-mono" style={{ color: C.muted }}>
-                    avg {fmtVol(item.avgVolume)}
-                  </span>
-                </div>
+                {/* Ratio badge */}
+                <span className="text-[8px] font-mono font-bold w-[28px] text-right shrink-0"
+                  style={{ color: barColor }}>
+                  {ratio > 0 ? `×${ratio.toFixed(1)}` : "—"}
+                </span>
+                {/* Change */}
+                <span className="text-[8px] font-mono w-[28px] text-right shrink-0"
+                  style={{ color: up ? C.up : C.down }}>
+                  {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}
+                </span>
               </div>
             );
           })}
@@ -2963,7 +2951,7 @@ export default function DinoTerminal() {
         <div className="w-[160px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
-          <MarketMoversPanel />
+          <MarketMoversPanel onSelect={selectSym} />
           <VolumePulsePanel />
           <GlobalMiniPanel stocks={stocks} />
           <CryptoMiniPanel stocks={stocks} />
@@ -3088,7 +3076,7 @@ export default function DinoTerminal() {
         {mTab === "market" && (
           <>
             <MarketPulseWidget liveStocks={stocks} />
-            <MarketMoversPanel />
+            <MarketMoversPanel onSelect={selectSym} />
             <VolumePulsePanel />
             <GlobalMiniPanel stocks={stocks} />
             <CryptoMiniPanel stocks={stocks} />
