@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Clock, ChevronRight, ChevronDown, Radio, Globe2, Flame } from "lucide-react";
+import { RefreshCw, Clock, ChevronRight, ChevronDown, ChevronUp, Radio, Flame, ArrowUpDown, Globe2 } from "lucide-react";
 import { NewsDetailModal, NewsItem } from "@/components/NewsDetailModal";
+
+type SortOrder = "latest" | "importance";
 
 interface HotIssueItem extends NewsItem {
   thumbnail: string | null;
@@ -201,6 +203,9 @@ export default function HotIssues() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("all");
   const [displayCount, setDisplayCount] = useState(BATCH);
   const [selectedIssue, setSelectedIssue] = useState<HotIssueItem | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
+  const [topNewsOpen, setTopNewsOpen] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery<HotIssuesResponse>({
     queryKey: ["/api/news/hot-issues"],
@@ -223,6 +228,28 @@ export default function HotIssues() {
     }));
   }, [data]);
 
+  // "오늘 주요뉴스" — top 8 most important articles
+  const topNews = useMemo(() => {
+    const scored = enriched.map(i => {
+      let score = 0;
+      if (i.isHot) score += 30;
+      if (i.isMarketImpact) score += 20;
+      if (i._category === "breaking") score += 15;
+      if (i._category === "economy") score += 8;
+      if (i._category === "market") score += 6;
+      if (i._category === "analysis") score += 4;
+      // freshness bonus (articles within last 6h)
+      const ageH = i.publishedAt ? (Date.now() / 1000 - i.publishedAt) / 3600 : 999;
+      if (ageH < 2) score += 10;
+      else if (ageH < 6) score += 5;
+      return { ...i, _score: score };
+    });
+    return scored
+      .filter(i => i._score >= 4)
+      .sort((a, b) => b._score - a._score || (b.publishedAt ?? 0) - (a.publishedAt ?? 0))
+      .slice(0, 8);
+  }, [enriched]);
+
   const publishers = useMemo(() => {
     const counts: Record<string, number> = {};
     enriched.forEach((i) => { counts[i._publisher] = (counts[i._publisher] || 0) + 1; });
@@ -232,12 +259,21 @@ export default function HotIssues() {
   }, [enriched]);
 
   const filtered = useMemo(() => {
-    return enriched.filter((i) => {
+    const base = enriched.filter((i) => {
       if (selectedPublisher !== "all" && i._publisher !== selectedPublisher) return false;
       if (selectedCategory !== "all" && i._category !== selectedCategory) return false;
       return true;
     });
-  }, [enriched, selectedPublisher, selectedCategory]);
+    if (sortOrder === "importance") {
+      return [...base].sort((a, b) => {
+        const scoreA = (a.isHot ? 30 : 0) + (a.isMarketImpact ? 20 : 0) + (a._category === "breaking" ? 15 : a._category === "economy" ? 8 : a._category === "market" ? 6 : a._category === "analysis" ? 4 : 0);
+        const scoreB = (b.isHot ? 30 : 0) + (b.isMarketImpact ? 20 : 0) + (b._category === "breaking" ? 15 : b._category === "economy" ? 8 : b._category === "market" ? 6 : b._category === "analysis" ? 4 : 0);
+        return scoreB - scoreA || (b.publishedAt ?? 0) - (a.publishedAt ?? 0);
+      });
+    }
+    // latest (default) — already sorted by server
+    return base;
+  }, [enriched, selectedPublisher, selectedCategory, sortOrder]);
 
   const visible = filtered.slice(0, displayCount);
   const hasMore = displayCount < filtered.length;
@@ -345,6 +381,129 @@ export default function HotIssues() {
           );
         })}
       </div>
+
+      {/* ── 오늘 주요뉴스 ─────────────────────────────────────────────────── */}
+      {!isLoading && topNews.length > 0 && (
+        <div className="mb-6">
+          <button
+            onClick={() => setTopNewsOpen(v => !v)}
+            className="w-full flex items-center justify-between mb-3 group"
+            data-testid="button-toggle-top-news"
+          >
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-orange-500" />
+              <span className="text-sm font-bold text-foreground">
+                {isKo ? "오늘 주요뉴스" : isJa ? "今日のトップニュース" : "Top Stories"}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
+            <div className="w-6 h-6 rounded-full border border-border flex items-center justify-center text-muted-foreground group-hover:border-primary/40 transition-colors">
+              {topNewsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </div>
+          </button>
+
+          <AnimatePresence>
+            {topNewsOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div
+                  ref={scrollRef}
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1"
+                >
+                  {topNews.map((item, idx) => {
+                    const cat = CATEGORY_META[item._category];
+                    const catLabel = isKo ? cat.ko : isJa ? cat.ja : cat.en;
+                    return (
+                      <button
+                        key={`top-${idx}`}
+                        onClick={() => setSelectedIssue(item)}
+                        className="flex-shrink-0 w-52 text-left rounded-xl border border-border bg-card hover:bg-muted/40 hover:border-primary/30 transition-all active:scale-[0.98] overflow-hidden"
+                        data-testid={`card-top-news-${idx}`}
+                      >
+                        {item.thumbnail && (
+                          <div className="w-full h-24 overflow-hidden bg-muted">
+                            <img
+                              src={item.thumbnail}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                          </div>
+                        )}
+                        <div className="p-2.5">
+                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold text-muted-foreground">
+                              {item._publisher}
+                            </span>
+                            <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-md", cat.cls)}>
+                              {catLabel}
+                            </span>
+                            {item.isHot && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                🔥 HOT
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] font-semibold text-foreground leading-snug line-clamp-3">
+                            {item.title}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-1.5">
+                            {item.publishedAt ? timeAgo(item.publishedAt, lang) : "—"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* ── 뉴스 목록 헤더 (정렬) ──────────────────────────────────────────── */}
+      {!isLoading && filtered.length > 0 && (
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-bold text-foreground">
+            {isKo ? "뉴스" : isJa ? "ニュース" : "News"}
+            <span className="text-xs font-normal text-muted-foreground ml-1.5">
+              {filtered.length}{isKo ? "건" : isJa ? "件" : ""}
+            </span>
+          </span>
+          <div className="flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border">
+            <ArrowUpDown className="w-3 h-3 text-muted-foreground ml-2" />
+            <button
+              onClick={() => { setSortOrder("latest"); setDisplayCount(BATCH); }}
+              className={cn(
+                "text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all",
+                sortOrder === "latest"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              data-testid="button-sort-latest"
+            >
+              {isKo ? "최신순" : isJa ? "新着順" : "Latest"}
+            </button>
+            <button
+              onClick={() => { setSortOrder("importance"); setDisplayCount(BATCH); }}
+              className={cn(
+                "text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all",
+                sortOrder === "importance"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              data-testid="button-sort-importance"
+            >
+              {isKo ? "중요도순" : isJa ? "重要度順" : "Importance"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* News list */}
       {isLoading ? (
