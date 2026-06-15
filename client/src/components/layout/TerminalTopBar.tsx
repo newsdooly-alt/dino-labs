@@ -8,14 +8,14 @@ import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 
 const TABS = [
-  { label: "시장동향",   en: "Trends",      ja: "トレンド",    href: "/market-trends" },
-  { label: "뉴스",       en: "News",        ja: "ニュース",    href: "/hot-issues" },
-  { label: "차트",       en: "Pro Chart",   ja: "チャート",    href: "/pro" },
-  { label: "캘린더",     en: "Calendar",    ja: "カレンダー",  href: "/calendar" },
-  { label: "실적",       en: "Earnings",    ja: "決算",        href: "/earnings" },
-  { label: "투자자",     en: "Investors",   ja: "投資家",      href: "/investors" },
-  { label: "퀘스트",     en: "Quests",      ja: "クエスト",    href: "/quests" },
-  { label: "다이노터미널", en: "Terminal",  ja: "ターミナル",  href: "/terminal", highlight: true },
+  { label: "뉴스",        en: "Live News",   ja: "ニュース",    href: "/hot-issues", highlight: true },
+  { label: "다이노터미널", en: "Terminal",   ja: "ターミナル",  href: "/terminal" },
+  { label: "시장동향",    en: "Trends",      ja: "トレンド",    href: "/market-trends" },
+  { label: "차트",        en: "Pro Chart",   ja: "チャート",    href: "/pro" },
+  { label: "캘린더",      en: "Calendar",    ja: "カレンダー",  href: "/calendar" },
+  { label: "실적",        en: "Earnings",    ja: "決算",        href: "/earnings" },
+  { label: "투자자",      en: "Investors",   ja: "投資家",      href: "/investors" },
+  { label: "퀘스트",      en: "Quests",      ja: "クエスト",    href: "/quests" },
 ];
 
 export function TerminalTopBar() {
@@ -54,7 +54,9 @@ export function TerminalTopBar() {
         {/* Tab strip */}
         <nav className="flex items-stretch overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {TABS.map(tab => {
-            const active = tab.href === "/" ? location === "/" : location.startsWith(tab.href);
+            const active = tab.href === "/hot-issues"
+              ? (location === "/" || location === "/hot-issues" || location.startsWith("/hot-issues"))
+              : location.startsWith(tab.href);
             const isHighlight = (tab as any).highlight;
             return (
               <Link

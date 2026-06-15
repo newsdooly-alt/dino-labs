@@ -11,13 +11,13 @@ interface MobileMenuProps {
 }
 
 const menuItems = [
-  { path: "/terminal",     icon: Terminal,  translationKey: "mobile_menu_terminal" as const, highlight: true },
+  { path: "/hot-issues",   icon: Newspaper, translationKey: "mobile_menu_hot_issues" as const, highlight: true },
+  { path: "/terminal",     icon: Terminal,  translationKey: "mobile_menu_terminal" as const },
   { path: "/quests",       icon: Target,   translationKey: "mobile_menu_quests" as const },
   { path: "/market-trends",icon: TrendingUp,translationKey: "mobile_menu_trends" as const },
   { path: "/search",       icon: Search,   translationKey: "mobile_menu_search" as const },
   { path: "/watchlist",    icon: Star,     translationKey: "mobile_menu_watchlist" as const },
   { path: "/recommended",  icon: Sparkles,  translationKey: "mobile_menu_recommended" as const },
-  { path: "/hot-issues",   icon: Newspaper, translationKey: "mobile_menu_hot_issues" as const },
   { path: "/calendar",     icon: Calendar,  translationKey: "mobile_menu_calendar" as const },
   { path: "/earnings",     icon: BarChart2, translationKey: "mobile_menu_earnings" as const },
   { path: "/ai-portfolio", icon: Brain,    translationKey: "mobile_menu_portfolio" as const },

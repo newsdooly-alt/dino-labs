@@ -2000,14 +2000,15 @@ export async function registerRoutes(
         const nameHints = TICKER_NAME_HINTS[sym] || [];
         if (nameHints.length > 0) {
           const titleLower = (item.title || "").toLowerCase();
-          const companyMentioned = nameHints.some((n) => titleLower.includes(n));
+          const symLower = sym.replace(/\.[A-Z]+$/, "").toLowerCase();
+          const companyMentioned = nameHints.some((n) => titleLower.includes(n)) || titleLower.includes(symLower);
           if (!companyMentioned) continue;
         }
         const sector = SYMBOL_SECTOR[sym] || "other";
         const companyUsed = companyCount[sym] || 0;
         const sectorUsed = sectorCount[sector] || 0;
-        if (companyUsed >= 3) continue;
-        if (sectorUsed >= 6) continue;
+        if (companyUsed >= 4) continue;
+        if (sectorUsed >= 10) continue;
         companyCount[sym] = companyUsed + 1;
         sectorCount[sector] = sectorUsed + 1;
         diverse.push(item);
