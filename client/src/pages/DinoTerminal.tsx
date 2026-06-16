@@ -761,7 +761,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
         </button>
       </div>
       {/* Header */}
-      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 52px 42px 30px" }}>
+      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 56px 40px 28px" }}>
         {["TICKER","LAST","CHG%","VOL"].map(h => (
           <span key={h} className="text-[11px] font-mono uppercase text-right first:text-left"
             style={{ color: C.muted }}>{h}</span>
@@ -778,40 +778,40 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
               <button key={sym} onClick={() => onSelect(sym)}
                 className="w-full grid px-2 py-0.5 text-right transition-all"
                 style={{
-                  gridTemplateColumns:"1fr 52px 42px 30px",
+                  gridTemplateColumns:"1fr 56px 40px 28px",
                   background: sel ? "#1a2d42" : "transparent",
                   borderLeft:`2px solid ${sel ? C.info : "transparent"}`,
                 }}>
-                <div className="text-left min-w-0">
+                <div className="text-left min-w-0 overflow-hidden">
                   {(() => {
                     const isKR = sym.endsWith(".KS");
                     const koName = watchNames[sym] || "";
                     const ticker = sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","");
                     return isKR && koName ? (
                       <>
-                        <div className="text-[13px] font-mono font-bold leading-tight truncate"
+                        <div className="text-[12px] font-mono font-bold leading-tight truncate"
                           style={{ color: sel ? C.info : C.text }}>{koName}</div>
-                        <div className="text-[11px] font-mono leading-tight"
+                        <div className="text-[10px] font-mono leading-tight truncate"
                           style={{ color: C.muted }}>{ticker}</div>
                       </>
                     ) : (
                       <>
-                        <div className="text-[13px] font-mono font-bold leading-tight"
+                        <div className="text-[12px] font-mono font-bold leading-tight truncate"
                           style={{ color: sel ? C.info : C.text }}>{ticker}</div>
-                        {koName && <div className="text-[11px] font-mono truncate leading-tight"
+                        {koName && <div className="text-[10px] font-mono truncate leading-tight"
                           style={{ color: C.muted }}>{koName}</div>}
                       </>
                     );
                   })()}
                 </div>
-                <div className="text-[14px] font-mono" style={{ color: C.text }}>
+                <div className="text-[12px] font-mono min-w-0 overflow-hidden truncate" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : <span style={{ color: C.muted }}>—</span>}
                 </div>
-                <div className={cn("text-[14px] font-mono font-bold",
+                <div className={cn("text-[12px] font-mono font-bold min-w-0 overflow-hidden truncate",
                   q ? (up ? "text-[#00c896]" : "text-[#ff4757]") : "")}>
                   {q ? fmtPct(q.changePercent) : <span style={{ color: C.muted }}>—</span>}
                 </div>
-                <div className="text-[13px] font-mono" style={{ color: C.muted }}>
+                <div className="text-[11px] font-mono overflow-hidden truncate" style={{ color: C.muted }}>
                   {q ? fmtVol(q.volume) : "—"}
                 </div>
               </button>
@@ -1634,13 +1634,13 @@ function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
           </span>
         )}
       </div>
-      <div className="flex items-end gap-2 h-16">
+      <div className="flex items-end gap-1 h-16 overflow-hidden">
         {vals.map(({ label, sym, y }) => {
           const h   = y && maxY ? Math.max(6, (y/maxY)*52) : 4;
           const clr = inverted && sym === "^IRX" ? C.down : C.info;
           return (
-            <div key={sym} className="flex-1 flex flex-col items-center gap-0.5">
-              <span className="text-[11px] font-mono font-bold" style={{ color:clr }}>
+            <div key={sym} className="flex-1 min-w-0 flex flex-col items-center gap-0.5">
+              <span className="text-[10px] font-mono font-bold truncate w-full text-center" style={{ color:clr }}>
                 {y != null ? y.toFixed(2)+"%" : "—"}
               </span>
               <div className="w-full rounded-sm transition-all duration-700"
@@ -1743,13 +1743,13 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
           return (
-            <div key={sym} className="rounded px-1.5 py-1"
+            <div key={sym} className="rounded px-1.5 py-1 min-w-0 overflow-hidden"
               style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-              <div className="text-[11px] font-mono" style={{ color:C.muted }}>{emoji} {label}</div>
-              <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
+              <div className="text-[10px] font-mono truncate" style={{ color:C.muted }}>{emoji} {label}</div>
+              <div className="text-[12px] font-mono font-bold truncate" style={{ color:C.text }}>
                 {q ? `$${q.price?.toFixed(sym==="GC=F"||sym==="SI=F" ? 2 : (sym==="HG=F"?4:2))}` : "—"}
               </div>
-              <div className="text-[11px] font-mono font-bold"
+              <div className="text-[10px] font-mono font-bold truncate"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </div>
@@ -1763,13 +1763,13 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
         const q  = stocks[sym];
         const up = isUp(q?.changePercent);
         return (
-          <div key={sym} className="flex items-center justify-between py-1 border-t"
-            style={{ borderColor:C.border+"40" }}>
-            <span className="text-[12px] font-mono" style={{ color:C.muted }}>{label}</span>
-            <span className="text-[12px] font-mono" style={{ color:C.text }}>
+          <div key={sym} className="grid py-1 border-t"
+            style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr auto auto", gap:"4px" }}>
+            <span className="text-[11px] font-mono truncate min-w-0" style={{ color:C.muted }}>{label}</span>
+            <span className="text-[11px] font-mono text-right" style={{ color:C.text }}>
               {q ? q.price?.toFixed(sym==="KRW=X" ? 0 : sym==="JPY=X" ? 2 : 4) : "—"}
             </span>
-            <span className="text-[11px] font-mono font-bold"
+            <span className="text-[11px] font-mono font-bold text-right w-[44px]"
               style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
               {q ? fmtPct(q.changePercent) : "—"}
             </span>
@@ -2013,12 +2013,12 @@ function CommExtPanel({ stocks }: { stocks: Record<string,any> }) {
                 const pct = q?.changePercent as number|undefined;
                 const up  = (pct ?? 0) >= 0;
                 return (
-                  <div key={sym} className="px-1.5 py-1" style={{ background: C.panel2 }}>
-                    <div className="text-[10px] font-mono" style={{ color: C.muted }}>{label}</div>
-                    <div className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
+                  <div key={sym} className="px-1.5 py-1 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+                    <div className="text-[10px] font-mono truncate" style={{ color: C.muted }}>{label}</div>
+                    <div className="text-[11px] font-mono font-bold truncate" style={{ color: C.text }}>
                       {q?.price != null ? `${unit}${q.price.toFixed(toFix)}` : "—"}
                     </div>
-                    <div className="text-[11px] font-mono font-bold"
+                    <div className="text-[10px] font-mono font-bold truncate"
                       style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
                       {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
                     </div>
@@ -3132,16 +3132,27 @@ function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }
 // ══════════════════════════════════════════════════════════════════════════════
 // TODAY'S REPORTS PANEL  — Korean + International research reports
 // ══════════════════════════════════════════════════════════════════════════════
-const KR_REPORT_SYMS = ["005930.KS","000660.KS","005380.KS","035420.KS","035720.KS"];
+const KR_TICKERS = ["005930.KS","000660.KS","005380.KS","035420.KS","035720.KS"];
 
-function TodayReportsPanel({ lang = "ko" as Lang }: { lang:Lang }) {
+function TodayReportsPanel({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?:string }) {
   const intlQuery = useNews(lang);
+  const krSym = symbol?.endsWith(".KS") ? symbol
+    : symbol?.endsWith(".T") ? null
+    : KR_TICKERS[0];
+
   const krQuery   = useQuery<any>({
-    queryKey: ["/api/stocks/news/005930.KS", lang],
+    queryKey: ["/api/stocks/news", krSym ?? "005930.KS"],
     queryFn: async () => {
-      const res = await fetch(`/api/stocks/news/005930.KS?lang=en`);
-      if (!res.ok) return { news: [] };
-      return res.json();
+      const syms = krSym ? [krSym] : KR_TICKERS.slice(0, 2);
+      const results = await Promise.all(
+        syms.map(s => fetch(`/api/stocks/news/${encodeURIComponent(s)}`).then(r => r.ok ? r.json() : { news: [] }))
+      );
+      const merged = results.flatMap((r: any) => r.news ?? []);
+      const seen = new Set<string>();
+      return { news: merged.filter((n: any) => {
+        if (!n.title || seen.has(n.title)) return false;
+        seen.add(n.title); return true;
+      }) };
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -3797,7 +3808,7 @@ export default function DinoTerminal() {
         <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <NewsPanel lang={lang} symbol={selected} showToggle={true} />
-          <TodayReportsPanel lang={lang} />
+          <TodayReportsPanel lang={lang} symbol={selected} />
           <CalendarPanel />
           <AIPanel symbol={selected} lang={lang} />
         </div>
@@ -3901,7 +3912,7 @@ export default function DinoTerminal() {
         {mTab === "news" && (
           <>
             <NewsPanel lang={lang} symbol={selected} showToggle={true} />
-            <TodayReportsPanel lang={lang} />
+            <TodayReportsPanel lang={lang} symbol={selected} />
             <CalendarPanel />
           </>
         )}
