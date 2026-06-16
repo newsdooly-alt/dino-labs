@@ -748,6 +748,7 @@ export async function registerRoutes(
       currency: z.string().default("USD"),
       sector: z.string().default(""),
       notes: z.string().nullable().optional(),
+      purchaseDate: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.issues });
@@ -765,6 +766,8 @@ export async function registerRoutes(
       name: z.string().optional(),
       sector: z.string().optional(),
       notes: z.string().nullable().optional(),
+      purchaseDate: z.string().nullable().optional(),
+      currency: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -777,26 +780,75 @@ export async function registerRoutes(
   });
 
   app.get("/api/portfolio/chart", async (req: any, res) => {
-    const userId = getUserId(req);
+    const userId = getUserId(req) || "guest";
     if (!userId) return res.json([]);
     const period = (req.query.period as string) || "1mo";
     try {
       const holdings = await storage.getPortfolioHoldings(userId);
       if (holdings.length === 0) return res.json([]);
 
-      const yfinancePeriod = period === "3mo" ? "3mo" : period === "1y" ? "1y" : "1mo";
+      // Determine fetch period / start date
+      let fetchPeriod = "1mo";
+      let fetchStart: string | undefined;
+
+      if (period === "all") {
+        const dates = holdings
+          .map(h => (h as any).purchaseDate)
+          .filter(Boolean)
+          .sort();
+        if (dates.length > 0) {
+          fetchStart = dates[0] as string;
+        } else {
+          fetchPeriod = "2y";
+        }
+      } else {
+        const periodMap: Record<string, string> = { "1mo": "1mo", "3mo": "3mo", "1y": "1y", "3y": "3y" };
+        fetchPeriod = periodMap[period] || "1mo";
+      }
 
       const histories = await Promise.all(
-        holdings.map(h => getStockHistory(h.symbol, yfinancePeriod, "1d").catch(() => []))
+        holdings.map(h => {
+          if (fetchStart) {
+            return getStockHistory(h.symbol, "1d", "1d", fetchStart).catch(() => []);
+          }
+          return getStockHistory(h.symbol, fetchPeriod, "1d").catch(() => []);
+        })
       );
 
+      // Approximate FX rates for currency conversion to USD
+      const FX_FALLBACK: Record<string, number> = { KRW: 1380, JPY: 155, EUR: 0.92, HKD: 7.8 };
+      let fxRates: Record<string, number> = { ...FX_FALLBACK };
+      try {
+        const fxSyms = ["KRW=X", "JPY=X", "EURUSD=X", "HKDUSD=X"];
+        const fxQuotes = await getMultipleQuotes(fxSyms);
+        fxQuotes.forEach((q: any) => {
+          if (q.symbol === "KRW=X" && q.price) fxRates.KRW = q.price;
+          if (q.symbol === "JPY=X" && q.price) fxRates.JPY = q.price;
+          if (q.symbol === "EURUSD=X" && q.price) fxRates.EUR = 1 / q.price;
+          if (q.symbol === "HKDUSD=X" && q.price) fxRates.HKD = q.price;
+        });
+      } catch { /* use fallback rates */ }
+
+      function toUSD(value: number, currency: string): number {
+        if (!currency || currency === "USD") return value;
+        if (currency === "KRW") return value / fxRates.KRW;
+        if (currency === "JPY") return value / fxRates.JPY;
+        if (currency === "EUR") return value / fxRates.EUR;
+        if (currency === "HKD") return value / fxRates.HKD;
+        return value;
+      }
+
+      // Build dateMap: only add holding contribution from its purchaseDate onwards
       const dateMap: Record<string, number> = {};
-      holdings.forEach((h, i) => {
+      holdings.forEach((h: any, i) => {
         const hist = histories[i] as Array<{ date: string; close: number }>;
+        const holdingStart = h.purchaseDate ? String(h.purchaseDate).slice(0, 10) : "2000-01-01";
         hist.forEach(bar => {
-          if (bar.date && bar.close != null) {
-            dateMap[bar.date] = (dateMap[bar.date] || 0) + h.shares * bar.close;
-          }
+          if (!bar.date || bar.close == null) return;
+          const barDate = String(bar.date).slice(0, 10);
+          if (barDate < holdingStart) return;
+          const usdVal = toUSD(h.shares * bar.close, h.currency || "USD");
+          dateMap[barDate] = (dateMap[barDate] || 0) + usdVal;
         });
       });
 

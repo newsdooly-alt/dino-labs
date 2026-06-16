@@ -12,7 +12,7 @@ import {
 import {
   Plus, Trash2, Edit3, TrendingUp, TrendingDown, X, Search, Loader2,
   Wallet, BarChart3, PieChart as PieIcon, ArrowUpRight, ArrowDownRight,
-  StickyNote, MessageSquare,
+  StickyNote, MessageSquare, Calendar, Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ interface Holding {
   currency: string;
   sector: string;
   notes: string | null;
+  purchaseDate: string | null;
   addedAt: string;
 }
 
@@ -52,12 +53,22 @@ const SECTOR_COLORS = [
 ];
 
 const PERIOD_OPTIONS = [
-  { key: "1mo", labelKo: "1개월", labelEn: "1M" },
-  { key: "3mo", labelKo: "3개월", labelEn: "3M" },
-  { key: "1y",  labelKo: "1년",   labelEn: "1Y" },
+  { key: "1mo", labelKo: "1M",  labelEn: "1M" },
+  { key: "3mo", labelKo: "3M",  labelEn: "3M" },
+  { key: "1y",  labelKo: "1Y",  labelEn: "1Y" },
+  { key: "3y",  labelKo: "3Y",  labelEn: "3Y" },
+  { key: "all", labelKo: "전체", labelEn: "All" },
 ] as const;
 
 type Period = typeof PERIOD_OPTIONS[number]["key"];
+
+const CURRENCY_OPTIONS = [
+  { code: "USD", flag: "🇺🇸", label: "USD" },
+  { code: "KRW", flag: "🇰🇷", label: "KRW" },
+  { code: "JPY", flag: "🇯🇵", label: "JPY" },
+  { code: "EUR", flag: "🇪🇺", label: "EUR" },
+  { code: "HKD", flag: "🇭🇰", label: "HKD" },
+];
 
 function formatMoney(n: number, currency = "USD"): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
@@ -66,7 +77,8 @@ function formatMoney(n: number, currency = "USD"): string {
 }
 
 function formatDate(dateStr: string, period: Period): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T00:00:00");
+  if (period === "all" || period === "3y") return d.toLocaleDateString("en-US", { year: "2-digit", month: "short" });
   if (period === "1y") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -96,7 +108,7 @@ function PnLChart({ holdings, isKo }: { holdings: Holding[]; isKo: boolean }) {
   const maxVal = Math.max(...chartData.map(d => d.value));
   const padding = (maxVal - minVal) * 0.1 || 10;
 
-  const tickCount = period === "1y" ? 6 : 4;
+  const tickCount = (period === "1y" || period === "3y" || period === "all") ? 6 : 4;
   const step = chartData.length > tickCount ? Math.floor(chartData.length / tickCount) : 1;
   const ticks = chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1).map(d => d.date);
 
@@ -406,11 +418,24 @@ export default function Portfolio() {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                        <span>{h.shares}주 × ${h.currentPrice.toFixed(2)}</span>
+                        <span>
+                          {h.shares}주 × {h.currency !== "USD" ? h.currency + " " : "$"}{h.currentPrice.toFixed(h.currency === "KRW" ? 0 : 2)}
+                          {h.currency !== "USD" && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-medium">
+                              {CURRENCY_OPTIONS.find(c => c.code === h.currency)?.flag} {h.currency}
+                            </span>
+                          )}
+                        </span>
                         <span className={cn("font-medium", isUp ? "text-emerald-500" : "text-rose-500")}>
                           {isUp ? "+" : ""}{formatMoney(h.pnl)}
                         </span>
                       </div>
+                      {h.purchaseDate && (
+                        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground/70">
+                          <Calendar className="w-3 h-3" />
+                          <span>{isKo ? "매수일" : "Bought"}: {h.purchaseDate}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <button
                           type="button"
@@ -513,6 +538,8 @@ function HoldingModal({
   const [symbol, setSymbol] = useState(editHolding?.symbol || "");
   const [name, setName] = useState(editHolding?.name || "");
   const [sector, setSector] = useState(editHolding?.sector || "");
+  const [currency, setCurrency] = useState(editHolding?.currency || "USD");
+  const [purchaseDate, setPurchaseDate] = useState(editHolding?.purchaseDate || "");
   const [inputMode, setInputMode] = useState<"sharesAvg" | "totalAmount">("sharesAvg");
   const [shares, setShares] = useState(editHolding ? String(editHolding.shares) : "");
   const [avgCost, setAvgCost] = useState(editHolding ? String(editHolding.avgCost) : "");
@@ -552,10 +579,16 @@ function HoldingModal({
     if (!finalShares || !finalAvgCost) return;
 
     const notesVal = notes.trim() || null;
+    const purchaseDateVal = purchaseDate || null;
 
-    const payload = { symbol: sym, name, sector, shares: finalShares, avgCost: finalAvgCost, currency: "USD", notes: notesVal };
+    const payload = {
+      symbol: sym, name, sector,
+      shares: finalShares, avgCost: finalAvgCost,
+      currency, notes: notesVal,
+      purchaseDate: purchaseDateVal,
+    };
     if (isEdit) {
-      editMutation.mutate({ shares: finalShares, avgCost: finalAvgCost, name, sector, notes: notesVal });
+      editMutation.mutate({ shares: finalShares, avgCost: finalAvgCost, name, sector, notes: notesVal, currency, purchaseDate: purchaseDateVal });
     } else {
       addMutation.mutate(payload);
     }
@@ -645,6 +678,33 @@ function HoldingModal({
             </div>
           )}
 
+          {/* Currency selector */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-1">
+              <Globe className="w-3 h-3" />
+              {isKo ? "통화 선택" : "Currency"}
+            </label>
+            <div className="flex gap-1.5 flex-wrap">
+              {CURRENCY_OPTIONS.map(opt => (
+                <button
+                  key={opt.code}
+                  type="button"
+                  onClick={() => setCurrency(opt.code)}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                    currency === opt.code
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border text-muted-foreground hover:bg-muted"
+                  )}
+                  data-testid={`button-currency-${opt.code}`}
+                >
+                  <span>{opt.flag}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Input mode toggle */}
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -687,15 +747,15 @@ function HoldingModal({
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  {isKo ? "평균 매수단가 ($)" : "Avg Cost ($)"}
+                  {isKo ? `평균 매수단가 (${currency})` : `Avg Cost (${currency})`}
                 </label>
                 <Input
                   type="number"
                   value={avgCost}
                   onChange={e => setAvgCost(e.target.value)}
-                  placeholder="150.00"
+                  placeholder={currency === "KRW" ? "75000" : "150.00"}
                   min="0"
-                  step="0.01"
+                  step={currency === "KRW" ? "1" : "0.01"}
                   data-testid="input-avg-cost"
                 />
               </div>
@@ -704,29 +764,29 @@ function HoldingModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  {isKo ? "총 투자금액 ($)" : "Total Invested ($)"}
+                  {isKo ? `총 투자금액 (${currency})` : `Total Invested (${currency})`}
                 </label>
                 <Input
                   type="number"
                   value={totalAmount}
                   onChange={e => setTotalAmount(e.target.value)}
-                  placeholder="1500.00"
+                  placeholder={currency === "KRW" ? "1500000" : "1500.00"}
                   min="0"
-                  step="0.01"
+                  step={currency === "KRW" ? "1" : "0.01"}
                   data-testid="input-total-amount"
                 />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  {isKo ? "평균 매수단가 ($)" : "Avg Price ($)"}
+                  {isKo ? `평균 매수단가 (${currency})` : `Avg Price (${currency})`}
                 </label>
                 <Input
                   type="number"
                   value={avgCost}
                   onChange={e => setAvgCost(e.target.value)}
-                  placeholder="150.00"
+                  placeholder={currency === "KRW" ? "75000" : "150.00"}
                   min="0"
-                  step="0.01"
+                  step={currency === "KRW" ? "1" : "0.01"}
                   data-testid="input-avg-price"
                 />
               </div>
@@ -751,6 +811,27 @@ function HoldingModal({
               )}
             </div>
           )}
+
+          {/* Purchase date */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {isKo ? "매수날짜 (선택사항)" : "Purchase Date (optional)"}
+            </label>
+            <Input
+              type="date"
+              value={purchaseDate}
+              onChange={e => setPurchaseDate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              className="text-sm"
+              data-testid="input-purchase-date"
+            />
+            {purchaseDate && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {isKo ? "📊 포트폴리오 차트에서 이 날짜부터 가치 추이를 확인할 수 있어요" : "📊 Chart will show portfolio value from this date in 'All' view"}
+              </p>
+            )}
+          </div>
 
           {/* Notes field */}
           <div>

@@ -768,12 +768,15 @@ def get_history(symbol):
         # Convert to list of data points
         data = []
         for date, row in hist.iterrows():
+            close_val = row['Close']
+            if pd.isna(close_val):
+                continue  # skip rows with NaN close price
             data.append({
                 "date": date.isoformat(),
-                "open": round(row['Open'], 2),
-                "high": round(row['High'], 2),
-                "low": round(row['Low'], 2),
-                "close": round(row['Close'], 2),
+                "open": round(float(row['Open']), 2) if not pd.isna(row['Open']) else None,
+                "high": round(float(row['High']), 2) if not pd.isna(row['High']) else None,
+                "low": round(float(row['Low']), 2) if not pd.isna(row['Low']) else None,
+                "close": round(float(close_val), 2),
                 "volume": int(row['Volume']) if not pd.isna(row['Volume']) else 0
             })
         

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, doublePrecision, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -131,6 +131,7 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   currency: text("currency").notNull().default("USD"),
   sector: text("sector").notNull().default(""),
   notes: text("notes"),
+  purchaseDate: date("purchase_date"),
   addedAt: timestamp("added_at").defaultNow(),
 });
 
