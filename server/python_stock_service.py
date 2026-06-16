@@ -3379,6 +3379,112 @@ def get_peers(symbol):
     return jsonify(payload)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# NAVER FINANCE DOMESTIC ANALYST RESEARCH
+# ══════════════════════════════════════════════════════════════════════════════
+_naver_research_cache: dict = {}
+NAVER_RESEARCH_CACHE_DURATION = 3600  # 1 hour
+
+NAVER_STOCK_CODE_MAP = {
+    "005930": "삼성전자",
+    "000660": "SK하이닉스",
+    "035420": "NAVER",
+    "035720": "카카오",
+    "005380": "현대차",
+    "005490": "POSCO홀딩스",
+    "000270": "기아",
+    "068270": "셀트리온",
+    "051910": "LG화학",
+    "207940": "삼성바이오로직스",
+    "373220": "LG에너지솔루션",
+    "000830": "삼성물산",
+    "030200": "KT",
+    "017670": "SK텔레콤",
+    "032830": "삼성생명",
+    "003550": "LG",
+    "066570": "LG전자",
+    "096770": "SK이노베이션",
+    "034730": "SK",
+    "015760": "한국전력",
+    "000100": "유한양행",
+    "028260": "삼성물산",
+    "316140": "우리금융지주",
+    "105560": "KB금융",
+    "055550": "신한지주",
+    "086790": "하나금융지주",
+}
+
+@app.route('/naver-research/<path:symbol>', methods=['GET'])
+def get_naver_research(symbol):
+    """Fetch Korean domestic analyst reports from Naver Finance mobile API."""
+    import time, urllib.request, urllib.parse, json, re as _re
+    now = time.time()
+    symbol = symbol.upper()
+
+    if symbol in _naver_research_cache:
+        entry = _naver_research_cache[symbol]
+        if (now - entry["timestamp"]) < NAVER_RESEARCH_CACHE_DURATION:
+            return jsonify(entry["data"])
+
+    base_code = symbol.replace(".KS", "").replace(".T", "").lstrip("0") or symbol.replace(".KS", "")
+    # Naver uses zero-padded 6-digit codes
+    base_code_padded = symbol.replace(".KS", "")
+
+    company_name = NAVER_STOCK_CODE_MAP.get(base_code_padded, base_code_padded)
+
+    reports = []
+    try:
+        # Naver Finance mobile API — company-specific research reports
+        url = f"https://m.stock.naver.com/api/research/stock/{base_code_padded}?page=1&pageSize=15"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+            "Accept": "application/json",
+            "Referer": f"https://m.stock.naver.com/domestic/stock/{base_code_padded}/research",
+        })
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        items = data if isinstance(data, list) else data.get("researchList", data.get("list", []))
+        for item in items[:12]:
+            try:
+                title = item.get("title", "")
+                firm = item.get("brokerName", item.get("firm", ""))
+                date = (item.get("writeDate", "") or "")[:10]
+                preview = item.get("previewContent", "")
+                research_id = item.get("researchId", "")
+                report_url = item.get("endUrl", "")
+                if not report_url and research_id:
+                    report_url = f"https://m.stock.naver.com/research/company/{research_id}"
+
+                # Extract target price from preview content
+                target_match = _re.search(r'목표주가[를을]?\s*([0-9,]+)원', preview or title)
+                target_price = target_match.group(1) + "원" if target_match else ""
+
+                # Extract opinion from preview content
+                opinion_match = _re.search(r'(매수|매도|중립|보유|시장수익률)', preview or "")
+                opinion = opinion_match.group(1) if opinion_match else ""
+
+                if title:
+                    reports.append({
+                        "title": title,
+                        "firm": firm,
+                        "targetPrice": target_price,
+                        "opinion": opinion,
+                        "preview": preview[:100] if preview else "",
+                        "date": date,
+                        "pdfUrl": report_url,
+                    })
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[NaverResearch] API error for {symbol}: {e}")
+
+    result = {"symbol": symbol, "companyName": company_name, "reports": reports}
+    _naver_research_cache[symbol] = {"data": result, "timestamp": now}
+    print(f"[NaverResearch] {symbol}: {len(reports)} reports")
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)

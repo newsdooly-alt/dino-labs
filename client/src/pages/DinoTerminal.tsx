@@ -2804,7 +2804,9 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
                 <div className="flex-1">
                   <div className="text-[11px] font-mono" style={{ color:C.muted }}>{T("targetPrice",lang)}</div>
                   <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
-                    ${target.toFixed(2)}
+                    {symbol.endsWith(".KS") || symbol.endsWith(".T")
+                      ? `${symbol.endsWith(".KS") ? "₩" : "¥"}${Math.round(target).toLocaleString()}`
+                      : `$${target.toFixed(2)}`}
                     {upside !== null && (
                       <span className="ml-1 text-[12px]" style={{ color: upside >= 0 ? C.up : C.down }}>
                         {upside >= 0 ? "▲" : "▼"}{Math.abs(upside).toFixed(1)}%
@@ -3284,73 +3286,82 @@ function TodayReportsPanel({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ANALYST RESEARCH PANEL  — FMP professional analyst reports (price targets,
-//   buy/hold/sell consensus) for the currently selected stock.
-//   For Korean / Japanese stocks: shows filtered domestic news instead.
+// ══════════════════════════════════════════════════════════════════════════════
+// ANALYST RESEARCH PANEL
+//   US/JP stocks: yfinance consensus + upgrades/downgrades (via Python service)
+//   KR stocks: Naver Finance domestic research reports (primary) +
+//              yfinance international upgrades (secondary)
 // ══════════════════════════════════════════════════════════════════════════════
 function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
   const isKR = symbol.endsWith(".KS");
-  const isJP = symbol.endsWith(".T");
-  const isDomestic = isKR || isJP;
 
-  // FMP analyst data (US stocks)
+  // yfinance analyst data — enabled for ALL stocks
   const analystQ = useQuery<any>({
     queryKey: ["/api/stocks/analyst", symbol],
     queryFn: () => fetch(`/api/stocks/analyst/${encodeURIComponent(symbol)}`).then(r => r.json()),
     staleTime: 30 * 60 * 1000,
     retry: 1,
-    enabled: !isDomestic,
   });
 
-  // Filtered company news (Korean/Japanese stocks)
-  const { data: newsData, isLoading: newsLoading } = useStockNews(symbol);
-  const companyKeywords = symbol.replace(/\.KS|\.T/g, "").toLowerCase().split("").slice(0, 3).join("");
+  // Naver Finance domestic research — only for KR stocks
+  const naverQ = useQuery<any>({
+    queryKey: ["/api/stocks/naver-research", symbol],
+    queryFn: () => fetch(`/api/stocks/naver-research/${encodeURIComponent(symbol)}`).then(r => r.json()),
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
+    enabled: isKR,
+  });
 
-  // For Korean stocks: filter yfinance news strictly to the company
-  const KR_COMPANY_MAP: Record<string, string[]> = {
-    "005930": ["samsung"], "000660": ["sk hynix","hynix"], "035420": ["naver"],
-    "005380": ["hyundai"], "035720": ["kakao"], "005490": ["posco"],
-    "000270": ["kia"], "068270": ["celltrion"], "051910": ["lg chem"],
-    "207940": ["samsung biologics","biologics"],
-  };
-  const baseCode = symbol.split(".")[0];
-  const krKeywords = KR_COMPANY_MAP[baseCode] || [baseCode.toLowerCase()];
-  const filteredKrNews: any[] = isDomestic
-    ? ((newsData as any)?.news || []).filter((n: any) => {
-        const t = (n.title || "").toLowerCase();
-        return krKeywords.some(kw => t.includes(kw));
-      }).slice(0, 8)
-    : [];
+  const summary   = analystQ.data?.summary || {};
+  const actions   = (analystQ.data?.recentActions || []) as any[];
+  const targetP   = analystQ.data?.targetPrice as number | null;
+  const targetH   = analystQ.data?.targetHigh  as number | null;
+  const targetL   = analystQ.data?.targetLow   as number | null;
+  const currP     = analystQ.data?.currentPrice as number | null;
+  const naverRpts = (naverQ.data?.reports || []) as any[];
 
-  const priceTargets: any[] = analystQ.data?.priceTargets || [];
-  const consensus = analystQ.data?.consensus;
-  const limited = analystQ.data?.limited;
-  const isLoading = isDomestic ? newsLoading : analystQ.isLoading;
-
-  // Consensus bar
-  const buyN  = consensus ? (consensus.analystRatingStrongBuy || 0) + (consensus.analystRatingBuy || 0) : 0;
-  const holdN = consensus?.analystRatingHold || 0;
-  const sellN = consensus ? (consensus.analystRatingSell || 0) + (consensus.analystRatingStrongSell || 0) : 0;
+  const buyN  = (summary.strongBuy || 0) + (summary.buy || 0);
+  const holdN = summary.hold || 0;
+  const sellN = (summary.strongSell || 0) + (summary.sell || 0);
   const total = buyN + holdN + sellN;
 
-  function ratingColor(rating?: string) {
-    const r = (rating || "").toLowerCase();
-    if (r.includes("buy") || r.includes("outperform") || r.includes("overweight") || r.includes("strong buy")) return C.up;
-    if (r.includes("sell") || r.includes("underperform") || r.includes("underweight")) return C.down;
+  const upside = (targetP && currP && currP > 0)
+    ? ((targetP - currP) / currP * 100).toFixed(1)
+    : null;
+
+  const isLoading = isKR ? (naverQ.isLoading && analystQ.isLoading) : analystQ.isLoading;
+  const hasData   = isKR
+    ? (naverRpts.length > 0 || total > 0 || actions.length > 0)
+    : (total > 0 || actions.length > 0);
+
+  function gradeColor(grade = "") {
+    const g = grade.toLowerCase();
+    if (g.includes("buy") || g.includes("outperform") || g.includes("overweight") || g.includes("positive")) return C.up;
+    if (g.includes("sell") || g.includes("underperform") || g.includes("underweight") || g.includes("negative")) return C.down;
     return C.warn;
   }
-  function ratingLabel(rating?: string, l = lang) {
-    const r = (rating || "").toLowerCase();
-    if (l !== "ko") return rating || "—";
-    if (r.includes("strong buy")) return "강력매수";
-    if (r.includes("buy") || r.includes("outperform") || r.includes("overweight")) return "매수";
-    if (r.includes("sell") || r.includes("underperform") || r.includes("underweight")) return "매도";
-    if (r.includes("neutral") || r.includes("hold") || r.includes("market perform")) return "중립";
-    return rating || "—";
+  function gradeLabel(grade = "", l = lang) {
+    if (l !== "ko") return grade || "—";
+    const g = grade.toLowerCase();
+    if (g.includes("strong buy")) return "강력매수";
+    if (g.includes("buy") || g.includes("outperform") || g.includes("overweight") || g.includes("positive")) return "매수";
+    if (g.includes("sell") || g.includes("underperform") || g.includes("underweight") || g.includes("negative")) return "매도";
+    if (g.includes("hold") || g.includes("neutral") || g.includes("market perform") || g.includes("in-line")) return "중립";
+    return grade || "—";
+  }
+  function actionLabel(action = "", l = lang) {
+    if (l !== "ko") return action;
+    const a = action.toLowerCase();
+    if (a === "up" || a.includes("upgrade")) return "상향";
+    if (a === "down" || a.includes("downgrade")) return "하향";
+    if (a.includes("init") || a.includes("coverage")) return "신규";
+    if (a.includes("reit") || a.includes("maintain") || a.includes("reiterate")) return "유지";
+    return action;
   }
 
   return (
     <div className="border-b" style={{ borderColor:C.border }}>
+      {/* Header */}
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5">
@@ -3360,115 +3371,148 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
             {lang === "ko" ? "애널리스트 리서치" : "Analyst Research"}
           </span>
         </div>
-        <StatusBadge isLoading={isLoading}
-          isError={!isDomestic && analystQ.isError}
-          isLive={isDomestic ? filteredKrNews.length > 0 : priceTargets.length > 0} />
+        <StatusBadge isLoading={isLoading} isError={analystQ.isError} isLive={hasData} />
       </div>
 
       {isLoading ? (
         Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-      ) : isDomestic ? (
-        /* ── Korean / Japanese stocks: filtered company news ── */
-        filteredKrNews.length === 0 ? (
-          <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
-            {lang === "ko" ? "해당 종목 관련 뉴스 없음" : "No news found for this symbol"}
-          </div>
-        ) : filteredKrNews.map((item:any, i:number) => {
-          const koSum = item.koreanSummary as string|undefined;
-          const displayTitle = lang === "ko" && koSum ? koSum : item.title;
-          return (
-            <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"40" }}>
-              <div className="text-[11px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
-                {displayTitle}
+      ) : !hasData ? (
+        <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+          {lang === "ko" ? "애널리스트 데이터 없음" : "No analyst data available"}
+        </div>
+      ) : (
+        <>
+          {/* ── Target Price block ── */}
+          {targetP != null && (
+            <div className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
+              <div className="text-[10px] font-mono mb-0.5" style={{ color:C.muted }}>
+                {lang==="ko" ? "목표주가 (평균)" : "Avg Price Target"}
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher||"—"}</span>
-                {item.publishedAt && (
-                  <span className="text-[10px] font-mono" style={{ color:C.muted }}>
-                    · {Math.round((Date.now()/1000 - item.publishedAt)/3600)}h
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
+                  {isKR ? `₩${Math.round(targetP).toLocaleString()}` : `$${targetP.toFixed(2)}`}
+                </span>
+                {upside != null && (
+                  <span className="text-[10px] font-mono font-bold"
+                    style={{ color: Number(upside) >= 0 ? C.up : C.down }}>
+                    {Number(upside) >= 0 ? "▲" : "▼"}{Math.abs(Number(upside))}%
                   </span>
                 )}
               </div>
-              {item.link && (
-                <a href={item.link} target="_blank" rel="noopener noreferrer"
-                  className="text-[10px] font-mono" style={{ color:C.info }}>↗ {lang==="ko"?"원문":"Source"}</a>
+              {(targetH != null || targetL != null) && (
+                <div className="text-[10px] font-mono mt-0.5" style={{ color:C.muted }}>
+                  {lang==="ko" ? "범위" : "Range"}: {isKR ? "₩" : "$"}{targetL != null ? Math.round(targetL).toLocaleString() : "—"}
+                  {" – "}{isKR ? "₩" : "$"}{targetH != null ? Math.round(targetH).toLocaleString() : "—"}
+                </div>
               )}
             </div>
-          );
-        })
-      ) : (
-        /* ── US stocks: FMP analyst reports ── */
-        limited || priceTargets.length === 0 ? (
-          <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
-            {lang === "ko" ? "애널리스트 데이터 없음" : "No analyst data"}
-          </div>
-        ) : (
-          <>
-            {/* Consensus gauge */}
-            {consensus && total > 0 && (
-              <div className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
-                <div className="text-[10px] font-mono mb-1" style={{ color:C.muted }}>
-                  {lang==="ko" ? `종합 의견 (${total}명)` : `Consensus (${total} analysts)`}
-                </div>
-                <div className="flex h-1.5 rounded overflow-hidden gap-px">
-                  {buyN  > 0 && <div style={{ flex:buyN,  background:C.up }}   />}
-                  {holdN > 0 && <div style={{ flex:holdN, background:C.warn }} />}
-                  {sellN > 0 && <div style={{ flex:sellN, background:C.down }} />}
-                </div>
-                <div className="flex gap-3 mt-0.5">
-                  <span className="text-[10px] font-mono" style={{ color:C.up   }}>{lang==="ko"?"매수":"Buy"} {buyN}</span>
-                  <span className="text-[10px] font-mono" style={{ color:C.warn }}>{lang==="ko"?"중립":"Hold"} {holdN}</span>
-                  <span className="text-[10px] font-mono" style={{ color:C.down }}>{lang==="ko"?"매도":"Sell"} {sellN}</span>
-                </div>
+          )}
+
+          {/* ── Consensus bar ── */}
+          {total > 0 && (
+            <div className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
+              <div className="text-[10px] font-mono mb-1" style={{ color:C.muted }}>
+                {lang==="ko" ? `컨센서스 (${total}명)` : `Consensus (${total})`}
               </div>
-            )}
-            {/* Individual analyst reports */}
-            {priceTargets.map((pt:any, i:number) => {
-              const dateStr = pt.publishedDate
-                ? new Date(pt.publishedDate).toLocaleDateString(lang==="ko" ? "ko-KR" : "en-US", { month:"short", day:"numeric" })
-                : "—";
-              return (
-                <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"40" }}>
-                  <div className="flex items-start justify-between gap-1 mb-0.5">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[11px] font-mono font-bold truncate" style={{ color:C.text }}>
-                        {pt.analystCompany || "—"}
-                      </div>
-                      <div className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
-                        {pt.analystName || "Analyst"}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-[12px] font-mono font-bold" style={{ color:C.text }}>
-                        {pt.priceTarget ? `$${Number(pt.priceTarget).toFixed(0)}` : "—"}
-                      </div>
-                      <div className="text-[9px] font-mono" style={{ color:C.muted }}>{dateStr}</div>
+              <div className="flex h-1.5 rounded overflow-hidden gap-px">
+                {buyN  > 0 && <div style={{ flex:buyN,  background:C.up   }} />}
+                {holdN > 0 && <div style={{ flex:holdN, background:C.warn }} />}
+                {sellN > 0 && <div style={{ flex:sellN, background:C.down }} />}
+              </div>
+              <div className="flex gap-2.5 mt-1">
+                <span className="text-[10px] font-mono" style={{ color:C.up   }}>{lang==="ko"?"매수":"Buy"} {buyN}</span>
+                <span className="text-[10px] font-mono" style={{ color:C.warn }}>{lang==="ko"?"중립":"Hold"} {holdN}</span>
+                <span className="text-[10px] font-mono" style={{ color:C.down }}>{lang==="ko"?"매도":"Sell"} {sellN}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── KR: Naver Finance domestic reports ── */}
+          {isKR && naverRpts.length > 0 && (
+            <div className="border-b" style={{ borderColor:C.border+"60" }}>
+              <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest"
+                style={{ color:C.info, background:C.info+"10" }}>
+                {lang==="ko" ? "국내 증권사 리포트" : "Domestic Reports"}
+              </div>
+              {naverRpts.slice(0,8).map((r:any, i:number) => (
+                <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"30" }}>
+                  <div className="text-[10px] font-mono leading-snug mb-0.5 line-clamp-2"
+                    style={{ color:C.text }}>
+                    {r.title || "—"}
+                  </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
+                      {r.firm || "—"}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {r.targetPrice && (
+                        <span className="text-[10px] font-mono font-bold" style={{ color:C.up }}>
+                          {r.targetPrice.includes("원") ? r.targetPrice : `${r.targetPrice}원`}
+                        </span>
+                      )}
+                      {r.date && (
+                        <span className="text-[9px] font-mono" style={{ color:C.muted }}>
+                          {r.date.slice(5)}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {pt.newsTitle && (
-                    <div className="text-[10px] font-mono leading-snug line-clamp-2 mb-0.5" style={{ color:C.muted }}>
-                      {pt.newsTitle}
-                    </div>
+                  {r.opinion && (
+                    <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
+                      style={{ background: gradeColor(r.opinion)+"20", color: gradeColor(r.opinion) }}>
+                      {r.opinion}
+                    </span>
                   )}
-                  <div className="flex items-center gap-2">
-                    {pt.newsTitle && (
-                      <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
-                        style={{ background: ratingColor(pt.newsTitle)+"20", color: ratingColor(pt.newsTitle) }}>
-                        {ratingLabel(pt.newsTitle.match(/\b(Strong Buy|Buy|Outperform|Overweight|Hold|Neutral|Market Perform|Underperform|Underweight|Sell)\b/i)?.[1], lang)}
-                      </span>
+                  {r.pdfUrl && (
+                    <a href={r.pdfUrl} target="_blank" rel="noopener noreferrer"
+                      className="ml-1 text-[9px] font-mono" style={{ color:C.info }}>↗PDF</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Recent upgrades / downgrades ── */}
+          {actions.length > 0 && (
+            <div>
+              <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest"
+                style={{ color:C.muted, background:C.border+"20" }}>
+                {lang==="ko" ? "최근 등급 변경" : "Recent Actions"}
+              </div>
+              {actions.slice(0, 8).map((a:any, i:number) => (
+                <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"30" }}>
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <span className="text-[10px] font-mono font-bold truncate" style={{ color:C.text }}>
+                      {a.firm || "—"}
+                    </span>
+                    <span className="text-[9px] font-mono shrink-0" style={{ color:C.muted }}>
+                      {a.date ? a.date.slice(5) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
+                      style={{ background: C.info+"20", color: C.info }}>
+                      {actionLabel(a.action)}
+                    </span>
+                    {a.fromGrade && (
+                      <>
+                        <span className="text-[9px] font-mono truncate"
+                          style={{ color: gradeColor(a.fromGrade) }}>
+                          {gradeLabel(a.fromGrade)}
+                        </span>
+                        <span className="text-[9px] font-mono" style={{ color:C.muted }}>→</span>
+                      </>
                     )}
-                    {pt.newsURL && (
-                      <a href={pt.newsURL} target="_blank" rel="noopener noreferrer"
-                        className="text-[9px] font-mono" style={{ color:C.info }}>
-                        ↗ {lang==="ko" ? "원문" : "Source"}
-                      </a>
-                    )}
+                    <span className="text-[9px] font-mono font-bold truncate"
+                      style={{ color: gradeColor(a.toGrade) }}>
+                      {gradeLabel(a.toGrade)}
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </>
-        )
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

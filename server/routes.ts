@@ -1657,44 +1657,19 @@ export async function registerRoutes(
     }
   });
 
-  // === FMP Analyst Research ===
-  const analystResearchCache = new Map<string, { data: any; time: number }>();
-  const ANALYST_CACHE_DURATION = 30 * 60 * 1000;
-
-  app.get("/api/stocks/analyst/:symbol", async (req, res) => {
+  // === Naver Finance Domestic Research (Korean stocks) ===
+  app.get("/api/stocks/naver-research/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
-    const fmpKey = process.env.FMP_API_KEY;
-    const now = Date.now();
-    const cached = analystResearchCache.get(symbol);
-    if (cached && (now - cached.time) < ANALYST_CACHE_DURATION) return res.json(cached.data);
-
-    const isKorean = symbol.endsWith('.KS');
-    const isJapanese = symbol.endsWith('.T');
-    if (!fmpKey || isKorean || isJapanese) {
-      const result = { symbol, priceTargets: [], consensus: null, limited: true, market: isKorean ? 'KR' : isJapanese ? 'JP' : 'OTHER' };
-      analystResearchCache.set(symbol, { data: result, time: now });
-      return res.json(result);
-    }
     try {
-      const [ptRes, recRes] = await Promise.all([
-        fetch(`https://financialmodelingprep.com/api/v3/price-target/${symbol}?limit=10&apikey=${fmpKey}`, { signal: AbortSignal.timeout(10000) }),
-        fetch(`https://financialmodelingprep.com/api/v3/analyst-stock-recommendations/${symbol}?limit=1&apikey=${fmpKey}`, { signal: AbortSignal.timeout(10000) }),
-      ]);
-      const priceTargets = ptRes.ok ? await ptRes.json() : [];
-      const recommendations = recRes.ok ? await recRes.json() : [];
-      const result = {
-        symbol,
-        priceTargets: Array.isArray(priceTargets) ? priceTargets.slice(0, 10) : [],
-        consensus: Array.isArray(recommendations) && recommendations.length > 0 ? recommendations[0] : null,
-        limited: false,
-      };
-      analystResearchCache.set(symbol, { data: result, time: now });
-      console.log(`[Analyst Research] ${symbol}: ${result.priceTargets.length} price targets fetched`);
-      res.json(result);
-    } catch (err: any) {
-      console.error("[Analyst Research] Error:", err.message);
-      const fallback = { symbol, priceTargets: [], consensus: null, limited: true };
-      res.json(fallback);
+      const response = await fetch(
+        `${MACRO_PYTHON_URL}/naver-research/${encodeURIComponent(symbol)}`,
+        { signal: AbortSignal.timeout(15000) }
+      );
+      if (!response.ok) return res.json({ symbol, reports: [] });
+      res.json(await response.json());
+    } catch (error: any) {
+      console.error("[NaverResearch] Error:", error.message);
+      res.json({ symbol, reports: [] });
     }
   });
 
