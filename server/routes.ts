@@ -732,8 +732,7 @@ export async function registerRoutes(
 
   // === Mock Portfolio Holdings ===
   app.get("/api/portfolio/holdings", async (req: any, res) => {
-    const userId = getUserId(req);
-    if (!userId) return res.json([]);
+    const userId = getUserId(req) || "guest";
     const holdings = await storage.getPortfolioHoldings(userId);
     res.json(holdings);
   });
