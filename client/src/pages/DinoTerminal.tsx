@@ -377,25 +377,25 @@ function StatusBadge({ isLoading, isError, isStale, isLive }: {
   isLoading?: boolean; isError?: boolean; isStale?: boolean; isLive?: boolean;
 }) {
   if (isLoading) return (
-    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+    <span className="flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded"
       style={{ background: C.muted+"22", color: C.muted }}>
       <RefreshCw className="w-2 h-2 animate-spin" /> LOADING
     </span>
   );
   if (isError) return (
-    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+    <span className="flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded"
       style={{ background: C.down+"22", color: C.down }}>
       <AlertTriangle className="w-2 h-2" /> ERROR
     </span>
   );
   if (isStale) return (
-    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+    <span className="flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded"
       style={{ background: C.warn+"22", color: C.warn }}>
       <Clock className="w-2 h-2" /> DELAYED
     </span>
   );
   if (isLive) return (
-    <span className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded"
+    <span className="flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded"
       style={{ background: C.up+"22", color: C.up }}>
       <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.up }} />
       LIVE
@@ -429,7 +429,7 @@ function TerminalClock() {
   const kst = t.toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit", second:"2-digit", timeZone:"Asia/Seoul", hour12:false });
   const ny  = t.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:"America/New_York" });
   return (
-    <div className="flex items-center gap-2 text-[10px] font-mono shrink-0">
+    <div className="flex items-center gap-2 text-[13px] font-mono shrink-0">
       <span style={{ color: C.muted }}>KST</span>
       <span style={{ color: C.text }}>{kst}</span>
       <span className="w-px h-3" style={{ background: C.border }} />
@@ -452,7 +452,7 @@ function IndexStrip() {
       {isLoading ? (
         <div className="flex items-center gap-4 px-3">
           {INDEX_SYMS.map(s => (
-            <span key={s} className="text-[10px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[s]} ···</span>
+            <span key={s} className="text-[13px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[s]} ···</span>
           ))}
         </div>
       ) : (
@@ -462,12 +462,12 @@ function IndexStrip() {
             const up = isUp(q?.changePercent);
             return (
               <span key={`${sym}-${i}`} className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[10px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[sym]}</span>
-                <span className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                <span className="text-[13px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[sym]}</span>
+                <span className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : "—"}
                 </span>
                 {q && (
-                  <span className={cn("text-[10px] font-mono font-semibold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                  <span className={cn("text-[13px] font-mono font-semibold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {fmtPct(q.changePercent)}
                   </span>
                 )}
@@ -493,9 +493,9 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
   const spy   = liveStocks["SPY"];
 
   return (
-    <div className="p-2 border-b" style={{ borderColor: C.border }}>
+    <div className="p-3 border-b" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           MARKET PULSE
         </span>
         <StatusBadge isLoading={isLoading} isError={isError}
@@ -508,18 +508,18 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
           <div className="h-4 rounded animate-pulse" style={{ background: C.border }} />
         </div>
       ) : isError ? (
-        <div className="text-[10px] font-mono py-2" style={{ color: C.down }}>
+        <div className="text-[13px] font-mono py-2" style={{ color: C.down }}>
           데이터 로드 실패
         </div>
       ) : (
         <>
           <div className="flex items-center gap-2 mb-2">
             <div className="shrink-0 text-center w-14">
-              <div className="text-[9px] font-mono" style={{ color: C.muted }}>공포&탐욕</div>
+              <div className="text-[12px] font-mono" style={{ color: C.muted }}>공포&탐욕</div>
               <div className="text-2xl font-black font-mono leading-none" style={{ color: fgClr }}>
                 {fg ?? "—"}
               </div>
-              <div className="text-[9px] font-mono font-bold" style={{ color: fgClr }}>{label}</div>
+              <div className="text-[12px] font-mono font-bold" style={{ color: fgClr }}>{label}</div>
             </div>
             <div className="flex-1">
               <div className="relative h-2 rounded-full overflow-hidden mb-1.5"
@@ -530,7 +530,7 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
                       background: fgClr, boxShadow:`0 0 6px ${fgClr}` }} />
                 )}
               </div>
-              <div className="flex justify-between text-[8px] font-mono" style={{ color: C.muted }}>
+              <div className="flex justify-between text-[11px] font-mono" style={{ color: C.muted }}>
                 <span>극공포</span><span>극탐욕</span>
               </div>
             </div>
@@ -544,8 +544,8 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
                 <div key={sym} className="rounded px-1.5 py-1 text-center"
                   style={{ background: q ? (up ? C.up+"0d" : C.down+"0d") : C.border+"30",
                     border:`1px solid ${q ? (up ? C.up+"30" : C.down+"30") : C.border}` }}>
-                  <div className="text-[8px] font-mono" style={{ color: C.muted }}>{sym.replace("^","")}</div>
-                  <div className={cn("text-[11px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                  <div className="text-[11px] font-mono" style={{ color: C.muted }}>{sym.replace("^","")}</div>
+                  <div className={cn("text-[14px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {q ? fmtPct(q.changePercent) : "—"}
                   </div>
                 </div>
@@ -612,16 +612,16 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b shrink-0"
           style={{ borderColor: C.border, background: C.header }}>
-          <span className="text-[11px] font-mono font-bold tracking-widest uppercase"
+          <span className="text-[14px] font-mono font-bold tracking-widest uppercase"
             style={{ color: C.text }}>WATCH GRID 편집</span>
           <div className="flex items-center gap-2">
             <button onClick={reset}
-              className="text-[9px] font-mono px-2 py-0.5 rounded"
+              className="text-[12px] font-mono px-2 py-0.5 rounded"
               style={{ background: C.border, color: C.muted }}>
               초기화
             </button>
             <button onClick={onClose}
-              className="text-[11px] font-mono font-bold w-5 h-5 flex items-center justify-center rounded"
+              className="text-[14px] font-mono font-bold w-5 h-5 flex items-center justify-center rounded"
               style={{ color: C.muted, background: C.border }}>✕</button>
           </div>
         </div>
@@ -634,12 +634,12 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="종목 검색 (AAPL, 삼성전자...)"
-              className="w-full px-2.5 py-1.5 text-[11px] font-mono rounded outline-none"
+              className="w-full px-2.5 py-1.5 text-[14px] font-mono rounded outline-none"
               style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text,
                 "::placeholder": { color: C.muted } as any }}
             />
             {searching && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono"
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] font-mono"
                 style={{ color: C.muted }}>검색 중...</span>
             )}
           </div>
@@ -658,12 +658,12 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
                     onMouseEnter={e => !already && !full && ((e.currentTarget as HTMLElement).style.background = C.panel2)}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}>
                     <div className="min-w-0">
-                      <span className="text-[11px] font-mono font-bold"
+                      <span className="text-[14px] font-mono font-bold"
                         style={{ color: already ? C.muted : C.info }}>{r.symbol}</span>
-                      <span className="text-[9px] font-mono ml-1.5 truncate"
+                      <span className="text-[12px] font-mono ml-1.5 truncate"
                         style={{ color: C.muted }}>{r.name}</span>
                     </div>
-                    <span className="text-[10px] font-mono shrink-0 ml-2"
+                    <span className="text-[13px] font-mono shrink-0 ml-2"
                       style={{ color: already ? C.muted : C.up }}>
                       {already ? "✓" : full ? "max" : "+추가"}
                     </span>
@@ -678,7 +678,7 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
         <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           <div className="px-3 py-1.5 border-b"
             style={{ borderColor: C.border }}>
-            <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+            <span className="text-[12px] font-mono" style={{ color: C.muted }}>
               현재 {watchSyms.length}/20개 종목
             </span>
           </div>
@@ -690,19 +690,19 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
                 className="flex items-center justify-between px-3 py-1.5 border-b"
                 style={{ borderColor: C.border + "60" }}>
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[9px] font-mono w-4 text-center shrink-0"
+                  <span className="text-[12px] font-mono w-4 text-center shrink-0"
                     style={{ color: C.muted }}>{idx + 1}</span>
                   <div className="min-w-0">
-                    <div className="text-[11px] font-mono font-bold"
+                    <div className="text-[14px] font-mono font-bold"
                       style={{ color: C.text }}>{ticker}</div>
-                    {name && <div className="text-[9px] font-mono truncate"
+                    {name && <div className="text-[12px] font-mono truncate"
                       style={{ color: C.muted }}>{name}</div>}
                   </div>
                 </div>
                 <button
                   onClick={() => removeSym(sym)}
                   disabled={watchSyms.length <= 1}
-                  className="text-[11px] font-mono w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors"
+                  className="text-[14px] font-mono w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors"
                   style={{ color: C.muted }}
                   onMouseEnter={e => watchSyms.length > 1 && ((e.currentTarget as HTMLElement).style.color = C.down)}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.muted)}>
@@ -716,7 +716,7 @@ function WatchEditModal({ watchSyms, watchNames, onUpdate, onClose }: {
         {/* Footer hint */}
         <div className="px-3 py-2 border-t shrink-0"
           style={{ borderColor: C.border, background: C.header }}>
-          <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+          <span className="text-[12px] font-mono" style={{ color: C.muted }}>
             최대 20개 · 변경사항은 자동 저장됩니다
           </span>
         </div>
@@ -741,11 +741,11 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between px-2 py-1.5 border-b"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           WATCH GRID
         </span>
         <button onClick={onEditOpen}
-          className="text-[9px] font-mono transition-colors"
+          className="text-[12px] font-mono transition-colors"
           style={{ color: C.info }}
           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = "#7ec8ff")}
           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = C.info)}>
@@ -755,7 +755,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
       {/* Header */}
       <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 68px 52px 38px" }}>
         {["TICKER","LAST","CHG%","VOL"].map(h => (
-          <span key={h} className="text-[8px] font-mono uppercase text-right first:text-left"
+          <span key={h} className="text-[11px] font-mono uppercase text-right first:text-left"
             style={{ color: C.muted }}>{h}</span>
         ))}
       </div>
@@ -781,29 +781,29 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
                     const ticker = sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","");
                     return isKR && koName ? (
                       <>
-                        <div className="text-[10px] font-mono font-bold leading-tight truncate"
+                        <div className="text-[13px] font-mono font-bold leading-tight truncate"
                           style={{ color: sel ? C.info : C.text }}>{koName}</div>
-                        <div className="text-[8px] font-mono leading-tight"
+                        <div className="text-[11px] font-mono leading-tight"
                           style={{ color: C.muted }}>{ticker}</div>
                       </>
                     ) : (
                       <>
-                        <div className="text-[10px] font-mono font-bold leading-tight"
+                        <div className="text-[13px] font-mono font-bold leading-tight"
                           style={{ color: sel ? C.info : C.text }}>{ticker}</div>
-                        {koName && <div className="text-[8px] font-mono truncate leading-tight"
+                        {koName && <div className="text-[11px] font-mono truncate leading-tight"
                           style={{ color: C.muted }}>{koName}</div>}
                       </>
                     );
                   })()}
                 </div>
-                <div className="text-[11px] font-mono" style={{ color: C.text }}>
+                <div className="text-[14px] font-mono" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : <span style={{ color: C.muted }}>—</span>}
                 </div>
-                <div className={cn("text-[11px] font-mono font-bold",
+                <div className={cn("text-[14px] font-mono font-bold",
                   q ? (up ? "text-[#00c896]" : "text-[#ff4757]") : "")}>
                   {q ? fmtPct(q.changePercent) : <span style={{ color: C.muted }}>—</span>}
                 </div>
-                <div className="text-[10px] font-mono" style={{ color: C.muted }}>
+                <div className="text-[13px] font-mono" style={{ color: C.muted }}>
                   {q ? fmtVol(q.volume) : "—"}
                 </div>
               </button>
@@ -825,13 +825,13 @@ function SectorMap() {
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           SECTOR MAP
         </span>
         <div className="flex items-center gap-2">
           <StatusBadge isLoading={isLoading} isError={isError}
             isLive={!isLoading && !isError && sectors.length > 0} />
-          <Link href="/market-trends" className="text-[9px] font-mono" style={{ color: C.info }}>→</Link>
+          <Link href="/market-trends" className="text-[12px] font-mono" style={{ color: C.info }}>→</Link>
         </div>
       </div>
 
@@ -842,7 +842,7 @@ function SectorMap() {
           ))}
         </div>
       ) : isError || sectors.length === 0 ? (
-        <div className="px-2 py-3 text-[10px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
+        <div className="px-2 py-3 text-[13px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
       ) : (
         <div className="grid grid-cols-2 gap-px p-1.5" style={{ background: C.border }}>
           {sectors.map((sec: any) => {
@@ -855,8 +855,8 @@ function SectorMap() {
               : `rgba(255,71,87,${0.08 + intensity*0.25})`;
             return (
               <div key={sec.symbol} className="flex flex-col p-1.5 rounded-sm" style={{ background: bg }}>
-                <span className="text-[9px] font-mono truncate" style={{ color: C.muted }}>{name}</span>
-                <span className={cn("text-[11px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                <span className="text-[12px] font-mono truncate" style={{ color: C.muted }}>{name}</span>
+                <span className={cn("text-[14px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                   {fmtPct(pct)}
                 </span>
               </div>
@@ -911,8 +911,8 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
       {/* Header */}
       <div className="px-2 py-1 border-b flex items-center gap-1.5"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest" style={{ color: C.accent }}>▶</span>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.text }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest" style={{ color: C.accent }}>▶</span>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.text }}>
           MARKET SCAN
         </span>
       </div>
@@ -920,7 +920,7 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
       <div className="flex border-b" style={{ borderColor: C.border }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex-1 py-1 text-[9px] font-mono font-bold transition-colors"
+            className="flex-1 py-1 text-[12px] font-mono font-bold transition-colors"
             style={{
               color:      tab === t.id ? t.color : C.muted,
               borderBottom: `1.5px solid ${tab === t.id ? t.color : "transparent"}`,
@@ -937,7 +937,7 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
             <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />
           </div>
         ) : rows.length === 0 ? (
-          <div className="px-2 py-3 text-[9px] font-mono text-center" style={{ color: C.muted }}>
+          <div className="px-2 py-3 text-[12px] font-mono text-center" style={{ color: C.muted }}>
             장 마감 후 갱신
           </div>
         ) : rows.map(item => {
@@ -948,22 +948,22 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
           return (
             <button key={item.symbol} type="button"
               onClick={() => onSelect?.(item.symbol)}
-              className="w-full flex items-center justify-between px-2 py-0.5 border-t text-left transition-colors"
+              className="w-full flex items-center justify-between px-2 py-1 border-t text-left transition-colors"
               style={{ borderColor: C.border + "25", cursor: onSelect ? "pointer" : "default" }}
               onMouseEnter={e => (e.currentTarget.style.background = C.accent + "08")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               <div className="min-w-0 flex-1">
-                <div className="text-[9px] font-mono font-bold truncate"
+                <div className="text-[12px] font-mono font-bold truncate"
                   style={{ color: C.text }}>{ticker}</div>
-                <div className="text-[7px] font-mono truncate"
+                <div className="text-[10px] font-mono truncate"
                   style={{ color: C.muted }}>{(item.name||"").slice(0,15)}</div>
               </div>
               <div className="text-right ml-1 shrink-0">
-                <div className="text-[9px] font-mono font-bold"
+                <div className="text-[12px] font-mono font-bold"
                   style={{ color: up ? C.up : C.down }}>
                   {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}%
                 </div>
-                <div className="text-[8px] font-mono" style={{ color: C.muted }}>
+                <div className="text-[11px] font-mono" style={{ color: C.muted }}>
                   {tab === "vol"
                     ? (item.volumeRatio > 0 ? `×${item.volumeRatio.toFixed(1)}` : fmtVol(vol))
                     : tab === "value"
@@ -993,17 +993,17 @@ function VolumePulsePanel() {
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1 border-b flex items-center justify-between"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.text }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.text }}>
           VOL PULSE
         </span>
-        <span className="text-[7px] font-mono" style={{ color: C.muted }}>vs 3M avg</span>
+        <span className="text-[10px] font-mono" style={{ color: C.muted }}>vs 3M avg</span>
       </div>
       {isLoading ? (
         <div className="flex items-center justify-center py-3">
           <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />
         </div>
       ) : data.length === 0 ? (
-        <div className="px-2 py-2 text-[9px] font-mono" style={{ color: C.muted }}>—</div>
+        <div className="px-2 py-2 text-[12px] font-mono" style={{ color: C.muted }}>—</div>
       ) : (
         <div className="px-1.5 py-1 space-y-0.5">
           {data.map(item => {
@@ -1015,7 +1015,7 @@ function VolumePulsePanel() {
             return (
               <div key={item.symbol} className="flex items-center gap-1">
                 {/* Label */}
-                <span className="text-[8px] font-mono font-bold w-[42px] shrink-0" style={{ color: C.text }}>
+                <span className="text-[11px] font-mono font-bold w-[42px] shrink-0" style={{ color: C.text }}>
                   {item.label || item.symbol}
                 </span>
                 {/* Bar */}
@@ -1024,12 +1024,12 @@ function VolumePulsePanel() {
                     style={{ width: `${barW}%`, background: barColor, opacity: 0.75 }} />
                 </div>
                 {/* Ratio badge */}
-                <span className="text-[8px] font-mono font-bold w-[28px] text-right shrink-0"
+                <span className="text-[11px] font-mono font-bold w-[28px] text-right shrink-0"
                   style={{ color: barColor }}>
                   {ratio > 0 ? `×${ratio.toFixed(1)}` : "—"}
                 </span>
                 {/* Change */}
-                <span className="text-[8px] font-mono w-[28px] text-right shrink-0"
+                <span className="text-[11px] font-mono w-[28px] text-right shrink-0"
                   style={{ color: up ? C.up : C.down }}>
                   {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}
                 </span>
@@ -1056,7 +1056,7 @@ function CryptoMiniPanel({ stocks }: { stocks: Record<string,any> }) {
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           CRYPTO
         </span>
       </div>
@@ -1066,11 +1066,11 @@ function CryptoMiniPanel({ stocks }: { stocks: Record<string,any> }) {
           const up = isUp(q?.changePercent);
           return (
             <div key={sym} className="p-1.5 flex flex-col" style={{ background: C.panel2 }}>
-              <span className="text-[8px] font-mono" style={{ color: C.muted }}>{emoji} {label}</span>
-              <span className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+              <span className="text-[11px] font-mono" style={{ color: C.muted }}>{emoji} {label}</span>
+              <span className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
                 {q ? `$${q.price >= 1000 ? q.price.toLocaleString(undefined,{maximumFractionDigits:0}) : q.price.toFixed(q.price < 1 ? 4 : 2)}` : "—"}
               </span>
-              <span className="text-[9px] font-mono font-bold" style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+              <span className="text-[12px] font-mono font-bold" style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </span>
             </div>
@@ -1095,7 +1095,7 @@ function RatesMiniPanel({ stocks }: { stocks: Record<string,any> }) {
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           RATES &amp; VOLATILITY
         </span>
       </div>
@@ -1107,14 +1107,14 @@ function RatesMiniPanel({ stocks }: { stocks: Record<string,any> }) {
             <div key={sym} className="flex items-center justify-between px-2 py-1"
               style={{ borderColor: C.border+"40" }}>
               <div>
-                <span className="text-[9px] font-mono font-bold" style={{ color: C.info }}>{label}</span>
-                <span className="text-[8px] font-mono ml-1" style={{ color: C.muted }}>{desc}</span>
+                <span className="text-[12px] font-mono font-bold" style={{ color: C.info }}>{label}</span>
+                <span className="text-[11px] font-mono ml-1" style={{ color: C.muted }}>{desc}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                <span className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
                   {q ? q.price?.toFixed(2) : "—"}
                 </span>
-                <span className="text-[8px] font-mono font-bold w-14 text-right"
+                <span className="text-[11px] font-mono font-bold w-14 text-right"
                   style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                   {q ? fmtPct(q.changePercent) : "—"}
                 </span>
@@ -1146,7 +1146,7 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           GLOBAL INDICES
         </span>
       </div>
@@ -1156,8 +1156,8 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
           const up = isUp(q?.changePercent);
           return (
             <div key={sym} className="p-1.5" style={{ background: C.panel2 }}>
-              <div className="text-[8px] font-mono" style={{ color: C.muted }}>{flag} {label}</div>
-              <div className="text-[9px] font-mono font-bold"
+              <div className="text-[11px] font-mono" style={{ color: C.muted }}>{flag} {label}</div>
+              <div className="text-[12px] font-mono font-bold"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </div>
@@ -1181,8 +1181,8 @@ function FlowRadar({ stocks }: { stocks: Record<string,any> }) {
     { label:"Crypto",  sym:"BTC-USD",factor: 0.1 },
   ];
   return (
-    <div className="p-2 border-b" style={{ borderColor: C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+    <div className="p-3 border-b" style={{ borderColor: C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color: C.muted }}>FLOW RADAR</div>
       {flows.map(({ label, sym, factor }) => {
         const q   = stocks[sym];
@@ -1192,7 +1192,7 @@ function FlowRadar({ stocks }: { stocks: Record<string,any> }) {
         const barW = val != null ? Math.min(Math.abs(val) * 8, 48) : 0;
         return (
           <div key={label} className="flex items-center gap-2 mb-1">
-            <span className="w-14 text-[9px] font-mono shrink-0" style={{ color: C.muted }}>{label}</span>
+            <span className="w-14 text-[12px] font-mono shrink-0" style={{ color: C.muted }}>{label}</span>
             <div className="flex-1 h-1.5 rounded-full overflow-hidden flex items-center"
               style={{ background: "#1a2030" }}>
               <div className="h-full rounded-full" style={{
@@ -1201,7 +1201,7 @@ function FlowRadar({ stocks }: { stocks: Record<string,any> }) {
                 background: up ? C.up : C.down,
               }} />
             </div>
-            <span className={cn("w-12 text-right text-[9px] font-mono font-semibold shrink-0",
+            <span className={cn("w-12 text-right text-[12px] font-mono font-semibold shrink-0",
               val == null ? "" : up ? "text-[#00c896]" : "text-[#ff4757]")}
               style={val == null ? { color: C.muted } : {}}>
               {val != null ? fmtPct(val) : "—"}
@@ -1290,17 +1290,17 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
   if (isLoading && rows.length === 0) return (
     <div className="flex items-center justify-center h-full gap-2" style={{ color: C.muted }}>
       <RefreshCw className="w-4 h-4 animate-spin" />
-      <span className="text-[11px] font-mono">차트 로딩중...</span>
+      <span className="text-[14px] font-mono">차트 로딩중...</span>
     </div>
   );
   if (isError && rows.length === 0) return (
     <div className="flex items-center justify-center h-full gap-2" style={{ color: C.down }}>
       <AlertTriangle className="w-4 h-4" />
-      <span className="text-[11px] font-mono">차트 로드 실패</span>
+      <span className="text-[14px] font-mono">차트 로드 실패</span>
     </div>
   );
   if (!rows.length) return (
-    <div className="flex items-center justify-center h-full text-[11px] font-mono"
+    <div className="flex items-center justify-center h-full text-[14px] font-mono"
       style={{ color: C.muted }}>데이터 없음</div>
   );
 
@@ -1331,18 +1331,18 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
     <div className="h-full flex flex-col">
       {/* ── Header row ── */}
       <div className="flex items-center gap-2 px-2 pb-0.5 shrink-0">
-        <span className="text-[9px] font-mono" style={{ color: C.muted }}>기간수익률</span>
-        <span className={cn("text-[10px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+        <span className="text-[12px] font-mono" style={{ color: C.muted }}>기간수익률</span>
+        <span className={cn("text-[13px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
           {fmtPct(totalPct)}
         </span>
         {liveMode && (
-          <span className="flex items-center gap-0.5 text-[8px] font-mono px-1 py-0.5 rounded"
+          <span className="flex items-center gap-0.5 text-[11px] font-mono px-1 py-0.5 rounded"
             style={{ background: C.up+"22", color: C.up }}>
             <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: C.up }} />
             LIVE
           </span>
         )}
-        <span className="text-[9px] font-mono ml-auto" style={{ color: C.muted }}>({rows.length}개)</span>
+        <span className="text-[12px] font-mono ml-auto" style={{ color: C.muted }}>({rows.length}개)</span>
       </div>
 
       {/* ── Single ComposedChart: price area + volume bars share the same x-axis ── */}
@@ -1425,7 +1425,7 @@ function SymbolHeader({ symbol, quote }: { symbol:string; quote:any }) {
             {symbol.replace("^","")}
           </span>
           {quote?.name && (
-            <span className="text-[10px] font-mono truncate max-w-[120px]"
+            <span className="text-[13px] font-mono truncate max-w-[120px]"
               style={{ color: C.muted }}>{quote.name}</span>
           )}
           <StatusBadge
@@ -1450,14 +1450,14 @@ function SymbolHeader({ symbol, quote }: { symbol:string; quote:any }) {
             <div className="flex gap-3 mt-1 flex-wrap">
               {quote.volume != null && (
                 <div className="flex items-center gap-1">
-                  <span className="text-[8px] font-mono" style={{ color: C.muted }}>VOL</span>
-                  <span className="text-[10px] font-mono" style={{ color: C.text }}>{fmtVol(quote.volume)}</span>
+                  <span className="text-[11px] font-mono" style={{ color: C.muted }}>VOL</span>
+                  <span className="text-[13px] font-mono" style={{ color: C.text }}>{fmtVol(quote.volume)}</span>
                 </div>
               )}
               {quote.lastUpdated && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-2.5 h-2.5" style={{ color: C.muted }} />
-                  <span className="text-[9px] font-mono" style={{ color: C.muted }}>
+                  <span className="text-[12px] font-mono" style={{ color: C.muted }}>
                     {String(quote.lastUpdated).slice(11,16)} 기준
                   </span>
                 </div>
@@ -1470,7 +1470,7 @@ function SymbolHeader({ symbol, quote }: { symbol:string; quote:any }) {
       </div>
 
       <Link href={`/stock/${symbol}`}
-        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold shrink-0"
+        className="flex items-center gap-1 px-2 py-1 rounded text-[13px] font-mono font-bold shrink-0"
         style={{ background:C.info+"22", color:C.info, border:`1px solid ${C.info}40` }}>
         풀차트 <ArrowUpRight className="w-3 h-3" />
       </Link>
@@ -1519,22 +1519,22 @@ function TechEngine({ symbol, quote }: { symbol:string; quote:any }) {
   ];
 
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <div className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color: C.muted }}>TECH / RISK ENGINE</div>
         {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
       <div className="grid grid-cols-4 gap-px" style={{ background: C.border }}>
         {metrics.map(([l, v, clr]) => (
           <div key={l} className="px-2 py-1.5" style={{ background: C.panel2 }}>
-            <div className="text-[8px] font-mono" style={{ color: C.muted }}>{l}</div>
-            <div className="text-[11px] font-mono font-bold" style={{ color: clr }}>{v}</div>
+            <div className="text-[11px] font-mono" style={{ color: C.muted }}>{l}</div>
+            <div className="text-[14px] font-mono font-bold" style={{ color: clr }}>{v}</div>
           </div>
         ))}
       </div>
       {rsiApprox != null && (
-        <div className="mt-1 text-[8px] font-mono" style={{ color: C.muted }}>
+        <div className="mt-1 text-[11px] font-mono" style={{ color: C.muted }}>
           * RSI는 당일 변동률 기반 추정치입니다
         </div>
       )}
@@ -1548,15 +1548,15 @@ function TechEngine({ symbol, quote }: { symbol:string; quote:any }) {
 function CrossAssetTable({ stocks, onSelect }: { stocks: Record<string,any>; onSelect?: (s:string)=>void }) {
   const syms = ["AAPL","NVDA","TSLA","MSFT","AMZN","META","SPY","QQQ","GC=F","BTC-USD"];
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-2"
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-2"
         style={{ color: C.muted }}>CROSS ASSET SNAPSHOT</div>
       <div className="overflow-x-auto" style={{ scrollbarWidth:"none" }}>
         <table className="w-full" style={{ minWidth:300, borderCollapse:"collapse" }}>
           <thead>
             <tr>
               {["SYMBOL","LAST","CHG%","VOL"].map(h => (
-                <td key={h} className={cn("text-[8px] font-mono pb-1",
+                <td key={h} className={cn("text-[11px] font-mono pb-1",
                   h === "SYMBOL" ? "" : "text-right")}
                   style={{ color:C.muted }}>{h}</td>
               ))}
@@ -1573,18 +1573,18 @@ function CrossAssetTable({ stocks, onSelect }: { stocks: Record<string,any>; onS
                   onMouseEnter={e => (e.currentTarget.style.background = C.accent+"10")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                   <td className="py-1">
-                    <span className="text-[10px] font-mono font-bold"
+                    <span className="text-[13px] font-mono font-bold"
                       style={{ color:C.info }}>{sym.replace("=F","").replace("-USD","")}</span>
                   </td>
-                  <td className="text-[10px] font-mono text-right py-1"
+                  <td className="text-[13px] font-mono text-right py-1"
                     style={{ color:C.text }}>
                     {q ? fmtPrice(q.price, sym) : <span style={{ color:C.muted }}>—</span>}
                   </td>
-                  <td className={cn("text-[10px] font-mono font-bold text-right",
+                  <td className={cn("text-[13px] font-mono font-bold text-right",
                     q ? (up ? "text-[#00c896]" : "text-[#ff4757]") : "")}>
                     {q ? fmtPct(q.changePercent) : <span style={{ color:C.muted }}>—</span>}
                   </td>
-                  <td className="text-[10px] font-mono text-right"
+                  <td className="text-[13px] font-mono text-right"
                     style={{ color:C.muted }}>
                     {q ? fmtVol(q.volume) : "—"}
                   </td>
@@ -1615,12 +1615,12 @@ function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
   const maxY = Math.max(...vals.map(v => v.y ?? 0), 0.01);
 
   return (
-    <div className="p-2 border-t" style={{ borderColor:C.border }}>
+    <div className="p-3 border-t" style={{ borderColor:C.border }}>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color:C.muted }}>YIELD CURVE</span>
         {inverted && (
-          <span className="text-[7px] font-mono px-1.5 py-0.5 rounded font-bold"
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold"
             style={{ background:C.down+"33", color:C.down }}>
             ⚠ INVERTED
           </span>
@@ -1632,18 +1632,18 @@ function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
           const clr = inverted && sym === "^IRX" ? C.down : C.info;
           return (
             <div key={sym} className="flex-1 flex flex-col items-center gap-0.5">
-              <span className="text-[8px] font-mono font-bold" style={{ color:clr }}>
+              <span className="text-[11px] font-mono font-bold" style={{ color:clr }}>
                 {y != null ? y.toFixed(2)+"%" : "—"}
               </span>
               <div className="w-full rounded-sm transition-all duration-700"
                 style={{ height:h, background: clr+(inverted && sym==="^IRX" ? "bb" : "55") }} />
-              <span className="text-[7px] font-mono" style={{ color:C.muted }}>{label}</span>
+              <span className="text-[10px] font-mono" style={{ color:C.muted }}>{label}</span>
             </div>
           );
         })}
       </div>
       {y10 != null && y3m != null && (
-        <div className="mt-1.5 text-[8px] font-mono" style={{ color:C.muted }}>
+        <div className="mt-1.5 text-[11px] font-mono" style={{ color:C.muted }}>
           10Y-3M 스프레드:{" "}
           <span style={{ color:(y10-y3m)>=0 ? C.up : C.down }}>
             {(y10-y3m)>=0?"+":" "}{(y10-y3m).toFixed(2)}%
@@ -1670,15 +1670,15 @@ const WORLD_INDICES = [
 
 function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
   return (
-    <div className="p-2 border-t" style={{ borderColor:C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+    <div className="p-3 border-t" style={{ borderColor:C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color:C.muted }}>GLOBAL MARKETS</div>
       <table className="w-full" style={{ borderCollapse:"collapse" }}>
         <thead>
           <tr>
-            <td className="text-[7px] font-mono pb-1" style={{ color:C.muted }}>INDEX</td>
-            <td className="text-[7px] font-mono pb-1 text-right" style={{ color:C.muted }}>LAST</td>
-            <td className="text-[7px] font-mono pb-1 text-right" style={{ color:C.muted }}>CHG%</td>
+            <td className="text-[10px] font-mono pb-1" style={{ color:C.muted }}>INDEX</td>
+            <td className="text-[10px] font-mono pb-1 text-right" style={{ color:C.muted }}>LAST</td>
+            <td className="text-[10px] font-mono pb-1 text-right" style={{ color:C.muted }}>CHG%</td>
           </tr>
         </thead>
         <tbody>
@@ -1688,14 +1688,14 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
             return (
               <tr key={sym} className="border-t" style={{ borderColor:C.border+"40" }}>
                 <td className="py-0.5">
-                  <span className="text-[9px] font-mono" style={{ color:C.muted }}>
+                  <span className="text-[12px] font-mono" style={{ color:C.muted }}>
                     {flag} {label}
                   </span>
                 </td>
-                <td className="text-right text-[9px] font-mono" style={{ color:C.text }}>
+                <td className="text-right text-[12px] font-mono" style={{ color:C.text }}>
                   {q ? fmtPrice(q.price, sym) : "—"}
                 </td>
-                <td className="text-right text-[9px] font-mono font-bold"
+                <td className="text-right text-[12px] font-mono font-bold"
                   style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                   {q ? fmtPct(q.changePercent) : "—"}
                 </td>
@@ -1727,8 +1727,8 @@ const FX_DEF = [
 
 function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
   return (
-    <div className="p-2 border-t" style={{ borderColor:C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+    <div className="p-3 border-t" style={{ borderColor:C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color:C.muted }}>COMMODITIES</div>
       <div className="grid grid-cols-2 gap-1 mb-3">
         {COMM_DEF.map(({ sym, label, emoji }) => {
@@ -1737,11 +1737,11 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
           return (
             <div key={sym} className="rounded px-1.5 py-1"
               style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-              <div className="text-[8px] font-mono" style={{ color:C.muted }}>{emoji} {label}</div>
-              <div className="text-[10px] font-mono font-bold" style={{ color:C.text }}>
+              <div className="text-[11px] font-mono" style={{ color:C.muted }}>{emoji} {label}</div>
+              <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
                 {q ? `$${q.price?.toFixed(sym==="GC=F"||sym==="SI=F" ? 2 : (sym==="HG=F"?4:2))}` : "—"}
               </div>
-              <div className="text-[8px] font-mono font-bold"
+              <div className="text-[11px] font-mono font-bold"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </div>
@@ -1749,19 +1749,19 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
           );
         })}
       </div>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1"
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1"
         style={{ color:C.muted }}>FX RATES</div>
       {FX_DEF.map(({ sym, label }) => {
         const q  = stocks[sym];
         const up = isUp(q?.changePercent);
         return (
-          <div key={sym} className="flex items-center justify-between py-0.5 border-t"
+          <div key={sym} className="flex items-center justify-between py-1 border-t"
             style={{ borderColor:C.border+"40" }}>
-            <span className="text-[9px] font-mono" style={{ color:C.muted }}>{label}</span>
-            <span className="text-[9px] font-mono" style={{ color:C.text }}>
+            <span className="text-[12px] font-mono" style={{ color:C.muted }}>{label}</span>
+            <span className="text-[12px] font-mono" style={{ color:C.text }}>
               {q ? q.price?.toFixed(sym==="KRW=X" ? 0 : sym==="JPY=X" ? 2 : 4) : "—"}
             </span>
-            <span className="text-[8px] font-mono font-bold"
+            <span className="text-[11px] font-mono font-bold"
               style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
               {q ? fmtPct(q.changePercent) : "—"}
             </span>
@@ -1814,16 +1814,16 @@ function MacroSignalPanel({ stocks }: { stocks: Record<string,any> }) {
   ];
 
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color: C.muted }}>거시 신호 · MACRO SIGNALS</div>
       <div className="grid grid-cols-2 gap-1">
         {signals.map(s => (
           <div key={s.label} className="rounded px-2 py-1.5"
             style={{ background: C.panel2, border: `1px solid ${s.color}30` }}>
-            <div className="text-[7px] font-mono mb-0.5" style={{ color: C.muted }}>{s.label}</div>
+            <div className="text-[10px] font-mono mb-0.5" style={{ color: C.muted }}>{s.label}</div>
             <div className="text-[13px] font-mono font-black" style={{ color: s.color }}>{s.value}</div>
-            <div className="text-[7px] font-mono mt-0.5" style={{ color: s.color + "cc" }}>{s.sub}</div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: s.color + "cc" }}>{s.sub}</div>
           </div>
         ))}
       </div>
@@ -1850,11 +1850,11 @@ function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
   const maxPct = Math.max(...pcts, 0.2); // 최소 0.2% 기준선 유지
 
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color: C.muted }}>채권 ETF · BOND ETFs</span>
-        <span className="text-[7px] font-mono" style={{ color: C.muted }}>금리↑ = 채권↓</span>
+        <span className="text-[10px] font-mono" style={{ color: C.muted }}>금리↑ = 채권↓</span>
       </div>
       {BOND_ETFS.map(({ sym, label, ko, note }) => {
         const q   = stocks[sym];
@@ -1866,12 +1866,12 @@ function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
           <div key={sym} className="grid gap-1 py-1 border-t"
             style={{ borderColor: C.border + "30", gridTemplateColumns:"36px 1fr 48px 46px" }}>
             {/* 티커 */}
-            <span className="text-[9px] font-mono font-bold self-center" style={{ color: C.info }}>{label}</span>
+            <span className="text-[12px] font-mono font-bold self-center" style={{ color: C.info }}>{label}</span>
             {/* 한글명 + 바 */}
             <div className="flex flex-col justify-center gap-0.5 min-w-0">
               <div className="flex items-center gap-1">
-                <span className="text-[7px] font-mono truncate" style={{ color: C.muted }}>{ko}</span>
-                <span className="text-[6px] font-mono shrink-0 px-0.5 rounded"
+                <span className="text-[10px] font-mono truncate" style={{ color: C.muted }}>{ko}</span>
+                <span className="text-[9px] font-mono shrink-0 px-0.5 rounded"
                   style={{ background: C.border, color: C.muted + "aa" }}>{note}</span>
               </div>
               <div className="relative h-[5px] rounded-full overflow-hidden w-full" style={{ background: C.border }}>
@@ -1880,18 +1880,18 @@ function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
               </div>
             </div>
             {/* 등락률 */}
-            <span className="text-[9px] font-mono font-bold text-right self-center"
+            <span className="text-[12px] font-mono font-bold text-right self-center"
               style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
               {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
             </span>
             {/* 가격 */}
-            <span className="text-[9px] font-mono text-right self-center" style={{ color: C.text }}>
+            <span className="text-[12px] font-mono text-right self-center" style={{ color: C.text }}>
               {q?.price != null ? `$${q.price.toFixed(2)}` : "—"}
             </span>
           </div>
         );
       })}
-      <div className="mt-1 text-[7px] font-mono" style={{ color: C.muted }}>
+      <div className="mt-1 text-[10px] font-mono" style={{ color: C.muted }}>
         ※ TIP↑=인플레 기대상승 · HYG↓=신용시장 긴축 신호
       </div>
     </div>
@@ -1919,12 +1919,12 @@ function DollarFXPanel({ stocks }: { stocks: Record<string,any> }) {
     : "—";
 
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color: C.muted }}>달러 & 통화 · FX</span>
         {dxy != null && (
-          <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded"
+          <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded"
             style={{
               color: (dxyChg ?? 0) > 0 ? C.down : C.up,
               background: ((dxyChg ?? 0) > 0 ? C.down : C.up) + "20"
@@ -1947,24 +1947,24 @@ function DollarFXPanel({ stocks }: { stocks: Record<string,any> }) {
                   : (up ? C.up : C.down)))
           : C.muted;
         return (
-          <div key={sym} className="flex items-center justify-between py-0.5 border-t"
+          <div key={sym} className="flex items-center justify-between py-1 border-t"
             style={{ borderColor: C.border + "30" }}>
             <div className="min-w-0">
-              <span className="text-[9px] font-mono font-bold" style={{ color: C.text }}>{label}</span>
-              <span className="text-[7px] font-mono ml-1" style={{ color: C.muted }}>{desc}</span>
+              <span className="text-[12px] font-mono font-bold" style={{ color: C.text }}>{label}</span>
+              <span className="text-[10px] font-mono ml-1" style={{ color: C.muted }}>{desc}</span>
             </div>
             <div className="text-right flex items-center gap-2 shrink-0">
-              <span className="text-[9px] font-mono" style={{ color: C.text }}>
+              <span className="text-[12px] font-mono" style={{ color: C.text }}>
                 {q?.price != null ? q.price.toFixed(toFix) : "—"}
               </span>
-              <span className="text-[8px] font-mono font-bold w-[44px] text-right" style={{ color: clr }}>
+              <span className="text-[11px] font-mono font-bold w-[44px] text-right" style={{ color: clr }}>
                 {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
               </span>
             </div>
           </div>
         );
       })}
-      <div className="mt-1.5 text-[7px] font-mono" style={{ color: C.muted }}>
+      <div className="mt-1.5 text-[10px] font-mono" style={{ color: C.muted }}>
         * DXY↑ = 달러강세 → 원자재↓·신흥국↓ 압박
       </div>
     </div>
@@ -1991,14 +1991,14 @@ const COMM_EXT_DEF = [
 function CommExtPanel({ stocks }: { stocks: Record<string,any> }) {
   const groups = ["에너지","귀금속","산업금속","농산물"];
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color: C.muted }}>원자재 · COMMODITIES</div>
       {groups.map(grp => {
         const items = COMM_EXT_DEF.filter(c => c.group === grp);
         return (
           <div key={grp} className="mb-2">
-            <div className="text-[7px] font-mono mb-0.5" style={{ color: C.muted + "cc" }}>{grp}</div>
+            <div className="text-[10px] font-mono mb-0.5" style={{ color: C.muted + "cc" }}>{grp}</div>
             <div className="grid grid-cols-3 gap-px" style={{ background: C.border }}>
               {items.map(({ sym, label, unit, toFix }) => {
                 const q   = stocks[sym];
@@ -2006,11 +2006,11 @@ function CommExtPanel({ stocks }: { stocks: Record<string,any> }) {
                 const up  = (pct ?? 0) >= 0;
                 return (
                   <div key={sym} className="px-1.5 py-1" style={{ background: C.panel2 }}>
-                    <div className="text-[7px] font-mono" style={{ color: C.muted }}>{label}</div>
-                    <div className="text-[10px] font-mono font-bold" style={{ color: C.text }}>
+                    <div className="text-[10px] font-mono" style={{ color: C.muted }}>{label}</div>
+                    <div className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
                       {q?.price != null ? `${unit}${q.price.toFixed(toFix)}` : "—"}
                     </div>
-                    <div className="text-[8px] font-mono font-bold"
+                    <div className="text-[11px] font-mono font-bold"
                       style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
                       {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
                     </div>
@@ -2028,7 +2028,7 @@ function CommExtPanel({ stocks }: { stocks: Record<string,any> }) {
         if (!brent || !wti) return null;
         const spread = +(brent - wti).toFixed(2);
         return (
-          <div className="mt-1 text-[7px] font-mono" style={{ color: C.muted }}>
+          <div className="mt-1 text-[10px] font-mono" style={{ color: C.muted }}>
             브렌트-WTI 스프레드: <span style={{ color: C.info }}>${spread >= 0 ? "+" : ""}{spread}</span>
             <span className="ml-1">{spread > 3 ? "(공급 우려)" : spread < 1 ? "(정상범위)" : "(보통)"}</span>
           </div>
@@ -2059,8 +2059,8 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
   const twos5s = fvx != null && irx != null ? +(fvx - irx).toFixed(2) : null;
 
   return (
-    <div className="p-2 border-t" style={{ borderColor: C.border }}>
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase mb-1.5"
+    <div className="p-3 border-t" style={{ borderColor: C.border }}>
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color: C.muted }}>금리 상세 · RATES DETAIL</div>
 
       {/* Yield bars */}
@@ -2072,12 +2072,12 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
           const up = (stocks[sym]?.changePercent ?? 0) >= 0;
           return (
             <div key={sym} className="flex-1 flex flex-col items-center gap-0.5">
-              <span className="text-[7px] font-mono font-bold" style={{ color: up ? C.up : C.down }}>
+              <span className="text-[10px] font-mono font-bold" style={{ color: up ? C.up : C.down }}>
                 {p != null ? p.toFixed(toFix)+"%" : "—"}
               </span>
               <div className="w-full rounded-t transition-all"
                 style={{ height: h, background: C.info + "66" }} />
-              <span className="text-[6px] font-mono" style={{ color: C.muted }}>{label}</span>
+              <span className="text-[9px] font-mono" style={{ color: C.muted }}>{label}</span>
             </div>
           );
         })}
@@ -2090,13 +2090,13 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
           { label:"10Y-30Y 기간프리미엄", val:termPremium, inv:false },
         ].map(({ label, val, inv }) => (
           <div key={label} className="px-1.5 py-1" style={{ background: C.panel2 }}>
-            <div className="text-[7px] font-mono" style={{ color: C.muted }}>{label}</div>
-            <div className="text-[11px] font-mono font-bold"
+            <div className="text-[10px] font-mono" style={{ color: C.muted }}>{label}</div>
+            <div className="text-[14px] font-mono font-bold"
               style={{ color: val != null ? (inv ? C.down : val >= 0 ? C.up : C.down) : C.muted }}>
               {val != null ? `${val >= 0 ? "+" : ""}${val}%` : "—"}
             </div>
             {inv && val != null && val < 0 && (
-              <div className="text-[7px] font-mono" style={{ color: C.down }}>⚠ 역전</div>
+              <div className="text-[10px] font-mono" style={{ color: C.down }}>⚠ 역전</div>
             )}
           </div>
         ))}
@@ -2107,24 +2107,24 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
         <div className="mt-1.5 grid grid-cols-2 gap-px" style={{ background: C.border }}>
           {skew != null && (
             <div className="px-1.5 py-1" style={{ background: C.panel2 }}>
-              <div className="text-[7px] font-mono" style={{ color: C.muted }}>SKEW 지수</div>
-              <div className="text-[11px] font-mono font-bold"
+              <div className="text-[10px] font-mono" style={{ color: C.muted }}>SKEW 지수</div>
+              <div className="text-[14px] font-mono font-bold"
                 style={{ color: skew > 140 ? C.down : skew > 120 ? C.warn : C.up }}>
                 {skew.toFixed(1)}
               </div>
-              <div className="text-[7px] font-mono" style={{ color: C.muted }}>
+              <div className="text-[10px] font-mono" style={{ color: C.muted }}>
                 {skew > 140 ? "테일 리스크↑" : skew > 120 ? "주의" : "낮음"}
               </div>
             </div>
           )}
           {vix != null && skew != null && (
             <div className="px-1.5 py-1" style={{ background: C.panel2 }}>
-              <div className="text-[7px] font-mono" style={{ color: C.muted }}>SKEW/VIX 비율</div>
-              <div className="text-[11px] font-mono font-bold"
+              <div className="text-[10px] font-mono" style={{ color: C.muted }}>SKEW/VIX 비율</div>
+              <div className="text-[14px] font-mono font-bold"
                 style={{ color: (skew/vix) > 8 ? C.down : C.up }}>
                 {(skew/vix).toFixed(1)}×
               </div>
-              <div className="text-[7px] font-mono" style={{ color: C.muted }}>
+              <div className="text-[10px] font-mono" style={{ color: C.muted }}>
                 {(skew/vix) > 8 ? "꼬리위험 내재" : "정상 범위"}
               </div>
             </div>
@@ -2166,19 +2166,19 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color:C.muted }}>FUNDAMENTALS</span>
         <div className="flex items-center gap-2">
           <StatusBadge isLoading={isLoading} isError={isError}
             isLive={!isLoading && !isError && !!info} />
-          <Link href={`/stock/${symbol}`} className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+          <Link href={`/stock/${symbol}`} className="text-[12px] font-mono" style={{ color:C.info }}>→</Link>
         </div>
       </div>
 
       {/* 52-week range bar */}
       {!isLoading && rangePct != null && (
         <div className="px-2 py-2 border-b" style={{ borderColor:C.border }}>
-          <div className="flex justify-between text-[8px] font-mono mb-1" style={{ color:C.muted }}>
+          <div className="flex justify-between text-[11px] font-mono mb-1" style={{ color:C.muted }}>
             <span>{fmtPrice(lo, symbol)}</span>
             <span>52W RANGE</span>
             <span>{fmtPrice(hi, symbol)}</span>
@@ -2195,7 +2195,7 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
       {isLoading ? (
         Array.from({length:6}).map((_,i) => <SkeletonRow key={i} cols={2} />)
       ) : isError ? (
-        <div className="px-2 py-3 text-[10px] font-mono flex items-center gap-2"
+        <div className="px-2 py-3 text-[13px] font-mono flex items-center gap-2"
           style={{ color:C.down }}>
           <AlertTriangle className="w-3 h-3" /> 펀더멘탈 로드 실패
         </div>
@@ -2203,8 +2203,8 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
         rows.map(([l, v]) => (
           <div key={l} className="flex items-center justify-between px-2 py-1 border-b"
             style={{ borderColor:C.border+"40" }}>
-            <span className="text-[9px] font-mono" style={{ color:C.muted }}>{l}</span>
-            <span className="text-[10px] font-mono font-bold" style={{ color:C.text }}>{v}</span>
+            <span className="text-[12px] font-mono" style={{ color:C.muted }}>{l}</span>
+            <span className="text-[13px] font-mono font-bold" style={{ color:C.text }}>{v}</span>
           </div>
         ))
       )}
@@ -2212,7 +2212,7 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
       {/* Description snippet */}
       {info?.description && (
         <div className="px-2 py-2">
-          <p className="text-[9px] font-mono leading-relaxed line-clamp-3"
+          <p className="text-[12px] font-mono leading-relaxed line-clamp-3"
             style={{ color:C.muted }}>{info.description}</p>
         </div>
       )}
@@ -2234,14 +2234,14 @@ function CalendarPanel() {
     <div className="border-b" style={{ borderColor:C.border }}>
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color:C.muted }}>CALENDAR</span>
-        <Link href="/calendar" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+        <Link href="/calendar" className="text-[12px] font-mono" style={{ color:C.info }}>→</Link>
       </div>
       {isLoading ? (
         Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={2} />)
       ) : isError || !events.length ? (
-        <div className="px-2 py-2 text-[10px] font-mono" style={{ color:C.muted }}>이벤트 없음</div>
+        <div className="px-2 py-2 text-[13px] font-mono" style={{ color:C.muted }}>이벤트 없음</div>
       ) : events.map((ev:any, i:number) => (
         <div key={i} className="flex items-start gap-2 px-2 py-1.5 border-b"
           style={{ borderColor:C.border+"40" }}>
@@ -2249,12 +2249,12 @@ function CalendarPanel() {
             background: ev.importance==="high" ? C.down : ev.importance==="medium" ? C.warn : C.info
           }} />
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-mono truncate" style={{ color:C.text }}>
+            <div className="text-[13px] font-mono truncate" style={{ color:C.text }}>
               {ev.name||ev.title}
             </div>
-            <div className="text-[9px] font-mono" style={{ color:C.muted }}>{ev.date}</div>
+            <div className="text-[12px] font-mono" style={{ color:C.muted }}>{ev.date}</div>
           </div>
-          <span className="text-[8px] font-mono shrink-0 px-1 py-0.5 rounded" style={{
+          <span className="text-[11px] font-mono shrink-0 px-1 py-0.5 rounded" style={{
             background: ev.importance==="high" ? C.down+"22" : ev.importance==="medium" ? C.warn+"22" : C.info+"22",
             color:      ev.importance==="high" ? C.down      : ev.importance==="medium" ? C.warn      : C.info,
           }}>
@@ -2329,7 +2329,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
             <div className="flex items-center gap-0.5">
               {(["market","company"] as const).map(m => (
                 <button key={m} onClick={() => { setMode(m); setExpanded(null); }}
-                  className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold"
+                  className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold"
                   style={{
                     background: mode===m ? C.info+"33" : "transparent",
                     color: mode===m ? C.info : C.muted,
@@ -2340,25 +2340,25 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
               ))}
             </div>
           ) : (
-            <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+            <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
               style={{ color:C.muted }}>{T("marketNews", lang)}</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
           <StatusBadge isLoading={isLoading} isError={isError}
             isLive={!isLoading && !isError && items.length > 0} />
-          <Link href="/hot-issues" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+          <Link href="/hot-issues" className="text-[12px] font-mono" style={{ color:C.info }}>→</Link>
         </div>
       </div>
 
       {isLoading ? (
         Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2} />)
       ) : isError ? (
-        <div className="px-2 py-3 text-[9px] font-mono flex items-center gap-2" style={{ color:C.down }}>
+        <div className="px-2 py-3 text-[12px] font-mono flex items-center gap-2" style={{ color:C.down }}>
           <AlertTriangle className="w-3 h-3" /> {T("loadFail", lang)}
         </div>
       ) : !items.length ? (
-        <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noData", lang)}</div>
+        <div className="px-2 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("noData", lang)}</div>
       ) : items.map((item:any, i:number) => {
         const itemKey = `${mode}-${i}`;
         const isOpen = expanded === i;
@@ -2371,17 +2371,17 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
               onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = C.panel2+"80"; }}
               onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = ""; }}
               onClick={() => setExpanded(isOpen ? null : i)}>
-              <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5"
+              <span className="text-[12px] font-mono font-bold shrink-0 mt-0.5"
                 style={{ color: i===0 ? C.down : C.muted }}>
                 {i===0 ? "HOT" : String(i+1).padStart(2,"0")}
               </span>
               <div className="flex-1 min-w-0">
                 {/* Show title in original language */}
-                <div className="text-[10px] font-mono leading-snug line-clamp-2"
+                <div className="text-[13px] font-mono leading-snug line-clamp-2"
                   style={{ color:C.text }}>{item.title}</div>
                 {/* Show inline summary in user's language when collapsed */}
                 {inlineSummary && !isOpen && (
-                  <div className="text-[9px] font-mono leading-snug mt-0.5 line-clamp-1"
+                  <div className="text-[12px] font-mono leading-snug mt-0.5 line-clamp-1"
                     style={{ color:C.muted }}>
                     {lang === "ko" ? "🇰🇷" : lang === "ja" ? "🇯🇵" : "🇺🇸"} {inlineSummary}
                   </div>
@@ -2396,7 +2396,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
               <div className="px-2 pb-2 overflow-hidden" style={{ background:C.panel2 }}>
                 {/* Inline Korean summary */}
                 {inlineSummary && (
-                  <div className="text-[9px] font-mono leading-relaxed mb-1.5 px-1.5 py-1 rounded break-words"
+                  <div className="text-[12px] font-mono leading-relaxed mb-1.5 px-1.5 py-1 rounded break-words"
                     style={{ background:C.border+"40", color:C.text, wordBreak:"break-word" }}>
                     {lang === "ko" ? "🇰🇷" : lang === "ja" ? "🇯🇵" : "🇺🇸"} {inlineSummary}
                   </div>
@@ -2405,7 +2405,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                 {/* AI multi-lang summary buttons */}
                 <div className="flex items-center gap-1 mb-1.5 flex-wrap">
                   <Languages className="w-2.5 h-2.5 shrink-0" style={{ color:C.info }} />
-                  <span className="text-[8px] font-mono" style={{ color:C.muted }}>{T("aiSummary", lang)}</span>
+                  <span className="text-[11px] font-mono" style={{ color:C.muted }}>{T("aiSummary", lang)}</span>
                   {LANGS.map(({ code, flag, label }) => {
                     const hasSummary = !!summaries[itemKey]?.[code];
                     const isGen = genLang === code;
@@ -2413,7 +2413,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                       <button key={code}
                         onClick={() => generateSummary(itemKey, item.title, code)}
                         disabled={genLang !== null}
-                        className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold"
+                        className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold"
                         style={{
                           background: hasSummary ? C.info+"22" : C.border+"60",
                           color: hasSummary ? C.info : C.muted,
@@ -2429,7 +2429,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                 {/* Generated summaries — each fully visible, text wraps */}
                 {LANGS.map(({ code, flag }) => summaries[itemKey]?.[code] && (
                   <div key={code}
-                    className="text-[9px] font-mono leading-relaxed mb-1 px-1.5 py-1 rounded break-words"
+                    className="text-[12px] font-mono leading-relaxed mb-1 px-1.5 py-1 rounded break-words"
                     style={{
                       background:C.header, color:C.text,
                       border:`1px solid ${C.border}`,
@@ -2440,7 +2440,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                 ))}
 
                 <a href={item.link||"#"} target="_blank" rel="noopener noreferrer"
-                  className="text-[8px] font-mono mt-0.5 block truncate"
+                  className="text-[11px] font-mono mt-0.5 block truncate"
                   style={{ color:C.info }}>
                   {T("readMore", lang)} {item.publisher ? `· ${item.publisher}` : "→"}
                 </a>
@@ -2475,15 +2475,15 @@ function StockNewsCompact({ symbol, lang = "ko" as Lang }: { symbol:string; lang
         style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5">
           <Newspaper className="w-3 h-3" style={{ color:C.warn }} />
-          <span className="text-[9px] font-mono font-bold uppercase tracking-widest"
+          <span className="text-[12px] font-mono font-bold uppercase tracking-widest"
             style={{ color:C.muted }}>{symLabel} {T("stockNews", lang)}</span>
         </div>
         <StatusBadge isLoading={isLoading} isError={isError}
           isLive={!isLoading && !isError && items.length > 0} />
       </div>
       {isLoading ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={2} />) :
-       isError   ? <div className="px-3 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("loadFail", lang)}</div> :
-       !items.length ? <div className="px-3 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noData", lang)}</div> :
+       isError   ? <div className="px-3 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("loadFail", lang)}</div> :
+       !items.length ? <div className="px-3 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("noData", lang)}</div> :
        items.map((item:any, i:number) => {
          const summary = lang === "ko" ? item.koreanSummary : null;
          return (
@@ -2492,17 +2492,17 @@ function StockNewsCompact({ symbol, lang = "ko" as Lang }: { symbol:string; lang
              style={{ borderColor:C.border+"40" }}
              onMouseEnter={e => (e.currentTarget.style.background = C.panel2)}
              onMouseLeave={e => (e.currentTarget.style.background = "")}>
-             <span className="text-[9px] font-mono font-bold shrink-0 mt-0.5"
+             <span className="text-[12px] font-mono font-bold shrink-0 mt-0.5"
                style={{ color:C.warn }}>{String(i+1).padStart(2,"0")}</span>
              <div className="min-w-0 flex-1">
-               <div className="text-[10px] font-mono leading-snug line-clamp-2"
+               <div className="text-[13px] font-mono leading-snug line-clamp-2"
                  style={{ color:C.text }}>{item.title}</div>
                {summary && (
-                 <div className="text-[9px] font-mono mt-0.5 line-clamp-1" style={{ color:C.muted }}>
+                 <div className="text-[12px] font-mono mt-0.5 line-clamp-1" style={{ color:C.muted }}>
                    🇰🇷 {summary}
                  </div>
                )}
-               <span className="text-[8px] font-mono" style={{ color:C.muted }}>
+               <span className="text-[11px] font-mono" style={{ color:C.muted }}>
                  {item.publisher || ""}
                </span>
              </div>
@@ -2538,16 +2538,16 @@ function InsiderPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
         onClick={() => setCollapsed(p => !p)}>
         <div className="flex items-center gap-1.5">
           <ShieldAlert className="w-3 h-3" style={{ color:C.warn }} />
-          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
             style={{ color:C.muted }}>{T("insiderTrades", lang)}</span>
           {!isLoading && !isError && trades.length > 0 && (
-            <span className="text-[8px] font-mono px-1 rounded"
+            <span className="text-[11px] font-mono px-1 rounded"
               style={{ background:C.up+"22", color:C.up }}>
               {buys.length}{T("buyCount", lang)}
             </span>
           )}
           {!isLoading && !isError && sells.length > 0 && (
-            <span className="text-[8px] font-mono px-1 rounded"
+            <span className="text-[11px] font-mono px-1 rounded"
               style={{ background:C.down+"22", color:C.down }}>
               {sells.length}{T("sellCount", lang)}
             </span>
@@ -2563,9 +2563,9 @@ function InsiderPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
 
       {!collapsed && (
         isLoading ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
-        isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
+        isError   ? <div className="px-2 py-2 text-[12px] font-mono flex items-center gap-1"
                       style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>{T("loadFail",lang)}</div> :
-        !trades.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noInsider",lang)}</div> :
+        !trades.length ? <div className="px-2 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("noInsider",lang)}</div> :
         trades.map((t:any, i:number) => {
           const isBuy = t.transactionType === "Purchase" || t.transactionType === "Buy";
           const isSell = t.transactionType === "Sale" || t.transactionType === "Sell";
@@ -2580,18 +2580,18 @@ function InsiderPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[9px] font-mono font-bold truncate" style={{ color:C.text }}>
+                  <span className="text-[12px] font-mono font-bold truncate" style={{ color:C.text }}>
                     {(t.owner||"").split(" ").slice(0,2).join(" ")}
                   </span>
-                  <span className="text-[9px] font-mono font-bold shrink-0" style={{ color:col }}>
+                  <span className="text-[12px] font-mono font-bold shrink-0" style={{ color:col }}>
                     {fmtVal(t.value)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-1 mt-0.5">
-                  <span className="text-[8px] font-mono truncate" style={{ color:C.muted }}>
+                  <span className="text-[11px] font-mono truncate" style={{ color:C.muted }}>
                     {(t.relationship||"").split(" ").slice(0,3).join(" ")}
                   </span>
-                  <span className="text-[8px] font-mono shrink-0" style={{ color:C.muted }}>
+                  <span className="text-[11px] font-mono shrink-0" style={{ color:C.muted }}>
                     {t.date?.slice(5) || ""}
                   </span>
                 </div>
@@ -2627,7 +2627,7 @@ function InstitutionalPanel({ symbol, lang = "ko" as Lang }: { symbol:string; la
         onClick={() => setCollapsed(p => !p)}>
         <div className="flex items-center gap-1.5">
           <Building2 className="w-3 h-3" style={{ color:C.info }} />
-          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
             style={{ color:C.muted }}>{T("institutions", lang)}</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -2640,9 +2640,9 @@ function InstitutionalPanel({ symbol, lang = "ko" as Lang }: { symbol:string; la
 
       {!collapsed && (
         isLoading ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
-        isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
+        isError   ? <div className="px-2 py-2 text-[12px] font-mono flex items-center gap-1"
                       style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>{T("loadFail",lang)}</div> :
-        !holders.length ? <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>{T("noHolders",lang)}</div> :
+        !holders.length ? <div className="px-2 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("noHolders",lang)}</div> :
         holders.map((h:any, i:number) => {
           const pct   = h.pctHeld || 0;
           const barW  = Math.round((pct / maxPct) * 100);
@@ -2650,10 +2650,10 @@ function InstitutionalPanel({ symbol, lang = "ko" as Lang }: { symbol:string; la
           return (
             <div key={i} className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
               <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[9px] font-mono truncate flex-1" style={{ color:C.text }}>
+                <span className="text-[12px] font-mono truncate flex-1" style={{ color:C.text }}>
                   {name.length > 22 ? name.slice(0,22)+"…" : name}
                 </span>
-                <span className="text-[9px] font-mono font-bold shrink-0 ml-1" style={{ color:C.info }}>
+                <span className="text-[12px] font-mono font-bold shrink-0 ml-1" style={{ color:C.info }}>
                   {pct.toFixed(2)}%
                 </span>
               </div>
@@ -2662,7 +2662,7 @@ function InstitutionalPanel({ symbol, lang = "ko" as Lang }: { symbol:string; la
                   <div className="h-full rounded-full transition-all"
                     style={{ width:`${barW}%`, background:`${C.info}99` }} />
                 </div>
-                <span className="text-[8px] font-mono shrink-0" style={{ color:C.muted }}>
+                <span className="text-[11px] font-mono shrink-0" style={{ color:C.muted }}>
                   {fmtShares(h.shares || 0)}주
                 </span>
               </div>
@@ -2713,10 +2713,10 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
         onClick={() => setCollapsed(p => !p)}>
         <div className="flex items-center gap-1.5">
           <Target className="w-3 h-3" style={{ color:C.up }} />
-          <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
             style={{ color:C.muted }}>{T("analystRatings", lang)}</span>
           {!isLoading && total > 0 && (
-            <span className="text-[8px] font-mono px-1 rounded"
+            <span className="text-[11px] font-mono px-1 rounded"
               style={{ background:C.up+"22", color:C.up }}>{bullPct}% {T("buyCount",lang)}</span>
           )}
         </div>
@@ -2730,19 +2730,19 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
 
       {!collapsed && (
         isLoading ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={3} />) :
-        isError   ? <div className="px-2 py-2 text-[9px] font-mono flex items-center gap-1"
+        isError   ? <div className="px-2 py-2 text-[12px] font-mono flex items-center gap-1"
                       style={{ color:C.down }}><AlertTriangle className="w-3 h-3"/>{T("loadFail",lang)}</div> :
         <div>
           {total > 0 && (
             <div className="px-2 pt-2 pb-1.5">
               <div className="flex items-center gap-1 mb-1">
-                <span className="text-[8px] font-mono" style={{ color:C.up }}>
+                <span className="text-[11px] font-mono" style={{ color:C.up }}>
                   {T("strongBuy",lang)}{strongBuy}·{T("buyCount",lang)}{buy}
                 </span>
                 <span className="flex-1" />
-                <span className="text-[8px] font-mono" style={{ color:C.warn }}>{T("holdCount",lang)}{hold}</span>
+                <span className="text-[11px] font-mono" style={{ color:C.warn }}>{T("holdCount",lang)}{hold}</span>
                 <span className="flex-1" />
-                <span className="text-[8px] font-mono" style={{ color:C.down }}>{T("sellCount",lang)}{sell+strongSell}</span>
+                <span className="text-[11px] font-mono" style={{ color:C.down }}>{T("sellCount",lang)}{sell+strongSell}</span>
               </div>
               <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
                 {bullPct > 0 && <div style={{ width:`${bullPct}%`, background:C.up, transition:"width 0.4s" }} />}
@@ -2750,9 +2750,9 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
                 {bearPct > 0 && <div style={{ width:`${bearPct}%`, background:C.down, transition:"width 0.4s" }} />}
               </div>
               <div className="flex justify-between mt-0.5">
-                <span className="text-[8px] font-mono font-bold" style={{ color:C.up }}>{bullPct}%</span>
-                <span className="text-[8px] font-mono font-bold" style={{ color:C.warn }}>{holdPct}%</span>
-                <span className="text-[8px] font-mono font-bold" style={{ color:C.down }}>{bearPct}%</span>
+                <span className="text-[11px] font-mono font-bold" style={{ color:C.up }}>{bullPct}%</span>
+                <span className="text-[11px] font-mono font-bold" style={{ color:C.warn }}>{holdPct}%</span>
+                <span className="text-[11px] font-mono font-bold" style={{ color:C.down }}>{bearPct}%</span>
               </div>
             </div>
           )}
@@ -2761,11 +2761,11 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
             <div className="flex items-center gap-2 px-2 py-1.5 border-t" style={{ borderColor:C.border+"40" }}>
               {target && (
                 <div className="flex-1">
-                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>{T("targetPrice",lang)}</div>
-                  <div className="text-[10px] font-mono font-bold" style={{ color:C.text }}>
+                  <div className="text-[11px] font-mono" style={{ color:C.muted }}>{T("targetPrice",lang)}</div>
+                  <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
                     ${target.toFixed(2)}
                     {upside !== null && (
-                      <span className="ml-1 text-[9px]" style={{ color: upside >= 0 ? C.up : C.down }}>
+                      <span className="ml-1 text-[12px]" style={{ color: upside >= 0 ? C.up : C.down }}>
                         {upside >= 0 ? "▲" : "▼"}{Math.abs(upside).toFixed(1)}%
                       </span>
                     )}
@@ -2774,8 +2774,8 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
               )}
               {shortPct !== null && (
                 <div className="flex-1">
-                  <div className="text-[8px] font-mono" style={{ color:C.muted }}>{T("shortFloat",lang)}</div>
-                  <div className="text-[10px] font-mono font-bold"
+                  <div className="text-[11px] font-mono" style={{ color:C.muted }}>{T("shortFloat",lang)}</div>
+                  <div className="text-[13px] font-mono font-bold"
                     style={{ color: shortPct > 10 ? C.down : shortPct > 5 ? C.warn : C.text }}>
                     {shortPct.toFixed(1)}%
                   </div>
@@ -2786,30 +2786,30 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
 
           {actions.length > 0 && (
             <div className="border-t" style={{ borderColor:C.border+"40" }}>
-              <div className="px-2 py-1 text-[8px] font-mono font-bold tracking-widest uppercase"
+              <div className="px-2 py-1 text-[11px] font-mono font-bold tracking-widest uppercase"
                 style={{ color:C.muted }}>{T("recentReports",lang)}</div>
               {actions.map((a:any, i:number) => (
                 <div key={i} className="flex items-center gap-1.5 px-2 py-1 border-b"
                   style={{ borderColor:C.border+"30" }}>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[8px] font-mono truncate" style={{ color:C.muted }}>
+                    <div className="text-[11px] font-mono truncate" style={{ color:C.muted }}>
                       {a.firm?.slice(0,16) || "—"}
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
                       {a.fromGrade && (
                         <>
-                          <span className="text-[8px] font-mono" style={{ color:gradeColor(a.fromGrade) }}>
+                          <span className="text-[11px] font-mono" style={{ color:gradeColor(a.fromGrade) }}>
                             {a.fromGrade.slice(0,10)}
                           </span>
-                          <span className="text-[8px] font-mono" style={{ color:C.muted }}>→</span>
+                          <span className="text-[11px] font-mono" style={{ color:C.muted }}>→</span>
                         </>
                       )}
-                      <span className="text-[8px] font-mono font-bold" style={{ color:gradeColor(a.toGrade) }}>
+                      <span className="text-[11px] font-mono font-bold" style={{ color:gradeColor(a.toGrade) }}>
                         {(a.toGrade||"—").slice(0,12)}
                       </span>
                     </div>
                   </div>
-                  <span className="text-[7px] font-mono shrink-0" style={{ color:C.muted }}>
+                  <span className="text-[10px] font-mono shrink-0" style={{ color:C.muted }}>
                     {a.date?.slice(5) || ""}
                   </span>
                 </div>
@@ -2818,7 +2818,7 @@ function AnalystPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lan
           )}
 
           {total === 0 && actions.length === 0 && (
-            <div className="px-2 py-2 text-[9px] font-mono" style={{ color:C.muted }}>
+            <div className="px-2 py-2 text-[12px] font-mono" style={{ color:C.muted }}>
               {T("noAnalyst",lang)}
             </div>
           )}
@@ -2882,24 +2882,24 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
 
   return (
     <div className="p-2 space-y-2">
-      <div className="text-[9px] font-mono font-bold tracking-widest uppercase"
+      <div className="text-[12px] font-mono font-bold tracking-widest uppercase"
         style={{ color:C.muted }}>{T("aiMarket",lang)}</div>
 
       {/* Fear & Greed gauge */}
       {fgIndex !== null && (
         <div className="rounded p-2" style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[8px] font-mono" style={{ color:C.muted }}>{T("fearGreed",lang)}</span>
-            <span className="text-[9px] font-mono font-bold" style={{ color:fgColor }}>{fgLabel}</span>
+            <span className="text-[11px] font-mono" style={{ color:C.muted }}>{T("fearGreed",lang)}</span>
+            <span className="text-[12px] font-mono font-bold" style={{ color:fgColor }}>{fgLabel}</span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background:C.border }}>
             <div className="h-full rounded-full transition-all"
               style={{ width:`${fgIndex}%`, background:`linear-gradient(to right,${C.down},${C.warn},${C.up})` }} />
           </div>
           <div className="flex justify-between mt-0.5">
-            <span className="text-[7px] font-mono" style={{ color:C.down }}>{lang==="ko"?"공포":lang==="ja"?"恐怖":"Fear"}</span>
-            <span className="text-[8px] font-mono font-bold" style={{ color:fgColor }}>{fgIndex}</span>
-            <span className="text-[7px] font-mono" style={{ color:C.up }}>{lang==="ko"?"탐욕":lang==="ja"?"強欲":"Greed"}</span>
+            <span className="text-[10px] font-mono" style={{ color:C.down }}>{lang==="ko"?"공포":lang==="ja"?"恐怖":"Fear"}</span>
+            <span className="text-[11px] font-mono font-bold" style={{ color:fgColor }}>{fgIndex}</span>
+            <span className="text-[10px] font-mono" style={{ color:C.up }}>{lang==="ko"?"탐욕":lang==="ja"?"強欲":"Greed"}</span>
           </div>
         </div>
       )}
@@ -2907,18 +2907,18 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
       {/* Sector performance */}
       {sectors.length > 0 && (
         <div className="rounded p-1.5" style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-          <div className="text-[8px] font-mono mb-1.5" style={{ color:C.muted }}>{T("topSectors",lang)}</div>
+          <div className="text-[11px] font-mono mb-1.5" style={{ color:C.muted }}>{T("topSectors",lang)}</div>
           {sectors.map((s:any, i:number) => {
             const pct = s.changePercent ?? 0;
             const up  = pct >= 0;
             return (
               <div key={i} className="flex items-center gap-1.5 mb-1">
-                <span className="text-[8px] font-mono w-8 shrink-0" style={{ color:C.muted }}>{s.symbol}</span>
+                <span className="text-[11px] font-mono w-8 shrink-0" style={{ color:C.muted }}>{s.symbol}</span>
                 <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background:C.border }}>
                   <div className="h-full rounded-full"
                     style={{ width:`${Math.min(Math.abs(pct)*10,100)}%`, background: up ? C.up : C.down }} />
                 </div>
-                <span className="text-[8px] font-mono font-bold w-10 text-right shrink-0"
+                <span className="text-[11px] font-mono font-bold w-10 text-right shrink-0"
                   style={{ color: up ? C.up : C.down }}>
                   {up?"+":""}{pct.toFixed(1)}%
                 </span>
@@ -2933,17 +2933,17 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
         <div className="rounded p-1.5 flex items-center gap-2"
           style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
           <div className="flex-1">
-            <div className="text-[8px] font-mono" style={{ color:C.muted }}>
+            <div className="text-[11px] font-mono" style={{ color:C.muted }}>
               {symbol.replace("^","").replace(".KS","")} {T("analystRatings",lang)}
             </div>
-            <div className="text-[10px] font-mono font-bold" style={{ color: bullPct>=60 ? C.up : bullPct>=40 ? C.warn : C.down }}>
+            <div className="text-[13px] font-mono font-bold" style={{ color: bullPct>=60 ? C.up : bullPct>=40 ? C.warn : C.down }}>
               {bullPct}% {T("buyCount",lang)}
             </div>
           </div>
           {upside !== null && (
             <div className="text-right shrink-0">
-              <div className="text-[8px] font-mono" style={{ color:C.muted }}>{T("upside",lang)}</div>
-              <div className="text-[10px] font-mono font-bold" style={{ color: upside>=0?C.up:C.down }}>
+              <div className="text-[11px] font-mono" style={{ color:C.muted }}>{T("upside",lang)}</div>
+              <div className="text-[13px] font-mono font-bold" style={{ color: upside>=0?C.up:C.down }}>
                 {upside>=0?"▲":"▼"}{Math.abs(upside).toFixed(1)}%
               </div>
             </div>
@@ -2953,15 +2953,15 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
 
       {/* AI brief generator */}
       {brief ? (
-        <div className="rounded p-2 text-[9px] font-mono leading-relaxed"
+        <div className="rounded p-2 text-[12px] font-mono leading-relaxed"
           style={{ background:C.header, color:C.text, border:`1px solid ${C.info}40` }}>
           <span style={{ color:C.info }}>AI▸ </span>{brief}
           <button onClick={() => setBrief(null)}
-            className="ml-1 text-[8px]" style={{ color:C.muted }}>✕</button>
+            className="ml-1 text-[11px]" style={{ color:C.muted }}>✕</button>
         </div>
       ) : (
         <button onClick={generateBrief} disabled={genLoading}
-          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-mono font-bold"
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-[13px] font-mono font-bold"
           style={{ background:C.info+"22", color:C.info, border:`1px solid ${C.info}40`,
                    opacity: genLoading ? 0.7 : 1 }}>
           {genLoading
@@ -2992,8 +2992,8 @@ function QuestBar() {
       style={{ borderColor:C.border, background:C.panel }}>
       <div className="flex-1">
         <div className="flex justify-between mb-0.5">
-          <span className="text-[9px] font-mono" style={{ color:C.muted }}>오늘의 퀘스트</span>
-          <span className="text-[9px] font-mono font-bold" style={{ color:C.up }}>{done}/{total} 완료</span>
+          <span className="text-[12px] font-mono" style={{ color:C.muted }}>오늘의 퀘스트</span>
+          <span className="text-[12px] font-mono font-bold" style={{ color:C.up }}>{done}/{total} 완료</span>
         </div>
         <div className="h-1 rounded-full overflow-hidden" style={{ background:C.border }}>
           <div className="h-full rounded-full transition-all" style={{ width:`${pct}%`, background:C.up }} />
@@ -3003,15 +3003,15 @@ function QuestBar() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             <Zap className="w-3 h-3" style={{ color:C.warn }} />
-            <span className="text-[10px] font-mono font-bold" style={{ color:C.warn }}>{user.xp}</span>
+            <span className="text-[13px] font-mono font-bold" style={{ color:C.warn }}>{user.xp}</span>
           </div>
           <div className="flex items-center gap-1">
             <Flame className="w-3 h-3" style={{ color:"#ff6b35" }} />
-            <span className="text-[10px] font-mono font-bold" style={{ color:"#ff6b35" }}>{user.streak}일</span>
+            <span className="text-[13px] font-mono font-bold" style={{ color:"#ff6b35" }}>{user.streak}일</span>
           </div>
         </div>
       )}
-      <Link href="/quests" className="text-[9px] font-mono px-2 py-0.5 rounded font-bold"
+      <Link href="/quests" className="text-[12px] font-mono px-2 py-0.5 rounded font-bold"
         style={{ background:C.up+"22", color:C.up }}>GO</Link>
     </div>
   );
@@ -3099,7 +3099,7 @@ function SymbolSearch({ onSelect, stocks = {} }: {
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
             placeholder="티커·한글·이름 검색..."
-            className="bg-transparent text-[11px] font-mono py-1 outline-none w-32"
+            className="bg-transparent text-[14px] font-mono py-1 outline-none w-32"
             style={{ color:C.text, caretColor:C.info }} />
         </div>
       </form>
@@ -3114,15 +3114,15 @@ function SymbolSearch({ onSelect, stocks = {} }: {
                 onMouseDown={() => { onSelect(ticker); setQuery(""); setFocused(false); }}
                 className="flex items-center justify-between w-full px-3 py-1.5 hover:bg-[#1a2d42]">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[10px] font-mono font-bold shrink-0" style={{ color:C.info }}>
+                  <span className="text-[13px] font-mono font-bold shrink-0" style={{ color:C.info }}>
                     {ticker.endsWith(".KS") && name ? name : ticker.replace(".KS","").replace("^","")}
                   </span>
-                  <span className="text-[9px] font-mono truncate" style={{ color:C.muted }}>
+                  <span className="text-[12px] font-mono truncate" style={{ color:C.muted }}>
                     {ticker.endsWith(".KS") && name ? ticker.replace(".KS","") : name}
                   </span>
                 </div>
                 {q?.changePercent != null && (
-                  <span className={cn("text-[9px] font-mono font-bold shrink-0 ml-2",
+                  <span className={cn("text-[12px] font-mono font-bold shrink-0 ml-2",
                     up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {fmtPct(q.changePercent)}
                   </span>
@@ -3150,13 +3150,13 @@ const MACRO_DEF = [
 
 function MacroPanel({ stocks }: { stocks: Record<string,any> }) {
   return (
-    <div className="p-2 border-t" style={{ borderColor:C.border }}>
+    <div className="p-3 border-t" style={{ borderColor:C.border }}>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] font-mono font-bold tracking-widest uppercase"
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color:C.muted }}>MACRO / RATES</span>
-        <Link href="/calendar" className="text-[9px] font-mono" style={{ color:C.info }}>→</Link>
+        <Link href="/calendar" className="text-[12px] font-mono" style={{ color:C.info }}>→</Link>
       </div>
-      <div className="grid grid-cols-3 gap-px" style={{ background:C.border }}>
+      <div className="grid grid-cols-3 gap-0.5" style={{ background:C.border }}>
         {MACRO_DEF.map(({ sym, label, unit, toFix }) => {
           const q = stocks[sym];
           const price = q?.price;
@@ -3168,14 +3168,14 @@ function MacroPanel({ stocks }: { stocks: Record<string,any> }) {
             : C.muted;
           return (
             <div key={sym} className="px-1.5 py-1.5" style={{ background:C.panel2 }}>
-              <div className="text-[7px] font-mono truncate" style={{ color:C.muted }}>{label}</div>
-              <div className="text-[11px] font-mono font-bold" style={{ color: clr }}>
+              <div className="text-[10px] font-mono truncate" style={{ color:C.muted }}>{label}</div>
+              <div className="text-[14px] font-mono font-bold" style={{ color: clr }}>
                 {price != null
                   ? `${unit === "$" ? "$" : ""}${price.toFixed(toFix)}${unit === "%" ? "%" : ""}`
                   : "—"}
               </div>
               {pct != null && (
-                <div className="text-[8px] font-mono" style={{ color: clr }}>
+                <div className="text-[11px] font-mono" style={{ color: clr }}>
                   {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
                 </div>
               )}
@@ -3206,7 +3206,7 @@ function FKeyStrip() {
       style={{ borderColor:C.border, background:C.header, scrollbarWidth:"none" }}>
       {FKEYS.map(({ key, label, href }) => (
         <Link key={key} href={href}
-          className="flex items-center gap-1 px-3 py-1.5 border-r text-[9px] font-mono shrink-0 hover:bg-[#111a26]"
+          className="flex items-center gap-1 px-3 py-1.5 border-r text-[12px] font-mono shrink-0 hover:bg-[#111a26]"
           style={{ borderColor:C.border }}>
           <span className="font-bold" style={{ color:C.info }}>{key}</span>
           <span style={{ color:C.muted }}>{label}</span>
@@ -3284,10 +3284,10 @@ export default function DinoTerminal() {
             return (
               <div key={sym} className="flex items-center gap-1.5 px-2.5 border-r h-full shrink-0"
                 style={{ borderColor:C.border }}>
-                <span className="text-[9px] font-mono" style={{ color:C.muted }}>
+                <span className="text-[12px] font-mono" style={{ color:C.muted }}>
                   {INDEX_LBL[sym] || sym.replace("^","")}
                 </span>
-                <span className="text-[9px] font-mono font-bold" style={{
+                <span className="text-[12px] font-mono font-bold" style={{
                   color: isVix ? (up ? C.down : C.up) : (up ? C.up : C.down)
                 }}>
                   {isRate
@@ -3306,7 +3306,7 @@ export default function DinoTerminal() {
           style={{ borderColor:C.border }}>
           <TerminalClock />
           {user && (
-            <div className="flex items-center gap-2 text-[10px] font-mono">
+            <div className="flex items-center gap-2 text-[13px] font-mono">
               <span style={{ color:C.warn }}>⚡{user.xp}</span>
               <span style={{ color:"#ff6b35" }}>🔥{user.streak}일</span>
               <span className="px-1.5 py-0.5 rounded font-bold"
@@ -3342,7 +3342,7 @@ export default function DinoTerminal() {
             style={{ borderColor:C.border, background:C.header }}>
             {PERIODS.map((p, i) => (
               <button key={p.label} onClick={() => setPIdx(i)}
-                className="px-2 py-0.5 rounded text-[9px] font-mono font-bold"
+                className="px-2 py-0.5 rounded text-[12px] font-mono font-bold"
                 style={{
                   background: pIdx===i ? C.info+"33" : "transparent",
                   color:      pIdx===i ? C.info       : C.muted,
@@ -3350,7 +3350,7 @@ export default function DinoTerminal() {
                 }}>{p.label}</button>
             ))}
             <div className="flex-1" />
-            <Link href={`/stock/${selected}`} className="text-[9px] font-mono"
+            <Link href={`/stock/${selected}`} className="text-[12px] font-mono"
               style={{ color:C.info }}>
               {lang === "ko" ? "고급 차트→" : lang === "ja" ? "詳細チャート→" : "Full Chart→"}
             </Link>
@@ -3415,7 +3415,7 @@ export default function DinoTerminal() {
                 : selected.replace("^","").replace(".KS","").replace("=F","").replace("=X","")}
             </span>
             {quote && (
-              <span className="text-[11px] font-mono font-bold"
+              <span className="text-[14px] font-mono font-bold"
                 style={{ color: isUp(quote.changePercent) ? C.up : C.down }}>
                 {fmtPct(quote.changePercent)}
               </span>
@@ -3428,7 +3428,7 @@ export default function DinoTerminal() {
               if (!q) return null;
               const up = (q.changePercent ?? 0) >= 0;
               return (
-                <span key={sym} className="text-[9px] font-mono shrink-0"
+                <span key={sym} className="text-[12px] font-mono shrink-0"
                   style={{ color: up ? C.up : C.down }}>
                   {INDEX_LBL[sym]||sym} {up?"▲":"▼"}{Math.abs(q.changePercent??0).toFixed(1)}%
                 </span>
@@ -3467,7 +3467,7 @@ export default function DinoTerminal() {
               style={{ borderColor:C.border, background:C.header }}>
               {PERIODS.map((p, i) => (
                 <button key={p.label} onClick={() => setPIdx(i)}
-                  className="px-2 py-0.5 rounded text-[9px] font-mono font-bold"
+                  className="px-2 py-0.5 rounded text-[12px] font-mono font-bold"
                   style={{
                     background: pIdx===i ? C.info+"33" : C.panel2,
                     color:      pIdx===i ? C.info       : C.muted,
@@ -3475,7 +3475,7 @@ export default function DinoTerminal() {
                   }}>{p.label}</button>
               ))}
               <div className="flex-1" />
-              <Link href={`/stock/${selected}`} className="text-[9px] font-mono" style={{ color:C.info }}>
+              <Link href={`/stock/${selected}`} className="text-[12px] font-mono" style={{ color:C.info }}>
                 {lang==="ko"?"고급→":lang==="ja"?"詳細→":"Full→"}
               </Link>
             </div>
@@ -3535,7 +3535,7 @@ export default function DinoTerminal() {
                 borderTop: `2px solid ${active ? C.info : "transparent"}`,
               }}>
               {tab.icon}
-              <span className="text-[9px] font-mono font-bold">{tab.label}</span>
+              <span className="text-[12px] font-mono font-bold">{tab.label}</span>
             </button>
           );
         })}

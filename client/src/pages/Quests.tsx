@@ -295,7 +295,7 @@ export default function Quests() {
                       >
                         {stage.emoji}
                       </motion.div>
-                      <p className={`text-[9px] md:text-[10px] font-bold text-center leading-tight max-w-[52px] ${isReached ? "text-foreground" : "text-muted-foreground opacity-50"}`}>
+                      <p className={`text-[11px] md:text-xs font-bold text-center leading-tight max-w-[56px] ${isReached ? "text-foreground" : "text-muted-foreground opacity-50"}`}>
                         {lang === "ko" ? stage.ko : stage.en}
                       </p>
                     </div>
@@ -327,7 +327,7 @@ export default function Quests() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-bold text-sm">{lang === "ko" ? "🏆 이번 주 챌린지" : "🏆 Weekly Challenge"}</p>
-                  <Badge variant="outline" className="text-[10px] border-purple-500/40 text-purple-500">
+                  <Badge variant="outline" className="text-xs border-purple-500/40 text-purple-500">
                     {lang === "ko" ? "주간" : "WEEKLY"}
                   </Badge>
                 </div>
@@ -346,7 +346,7 @@ export default function Quests() {
                       <button
                         key={s}
                         onClick={() => handleWeeklyPick(s)}
-                        className="text-[11px] px-2 py-0.5 rounded border border-border hover:border-purple-400 hover:bg-purple-500/10 transition-colors"
+                        className="text-xs font-medium px-3 py-1 rounded-lg border border-border hover:border-purple-400 hover:bg-purple-500/10 transition-colors"
                       >
                         {s}
                       </button>
@@ -463,7 +463,7 @@ export default function Quests() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <p className="font-bold text-sm">{lang === "ko" ? "🔍 숨겨진 퀘스트 발견!" : "🔍 Hidden Quest Unlocked!"}</p>
-                    <Badge variant="outline" className="text-[10px] border-purple-500/40 text-purple-500">SECRET</Badge>
+                    <Badge variant="outline" className="text-xs border-purple-500/40 text-purple-500">SECRET</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {lang === "ko" ? "경제 캘린더를 탐험했습니다! 탐험가 배지를 획득하세요." : "You discovered the Economic Calendar! Claim your Explorer badge."}

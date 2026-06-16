@@ -237,19 +237,19 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {issue.isMarketImpact && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white shrink-0">
-                          <Globe2 className="w-2.5 h-2.5" />
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white shrink-0">
+                          <Globe2 className="w-3 h-3" />
                           {isKo ? "시장 영향" : lang === "ja" ? "市場影響" : "Market Impact"}
                         </span>
                       )}
                       {issue.isHot && !issue.isMarketImpact && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
-                          <Flame className="w-2.5 h-2.5" />
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
+                          <Flame className="w-3 h-3" />
                           HOT
                         </span>
                       )}
                       {issue.publishedAt && (Date.now() / 1000 - issue.publishedAt) < 1800 && (
-                        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0" data-testid={`badge-new-${idx}`}>
+                        <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0" data-testid={`badge-new-${idx}`}>
                           NEW
                         </span>
                       )}
@@ -263,7 +263,7 @@ export default function Dashboard() {
                       </p>
                     )}
                     {issue.publishedAt && (
-                      <p className="text-[10px] text-muted-foreground/70 pt-0.5" data-testid={`text-time-${idx}`}>
+                      <p className="text-xs text-muted-foreground/70 pt-0.5" data-testid={`text-time-${idx}`}>
                         {timeAgo(issue.publishedAt, lang)}
                       </p>
                     )}

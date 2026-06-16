@@ -252,7 +252,7 @@ function EventDetail({ event, lang }: { event: EconomicEvent; lang: string }) {
         <div className="flex items-center gap-1.5 text-xs font-bold mb-1.5">
           <Activity className="w-3.5 h-3.5 text-orange-500" />
           <span className="text-orange-500">{lang === "ko" ? "시장 영향" : "Market Impact"}</span>
-          <Badge variant="outline" className={cn("ml-1 text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}>
+          <Badge variant="outline" className={cn("ml-1 text-xs px-2 py-0.5", cfg.badgeClass)}>
             {lang === "ko" ? cfg.labelKo : cfg.label}
           </Badge>
         </div>
@@ -265,12 +265,12 @@ function EventDetail({ event, lang }: { event: EconomicEvent; lang: string }) {
         </div>
         <p className="text-xs text-foreground/90 leading-relaxed">{correlation}</p>
         <div className="mt-3 pt-2.5 border-t border-primary/15 flex items-center justify-between gap-2">
-          <span className="text-[10px] text-muted-foreground shrink-0">
+          <span className="text-xs text-muted-foreground shrink-0">
             {lang === "ko" ? "연계 지표" : "Linked Indicators"}
           </span>
           <div className="flex flex-wrap gap-1 justify-end">
             {counterIndicator.split(",").map((ind, i) => (
-              <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/15 text-primary border-none">
+              <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5 bg-primary/15 text-primary border-none">
                 {ind.trim()}
               </Badge>
             ))}
@@ -309,7 +309,7 @@ function EventTableRow({ event, lang, tz }: { event: EconomicEvent; lang: string
           <div className="flex flex-col gap-0.5">
             <span className="text-xs font-semibold text-foreground leading-tight">{name}</span>
             {lang === "ko" && name !== event.indicator && (
-              <span className="text-[10px] text-muted-foreground leading-tight hidden sm:block">{event.indicator}</span>
+              <span className="text-xs text-muted-foreground leading-tight hidden sm:block">{event.indicator}</span>
             )}
           </div>
         </td>
@@ -344,11 +344,11 @@ function EventTableRow({ event, lang, tz }: { event: EconomicEvent; lang: string
           <td colSpan={8} className="px-4 py-4">
             <div className="sm:hidden flex gap-6 mb-4 text-xs">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{lang === "ko" ? "예상" : "Forecast"}</span>
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">{lang === "ko" ? "예상" : "Forecast"}</span>
                 <span className="font-mono text-foreground/70">{event.forecast || "—"}</span>
               </div>
               <div className="flex flex-col gap-0.5">
-                <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{lang === "ko" ? "이전" : "Previous"}</span>
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">{lang === "ko" ? "이전" : "Previous"}</span>
                 <span className="font-mono text-muted-foreground">{event.previous || "—"}</span>
               </div>
             </div>
@@ -409,23 +409,23 @@ function EventTableView({
       <table className="w-full">
         <thead>
           <tr className="border-b border-border/80 bg-muted/20">
-            <th className="text-left py-2.5 pl-3 pr-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+            <th className="text-left py-2.5 pl-3 pr-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
               {lang === "ko" ? `시간 (${tzLabel})` : `Time (${tzLabel})`}
             </th>
             <th className="py-2.5 px-1" />
-            <th className="text-left py-2.5 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <th className="text-left py-2.5 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {lang === "ko" ? "지표" : "Event"}
             </th>
-            <th className="text-center py-2.5 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
               {lang === "ko" ? "중요도" : "Impact"}
             </th>
-            <th className="text-right py-2.5 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <th className="text-right py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {lang === "ko" ? "실제" : "Actual"}
             </th>
-            <th className="text-right py-2.5 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
+            <th className="text-right py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
               {lang === "ko" ? "예상" : "Forecast"}
             </th>
-            <th className="text-right py-2.5 pl-2 pr-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
+            <th className="text-right py-2.5 pl-2 pr-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
               {lang === "ko" ? "이전" : "Previous"}
             </th>
             <th className="py-2.5 pr-3 w-[20px]" />
@@ -477,16 +477,16 @@ function EventItem({
       >
         <div className="flex flex-col items-center min-w-[46px] shrink-0">
           <span className="text-sm font-mono font-semibold tabular-nums">{tzTime}</span>
-          <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">{tzLabel}</span>
+          <span className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">{tzLabel}</span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-base leading-none">{flag}</span>
             <ImportanceBars level={event.importance} />
-            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", cfg.badgeClass)}>
+            <Badge variant="outline" className={cn("text-xs px-2 py-0.5", cfg.badgeClass)}>
               {lang === "ko" ? cfg.labelKo : cfg.label}
             </Badge>
-            <span className={cn("text-[10px] font-medium uppercase tracking-wide", catColor)}>
+            <span className={cn("text-xs font-medium uppercase tracking-wide", catColor)}>
               {categoryLabel}
             </span>
           </div>
@@ -496,7 +496,7 @@ function EventItem({
           )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
             <div className="flex flex-col min-w-[48px]">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "실제" : "Actual"}
               </span>
               {event.actual ? (
@@ -508,13 +508,13 @@ function EventItem({
               )}
             </div>
             <div className="flex flex-col min-w-[48px]">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "예상" : "Forecast"}
               </span>
               <span className="font-mono text-xs text-foreground/80">{event.forecast || "—"}</span>
             </div>
             <div className="flex flex-col min-w-[48px]">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 {lang === "ko" ? "이전" : "Previous"}
               </span>
               <span className="font-mono text-xs text-muted-foreground">{event.previous || "—"}</span>
@@ -735,7 +735,7 @@ export default function EconomicCalendar() {
               {currentTzLabel}
             </Badge>
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
               data-testid="badge-live-indicator"
             >
               <span className="relative flex h-1.5 w-1.5">
@@ -752,7 +752,7 @@ export default function EconomicCalendar() {
                 : "Track major US, Korean, Japanese, Chinese & European economic indicators and their market impact"}
             </p>
             {lastUpdatedLabel && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" data-testid="text-last-updated">
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" data-testid="text-last-updated">
                 <RefreshCw className="w-2.5 h-2.5" />
                 {lastUpdatedLabel}
               </span>
@@ -879,13 +879,13 @@ export default function EconomicCalendar() {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/20 rounded-xl px-3 py-2.5">
               <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
                 {lang === "ko" ? "실제 > 예상 (긍정)" : "Actual beat forecast"}
               </span>
             </div>
             <div className="flex items-center gap-2 bg-red-500/8 border border-red-500/20 rounded-xl px-3 py-2.5">
               <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-              <span className="text-[10px] text-red-600 dark:text-red-400 font-medium leading-tight">
+              <span className="text-xs text-red-600 dark:text-red-400 font-medium leading-tight">
                 {lang === "ko" ? "실제 < 예상 (부정)" : "Actual missed forecast"}
               </span>
             </div>
@@ -900,7 +900,7 @@ export default function EconomicCalendar() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-bold text-base">{selectedDateLabel}</h3>
                 {isTodaySelected && (
-                  <Badge className="text-[10px] px-2 py-0.5 h-5 bg-emerald-500 text-white border-none font-bold">
+                  <Badge className="text-xs px-2 py-0.5 h-5 bg-emerald-500 text-white border-none font-bold">
                     {lang === "ko" ? "오늘" : "TODAY"}
                   </Badge>
                 )}
@@ -908,16 +908,16 @@ export default function EconomicCalendar() {
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {selectedDateEvents.length > 0 ? (
                   <>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-muted/60 text-muted-foreground border-none">
+                    <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-muted/60 text-muted-foreground border-none">
                       {selectedDateEvents.length} {lang === "ko" ? "건" : "events"}
                     </Badge>
                     {highCount > 0 && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-red-500/10 text-red-500 border-red-500/20">
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 bg-red-500/10 text-red-500 border-red-500/20">
                         {highCount} High
                       </Badge>
                     )}
                     {mediumCount > 0 && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-orange-500/10 text-orange-500 border-orange-500/20">
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 bg-orange-500/10 text-orange-500 border-orange-500/20">
                         {mediumCount} Medium
                       </Badge>
                     )}
@@ -1080,7 +1080,7 @@ export default function EconomicCalendar() {
               <span className="text-xs font-medium text-foreground">
                 {lang === "ko" ? COUNTRY_LABELS[country].ko : COUNTRY_LABELS[country].en}
               </span>
-              <span className="text-[10px] text-muted-foreground">{country}</span>
+              <span className="text-xs text-muted-foreground">{country}</span>
             </div>
           </div>
         ))}

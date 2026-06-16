@@ -146,29 +146,29 @@ function NewsCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.4) }}
       onClick={onClick}
-      className="group flex flex-col gap-2 py-4 border-b border-border/60 last:border-0 cursor-pointer hover:bg-muted/30 px-1 rounded-lg transition-colors"
+      className="group flex flex-col gap-3 py-5 border-b border-border/60 last:border-0 cursor-pointer hover:bg-muted/30 px-2 rounded-lg transition-colors"
       data-testid={`card-news-${idx}`}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-md", publisherBadgeClass(item._publisher))}>
+        <span className={cn("text-xs font-bold px-2 py-1 rounded-md", publisherBadgeClass(item._publisher))}>
           {item._publisher}
         </span>
-        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md", cat.cls)}>
+        <span className={cn("text-xs font-semibold px-2 py-1 rounded-md", cat.cls)}>
           {catLabel}
         </span>
         {item.isHot && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary text-primary-foreground">
-            <Flame className="w-2.5 h-2.5" />HOT
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md bg-primary text-primary-foreground">
+            <Flame className="w-3 h-3" />HOT
           </span>
         )}
         {item.isMarketImpact && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-500 text-white">
-            <Globe2 className="w-2.5 h-2.5" />
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md bg-orange-500 text-white">
+            <Globe2 className="w-3 h-3" />
             {isKo ? "시장영향" : isJa ? "市場影響" : "Impact"}
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1">
-          <Clock className="w-2.5 h-2.5" />
+        <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+          <Clock className="w-3 h-3" />
           {timeAgo(item.publishedAt, lang)}
         </span>
       </div>
@@ -435,24 +435,24 @@ export default function HotIssues() {
                             />
                           </div>
                         )}
-                        <div className="p-2.5">
-                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                            <span className="text-[10px] font-bold text-muted-foreground">
+                        <div className="p-3">
+                          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                            <span className="text-xs font-bold text-muted-foreground">
                               {item._publisher}
                             </span>
-                            <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-md", cat.cls)}>
+                            <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded-md", cat.cls)}>
                               {catLabel}
                             </span>
                             {item.isHot && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
                                 🔥 HOT
                               </span>
                             )}
                           </div>
-                          <p className="text-[12px] font-semibold text-foreground leading-snug line-clamp-3">
+                          <p className="text-sm font-semibold text-foreground leading-snug line-clamp-3">
                             {item.title}
                           </p>
-                          <p className="text-[10px] text-muted-foreground mt-1.5">
+                          <p className="text-xs text-muted-foreground mt-2">
                             {item.publishedAt ? timeAgo(item.publishedAt, lang) : "—"}
                           </p>
                         </div>
