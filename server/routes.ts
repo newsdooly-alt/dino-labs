@@ -1726,6 +1726,21 @@ export async function registerRoutes(
     }
   });
 
+  // === Naver Market Research Reports (시장/산업/경제 전략 레포트) ===
+  app.get("/api/research/market", async (req, res) => {
+    const MACRO_PYTHON_URL = 'http://localhost:5001';
+    try {
+      const response = await fetch(`${MACRO_PYTHON_URL}/naver-market-research`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) return res.json({ reports: [] });
+      res.json(await response.json());
+    } catch (error: any) {
+      console.error("[MarketResearch] Error:", error.message);
+      res.json({ reports: [] });
+    }
+  });
+
   // === Market News ===
   // Fallback news data when API fails (educational market trends)
   const fallbackNews = [

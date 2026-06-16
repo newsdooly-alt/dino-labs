@@ -3219,31 +3219,72 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MARKET REPORT PANEL — 국내 시장/시황레포트 + 해외시장 리서치
+// MARKET REPORT PANEL — 국내 증권사 리포트(PDF) + 해외 리서치
 // ══════════════════════════════════════════════════════════════════════════════
 function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
   const [tab, setTab] = useState<"kr"|"intl">("kr");
 
-  // 국내 시장/시황 - Korean market news from multiple brokerages
+  // 국내 증권사 시장/산업/경제 전략 레포트 (Naver Finance, PDF 링크)
   const krQ = useQuery<any>({
-    queryKey: ["/api/news/korean-market", lang],
-    queryFn: () => fetch(`/api/news/korean-market?lang=${lang}`).then(r => r.json()),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ["/api/research/market"],
+    queryFn: () => fetch("/api/research/market").then(r => r.json()),
+    staleTime: 30 * 60 * 1000,
     retry: 1,
   });
 
   // 해외시장 리서치 - international financial news/research
   const intlQ = useNews(lang);
 
-  const krItems: any[] = ((krQ.data as any)?.news || []).slice(0, 12);
+  const krReports: any[] = (krQ.data?.reports || []);
   const intlItems: any[] = (() => {
     const raw: any = intlQ.data;
-    return (Array.isArray(raw) ? raw : Array.isArray(raw?.news) ? raw.news : []).slice(0, 12);
+    return (Array.isArray(raw) ? raw : Array.isArray(raw?.news) ? raw.news : []).slice(0, 15);
   })();
 
-  function NewsRow({ item, lang: l }: { item:any; lang:Lang }) {
-    const title = (l === "ko" && item.koreanSummary) ? item.koreanSummary
-      : (l === "ja" && item.japaneseSummary) ? item.japaneseSummary
+  const catColors: Record<string, string> = {
+    "시장전략": C.up,
+    "산업분석": C.info,
+    "경제분석": C.warn,
+  };
+
+  function ReportRow({ r }: { r:any }) {
+    return (
+      <a href={r.pdfUrl || "#"} target="_blank" rel="noopener noreferrer"
+        className="block border-b px-2 py-2 hover:bg-white/5 transition-colors"
+        style={{ borderColor:C.border+"30" }}>
+        <div className="text-[11px] font-mono leading-snug mb-1 line-clamp-2"
+          style={{ color:C.text }}>{r.title || "—"}</div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {r.category && (
+            <span className="text-[9px] font-mono px-1 py-px rounded font-bold shrink-0"
+              style={{
+                background: (catColors[r.category] || C.muted)+"20",
+                color: catColors[r.category] || C.muted,
+              }}>
+              {r.category}
+            </span>
+          )}
+          <span className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
+            {r.firm || "—"}
+          </span>
+          {r.date && (
+            <span className="text-[9px] font-mono ml-auto shrink-0" style={{ color:C.muted }}>
+              {r.date.slice(5)}
+            </span>
+          )}
+        </div>
+        {r.pdfUrl && (
+          <div className="mt-0.5 text-[9px] font-mono" style={{ color:C.info }}>
+            📄 PDF 원문 보기 ↗
+          </div>
+        )}
+      </a>
+    );
+  }
+
+  function NewsRow({ item }: { item:any }) {
+    const title = (lang === "ko" && item.koreanSummary) ? item.koreanSummary
+      : (lang === "ja" && item.japaneseSummary) ? item.japaneseSummary
       : item.title;
     const ago = item.publishedAt
       ? Math.round((Date.now()/1000 - item.publishedAt)/3600)
@@ -3277,13 +3318,13 @@ function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
           <Newspaper className="w-3 h-3" style={{ color:C.warn }} />
           <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
             style={{ color:C.muted }}>
-            {lang === "ko" ? "시장 레포트" : "Market Reports"}
+            {lang === "ko" ? "증권사 리포트" : "Research Reports"}
           </span>
         </div>
         <StatusBadge
           isLoading={tab === "kr" ? krQ.isLoading : intlQ.isLoading}
           isError={tab === "kr" ? krQ.isError : intlQ.isError}
-          isLive={(tab === "kr" ? krItems : intlItems).length > 0}
+          isLive={(tab === "kr" ? krReports : intlItems).length > 0}
         />
       </div>
 
@@ -3296,7 +3337,7 @@ function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
             background: tab === "kr" ? C.up+"12" : "transparent",
             borderBottom: `2px solid ${tab === "kr" ? C.up : "transparent"}`,
           }}>
-          🇰🇷 {lang === "ko" ? "국내 시황" : "KR Market"}
+          🇰🇷 {lang === "ko" ? "국내 리포트" : "KR Reports"}
         </button>
         <button onClick={() => setTab("intl")}
           className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
@@ -3305,27 +3346,27 @@ function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
             background: tab === "intl" ? C.info+"12" : "transparent",
             borderBottom: `2px solid ${tab === "intl" ? C.info : "transparent"}`,
           }}>
-          🌐 {lang === "ko" ? "해외시장" : "Global"}
+          🌐 {lang === "ko" ? "해외 리서치" : "Intl Research"}
         </button>
       </div>
 
       {/* Content */}
       {tab === "kr" ? (
         krQ.isLoading
-          ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-          : krItems.length === 0
-          ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
-              {lang === "ko" ? "데이터 없음" : "No data"}
+          ? Array.from({length:5}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+          : krReports.length === 0
+          ? <div className="px-2 py-3 text-[11px] font-mono text-center" style={{ color:C.muted }}>
+              {lang === "ko" ? "데이터 로딩 중..." : "Loading reports..."}
             </div>
-          : krItems.map((item, i) => <NewsRow key={i} item={item} lang={lang} />)
+          : krReports.map((r, i) => <ReportRow key={i} r={r} />)
       ) : (
         intlQ.isLoading
-          ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+          ? Array.from({length:5}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
           : intlItems.length === 0
-          ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+          ? <div className="px-2 py-3 text-[11px] font-mono text-center" style={{ color:C.muted }}>
               {lang === "ko" ? "데이터 없음" : "No data"}
             </div>
-          : intlItems.map((item, i) => <NewsRow key={i} item={item} lang={lang} />)
+          : intlItems.map((item, i) => <NewsRow key={i} item={item} />)
       )}
     </div>
   );

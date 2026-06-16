@@ -3485,6 +3485,65 @@ def get_naver_research(symbol):
     return jsonify(result)
 
 
+_naver_market_research_cache: dict = {}
+NAVER_MARKET_RESEARCH_CACHE = 1800  # 30 min
+
+@app.route('/naver-market-research', methods=['GET'])
+def get_naver_market_research():
+    """Fetch market/industry/economy strategy reports from Naver Finance (PDF links)."""
+    import time, urllib.request, json
+    now = time.time()
+
+    if "market" in _naver_market_research_cache:
+        entry = _naver_market_research_cache["market"]
+        if (now - entry["timestamp"]) < NAVER_MARKET_RESEARCH_CACHE:
+            return jsonify(entry["data"])
+
+    reports = []
+    categories = [
+        ("market",   "시장전략"),
+        ("industry", "산업분석"),
+        ("economy",  "경제분석"),
+    ]
+    for cat_key, cat_label in categories:
+        try:
+            url = f"https://m.stock.naver.com/api/research/{cat_key}?page=1&pageSize=10"
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+                "Accept": "application/json",
+                "Referer": "https://m.stock.naver.com/research",
+            })
+            with urllib.request.urlopen(req, timeout=10) as response:
+                raw = json.loads(response.read().decode("utf-8"))
+            items = raw if isinstance(raw, list) else raw.get("researchList", raw.get("list", []))
+            for item in items[:8]:
+                try:
+                    title = item.get("title", "")
+                    firm  = item.get("brokerName", item.get("firm", ""))
+                    date  = (item.get("writeDate", "") or "")[:10]
+                    rid   = item.get("researchId", "")
+                    url_pdf = item.get("endUrl", "")
+                    if not url_pdf and rid:
+                        url_pdf = f"https://m.stock.naver.com/research/{cat_key}/{rid}"
+                    if title:
+                        reports.append({
+                            "title":    title,
+                            "firm":     firm,
+                            "category": cat_label,
+                            "date":     date,
+                            "pdfUrl":   url_pdf,
+                        })
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[NaverMarketResearch] Error for {cat_key}: {e}")
+
+    result = {"reports": reports}
+    _naver_market_research_cache["market"] = {"data": result, "timestamp": now}
+    print(f"[NaverMarketResearch] {len(reports)} reports fetched")
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     print("[yfinance Stock Service] Starting on port 5001...")
     app.run(host='127.0.0.1', port=5001, debug=False)
