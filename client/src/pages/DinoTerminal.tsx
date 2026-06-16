@@ -3138,18 +3138,10 @@ function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }
 //   KR stocks: Naver Finance domestic research reports (primary) +
 //              yfinance international upgrades (secondary)
 // ══════════════════════════════════════════════════════════════════════════════
+// ── StockReportPanel: 기업 국내 레포트 (네이버 증권사 리포트, KR 종목 전용) ──
 function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
   const isKR = symbol.endsWith(".KS");
 
-  // yfinance analyst data — enabled for ALL stocks
-  const analystQ = useQuery<any>({
-    queryKey: ["/api/stocks/analyst", symbol],
-    queryFn: () => fetch(`/api/stocks/analyst/${encodeURIComponent(symbol)}`).then(r => r.json()),
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-  });
-
-  // Naver Finance domestic research — only for KR stocks
   const naverQ = useQuery<any>({
     queryKey: ["/api/stocks/naver-research", symbol],
     queryFn: () => fetch(`/api/stocks/naver-research/${encodeURIComponent(symbol)}`).then(r => r.json()),
@@ -3158,51 +3150,122 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
     enabled: isKR,
   });
 
-  const summary   = analystQ.data?.summary || {};
-  const actions   = (analystQ.data?.recentActions || []) as any[];
-  const targetP   = analystQ.data?.targetPrice as number | null;
-  const targetH   = analystQ.data?.targetHigh  as number | null;
-  const targetL   = analystQ.data?.targetLow   as number | null;
-  const currP     = analystQ.data?.currentPrice as number | null;
   const naverRpts = (naverQ.data?.reports || []) as any[];
 
-  const buyN  = (summary.strongBuy || 0) + (summary.buy || 0);
-  const holdN = summary.hold || 0;
-  const sellN = (summary.strongSell || 0) + (summary.sell || 0);
-  const total = buyN + holdN + sellN;
-
-  const upside = (targetP && currP && currP > 0)
-    ? ((targetP - currP) / currP * 100).toFixed(1)
-    : null;
-
-  const isLoading = isKR ? (naverQ.isLoading && analystQ.isLoading) : analystQ.isLoading;
-  const hasData   = isKR
-    ? (naverRpts.length > 0 || total > 0 || actions.length > 0)
-    : (total > 0 || actions.length > 0);
-
-  function gradeColor(grade = "") {
-    const g = grade.toLowerCase();
-    if (g.includes("buy") || g.includes("outperform") || g.includes("overweight") || g.includes("positive")) return C.up;
-    if (g.includes("sell") || g.includes("underperform") || g.includes("underweight") || g.includes("negative")) return C.down;
+  function opinionColor(op = "") {
+    const g = op.toLowerCase();
+    if (g.includes("매수") || g.includes("buy") || g.includes("outperform")) return C.up;
+    if (g.includes("매도") || g.includes("sell") || g.includes("underperform")) return C.down;
     return C.warn;
   }
-  function gradeLabel(grade = "", l = lang) {
-    if (l !== "ko") return grade || "—";
-    const g = grade.toLowerCase();
-    if (g.includes("strong buy")) return "강력매수";
-    if (g.includes("buy") || g.includes("outperform") || g.includes("overweight") || g.includes("positive")) return "매수";
-    if (g.includes("sell") || g.includes("underperform") || g.includes("underweight") || g.includes("negative")) return "매도";
-    if (g.includes("hold") || g.includes("neutral") || g.includes("market perform") || g.includes("in-line")) return "중립";
-    return grade || "—";
-  }
-  function actionLabel(action = "", l = lang) {
-    if (l !== "ko") return action;
-    const a = action.toLowerCase();
-    if (a === "up" || a.includes("upgrade")) return "상향";
-    if (a === "down" || a.includes("downgrade")) return "하향";
-    if (a.includes("init") || a.includes("coverage")) return "신규";
-    if (a.includes("reit") || a.includes("maintain") || a.includes("reiterate")) return "유지";
-    return action;
+
+  if (!isKR) return null;
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <div className="flex items-center gap-1.5">
+          <BarChart2 className="w-3 h-3" style={{ color:C.up }} />
+          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>
+            {lang === "ko" ? "기업 리포트" : "Company Reports"}
+          </span>
+        </div>
+        <StatusBadge isLoading={naverQ.isLoading} isError={naverQ.isError} isLive={naverRpts.length > 0} />
+      </div>
+
+      {naverQ.isLoading ? (
+        Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+      ) : naverRpts.length === 0 ? (
+        <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+          {lang === "ko" ? "리포트 없음" : "No reports"}
+        </div>
+      ) : (
+        naverRpts.slice(0, 10).map((r:any, i:number) => (
+          <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"30" }}>
+            <div className="text-[11px] font-mono leading-snug mb-0.5 line-clamp-2"
+              style={{ color:C.text }}>
+              {r.title || "—"}
+            </div>
+            <div className="flex items-center gap-1 flex-wrap">
+              {r.opinion && (
+                <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
+                  style={{ background: opinionColor(r.opinion)+"25", color: opinionColor(r.opinion) }}>
+                  {r.opinion}
+                </span>
+              )}
+              <span className="text-[10px] font-mono" style={{ color:C.muted }}>{r.firm || "—"}</span>
+              {r.targetPrice && (
+                <span className="text-[10px] font-mono font-bold" style={{ color:C.up }}>
+                  목표 {r.targetPrice.includes("원") ? r.targetPrice : `${r.targetPrice}원`}
+                </span>
+              )}
+              {r.date && (
+                <span className="text-[9px] font-mono ml-auto shrink-0" style={{ color:C.muted }}>
+                  {r.date.slice(5)}
+                </span>
+              )}
+            </div>
+            {r.pdfUrl && (
+              <a href={r.pdfUrl} target="_blank" rel="noopener noreferrer"
+                className="text-[9px] font-mono" style={{ color:C.info }}>↗ PDF 원문</a>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MARKET REPORT PANEL — 국내 시장/시황레포트 + 해외시장 리서치
+// ══════════════════════════════════════════════════════════════════════════════
+function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
+  const [tab, setTab] = useState<"kr"|"intl">("kr");
+
+  // 국내 시장/시황 - Korean market news from multiple brokerages
+  const krQ = useQuery<any>({
+    queryKey: ["/api/news/korean-market", lang],
+    queryFn: () => fetch(`/api/news/korean-market?lang=${lang}`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  // 해외시장 리서치 - international financial news/research
+  const intlQ = useNews(lang);
+
+  const krItems: any[] = ((krQ.data as any)?.news || []).slice(0, 12);
+  const intlItems: any[] = (() => {
+    const raw: any = intlQ.data;
+    return (Array.isArray(raw) ? raw : Array.isArray(raw?.news) ? raw.news : []).slice(0, 12);
+  })();
+
+  function NewsRow({ item, lang: l }: { item:any; lang:Lang }) {
+    const title = (l === "ko" && item.koreanSummary) ? item.koreanSummary
+      : (l === "ja" && item.japaneseSummary) ? item.japaneseSummary
+      : item.title;
+    const ago = item.publishedAt
+      ? Math.round((Date.now()/1000 - item.publishedAt)/3600)
+      : null;
+    return (
+      <a href={item.link || "#"} target="_blank" rel="noopener noreferrer"
+        className="block border-b px-2 py-1.5 hover:bg-white/5 transition-colors"
+        style={{ borderColor:C.border+"30" }}>
+        <div className="text-[11px] font-mono leading-snug mb-0.5 line-clamp-2"
+          style={{ color:C.text }}>{title}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
+            {item.publisher || "—"}
+          </span>
+          {ago !== null && (
+            <span className="text-[9px] font-mono shrink-0" style={{ color:C.muted }}>
+              · {ago < 1 ? "방금" : `${ago}h`}
+            </span>
+          )}
+        </div>
+      </a>
+    );
   }
 
   return (
@@ -3211,154 +3274,58 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5">
-          <BarChart2 className="w-3 h-3" style={{ color:C.info }} />
+          <Newspaper className="w-3 h-3" style={{ color:C.warn }} />
           <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
             style={{ color:C.muted }}>
-            {lang === "ko" ? "애널리스트 리서치" : "Analyst Research"}
+            {lang === "ko" ? "시장 레포트" : "Market Reports"}
           </span>
         </div>
-        <StatusBadge isLoading={isLoading} isError={analystQ.isError} isLive={hasData} />
+        <StatusBadge
+          isLoading={tab === "kr" ? krQ.isLoading : intlQ.isLoading}
+          isError={tab === "kr" ? krQ.isError : intlQ.isError}
+          isLive={(tab === "kr" ? krItems : intlItems).length > 0}
+        />
       </div>
 
-      {isLoading ? (
-        Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-      ) : !hasData ? (
-        <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
-          {lang === "ko" ? "애널리스트 데이터 없음" : "No analyst data available"}
-        </div>
+      {/* Sub-tabs */}
+      <div className="flex border-b" style={{ borderColor:C.border }}>
+        <button onClick={() => setTab("kr")}
+          className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
+          style={{
+            color: tab === "kr" ? C.up : C.muted,
+            background: tab === "kr" ? C.up+"12" : "transparent",
+            borderBottom: `2px solid ${tab === "kr" ? C.up : "transparent"}`,
+          }}>
+          🇰🇷 {lang === "ko" ? "국내 시황" : "KR Market"}
+        </button>
+        <button onClick={() => setTab("intl")}
+          className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
+          style={{
+            color: tab === "intl" ? C.info : C.muted,
+            background: tab === "intl" ? C.info+"12" : "transparent",
+            borderBottom: `2px solid ${tab === "intl" ? C.info : "transparent"}`,
+          }}>
+          🌐 {lang === "ko" ? "해외시장" : "Global"}
+        </button>
+      </div>
+
+      {/* Content */}
+      {tab === "kr" ? (
+        krQ.isLoading
+          ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+          : krItems.length === 0
+          ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+              {lang === "ko" ? "데이터 없음" : "No data"}
+            </div>
+          : krItems.map((item, i) => <NewsRow key={i} item={item} lang={lang} />)
       ) : (
-        <>
-          {/* ── Target Price block ── */}
-          {targetP != null && (
-            <div className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
-              <div className="text-[10px] font-mono mb-0.5" style={{ color:C.muted }}>
-                {lang==="ko" ? "목표주가 (평균)" : "Avg Price Target"}
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
-                  {isKR ? `₩${Math.round(targetP).toLocaleString()}` : `$${targetP.toFixed(2)}`}
-                </span>
-                {upside != null && (
-                  <span className="text-[10px] font-mono font-bold"
-                    style={{ color: Number(upside) >= 0 ? C.up : C.down }}>
-                    {Number(upside) >= 0 ? "▲" : "▼"}{Math.abs(Number(upside))}%
-                  </span>
-                )}
-              </div>
-              {(targetH != null || targetL != null) && (
-                <div className="text-[10px] font-mono mt-0.5" style={{ color:C.muted }}>
-                  {lang==="ko" ? "범위" : "Range"}: {isKR ? "₩" : "$"}{targetL != null ? Math.round(targetL).toLocaleString() : "—"}
-                  {" – "}{isKR ? "₩" : "$"}{targetH != null ? Math.round(targetH).toLocaleString() : "—"}
-                </div>
-              )}
+        intlQ.isLoading
+          ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+          : intlItems.length === 0
+          ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+              {lang === "ko" ? "데이터 없음" : "No data"}
             </div>
-          )}
-
-          {/* ── Consensus bar ── */}
-          {total > 0 && (
-            <div className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
-              <div className="text-[10px] font-mono mb-1" style={{ color:C.muted }}>
-                {lang==="ko" ? `컨센서스 (${total}명)` : `Consensus (${total})`}
-              </div>
-              <div className="flex h-1.5 rounded overflow-hidden gap-px">
-                {buyN  > 0 && <div style={{ flex:buyN,  background:C.up   }} />}
-                {holdN > 0 && <div style={{ flex:holdN, background:C.warn }} />}
-                {sellN > 0 && <div style={{ flex:sellN, background:C.down }} />}
-              </div>
-              <div className="flex gap-2.5 mt-1">
-                <span className="text-[10px] font-mono" style={{ color:C.up   }}>{lang==="ko"?"매수":"Buy"} {buyN}</span>
-                <span className="text-[10px] font-mono" style={{ color:C.warn }}>{lang==="ko"?"중립":"Hold"} {holdN}</span>
-                <span className="text-[10px] font-mono" style={{ color:C.down }}>{lang==="ko"?"매도":"Sell"} {sellN}</span>
-              </div>
-            </div>
-          )}
-
-          {/* ── KR: Naver Finance domestic reports ── */}
-          {isKR && naverRpts.length > 0 && (
-            <div className="border-b" style={{ borderColor:C.border+"60" }}>
-              <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest"
-                style={{ color:C.info, background:C.info+"10" }}>
-                {lang==="ko" ? "국내 증권사 리포트" : "Domestic Reports"}
-              </div>
-              {naverRpts.slice(0,8).map((r:any, i:number) => (
-                <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"30" }}>
-                  <div className="text-[10px] font-mono leading-snug mb-0.5 line-clamp-2"
-                    style={{ color:C.text }}>
-                    {r.title || "—"}
-                  </div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
-                      {r.firm || "—"}
-                    </span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {r.targetPrice && (
-                        <span className="text-[10px] font-mono font-bold" style={{ color:C.up }}>
-                          {r.targetPrice.includes("원") ? r.targetPrice : `${r.targetPrice}원`}
-                        </span>
-                      )}
-                      {r.date && (
-                        <span className="text-[9px] font-mono" style={{ color:C.muted }}>
-                          {r.date.slice(5)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {r.opinion && (
-                    <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
-                      style={{ background: gradeColor(r.opinion)+"20", color: gradeColor(r.opinion) }}>
-                      {r.opinion}
-                    </span>
-                  )}
-                  {r.pdfUrl && (
-                    <a href={r.pdfUrl} target="_blank" rel="noopener noreferrer"
-                      className="ml-1 text-[9px] font-mono" style={{ color:C.info }}>↗PDF</a>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Recent upgrades / downgrades ── */}
-          {actions.length > 0 && (
-            <div>
-              <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-widest"
-                style={{ color:C.muted, background:C.border+"20" }}>
-                {lang==="ko" ? "최근 등급 변경" : "Recent Actions"}
-              </div>
-              {actions.slice(0, 8).map((a:any, i:number) => (
-                <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"30" }}>
-                  <div className="flex items-center justify-between gap-1 mb-0.5">
-                    <span className="text-[10px] font-mono font-bold truncate" style={{ color:C.text }}>
-                      {a.firm || "—"}
-                    </span>
-                    <span className="text-[9px] font-mono shrink-0" style={{ color:C.muted }}>
-                      {a.date ? a.date.slice(5) : "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
-                      style={{ background: C.info+"20", color: C.info }}>
-                      {actionLabel(a.action)}
-                    </span>
-                    {a.fromGrade && (
-                      <>
-                        <span className="text-[9px] font-mono truncate"
-                          style={{ color: gradeColor(a.fromGrade) }}>
-                          {gradeLabel(a.fromGrade)}
-                        </span>
-                        <span className="text-[9px] font-mono" style={{ color:C.muted }}>→</span>
-                      </>
-                    )}
-                    <span className="text-[9px] font-mono font-bold truncate"
-                      style={{ color: gradeColor(a.toGrade) }}>
-                      {gradeLabel(a.toGrade)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
+          : intlItems.map((item, i) => <NewsRow key={i} item={item} lang={lang} />)
       )}
     </div>
   );
@@ -3828,10 +3795,11 @@ export default function DinoTerminal() {
           <StockReportPanel symbol={selected} lang={lang} />
         </div>
 
-        {/* ▌COL 5 (195px) — News + Reports + Calendar + AI ▐ */}
+        {/* ▌COL 5 (195px) — News + Market Reports + Calendar + AI ▐ */}
         <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+          <MarketReportPanel lang={lang} />
           <CalendarPanel />
           <AIPanel symbol={selected} lang={lang} />
         </div>
@@ -3931,10 +3899,11 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── NEWS TAB: market + company news toggle + calendar ── */}
+        {/* ── NEWS TAB: market news + 시장/시황 레포트 + calendar ── */}
         {mTab === "news" && (
           <>
             <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+            <MarketReportPanel lang={lang} />
             <CalendarPanel />
           </>
         )}
