@@ -474,7 +474,7 @@ export default function AIPortfolio() {
   const progress = isQuestion ? ((step + 1) / TOTAL_STEPS) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-background md:pl-64">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto min-h-screen flex flex-col">
 
         {/* Sticky header */}

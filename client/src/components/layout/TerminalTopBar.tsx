@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useState } from "react";
-import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BarChart2, Calendar, Trophy, DollarSign, Users, BookOpen, Wallet, Star } from "lucide-react";
+import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BarChart2, Calendar, Trophy, DollarSign, Users, Wallet, Star } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileMenu } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,6 @@ const TABS = [
   { label: "챗봇",    en: "AI Chat",   ja: "AIチャット",href: "/chat",          icon: Bot },
   { label: "관심",    en: "Watchlist", ja: "ウォッチ",  href: "/watchlist",     icon: Star },
   { label: "포트폴리오",en:"Portfolio",ja: "ポートフォリオ",href:"/ai-portfolio",icon: Wallet },
-  { label: "차트공부",en: "Charts",    ja: "チャート学習",href:"/chart-master",  icon: BookOpen },
 ];
 
 export function TerminalTopBar() {

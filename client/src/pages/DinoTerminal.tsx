@@ -2987,6 +2987,144 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PEER COMPARISON PANEL  — compact terminal-themed peer comparison
+// ══════════════════════════════════════════════════════════════════════════════
+function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["/api/stocks/peers", symbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/stocks/peers/${encodeURIComponent(symbol)}`);
+      if (!res.ok) throw new Error();
+      return res.json();
+    },
+    enabled: !!symbol,
+    staleTime: 15 * 60 * 1000,
+    retry: 1,
+  });
+
+  const peers: any[] = data?.peers ?? [];
+  if (!isLoading && peers.length === 0) return null;
+
+  const mainStock  = peers.find((p:any) => p.symbol === symbol);
+  const otherPeers = peers.filter((p:any) => p.symbol !== symbol);
+
+  function sAvg(key: keyof any): number|null {
+    const vals = otherPeers.map((p:any) => p[key]).filter((v:any) => v != null && isFinite(v)) as number[];
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  }
+
+  const avgPE  = sAvg("peRatio");
+  const avgPB  = sAvg("pbRatio");
+  const avgDiv = sAvg("dividendYield");
+
+  function badge(mine:number|null, avg:number|null, lowerBetter:boolean) {
+    if (!mine || !avg || avg === 0) return null;
+    const r = mine / avg;
+    const better = lowerBetter ? r < 0.95 : r > 1.05;
+    const worse  = lowerBetter ? r > 1.05 : r < 0.95;
+    if (better) return <span className="text-[10px] font-mono px-1 rounded" style={{ background:C.up+"22", color:C.up }}>
+      {lang==="ko"? (lowerBetter?"저평가":"우수") : lang==="ja"?(lowerBetter?"割安":"優秀"):(lowerBetter?"低":"↑")}
+    </span>;
+    if (worse) return <span className="text-[10px] font-mono px-1 rounded" style={{ background:C.down+"22", color:C.down }}>
+      {lang==="ko"? (lowerBetter?"고평가":"평균↓") : lang==="ja"?(lowerBetter?"割高":"↓"):">Avg"}
+    </span>;
+    return <span className="text-[10px] font-mono px-1 rounded" style={{ background:C.border, color:C.muted }}>
+      {lang==="ko"?"평균":lang==="ja"?"平均":"Avg"}
+    </span>;
+  }
+
+  const title = lang==="ko"?"동종업계 비교":lang==="ja"?"同業比較":"Peer Compare";
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      {/* Header */}
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color:C.muted }}>
+          {title}
+        </span>
+        <StatusBadge isLoading={isLoading} isError={false} isLive={peers.length > 0} />
+      </div>
+
+      {isLoading ? (
+        Array.from({length:4}).map((_,i) => <SkeletonRow key={i} />)
+      ) : (
+        <>
+          {/* Sector eval row */}
+          {mainStock && (
+            <div className="px-2 py-1.5 border-b grid gap-x-2 gap-y-1"
+              style={{ borderColor:C.border+"60", gridTemplateColumns:"1fr 1fr 1fr" }}>
+              <div className="text-center">
+                <div className="text-[10px] font-mono" style={{ color:C.muted }}>P/E</div>
+                <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
+                  {mainStock.peRatio != null ? mainStock.peRatio.toFixed(1) : "—"}
+                </div>
+                <div className="mt-0.5">{badge(mainStock.peRatio, avgPE, true)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] font-mono" style={{ color:C.muted }}>P/B</div>
+                <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
+                  {mainStock.pbRatio != null ? mainStock.pbRatio.toFixed(2) : "—"}
+                </div>
+                <div className="mt-0.5">{badge(mainStock.pbRatio, avgPB, true)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] font-mono" style={{ color:C.muted }}>배당</div>
+                <div className="text-[13px] font-mono font-bold" style={{ color:C.text }}>
+                  {mainStock.dividendYield != null ? `${(mainStock.dividendYield*100).toFixed(2)}%` : "—"}
+                </div>
+                <div className="mt-0.5">{badge(mainStock.dividendYield, avgDiv, false)}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Peer table header */}
+          <div className="grid px-2 py-0.5" style={{ gridTemplateColumns:"1fr 52px 36px 36px", background:C.panel2 }}>
+            {["종목","가격","P/E","수익률"].map(h => (
+              <span key={h} className="text-[10px] font-mono uppercase text-right first:text-left" style={{ color:C.muted }}>{h}</span>
+            ))}
+          </div>
+
+          {/* Peer rows */}
+          {peers.slice(0, 8).map((p:any) => {
+            const isMain = p.symbol === symbol;
+            const up = (p.priceChange ?? 0) >= 0;
+            return (
+              <div key={p.symbol} className="grid px-2 py-0.5"
+                style={{
+                  gridTemplateColumns:"1fr 52px 36px 36px",
+                  background: isMain ? C.info+"18" : "transparent",
+                  borderLeft: isMain ? `2px solid ${C.info}` : "2px solid transparent",
+                }}>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-mono font-bold truncate" style={{ color: isMain ? C.info : C.text }}>
+                    {p.symbol}
+                  </div>
+                </div>
+                <div className="text-right text-[11px] font-mono" style={{ color:C.text }}>
+                  {p.price != null ? p.price.toLocaleString("en-US",{maximumFractionDigits:1}) : "—"}
+                </div>
+                <div className="text-right text-[11px] font-mono" style={{ color:C.muted }}>
+                  {p.peRatio != null ? p.peRatio.toFixed(1) : "—"}
+                </div>
+                <div className="text-right text-[11px] font-mono" style={{ color: (p.operatingMargin??0)>=0?C.up:C.down }}>
+                  {p.operatingMargin != null ? `${(p.operatingMargin*100).toFixed(1)}%` : "—"}
+                </div>
+              </div>
+            );
+          })}
+          {data?.isSectorFallback && (
+            <div className="px-2 py-1 text-[10px] font-mono" style={{ color:C.muted }}>
+              * {lang==="ko"?"섹터 기반 비교":lang==="ja"?"セクター比較":"Sector-based"}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // TODAY'S REPORTS PANEL  — Korean + International research reports
 // ══════════════════════════════════════════════════════════════════════════════
 const KR_REPORT_SYMS = ["005930.KS","000660.KS","005380.KS","035420.KS","035720.KS"];
@@ -3034,7 +3172,12 @@ function TodayReportsPanel({ lang = "ko" as Lang }: { lang:Lang }) {
   }) {
     const key = `${section}-${idx}`;
     const isOpen = expanded === idx;
-    const inline = lang === "ko" ? item.koreanSummary : lang === "ja" ? item.japaneseSummary : null;
+    const koSummary = item.koreanSummary as string | undefined;
+    const jaSummary = item.japaneseSummary as string | undefined;
+    const displayTitle = lang === "ko" && koSummary ? koSummary
+      : lang === "ja" && jaSummary ? jaSummary
+      : item.title;
+    const showOriginal = lang !== "en" && displayTitle !== item.title;
     return (
       <div className="border-b" style={{ borderColor:C.border+"40" }}>
         <button className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
@@ -3043,8 +3186,13 @@ function TodayReportsPanel({ lang = "ko" as Lang }: { lang:Lang }) {
             if (!isOpen) genSummary(key, item.title);
           }}>
           <div className="text-[12px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
-            {item.title}
+            {displayTitle}
           </div>
+          {showOriginal && (
+            <div className="text-[10px] font-mono leading-snug mb-0.5 line-clamp-1" style={{ color:C.muted }}>
+              {item.title}
+            </div>
+          )}
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher || "—"}</span>
             {item.publishedAt && (
@@ -3056,10 +3204,6 @@ function TodayReportsPanel({ lang = "ko" as Lang }: { lang:Lang }) {
         </button>
         {isOpen && (
           <div className="px-2 pb-2 space-y-1.5">
-            {inline && (
-              <p className="text-[12px] font-mono leading-snug rounded p-1.5"
-                style={{ background:C.panel2, color:C.text }}>{inline}</p>
-            )}
             {summaries[key] ? (
               <div className="rounded p-1.5" style={{ background:C.info+"15", border:`1px solid ${C.info}30` }}>
                 <span className="text-[10px] font-mono font-bold" style={{ color:C.info }}>AI▸ </span>
@@ -3174,14 +3318,24 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
         : items.map((item:any, i:number) => {
             const key = `sr-${i}`;
             const isOpen = expanded === i;
-            const inline = lang === "ko" ? item.koreanSummary : lang === "ja" ? item.japaneseSummary : null;
+            const koSummary = item.koreanSummary as string | undefined;
+            const jaSummary = item.japaneseSummary as string | undefined;
+            const displayTitle = lang === "ko" && koSummary ? koSummary
+              : lang === "ja" && jaSummary ? jaSummary
+              : item.title;
+            const showOriginal = lang !== "en" && displayTitle !== item.title;
             return (
               <div key={i} className="border-b" style={{ borderColor:C.border+"40" }}>
                 <button className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
                   onClick={() => { setExpanded(isOpen ? null : i); if (!isOpen) genSummary(key, item.title); }}>
                   <div className="text-[12px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
-                    {item.title}
+                    {displayTitle}
                   </div>
+                  {showOriginal && (
+                    <div className="text-[10px] font-mono leading-snug mb-0.5 line-clamp-1" style={{ color:C.muted }}>
+                      {item.title}
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher||"—"}</span>
                     {item.publishedAt && (
@@ -3193,10 +3347,6 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
                 </button>
                 {isOpen && (
                   <div className="px-2 pb-2 space-y-1.5">
-                    {inline && (
-                      <p className="text-[12px] font-mono leading-snug rounded p-1.5"
-                        style={{ background:C.panel2, color:C.text }}>{inline}</p>
-                    )}
                     {summaries[key] ? (
                       <div className="rounded p-1.5" style={{ background:C.info+"15", border:`1px solid ${C.info}30` }}>
                         <span className="text-[10px] font-mono font-bold" style={{ color:C.info }}>AI▸ </span>
@@ -3612,9 +3762,10 @@ export default function DinoTerminal() {
               prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
           </div>
 
-          {/* Scrollable: TechEngine + Macro rates ▶ compact, no more 3 hidden panels */}
+          {/* Scrollable: TechEngine + PeerPanel + Macro rates */}
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
+            <PeerPanel symbol={selected} lang={lang} />
             <MacroPanel stocks={stocks} />
           </div>
         </div>
@@ -3763,10 +3914,11 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── INFO TAB: fundamentals + analyst + insider + reports + AI ── */}
+        {/* ── INFO TAB: fundamentals + peer compare + analyst + insider + reports + AI ── */}
         {mTab === "fund" && (
           <>
             <FundamentalsPanel symbol={selected} quote={quote} lang={lang} />
+            <PeerPanel symbol={selected} lang={lang} />
             <AnalystPanel symbol={selected} lang={lang} />
             <InsiderPanel symbol={selected} lang={lang} />
             <InstitutionalPanel symbol={selected} lang={lang} />
