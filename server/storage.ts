@@ -2,11 +2,12 @@ import { db } from "./db";
 import { eq, sql, and, desc, asc } from "drizzle-orm";
 import { 
   userProfiles, stocks, quests, userStocks, clubs, clubMembers, dinoEggs,
-  investorPortfolios, investorHoldings,
+  investorPortfolios, investorHoldings, portfolioHoldings,
   type UserProfile, type InsertUserProfile, type Stock, type InsertStock, 
   type Quest, type InsertQuest, type UserStock, type InsertUserStock,
   type Club, type InsertClub, type DinoEgg, type InsertDinoEgg,
   type InvestorPortfolio, type InvestorHolding,
+  type PortfolioHolding, type InsertPortfolioHolding,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 
@@ -60,6 +61,12 @@ export interface IStorage {
   getUserEggs(userId: string): Promise<DinoEgg[]>;
   createEgg(egg: InsertDinoEgg): Promise<DinoEgg>;
   hatchEgg(id: number, userId: string): Promise<DinoEgg>;
+
+  // Mock Portfolio Holdings
+  getPortfolioHoldings(userId: string): Promise<PortfolioHolding[]>;
+  addPortfolioHolding(data: InsertPortfolioHolding): Promise<PortfolioHolding>;
+  updatePortfolioHolding(id: number, userId: string, data: Partial<InsertPortfolioHolding>): Promise<PortfolioHolding>;
+  deletePortfolioHolding(id: number, userId: string): Promise<void>;
 
   // 13F Database
   getInvestorPortfolio(investorId: string): Promise<InvestorPortfolio | undefined>;
@@ -333,6 +340,28 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(dinoEggs.id, id), eq(dinoEggs.userId, userId)))
       .returning();
     return egg;
+  }
+
+  // Mock Portfolio Holdings
+  async getPortfolioHoldings(userId: string): Promise<PortfolioHolding[]> {
+    return db.select().from(portfolioHoldings).where(eq(portfolioHoldings.userId, userId)).orderBy(asc(portfolioHoldings.addedAt));
+  }
+
+  async addPortfolioHolding(data: InsertPortfolioHolding): Promise<PortfolioHolding> {
+    const [holding] = await db.insert(portfolioHoldings).values(data).returning();
+    return holding;
+  }
+
+  async updatePortfolioHolding(id: number, userId: string, data: Partial<InsertPortfolioHolding>): Promise<PortfolioHolding> {
+    const [holding] = await db.update(portfolioHoldings)
+      .set(data)
+      .where(and(eq(portfolioHoldings.id, id), eq(portfolioHoldings.userId, userId)))
+      .returning();
+    return holding;
+  }
+
+  async deletePortfolioHolding(id: number, userId: string): Promise<void> {
+    await db.delete(portfolioHoldings).where(and(eq(portfolioHoldings.id, id), eq(portfolioHoldings.userId, userId)));
   }
 
   // 13F Database

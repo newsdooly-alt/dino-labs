@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   KOREAN_STOCK_ALIASES,
@@ -18,7 +18,7 @@ import {
   Zap, Flame, Activity, DollarSign, Calendar,
   ArrowUpRight, AlertTriangle, Clock,
   TrendingUp, TrendingDown, Building2, Target,
-  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert, FileText,
+  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert,
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -117,9 +117,6 @@ const L: Record<string, Record<Lang, string>> = {
   upside:          { ko:"상승여력",           en:"Upside",             ja:"上昇余地"       },
   shortSell:       { ko:"공매도비율",         en:"Short Float",        ja:"空売り"         },
   strongBuy:       { ko:"강매수",             en:"Strong Buy",         ja:"強買い"         },
-  todayReports:    { ko:"오늘의 레포트",      en:"Today's Reports",    ja:"本日のレポート"  },
-  domesticReport:  { ko:"국내 레포트",        en:"KR Reports",         ja:"国内レポート"   },
-  intlReport:      { ko:"해외 레포트",        en:"Global Reports",     ja:"海外レポート"   },
   stockReport:     { ko:"기업 리서치",        en:"Company Research",   ja:"企業リサーチ"   },
   companyDesc:     { ko:"기업 소개",          en:"Company Overview",   ja:"企業概要"        },
   translateDesc:   { ko:"한국어로 번역",      en:"Translate",          ja:"翻訳する"        },
@@ -3135,11 +3132,10 @@ function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TODAY'S REPORTS PANEL  — Korean + International research reports
 // ══════════════════════════════════════════════════════════════════════════════
-const KR_TICKERS = ["005930.KS","000660.KS","005380.KS","035420.KS","035720.KS"];
-
-function TodayReportsPanel({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?:string }) {
+// ANALYST RESEARCH PANEL — placeholder start (TodayReportsPanel removed)
+// ══════════════════════════════════════════════════════════════════════════════
+function _TodayReportsPanelRemoved({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?:string }) {
   const intlQuery = useNews(lang);
 
   // Korean domestic reports: dedicated endpoint fetching from multiple KR tickers,
@@ -3778,14 +3774,24 @@ const MOBILE_TABS: {id:MTab;label:string;icon:React.ReactNode}[] = [
 export default function DinoTerminal() {
   const { data: user } = useUser();
   const lang = ((user?.language as Lang) || "ko") as Lang;
-  const [selected, setSelected] = useState("005930.KS");
+  const searchStr = useSearch();
+  const urlSymbol = new URLSearchParams(searchStr).get("symbol");
+  const [selected, setSelected] = useState(urlSymbol || "005930.KS");
   const [pIdx, setPIdx] = useState(2);        // 2 = "1M" (0=1D,1=5D,2=1M...)
-  const [mTab, setMTab] = useState<MTab>("market");
+  const [mTab, setMTab] = useState<MTab>(urlSymbol ? "chart" : "market");
   const [watchSyms, setWatchSyms] = useState<string[]>(loadWatchSyms);
   const [watchNames, setWatchNames] = useState<Record<string,string>>(loadWatchNames);
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => { localStorage.setItem("dino-terminal-tab", mTab); }, [mTab]);
+
+  // When URL ?symbol= changes (e.g. navigating from search), update selected
+  useEffect(() => {
+    if (urlSymbol && urlSymbol !== selected) {
+      setSelected(urlSymbol.toUpperCase());
+      setMTab("chart");
+    }
+  }, [urlSymbol]);
 
   function handleWatchUpdate(syms: string[], names: Record<string,string>) {
     setWatchSyms(syms);
@@ -3936,7 +3942,6 @@ export default function DinoTerminal() {
         <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <NewsPanel lang={lang} symbol={selected} showToggle={true} />
-          <TodayReportsPanel lang={lang} symbol={selected} />
           <CalendarPanel />
           <AIPanel symbol={selected} lang={lang} />
         </div>
@@ -4036,11 +4041,10 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── NEWS TAB: market + company news toggle + today's reports + calendar ── */}
+        {/* ── NEWS TAB: market + company news toggle + calendar ── */}
         {mTab === "news" && (
           <>
             <NewsPanel lang={lang} symbol={selected} showToggle={true} />
-            <TodayReportsPanel lang={lang} symbol={selected} />
             <CalendarPanel />
           </>
         )}

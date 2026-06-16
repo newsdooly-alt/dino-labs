@@ -730,6 +730,59 @@ export async function registerRoutes(
       res.status(204).send();
   });
 
+  // === Mock Portfolio Holdings ===
+  app.get("/api/portfolio/holdings", async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.json([]);
+    const holdings = await storage.getPortfolioHoldings(userId);
+    res.json(holdings);
+  });
+
+  app.post("/api/portfolio/holdings", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const schema = z.object({
+      symbol: z.string().min(1).max(20).transform(s => s.toUpperCase()),
+      name: z.string().default(""),
+      shares: z.number().positive(),
+      avgCost: z.number().nonnegative(),
+      currency: z.string().default("USD"),
+      sector: z.string().default(""),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.issues });
+    const holding = await storage.addPortfolioHolding({ userId, ...parsed.data });
+    res.status(201).json(holding);
+  });
+
+  app.patch("/api/portfolio/holdings/:id", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const id = Number(req.params.id);
+    const schema = z.object({
+      shares: z.number().positive().optional(),
+      avgCost: z.number().nonnegative().optional(),
+      name: z.string().optional(),
+      sector: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    try {
+      const holding = await storage.updatePortfolioHolding(id, userId, parsed.data);
+      res.json(holding);
+    } catch {
+      res.status(404).json({ message: "Holding not found" });
+    }
+  });
+
+  app.delete("/api/portfolio/holdings/:id", isAuthenticated, async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const id = Number(req.params.id);
+    await storage.deletePortfolioHolding(id, userId);
+    res.status(204).send();
+  });
+
   // === Market Mood (Fear & Greed) ===
   interface MoodCache {
     index: number;

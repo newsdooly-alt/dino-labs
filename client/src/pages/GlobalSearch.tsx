@@ -363,7 +363,7 @@ export default function GlobalSearch() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
                   type="button"
-                  onClick={() => navigate(`/stock/${result.symbol}`)}
+                  onClick={() => navigate(`/terminal?symbol=${result.symbol}`)}
                   className="w-full flex items-center gap-4 p-4 bg-card border border-border rounded-2xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group"
                   data-testid={`search-result-${result.symbol}`}
                 >

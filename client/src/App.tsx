@@ -27,6 +27,7 @@ import AdvancedDashboard from "@/pages/AdvancedDashboard";
 import HotIssues from "@/pages/HotIssues";
 import EarningsLive from "@/pages/EarningsLive";
 import AIPortfolio from "@/pages/AIPortfolio";
+import Portfolio from "@/pages/Portfolio";
 import StockChat from "@/pages/StockChat";
 import ChartMaster from "@/pages/ChartMaster";
 import NotFound from "@/pages/not-found";
@@ -52,6 +53,7 @@ function DesktopRouter() {
       <Route path="/hot-issues" component={HotIssues} />
       <Route path="/earnings" component={EarningsLive} />
       <Route path="/ai-portfolio" component={AIPortfolio} />
+      <Route path="/portfolio" component={Portfolio} />
       <Route path="/chat" component={StockChat} />
       <Route path="/chart-master" component={ChartMaster} />
       <Route path="/dashboard" component={Dashboard} />
@@ -81,6 +83,7 @@ function MobileRouter() {
       <Route path="/hot-issues" component={HotIssues} />
       <Route path="/earnings" component={EarningsLive} />
       <Route path="/ai-portfolio" component={AIPortfolio} />
+      <Route path="/portfolio" component={Portfolio} />
       <Route path="/chat" component={StockChat} />
       <Route path="/chart-master" component={ChartMaster} />
       <Route component={NotFound} />

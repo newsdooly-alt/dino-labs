@@ -1,6 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Home, Target, TrendingUp, Star, User, Settings, Sparkles, Calendar, Briefcase, Search, Newspaper, BarChart2, Brain, MessageCircle, BookOpen, Terminal } from "lucide-react";
+import { X, Home, Target, TrendingUp, Wallet, User, Settings, Calendar, Briefcase, Search, Newspaper, BarChart2, Brain, MessageCircle, BookOpen, Terminal } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { translations } from "@/lib/translations";
 import { cn } from "@/lib/utils";
@@ -16,11 +16,10 @@ const menuItems = [
   { path: "/quests",       icon: Target,   translationKey: "mobile_menu_quests" as const },
   { path: "/market-trends",icon: TrendingUp,translationKey: "mobile_menu_trends" as const },
   { path: "/search",       icon: Search,   translationKey: "mobile_menu_search" as const },
-  { path: "/watchlist",    icon: Star,     translationKey: "mobile_menu_watchlist" as const },
-  { path: "/recommended",  icon: Sparkles,  translationKey: "mobile_menu_recommended" as const },
+  { path: "/portfolio",    icon: Wallet,   translationKey: "mobile_menu_portfolio" as const },
   { path: "/calendar",     icon: Calendar,  translationKey: "mobile_menu_calendar" as const },
   { path: "/earnings",     icon: BarChart2, translationKey: "mobile_menu_earnings" as const },
-  { path: "/ai-portfolio", icon: Brain,    translationKey: "mobile_menu_portfolio" as const },
+  { path: "/ai-portfolio", icon: Brain,    translationKey: "mobile_menu_ai_portfolio" as const },
   { path: "/chat",         icon: MessageCircle, translationKey: "mobile_menu_chat" as const },
   { path: "/investors",    icon: Briefcase,translationKey: "mobile_menu_investors" as const },
   { path: "/chart-master", icon: BookOpen,  translationKey: "mobile_menu_chart_master" as const },

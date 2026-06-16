@@ -17,8 +17,7 @@ const TABS = [
   { label: "투자자",  en: "Investors", ja: "投資家",    href: "/investors",     icon: Users },
   { label: "퀘스트",  en: "Quests",    ja: "クエスト",  href: "/quests",        icon: Trophy },
   { label: "챗봇",    en: "AI Chat",   ja: "AIチャット",href: "/chat",          icon: Bot },
-  { label: "관심",    en: "Watchlist", ja: "ウォッチ",  href: "/watchlist",     icon: Star },
-  { label: "포트폴리오",en:"Portfolio",ja: "ポートフォリオ",href:"/ai-portfolio",icon: Wallet },
+  { label: "포트폴리오",en:"Portfolio",ja: "ポートフォリオ",href:"/portfolio",icon: Wallet },
 ];
 
 export function TerminalTopBar() {

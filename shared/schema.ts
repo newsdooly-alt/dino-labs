@@ -120,6 +120,19 @@ export const investorHoldings = pgTable("investor_holdings", {
   putCall: text("put_call").notNull().default(""),
 });
 
+// Mock Portfolio Holdings
+export const portfolioHoldings = pgTable("portfolio_holdings", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  symbol: text("symbol").notNull(),
+  name: text("name").notNull().default(""),
+  shares: doublePrecision("shares").notNull().default(0),
+  avgCost: doublePrecision("avg_cost").notNull().default(0),
+  currency: text("currency").notNull().default("USD"),
+  sector: text("sector").notNull().default(""),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
 // === SCHEMAS ===
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ streak: true, xp: true, totalXp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
@@ -129,6 +142,7 @@ export const insertUserStockSchema = createInsertSchema(userStocks).omit({ id: t
 export const insertClubSchema = createInsertSchema(clubs).omit({ id: true, memberCount: true, createdAt: true });
 export const insertPredictionSchema = createInsertSchema(predictions).omit({ id: true, status: true, createdAt: true, resolvedAt: true });
 export const insertDinoEggSchema = createInsertSchema(dinoEggs).omit({ id: true, isHatched: true, hatchedAt: true, createdAt: true });
+export const insertPortfolioHoldingSchema = createInsertSchema(portfolioHoldings).omit({ id: true, addedAt: true });
 
 // === TYPES ===
 
@@ -152,6 +166,9 @@ export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
 
 export type DinoEgg = typeof dinoEggs.$inferSelect;
 export type InsertDinoEgg = z.infer<typeof insertDinoEggSchema>;
+
+export type PortfolioHolding = typeof portfolioHoldings.$inferSelect;
+export type InsertPortfolioHolding = z.infer<typeof insertPortfolioHoldingSchema>;
 
 export type InvestorPortfolio = typeof investorPortfolios.$inferSelect;
 export type InvestorHolding = typeof investorHoldings.$inferSelect;
