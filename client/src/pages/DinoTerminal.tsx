@@ -17,7 +17,7 @@ import {
   Zap, Flame, Activity, DollarSign, Calendar,
   ArrowUpRight, AlertTriangle, Clock,
   TrendingUp, TrendingDown, Building2, Target,
-  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert,
+  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert, FileText,
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -79,7 +79,7 @@ const CROSS_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
 const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
-  "SPY":"SPY","QQQ":"QQQ","^KS11":"KOSPI","^IXIC":"NDX",
+  "SPY":"SPY","QQQ":"QQQ","^KS11":"코스피","^IXIC":"NDX",
   "GC=F":"GOLD","CL=F":"OIL","BTC-USD":"BTC","JPY=X":"USD/JPY",
   "^TNX":"10Y","^VIX":"VIX","^IRX":"3M",
   "^FVX":"5Y","^TYX":"30Y","SI=F":"SILVER","HG=F":"COPPER",
@@ -116,6 +116,12 @@ const L: Record<string, Record<Lang, string>> = {
   upside:          { ko:"상승여력",           en:"Upside",             ja:"上昇余地"       },
   shortSell:       { ko:"공매도비율",         en:"Short Float",        ja:"空売り"         },
   strongBuy:       { ko:"강매수",             en:"Strong Buy",         ja:"強買い"         },
+  todayReports:    { ko:"오늘의 레포트",      en:"Today's Reports",    ja:"本日のレポート"  },
+  domesticReport:  { ko:"국내 레포트",        en:"KR Reports",         ja:"国内レポート"   },
+  intlReport:      { ko:"해외 레포트",        en:"Global Reports",     ja:"海外レポート"   },
+  stockReport:     { ko:"기업 리서치",        en:"Company Research",   ja:"企業リサーチ"   },
+  companyDesc:     { ko:"기업 소개",          en:"Company Overview",   ja:"企業概要"        },
+  translateDesc:   { ko:"한국어로 번역",      en:"Translate",          ja:"翻訳する"        },
 };
 function T(key: string, lang: Lang): string { return L[key]?.[lang] ?? L[key]?.en ?? key; }
 
@@ -545,7 +551,7 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
                 <div key={sym} className="rounded px-1.5 py-1 text-center"
                   style={{ background: q ? (up ? C.up+"0d" : C.down+"0d") : C.border+"30",
                     border:`1px solid ${q ? (up ? C.up+"30" : C.down+"30") : C.border}` }}>
-                  <div className="text-[11px] font-mono" style={{ color: C.muted }}>{sym.replace("^","")}</div>
+                  <div className="text-[11px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[sym] || sym.replace("^","")}</div>
                   <div className={cn("text-[14px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {q ? fmtPct(q.changePercent) : "—"}
                   </div>
@@ -754,7 +760,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
         </button>
       </div>
       {/* Header */}
-      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 68px 52px 38px" }}>
+      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 52px 42px 30px" }}>
         {["TICKER","LAST","CHG%","VOL"].map(h => (
           <span key={h} className="text-[11px] font-mono uppercase text-right first:text-left"
             style={{ color: C.muted }}>{h}</span>
@@ -771,7 +777,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
               <button key={sym} onClick={() => onSelect(sym)}
                 className="w-full grid px-2 py-0.5 text-right transition-all"
                 style={{
-                  gridTemplateColumns:"1fr 68px 52px 38px",
+                  gridTemplateColumns:"1fr 52px 42px 30px",
                   background: sel ? "#1a2d42" : "transparent",
                   borderLeft:`2px solid ${sel ? C.info : "transparent"}`,
                 }}>
@@ -1061,7 +1067,7 @@ function CryptoMiniPanel({ stocks }: { stocks: Record<string,any> }) {
           CRYPTO
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-px" style={{ background: C.border }}>
+      <div className="grid grid-cols-2 gap-px" style={{ background: C.border }}>
         {CRYPTO_DEF.map(({ sym, label, emoji }) => {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
@@ -1134,7 +1140,7 @@ function RatesMiniPanel({ stocks }: { stocks: Record<string,any> }) {
 const GLOBAL_MINI = [
   { sym:"SPY",    label:"S&P500", flag:"🇺🇸" },
   { sym:"QQQ",    label:"NASDAQ", flag:"🇺🇸" },
-  { sym:"^KS11",  label:"KOSPI",  flag:"🇰🇷" },
+  { sym:"^KS11",  label:"코스피",  flag:"🇰🇷" },
   { sym:"^IXIC",  label:"NDX",    flag:"🇺🇸" },
   { sym:"^N225",  label:"닛케이", flag:"🇯🇵" },
   { sym:"^GDAXI", label:"DAX",    flag:"🇩🇪" },
@@ -2139,8 +2145,10 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // FUNDAMENTALS PANEL  (stock info endpoint — correct field names)
 // ══════════════════════════════════════════════════════════════════════════════
-function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
+function FundamentalsPanel({ symbol, quote, lang = "ko" as Lang }: { symbol:string; quote:any; lang?:Lang }) {
   const { data: info, isLoading, isError } = useStockInfo(symbol);
+  const [translatedDesc, setTranslatedDesc] = useState<string|null>(null);
+  const [transLoading, setTransLoading] = useState(false);
 
   const hi    = info?.["52WeekHigh"];
   const lo    = info?.["52WeekLow"];
@@ -2148,6 +2156,23 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
   const rangePct = (hi && lo && price && hi !== lo)
     ? ((price - lo) / (hi - lo) * 100)
     : null;
+
+  async function translateDesc() {
+    if (!info?.description) return;
+    setTransLoading(true);
+    try {
+      const sysMsg = lang === "ja"
+        ? "以下の英語の企業説明文を自然な日本語に翻訳してください。2〜3文で簡潔にまとめてください。"
+        : "다음 영어 기업 설명을 자연스러운 한국어로 번역해주세요. 2~3문장으로 간결하게 요약해주세요.";
+      const res = await fetch("/api/news/summarize", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ title: info.description, lang }),
+      });
+      const d = await res.json();
+      setTranslatedDesc(d.summary || info.description);
+    } catch { setTranslatedDesc(info.description); }
+    finally { setTransLoading(false); }
+  }
 
   const rows: [string, string][] = [
     ["시가총액",   fmtMktCap(info?.marketCap, info?.currency)],
@@ -2160,7 +2185,6 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
     ["52W 저가",   lo                  ? fmtPrice(lo, symbol)  : "—"],
     ["평균거래량", fmtVol(info?.avgVolume)],
     ["통화",       info?.currency      || "—"],
-    ["섹터",       info?.sector        || "—"],
   ];
 
   return (
@@ -2210,11 +2234,23 @@ function FundamentalsPanel({ symbol, quote }: { symbol:string; quote:any }) {
         ))
       )}
 
-      {/* Description snippet */}
+      {/* Description snippet with translation */}
       {info?.description && (
-        <div className="px-2 py-2">
-          <p className="text-[12px] font-mono leading-relaxed line-clamp-3"
-            style={{ color:C.muted }}>{info.description}</p>
+        <div className="px-2 py-2 border-t" style={{ borderColor:C.border+"40" }}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-mono font-bold" style={{ color:C.muted }}>{T("companyDesc",lang)}</span>
+            {lang !== "en" && !translatedDesc && (
+              <button onClick={translateDesc} disabled={transLoading}
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                style={{ background:C.info+"22", color:C.info }}>
+                {transLoading ? "..." : T("translateDesc",lang)}
+              </button>
+            )}
+          </div>
+          <p className="text-[12px] font-mono leading-relaxed line-clamp-4"
+            style={{ color:C.muted }}>
+            {translatedDesc || info.description}
+          </p>
         </div>
       )}
     </div>
@@ -2905,30 +2941,6 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
         </div>
       )}
 
-      {/* Sector performance */}
-      {sectors.length > 0 && (
-        <div className="rounded p-1.5" style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-          <div className="text-[11px] font-mono mb-1.5" style={{ color:C.muted }}>{T("topSectors",lang)}</div>
-          {sectors.map((s:any, i:number) => {
-            const pct = s.changePercent ?? 0;
-            const up  = pct >= 0;
-            return (
-              <div key={i} className="flex items-center gap-1.5 mb-1">
-                <span className="text-[11px] font-mono w-8 shrink-0" style={{ color:C.muted }}>{s.symbol}</span>
-                <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background:C.border }}>
-                  <div className="h-full rounded-full"
-                    style={{ width:`${Math.min(Math.abs(pct)*10,100)}%`, background: up ? C.up : C.down }} />
-                </div>
-                <span className="text-[11px] font-mono font-bold w-10 text-right shrink-0"
-                  style={{ color: up ? C.up : C.down }}>
-                  {up?"+":""}{pct.toFixed(1)}%
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* Analyst signal for selected stock */}
       {bullPct !== null && (
         <div className="rounded p-1.5 flex items-center gap-2"
@@ -2970,6 +2982,243 @@ function AIPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) 
             : <><Bot className="w-3 h-3"/>{T("genAnalysis",lang)}</>}
         </button>
       )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TODAY'S REPORTS PANEL  — Korean + International research reports
+// ══════════════════════════════════════════════════════════════════════════════
+const KR_REPORT_SYMS = ["005930.KS","000660.KS","005380.KS","035420.KS","035720.KS"];
+
+function TodayReportsPanel({ lang = "ko" as Lang }: { lang:Lang }) {
+  const intlQuery = useNews(lang);
+  const krQuery   = useQuery<any>({
+    queryKey: ["/api/stocks/news/005930.KS", lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/stocks/news/005930.KS?lang=en`);
+      if (!res.ok) return { news: [] };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const intlItems: any[] = (() => {
+    const raw: any = intlQuery.data;
+    return (Array.isArray(raw) ? raw : Array.isArray(raw?.news) ? raw.news : []).slice(0, 8);
+  })();
+  const krItems: any[] = ((krQuery.data as any)?.news || []).slice(0, 6);
+
+  const [expandedIntl, setExpandedIntl] = useState<number|null>(null);
+  const [expandedKr,   setExpandedKr]   = useState<number|null>(null);
+  const [summaries, setSummaries] = useState<Record<string,string>>({});
+  const [generating, setGenerating] = useState<string|null>(null);
+
+  async function genSummary(key: string, title: string) {
+    if (summaries[key] || generating) return;
+    setGenerating(key);
+    try {
+      const res = await fetch("/api/news/summarize", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ title, lang }),
+      });
+      const d = await res.json();
+      setSummaries(p => ({ ...p, [key]: d.summary || "" }));
+    } catch { setSummaries(p => ({ ...p, [key]: "요약 실패" })); }
+    finally { setGenerating(null); }
+  }
+
+  function ReportItem({ item, idx, section, expanded, setExpanded }: {
+    item:any; idx:number; section:string; expanded:number|null; setExpanded:(n:number|null)=>void
+  }) {
+    const key = `${section}-${idx}`;
+    const isOpen = expanded === idx;
+    const inline = lang === "ko" ? item.koreanSummary : lang === "ja" ? item.japaneseSummary : null;
+    return (
+      <div className="border-b" style={{ borderColor:C.border+"40" }}>
+        <button className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
+          onClick={() => {
+            setExpanded(isOpen ? null : idx);
+            if (!isOpen) genSummary(key, item.title);
+          }}>
+          <div className="text-[12px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
+            {item.title}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher || "—"}</span>
+            {item.publishedAt && (
+              <span className="text-[10px] font-mono" style={{ color:C.muted }}>
+                · {Math.round((Date.now()/1000 - item.publishedAt)/3600)}h
+              </span>
+            )}
+          </div>
+        </button>
+        {isOpen && (
+          <div className="px-2 pb-2 space-y-1.5">
+            {inline && (
+              <p className="text-[12px] font-mono leading-snug rounded p-1.5"
+                style={{ background:C.panel2, color:C.text }}>{inline}</p>
+            )}
+            {summaries[key] ? (
+              <div className="rounded p-1.5" style={{ background:C.info+"15", border:`1px solid ${C.info}30` }}>
+                <span className="text-[10px] font-mono font-bold" style={{ color:C.info }}>AI▸ </span>
+                <span className="text-[12px] font-mono" style={{ color:C.text }}>{summaries[key]}</span>
+              </div>
+            ) : generating === key ? (
+              <div className="text-[11px] font-mono flex items-center gap-1" style={{ color:C.muted }}>
+                <Loader2 className="w-3 h-3 animate-spin" /> {T("loading", lang)}
+              </div>
+            ) : null}
+            {item.link && (
+              <a href={item.link} target="_blank" rel="noopener noreferrer"
+                className="text-[11px] font-mono" style={{ color:C.info }}>
+                {T("readMore", lang)} ↗
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <div className="flex items-center gap-1.5">
+          <FileText className="w-3 h-3" style={{ color:C.warn }} />
+          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>{T("todayReports",lang)}</span>
+        </div>
+        <StatusBadge isLoading={intlQuery.isLoading || krQuery.isLoading}
+          isError={intlQuery.isError} isLive={intlItems.length > 0} />
+      </div>
+
+      {/* Korean Reports */}
+      <div className="px-2 py-1 border-b" style={{ borderColor:C.border+"60", background:C.panel2+"80" }}>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] font-mono font-bold" style={{ color:C.up }}>🇰🇷</span>
+          <span className="text-[11px] font-mono font-bold" style={{ color:C.muted }}>{T("domesticReport",lang)}</span>
+        </div>
+      </div>
+      {krQuery.isLoading
+        ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+        : krItems.length === 0
+        ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>{T("noData",lang)}</div>
+        : krItems.map((item,i) => (
+            <ReportItem key={i} item={item} idx={i} section="kr"
+              expanded={expandedKr} setExpanded={setExpandedKr} />
+          ))
+      }
+
+      {/* International Reports */}
+      <div className="px-2 py-1 border-b border-t mt-1" style={{ borderColor:C.border+"60", background:C.panel2+"80" }}>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>🌐</span>
+          <span className="text-[11px] font-mono font-bold" style={{ color:C.muted }}>{T("intlReport",lang)}</span>
+        </div>
+      </div>
+      {intlQuery.isLoading
+        ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+        : intlItems.length === 0
+        ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>{T("noData",lang)}</div>
+        : intlItems.map((item,i) => (
+            <ReportItem key={i} item={item} idx={i} section="intl"
+              expanded={expandedIntl} setExpanded={setExpandedIntl} />
+          ))
+      }
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STOCK REPORT PANEL  — company-specific research / news for fund tab
+// ══════════════════════════════════════════════════════════════════════════════
+function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
+  const { data, isLoading, isError } = useStockNews(symbol);
+  const items: any[] = ((data as any)?.news || []).slice(0, 10);
+  const [expanded, setExpanded] = useState<number|null>(null);
+  const [summaries, setSummaries] = useState<Record<string,string>>({});
+  const [generating, setGenerating] = useState<string|null>(null);
+
+  async function genSummary(key: string, title: string) {
+    if (summaries[key] || generating) return;
+    setGenerating(key);
+    try {
+      const res = await fetch("/api/news/summarize", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ title, lang }),
+      });
+      const d = await res.json();
+      setSummaries(p => ({ ...p, [key]: d.summary || "" }));
+    } catch { setSummaries(p => ({ ...p, [key]: T("loadFail",lang) })); }
+    finally { setGenerating(null); }
+  }
+
+  return (
+    <div className="border-b" style={{ borderColor:C.border }}>
+      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+        style={{ borderColor:C.border, background:C.header }}>
+        <div className="flex items-center gap-1.5">
+          <FileText className="w-3 h-3" style={{ color:C.warn }} />
+          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
+            style={{ color:C.muted }}>{T("stockReport",lang)}</span>
+        </div>
+        <StatusBadge isLoading={isLoading} isError={isError} isLive={items.length > 0} />
+      </div>
+      {isLoading
+        ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+        : isError || items.length === 0
+        ? <div className="px-2 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("noData",lang)}</div>
+        : items.map((item:any, i:number) => {
+            const key = `sr-${i}`;
+            const isOpen = expanded === i;
+            const inline = lang === "ko" ? item.koreanSummary : lang === "ja" ? item.japaneseSummary : null;
+            return (
+              <div key={i} className="border-b" style={{ borderColor:C.border+"40" }}>
+                <button className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
+                  onClick={() => { setExpanded(isOpen ? null : i); if (!isOpen) genSummary(key, item.title); }}>
+                  <div className="text-[12px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
+                    {item.title}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher||"—"}</span>
+                    {item.publishedAt && (
+                      <span className="text-[10px] font-mono" style={{ color:C.muted }}>
+                        · {Math.round((Date.now()/1000 - item.publishedAt)/3600)}h
+                      </span>
+                    )}
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="px-2 pb-2 space-y-1.5">
+                    {inline && (
+                      <p className="text-[12px] font-mono leading-snug rounded p-1.5"
+                        style={{ background:C.panel2, color:C.text }}>{inline}</p>
+                    )}
+                    {summaries[key] ? (
+                      <div className="rounded p-1.5" style={{ background:C.info+"15", border:`1px solid ${C.info}30` }}>
+                        <span className="text-[10px] font-mono font-bold" style={{ color:C.info }}>AI▸ </span>
+                        <span className="text-[12px] font-mono" style={{ color:C.text }}>{summaries[key]}</span>
+                      </div>
+                    ) : generating === key ? (
+                      <div className="text-[11px] font-mono flex items-center gap-1" style={{ color:C.muted }}>
+                        <Loader2 className="w-3 h-3 animate-spin" /> {T("loading",lang)}
+                      </div>
+                    ) : null}
+                    {item.link && (
+                      <a href={item.link} target="_blank" rel="noopener noreferrer"
+                        className="text-[11px] font-mono" style={{ color:C.info }}>
+                        {T("readMore",lang)} ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+      }
     </div>
   );
 }
@@ -3320,8 +3569,8 @@ export default function DinoTerminal() {
       {/* ── 5-COLUMN BLOOMBERG GRID ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ▌COL 1 (160px) — Market overview + Movers + Volume + Watchlist ▐ */}
-        <div className="w-[160px] shrink-0 border-r overflow-y-auto flex flex-col"
+        {/* ▌COL 1 (185px) — Market overview + Movers + Volume + Watchlist ▐ */}
+        <div className="w-[185px] shrink-0 border-r overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <MarketPulseWidget liveStocks={stocks} />
           <MarketMoversPanel onSelect={selectSym} />
@@ -3378,19 +3627,21 @@ export default function DinoTerminal() {
           <CommodityFXPanel stocks={stocks} />
         </div>
 
-        {/* ▌COL 4 (175px) — Fundamentals + Analyst + Insider + Institutional ▐ */}
+        {/* ▌COL 4 (175px) — Fundamentals + Analyst + Insider + Institutional + Stock Reports ▐ */}
         <div className="w-[175px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
-          <FundamentalsPanel symbol={selected} quote={quote} />
+          <FundamentalsPanel symbol={selected} quote={quote} lang={lang} />
           <AnalystPanel symbol={selected} lang={lang} />
           <InsiderPanel symbol={selected} lang={lang} />
           <InstitutionalPanel symbol={selected} lang={lang} />
+          <StockReportPanel symbol={selected} lang={lang} />
         </div>
 
-        {/* ▌COL 5 (195px) — News + Calendar + AI ▐ */}
+        {/* ▌COL 5 (195px) — News + Reports + Calendar + AI ▐ */}
         <div className="w-[195px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+          <TodayReportsPanel lang={lang} />
           <CalendarPanel />
           <AIPanel symbol={selected} lang={lang} />
         </div>
@@ -3490,10 +3741,11 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── NEWS TAB: market + company news toggle + calendar ── */}
+        {/* ── NEWS TAB: market + company news toggle + today's reports + calendar ── */}
         {mTab === "news" && (
           <>
             <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+            <TodayReportsPanel lang={lang} />
             <CalendarPanel />
           </>
         )}
@@ -3511,13 +3763,14 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── INFO TAB: fundamentals + analyst + insider + AI ── */}
+        {/* ── INFO TAB: fundamentals + analyst + insider + reports + AI ── */}
         {mTab === "fund" && (
           <>
-            <FundamentalsPanel symbol={selected} quote={quote} />
+            <FundamentalsPanel symbol={selected} quote={quote} lang={lang} />
             <AnalystPanel symbol={selected} lang={lang} />
             <InsiderPanel symbol={selected} lang={lang} />
             <InstitutionalPanel symbol={selected} lang={lang} />
+            <StockReportPanel symbol={selected} lang={lang} />
             <AIPanel symbol={selected} lang={lang} />
           </>
         )}
