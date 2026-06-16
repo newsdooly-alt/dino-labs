@@ -75,6 +75,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
   localStorage.setItem(LS_NAMES_KEY, JSON.stringify(names));
 }
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","ETH-USD","SOL-USD","XRP-USD","JPY=X","^VIX"];
+const CROSS_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
 const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
@@ -3250,7 +3251,7 @@ export default function DinoTerminal() {
   }
 
   // ─── FAST FIRST LOAD: only batch live prices ───────────────────────────────
-  const allSyms = Array.from(new Set([...watchSyms, ...INDEX_SYMS, ...MACRO_SYMS, ...GLOBAL_SYMS, selected]));
+  const allSyms = Array.from(new Set([...watchSyms, ...INDEX_SYMS, ...CROSS_SYMS, ...MACRO_SYMS, ...GLOBAL_SYMS, selected]));
   const { data: stocks = {}, isLoading: liveLdg, isError: liveErr } = useLivePrices(allSyms);
   const quote = stocks[selected];
 

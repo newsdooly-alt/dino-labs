@@ -271,8 +271,8 @@ export default function HotIssues() {
         return scoreB - scoreA || (b.publishedAt ?? 0) - (a.publishedAt ?? 0);
       });
     }
-    // latest (default) — already sorted by server
-    return base;
+    // latest — sort by publishedAt descending
+    return [...base].sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0));
   }, [enriched, selectedPublisher, selectedCategory, sortOrder]);
 
   const visible = filtered.slice(0, displayCount);

@@ -10,6 +10,7 @@ interface StockQuote {
   change: number;
   changePercent: number;
   previousClose: number;
+  volume?: number;
   isMarketOpen: boolean;
   lastUpdated: string;
   isStale: boolean;
@@ -157,6 +158,7 @@ export async function getMultipleQuotes(symbols: string[]): Promise<StockQuote[]
         change: q.change || 0,
         changePercent: q.changePercent || 0,
         previousClose: q.previousClose || 0,
+        volume: q.volume || 0,
         isMarketOpen: q.isMarketOpen || false,
         lastUpdated: q.lastUpdated || new Date().toISOString(),
         isStale: q.isStale || q.price === 0,
