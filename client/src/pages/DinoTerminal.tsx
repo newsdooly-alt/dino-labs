@@ -283,6 +283,21 @@ function useNews(lang: Lang = "ko") {
   });
 }
 
+function useKoreanMarketNews(lang: Lang = "ko") {
+  return useQuery<any[]>({
+    queryKey: ["/api/news/korean-market", lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/news/korean-market?lang=${lang}`);
+      if (!res.ok) throw new Error("kr news failed");
+      const d = await res.json();
+      return Array.isArray(d) ? d : (d?.news || []);
+    },
+    staleTime: 300_000,
+    refetchInterval: 600_000,
+    retry: 1,
+  });
+}
+
 /** Economic calendar */
 function useCalendar() {
   return useQuery<any[]>({
@@ -2068,25 +2083,25 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
   const twos5s = fvx != null && irx != null ? +(fvx - irx).toFixed(2) : null;
 
   return (
-    <div className="p-3 border-t overflow-hidden" style={{ borderColor: C.border }}>
-      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
-        style={{ color: C.muted }}>금리 상세 · RATES DETAIL</div>
+    <div className="border-t overflow-hidden" style={{ borderColor: C.border }}>
+      <div className="px-2 py-1 text-[11px] font-mono font-bold tracking-widest uppercase"
+        style={{ color: C.muted, background: C.header }}>금리 상세 · RATES DETAIL</div>
 
-      {/* Yield bars */}
-      <div className="flex items-end gap-1 h-12 mb-1 w-full">
+      {/* Yield rates — simple grid, no overflow */}
+      <div className="grid grid-cols-4 gap-px" style={{ background: C.border }}>
         {yields.map(({ sym, label, toFix }) => {
           const p = stocks[sym]?.price as number|undefined;
-          const maxY = Math.max(...yields.map(y => (stocks[y.sym]?.price as number|undefined) ?? 0), 0.01);
-          const h = p ? Math.max(6, (p/maxY)*44) : 4;
-          const up = (stocks[sym]?.changePercent ?? 0) >= 0;
+          const chg = stocks[sym]?.changePercent as number|undefined;
+          const up = (chg ?? 0) >= 0;
           return (
-            <div key={sym} className="flex-1 min-w-0 flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-mono font-bold truncate w-full text-center" style={{ color: up ? C.up : C.down }}>
+            <div key={sym} className="px-1 py-1.5 text-center" style={{ background: C.panel2 }}>
+              <div className="text-[9px] font-mono" style={{ color: C.muted }}>{label}</div>
+              <div className="text-[11px] font-mono font-bold leading-tight" style={{ color: up ? C.up : C.down }}>
                 {p != null ? p.toFixed(toFix)+"%" : "—"}
-              </span>
-              <div className="w-full rounded-t transition-all"
-                style={{ height: h, background: C.info + "66" }} />
-              <span className="text-[9px] font-mono truncate w-full text-center" style={{ color: C.muted }}>{label}</span>
+              </div>
+              <div className="text-[9px] font-mono" style={{ color: up ? C.up : C.down }}>
+                {up ? "▲" : "▼"}{chg != null ? Math.abs(chg).toFixed(2)+"%" : ""}
+              </div>
             </div>
           );
         })}
@@ -2309,11 +2324,23 @@ function CalendarPanel() {
 // NEWS PANEL — language-aware, market/company toggle, AI multi-lang summary
 // ══════════════════════════════════════════════════════════════════════════════
 function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
-  const marketNews = useNews(lang as Lang);
+  const intlNews   = useNews(lang as Lang);
+  const krNews     = useKoreanMarketNews(lang as Lang);
   const stockNews  = useStockNews(symbol);
 
   const [mode, setMode] = useState<"market"|"company">("market");
-  const activeQuery = (showToggle && mode === "company") ? stockNews : marketNews;
+  // market region: "intl" (international) shown first, "kr" (Korean) second
+  const [region, setRegion] = useState<"intl"|"kr">("intl");
+
+  let activeQuery: any;
+  if (showToggle && mode === "company") {
+    activeQuery = stockNews;
+  } else if (region === "kr") {
+    activeQuery = krNews;
+  } else {
+    activeQuery = intlNews;
+  }
+
   const rawItems = activeQuery.data;
   const items: any[] = (
     Array.isArray(rawItems) ? rawItems :
@@ -2360,6 +2387,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
 
   return (
     <div className="border-b" style={{ borderColor:C.border }}>
+      {/* Row 1: title + status */}
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5">
@@ -2389,6 +2417,26 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
           <Link href="/hot-issues" className="text-[12px] font-mono" style={{ color:C.info }}>→</Link>
         </div>
       </div>
+
+      {/* Row 2: 해외시장 / 국내시장 region tabs (shown when in market mode) */}
+      {(!showToggle || mode === "market") && (
+        <div className="flex border-b" style={{ borderColor:C.border }}>
+          {([
+            { id:"intl" as const, label: lang==="ko" ? "🌐 해외시장" : lang==="ja" ? "🌐 海外" : "🌐 Global" },
+            { id:"kr"   as const, label: lang==="ko" ? "🇰🇷 국내시장" : lang==="ja" ? "🇰🇷 韓国" : "🇰🇷 Korea" },
+          ]).map(tab => (
+            <button key={tab.id} onClick={() => { setRegion(tab.id); setExpanded(null); }}
+              className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
+              style={{
+                color: region===tab.id ? C.info : C.muted,
+                background: region===tab.id ? C.info+"15" : "transparent",
+                borderBottom: `2px solid ${region===tab.id ? C.info : "transparent"}`,
+              }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2} />)
