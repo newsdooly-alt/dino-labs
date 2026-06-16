@@ -5,13 +5,18 @@ import { useUser } from "@/hooks/use-user";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, Area, AreaChart,
+} from "recharts";
 import {
   Plus, Trash2, Edit3, TrendingUp, TrendingDown, X, Search, Loader2,
   Wallet, BarChart3, PieChart as PieIcon, ArrowUpRight, ArrowDownRight,
+  StickyNote, MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getLocalizedCompanyName } from "@/lib/stockNames";
 import { searchStockDatabase } from "@/lib/stockDatabase";
@@ -24,6 +29,7 @@ interface Holding {
   avgCost: number;
   currency: string;
   sector: string;
+  notes: string | null;
   addedAt: string;
 }
 
@@ -35,15 +41,207 @@ interface LiveQuote {
   name?: string;
 }
 
+interface ChartPoint {
+  date: string;
+  value: number;
+}
+
 const SECTOR_COLORS = [
   "#6366f1","#22c55e","#f59e0b","#ef4444","#3b82f6",
   "#8b5cf6","#14b8a6","#f97316","#ec4899","#a3e635",
 ];
 
+const PERIOD_OPTIONS = [
+  { key: "1mo", labelKo: "1개월", labelEn: "1M" },
+  { key: "3mo", labelKo: "3개월", labelEn: "3M" },
+  { key: "1y",  labelKo: "1년",   labelEn: "1Y" },
+] as const;
+
+type Period = typeof PERIOD_OPTIONS[number]["key"];
+
 function formatMoney(n: number, currency = "USD"): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
   return `$${n.toFixed(2)}`;
+}
+
+function formatDate(dateStr: string, period: Period): string {
+  const d = new Date(dateStr);
+  if (period === "1y") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function PnLChart({ holdings, isKo }: { holdings: Holding[]; isKo: boolean }) {
+  const [period, setPeriod] = useState<Period>("1mo");
+
+  const { data: chartData = [], isLoading } = useQuery<ChartPoint[]>({
+    queryKey: ["/api/portfolio/chart", period],
+    queryFn: async () => {
+      const res = await fetch(`/api/portfolio/chart?period=${period}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: holdings.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const firstVal = chartData[0]?.value ?? 0;
+  const lastVal = chartData[chartData.length - 1]?.value ?? 0;
+  const gain = lastVal - firstVal;
+  const gainPct = firstVal > 0 ? (gain / firstVal) * 100 : 0;
+  const isUp = gain >= 0;
+  const color = isUp ? "#10b981" : "#f43f5e";
+
+  const minVal = Math.min(...chartData.map(d => d.value));
+  const maxVal = Math.max(...chartData.map(d => d.value));
+  const padding = (maxVal - minVal) * 0.1 || 10;
+
+  const tickCount = period === "1y" ? 6 : 4;
+  const step = chartData.length > tickCount ? Math.floor(chartData.length / tickCount) : 1;
+  const ticks = chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1).map(d => d.date);
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-sm">{isKo ? "포트폴리오 가치 추이" : "Portfolio Value Over Time"}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setPeriod(opt.key)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-lg font-medium transition-colors",
+                period === opt.key
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+              data-testid={`button-period-${opt.key}`}
+            >
+              {isKo ? opt.labelKo : opt.labelEn}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!isLoading && chartData.length > 1 && (
+        <div className="flex items-center gap-3">
+          <p className="text-lg font-bold tabular-nums">{formatMoney(lastVal)}</p>
+          <span className={cn("text-xs font-semibold flex items-center gap-0.5", isUp ? "text-emerald-500" : "text-rose-500")}>
+            {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {isUp ? "+" : ""}{gainPct.toFixed(2)}% ({isUp ? "+" : ""}{formatMoney(gain)})
+          </span>
+        </div>
+      )}
+
+      <div className="h-44 w-full">
+        {isLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : chartData.length < 2 ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+            {isKo ? "데이터 없음" : "No data yet"}
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="opacity-10" vertical={false} />
+              <XAxis
+                dataKey="date"
+                ticks={ticks}
+                tickFormatter={d => formatDate(d, period)}
+                tick={{ fontSize: 10, fill: "currentColor", className: "text-muted-foreground" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={[minVal - padding, maxVal + padding]}
+                tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
+                tick={{ fontSize: 10, fill: "currentColor", className: "text-muted-foreground" }}
+                axisLine={false}
+                tickLine={false}
+                width={44}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  return (
+                    <div className="bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-lg">
+                      <p className="text-muted-foreground">{label}</p>
+                      <p className="font-bold text-foreground">{formatMoney(payload[0].value as number)}</p>
+                    </div>
+                  );
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={2}
+                fill="url(#pnlGradient)"
+                dot={false}
+                activeDot={{ r: 4, fill: color, stroke: "var(--background)", strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotesTooltip({ notes, isKo }: { notes: string; isKo: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+        data-testid="button-notes-toggle"
+        title={isKo ? "메모 보기" : "View note"}
+      >
+        <StickyNote className="w-3 h-3" />
+        {isKo ? "메모" : "Note"}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ duration: 0.12 }}
+            className="absolute bottom-full mb-1.5 left-0 z-20 bg-card border border-border rounded-xl shadow-xl p-3 w-60 text-xs"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-1.5 mb-1.5 text-amber-600 dark:text-amber-400 font-medium">
+              <MessageSquare className="w-3 h-3" />
+              {isKo ? "내 메모" : "My Note"}
+            </div>
+            <p className="text-foreground leading-relaxed whitespace-pre-wrap">{notes}</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute top-2 right-2 p-0.5 hover:bg-muted rounded"
+            >
+              <X className="w-3 h-3 text-muted-foreground" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function Portfolio() {
@@ -128,6 +326,11 @@ export default function Portfolio() {
         </Button>
       </div>
 
+      {/* P&L Chart */}
+      {holdings.length > 0 && (
+        <PnLChart holdings={holdings} isKo={isKo} />
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -208,7 +411,7 @@ export default function Portfolio() {
                           {isUp ? "+" : ""}{formatMoney(h.pnl)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <button
                           type="button"
                           onClick={() => navigate(`/terminal?symbol=${h.symbol}`)}
@@ -223,6 +426,9 @@ export default function Portfolio() {
                         >
                           <Edit3 className="w-3 h-3" /> {isKo ? "편집" : "Edit"}
                         </button>
+                        {h.notes && (
+                          <NotesTooltip notes={h.notes} isKo={isKo} />
+                        )}
                         <button
                           type="button"
                           onClick={() => deleteMutation.mutate(h.id)}
@@ -311,6 +517,7 @@ function HoldingModal({
   const [shares, setShares] = useState(editHolding ? String(editHolding.shares) : "");
   const [avgCost, setAvgCost] = useState(editHolding ? String(editHolding.avgCost) : "");
   const [totalAmount, setTotalAmount] = useState("");
+  const [notes, setNotes] = useState(editHolding?.notes || "");
   const [searchQ, setSearchQ] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -344,9 +551,11 @@ function HoldingModal({
 
     if (!finalShares || !finalAvgCost) return;
 
-    const payload = { symbol: sym, name, sector, shares: finalShares, avgCost: finalAvgCost, currency: "USD" };
+    const notesVal = notes.trim() || null;
+
+    const payload = { symbol: sym, name, sector, shares: finalShares, avgCost: finalAvgCost, currency: "USD", notes: notesVal };
     if (isEdit) {
-      editMutation.mutate({ shares: finalShares, avgCost: finalAvgCost, name, sector });
+      editMutation.mutate({ shares: finalShares, avgCost: finalAvgCost, name, sector, notes: notesVal });
     } else {
       addMutation.mutate(payload);
     }
@@ -366,7 +575,7 @@ function HoldingModal({
         initial={{ scale: 0.95, y: 16 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 16 }}
-        className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl"
+        className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -543,6 +752,22 @@ function HoldingModal({
             </div>
           )}
 
+          {/* Notes field */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block flex items-center gap-1">
+              <StickyNote className="w-3 h-3" />
+              {isKo ? "메모 (선택사항)" : "Note (optional)"}
+            </label>
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder={isKo ? "예: 실적 발표 후 저점 매수…" : "e.g. bought on earnings dip…"}
+              rows={2}
+              className="text-sm resize-none"
+              data-testid="input-notes"
+            />
+          </div>
+
           <Button
             onClick={handleSubmit}
             disabled={isPending || !symbol}
@@ -550,11 +775,12 @@ function HoldingModal({
             data-testid="button-submit-holding"
           >
             {isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isEdit ? (
+              isKo ? "저장" : "Save Changes"
             ) : (
-              <Plus className="w-4 h-4 mr-2" />
+              isKo ? "추가하기" : "Add Holding"
             )}
-            {isEdit ? (isKo ? "저장" : "Save") : (isKo ? "추가" : "Add")}
           </Button>
         </div>
       </motion.div>

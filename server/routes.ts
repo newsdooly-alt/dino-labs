@@ -747,6 +747,7 @@ export async function registerRoutes(
       avgCost: z.number().nonnegative(),
       currency: z.string().default("USD"),
       sector: z.string().default(""),
+      notes: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.issues });
@@ -763,6 +764,7 @@ export async function registerRoutes(
       avgCost: z.number().nonnegative().optional(),
       name: z.string().optional(),
       sector: z.string().optional(),
+      notes: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -771,6 +773,40 @@ export async function registerRoutes(
       res.json(holding);
     } catch {
       res.status(404).json({ message: "Holding not found" });
+    }
+  });
+
+  app.get("/api/portfolio/chart", async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) return res.json([]);
+    const period = (req.query.period as string) || "1mo";
+    try {
+      const holdings = await storage.getPortfolioHoldings(userId);
+      if (holdings.length === 0) return res.json([]);
+
+      const yfinancePeriod = period === "3mo" ? "3mo" : period === "1y" ? "1y" : "1mo";
+
+      const histories = await Promise.all(
+        holdings.map(h => getStockHistory(h.symbol, yfinancePeriod, "1d").catch(() => []))
+      );
+
+      const dateMap: Record<string, number> = {};
+      holdings.forEach((h, i) => {
+        const hist = histories[i] as Array<{ date: string; close: number }>;
+        hist.forEach(bar => {
+          if (bar.date && bar.close != null) {
+            dateMap[bar.date] = (dateMap[bar.date] || 0) + h.shares * bar.close;
+          }
+        });
+      });
+
+      const sorted = Object.entries(dateMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, value]) => ({ date, value: Math.round(value * 100) / 100 }));
+
+      res.json(sorted);
+    } catch (err) {
+      res.status(500).json([]);
     }
   });
 

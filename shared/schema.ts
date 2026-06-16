@@ -130,6 +130,7 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   avgCost: doublePrecision("avg_cost").notNull().default(0),
   currency: text("currency").notNull().default("USD"),
   sector: text("sector").notNull().default(""),
+  notes: text("notes"),
   addedAt: timestamp("added_at").defaultNow(),
 });
 
