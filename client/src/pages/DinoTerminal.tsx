@@ -2068,25 +2068,25 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
   const twos5s = fvx != null && irx != null ? +(fvx - irx).toFixed(2) : null;
 
   return (
-    <div className="p-3 border-t" style={{ borderColor: C.border }}>
+    <div className="p-3 border-t overflow-hidden" style={{ borderColor: C.border }}>
       <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color: C.muted }}>금리 상세 · RATES DETAIL</div>
 
       {/* Yield bars */}
-      <div className="flex items-end gap-1.5 h-12 mb-1">
+      <div className="flex items-end gap-1 h-12 mb-1 w-full">
         {yields.map(({ sym, label, toFix }) => {
           const p = stocks[sym]?.price as number|undefined;
           const maxY = Math.max(...yields.map(y => (stocks[y.sym]?.price as number|undefined) ?? 0), 0.01);
           const h = p ? Math.max(6, (p/maxY)*44) : 4;
           const up = (stocks[sym]?.changePercent ?? 0) >= 0;
           return (
-            <div key={sym} className="flex-1 flex flex-col items-center gap-0.5">
-              <span className="text-[10px] font-mono font-bold" style={{ color: up ? C.up : C.down }}>
+            <div key={sym} className="flex-1 min-w-0 flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-mono font-bold truncate w-full text-center" style={{ color: up ? C.up : C.down }}>
                 {p != null ? p.toFixed(toFix)+"%" : "—"}
               </span>
               <div className="w-full rounded-t transition-all"
                 style={{ height: h, background: C.info + "66" }} />
-              <span className="text-[9px] font-mono" style={{ color: C.muted }}>{label}</span>
+              <span className="text-[9px] font-mono truncate w-full text-center" style={{ color: C.muted }}>{label}</span>
             </div>
           );
         })}
@@ -3220,11 +3220,9 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MARKET REPORT PANEL — 국내 증권사 리포트(PDF) + 해외 리서치
+// MARKET REPORT PANEL — 국내 증권사 리포트(PDF)
 // ══════════════════════════════════════════════════════════════════════════════
 function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
-  const [tab, setTab] = useState<"kr"|"intl">("kr");
-
   // 국내 증권사 시장/산업/경제 전략 레포트 (Naver Finance, PDF 링크)
   const krQ = useQuery<any>({
     queryKey: ["/api/research/market"],
@@ -3233,14 +3231,7 @@ function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
     retry: 1,
   });
 
-  // 해외시장 리서치 - international financial news/research
-  const intlQ = useNews(lang);
-
   const krReports: any[] = (krQ.data?.reports || []);
-  const intlItems: any[] = (() => {
-    const raw: any = intlQ.data;
-    return (Array.isArray(raw) ? raw : Array.isArray(raw?.news) ? raw.news : []).slice(0, 15);
-  })();
 
   const catColors: Record<string, string> = {
     "시장전략": C.up,
@@ -3283,33 +3274,6 @@ function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
     );
   }
 
-  function NewsRow({ item }: { item:any }) {
-    const title = (lang === "ko" && item.koreanSummary) ? item.koreanSummary
-      : (lang === "ja" && item.japaneseSummary) ? item.japaneseSummary
-      : item.title;
-    const ago = item.publishedAt
-      ? Math.round((Date.now()/1000 - item.publishedAt)/3600)
-      : null;
-    return (
-      <a href={item.link || "#"} target="_blank" rel="noopener noreferrer"
-        className="block border-b px-2 py-1.5 hover:bg-white/5 transition-colors"
-        style={{ borderColor:C.border+"30" }}>
-        <div className="text-[11px] font-mono leading-snug mb-0.5 line-clamp-2"
-          style={{ color:C.text }}>{title}</div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
-            {item.publisher || "—"}
-          </span>
-          {ago !== null && (
-            <span className="text-[9px] font-mono shrink-0" style={{ color:C.muted }}>
-              · {ago < 1 ? "방금" : `${ago}h`}
-            </span>
-          )}
-        </div>
-      </a>
-    );
-  }
-
   return (
     <div className="border-b" style={{ borderColor:C.border }}>
       {/* Header */}
@@ -3319,56 +3283,25 @@ function MarketReportPanel({ lang = "ko" as Lang }: { lang:Lang }) {
           <Newspaper className="w-3 h-3" style={{ color:C.warn }} />
           <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
             style={{ color:C.muted }}>
-            {lang === "ko" ? "증권사 리포트" : "Research Reports"}
+            🇰🇷 {lang === "ko" ? "증권사 리포트" : "Research Reports"}
           </span>
         </div>
         <StatusBadge
-          isLoading={tab === "kr" ? krQ.isLoading : intlQ.isLoading}
-          isError={tab === "kr" ? krQ.isError : intlQ.isError}
-          isLive={(tab === "kr" ? krReports : intlItems).length > 0}
+          isLoading={krQ.isLoading}
+          isError={krQ.isError}
+          isLive={krReports.length > 0}
         />
       </div>
 
-      {/* Sub-tabs */}
-      <div className="flex border-b" style={{ borderColor:C.border }}>
-        <button onClick={() => setTab("kr")}
-          className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
-          style={{
-            color: tab === "kr" ? C.up : C.muted,
-            background: tab === "kr" ? C.up+"12" : "transparent",
-            borderBottom: `2px solid ${tab === "kr" ? C.up : "transparent"}`,
-          }}>
-          🇰🇷 {lang === "ko" ? "국내 리포트" : "KR Reports"}
-        </button>
-        <button onClick={() => setTab("intl")}
-          className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
-          style={{
-            color: tab === "intl" ? C.info : C.muted,
-            background: tab === "intl" ? C.info+"12" : "transparent",
-            borderBottom: `2px solid ${tab === "intl" ? C.info : "transparent"}`,
-          }}>
-          🌐 {lang === "ko" ? "해외 리서치" : "Intl Research"}
-        </button>
-      </div>
-
       {/* Content */}
-      {tab === "kr" ? (
-        krQ.isLoading
-          ? Array.from({length:5}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-          : krReports.length === 0
-          ? <div className="px-2 py-3 text-[11px] font-mono text-center" style={{ color:C.muted }}>
-              {lang === "ko" ? "데이터 로딩 중..." : "Loading reports..."}
-            </div>
-          : krReports.map((r, i) => <ReportRow key={i} r={r} />)
-      ) : (
-        intlQ.isLoading
-          ? Array.from({length:5}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-          : intlItems.length === 0
-          ? <div className="px-2 py-3 text-[11px] font-mono text-center" style={{ color:C.muted }}>
-              {lang === "ko" ? "데이터 없음" : "No data"}
-            </div>
-          : intlItems.map((item, i) => <NewsRow key={i} item={item} />)
-      )}
+      {krQ.isLoading
+        ? Array.from({length:5}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+        : krReports.length === 0
+        ? <div className="px-2 py-3 text-[11px] font-mono text-center" style={{ color:C.muted }}>
+            {lang === "ko" ? "데이터 로딩 중..." : "Loading reports..."}
+          </div>
+        : krReports.map((r, i) => <ReportRow key={i} r={r} />)
+      }
     </div>
   );
 }
@@ -3955,7 +3888,7 @@ export default function DinoTerminal() {
         {/* ── NEWS TAB: market news + 시장/시황 레포트 + calendar ── */}
         {mTab === "news" && (
           <>
-            <NewsPanel lang={lang} symbol={selected} showToggle={true} />
+            <NewsPanel lang={lang} symbol={selected} showToggle={false} />
             <MarketReportPanel lang={lang} />
             <CalendarPanel />
           </>
@@ -3966,7 +3899,6 @@ export default function DinoTerminal() {
           <>
             <MacroSignalPanel stocks={stocks} />
             <RatesDetailPanel stocks={stocks} />
-            <YieldCurvePanel stocks={stocks} />
             <BondETFPanel stocks={stocks} />
             <DollarFXPanel stocks={stocks} />
             <GlobalMarketsPanel stocks={stocks} />
