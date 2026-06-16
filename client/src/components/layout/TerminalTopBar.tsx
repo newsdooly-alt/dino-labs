@@ -1,11 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
-import { useState } from "react";
-import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BookOpen, Calendar, Trophy, DollarSign, Users, Wallet, Star } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BookOpen, Calendar, Trophy, DollarSign, Users, Wallet } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileMenu } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
+import { searchStockDatabase, getDisplayTicker, getExchangeLabel, type StockEntry } from "@/lib/stockDatabase";
+import { containsLocalized } from "@/lib/stockNames";
+import { AnimatePresence, motion } from "framer-motion";
 
 const TABS = [
   { label: "뉴스",    en: "News",      ja: "ニュース",  href: "/hot-issues",    icon: Newspaper,  highlight: true },
@@ -20,13 +23,28 @@ const TABS = [
   { label: "포트폴리오",en:"Portfolio",ja: "ポートフォリオ",href:"/portfolio",icon: Wallet },
 ];
 
+const EXCHANGE_COLORS: Record<string, string> = {
+  KOSPI:  "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  KOSDAQ: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  NASDAQ: "bg-primary/10 text-primary",
+  NYSE:   "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  AMEX:   "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  TSE:    "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+};
+
 export function TerminalTopBar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { data: user } = useUser();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const [suggestions, setSuggestions] = useState<StockEntry[]>([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const lang = (user?.language || "ko") as "ko" | "en" | "ja";
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function getTabLabel(tab: typeof TABS[0]) {
     if (lang === "en") return tab.en;
@@ -34,11 +52,66 @@ export function TerminalTopBar() {
     return tab.label;
   }
 
+  // Compute suggestions whenever searchVal changes
+  useEffect(() => {
+    const trimmed = searchVal.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      setDropdownOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+    const results = searchStockDatabase(trimmed, 8);
+    setSuggestions(results);
+    setDropdownOpen(results.length > 0);
+    setActiveIndex(-1);
+  }, [searchVal]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectSuggestion = useCallback((entry: StockEntry) => {
+    setSearchVal("");
+    setSuggestions([]);
+    setDropdownOpen(false);
+    setActiveIndex(-1);
+    navigate(`/terminal?symbol=${encodeURIComponent(entry.ticker)}`);
+  }, [navigate]);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    if (activeIndex >= 0 && suggestions[activeIndex]) {
+      selectSuggestion(suggestions[activeIndex]);
+      return;
+    }
     if (searchVal.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchVal.trim())}`;
+      navigate(`/search?q=${encodeURIComponent(searchVal.trim())}`);
       setSearchVal("");
+      setSuggestions([]);
+      setDropdownOpen(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!dropdownOpen || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex(i => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex(i => Math.max(i - 1, -1));
+    } else if (e.key === "Escape") {
+      setDropdownOpen(false);
+      setActiveIndex(-1);
     }
   }
 
@@ -87,18 +160,96 @@ export function TerminalTopBar() {
         {/* Spacer */}
         <div className="flex-1 min-w-0" />
 
-        {/* Search */}
-        <form onSubmit={handleSearch} className="flex items-center px-2.5 border-l border-border shrink-0">
-          <div className="relative flex items-center">
-            <Search className="w-3 h-3 absolute left-2 text-muted-foreground pointer-events-none" />
-            <input
-              value={searchVal}
-              onChange={e => setSearchVal(e.target.value)}
-              placeholder={lang === "ko" ? "종목... AAPL, 삼성" : lang === "ja" ? "銘柄..." : "Search..."}
-              className="h-6 pl-6 pr-2.5 text-[11px] rounded border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 w-36 placeholder:text-muted-foreground/50 transition-all"
-            />
-          </div>
-        </form>
+        {/* Search with autocomplete */}
+        <div ref={containerRef} className="flex items-center px-2.5 border-l border-border shrink-0 relative">
+          <form onSubmit={handleSearch} className="flex items-center">
+            <div className="relative flex items-center">
+              <Search className="w-3 h-3 absolute left-2 text-muted-foreground pointer-events-none" />
+              <input
+                ref={inputRef}
+                value={searchVal}
+                onChange={e => setSearchVal(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => {
+                  if (suggestions.length > 0) setDropdownOpen(true);
+                }}
+                placeholder={lang === "ko" ? "종목... AAPL, 삼성" : lang === "ja" ? "銘柄..." : "Search..."}
+                className="h-6 pl-6 pr-2.5 text-[11px] rounded border border-border bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 w-36 placeholder:text-muted-foreground/50 transition-all"
+                data-testid="input-topbar-search"
+                autoComplete="off"
+              />
+            </div>
+          </form>
+
+          {/* Autocomplete dropdown */}
+          <AnimatePresence>
+            {dropdownOpen && suggestions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.1 }}
+                className="absolute top-full right-0 mt-1 w-72 bg-card border border-border rounded-xl shadow-xl z-[200] overflow-hidden"
+                data-testid="search-autocomplete-dropdown"
+              >
+                {suggestions.map((entry, idx) => {
+                  const displayTicker = getDisplayTicker(entry.ticker);
+                  const exchangeLabel = getExchangeLabel(entry.ticker);
+                  const badgeColor = EXCHANGE_COLORS[exchangeLabel] ?? "bg-muted text-muted-foreground";
+                  const isActive = idx === activeIndex;
+
+                  return (
+                    <button
+                      key={entry.ticker}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        selectSuggestion(entry);
+                      }}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
+                        isActive ? "bg-primary/10" : "hover:bg-muted/60",
+                        idx < suggestions.length - 1 && "border-b border-border/40"
+                      )}
+                      data-testid={`autocomplete-result-${entry.ticker}`}
+                    >
+                      {/* Names column */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[12px] font-semibold text-foreground truncate">
+                            {lang === "ko" || lang === "ja" ? entry.ko : entry.en}
+                          </span>
+                        </div>
+                        {(lang === "ko" || lang === "ja") && (
+                          <p className="text-[10px] text-muted-foreground/60 truncate leading-tight">{entry.en}</p>
+                        )}
+                      </div>
+
+                      {/* Ticker + exchange */}
+                      <div className="flex flex-col items-end shrink-0 gap-0.5">
+                        <span className="text-[11px] font-mono font-bold text-foreground/80">{displayTicker}</span>
+                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold leading-none", badgeColor)}>
+                          {exchangeLabel}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* Footer hint */}
+                <div className="px-3 py-1.5 bg-muted/30 border-t border-border/40 flex items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground/50">
+                    {lang === "ko" ? "↑↓ 탐색  ↵ 선택  Esc 닫기" : "↑↓ navigate  ↵ select  Esc close"}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/50 ml-auto">
+                    {lang === "ko" ? "Enter: 전체 검색" : "Enter: full search"}
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* User stats */}
         <div className="flex items-center gap-2 px-2.5 border-l border-border shrink-0">
