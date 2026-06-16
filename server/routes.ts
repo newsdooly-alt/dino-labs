@@ -1585,6 +1585,119 @@ export async function registerRoutes(
     }
   });
 
+  // === Korean Market News (dedicated endpoint) ===
+  const KR_MARKET_TICKERS = ['^KS11', '005930.KS', '000660.KS', '035420.KS', '005380.KS', '035720.KS', '005490.KS'];
+  const KR_KEYWORDS = ['samsung','sk hynix','hyundai','naver','kakao','lg ','posco','kia','korea','korean','kospi','krx','seoul','kosdaq','한국','삼성','하이닉스','현대','카카오','네이버'];
+  let krMarketCache: any[] | null = null;
+  let krMarketCacheTime = 0;
+  const KR_MARKET_CACHE_DURATION = 5 * 60 * 1000;
+
+  async function addKoreanSummariesToItems(items: any[]): Promise<any[]> {
+    return Promise.all(items.map(async (item: any) => {
+      if (item.koreanSummary) return item;
+      try {
+        const r = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "You are a Korean financial news summarizer. Summarize this English headline in 1 sentence of natural Korean. Focus on the Korean company or market implication." },
+            { role: "user", content: `Headline: ${item.title}` }
+          ],
+          max_tokens: 100,
+        });
+        return { ...item, koreanSummary: r.choices[0]?.message?.content?.trim() || item.title };
+      } catch { return { ...item, koreanSummary: item.title }; }
+    }));
+  }
+
+  app.get("/api/news/korean-market", async (req, res) => {
+    const lang = (req.query.lang as string) || "ko";
+    const now = Date.now();
+    try {
+      if (!krMarketCache || (now - krMarketCacheTime) > KR_MARKET_CACHE_DURATION) {
+        console.log("[Korean Market News] Fetching from Korean tickers...");
+        const results = await Promise.all(
+          KR_MARKET_TICKERS.map(async (sym) => {
+            try {
+              const r = await fetch(`http://127.0.0.1:5001/news/${encodeURIComponent(sym)}?limit=10`, {
+                signal: AbortSignal.timeout(8000),
+              });
+              const d = await r.json();
+              const rawNews = d.news || [];
+              return rawNews.map((n: any) => ({ ...n, _krTicker: sym }));
+            } catch { return []; }
+          })
+        );
+        const merged = results.flat();
+        const seen = new Set<string>();
+        const deduped = merged.filter((n: any) => {
+          const key = n.link || n.title;
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          // Keep only items that mention Korean companies/market in the title
+          const titleLower = (n.title || "").toLowerCase();
+          return KR_KEYWORDS.some(kw => titleLower.includes(kw)) || n._krTicker === '^KS11';
+        });
+        deduped.sort((a: any, b: any) => (b.publishedAt || 0) - (a.publishedAt || 0));
+        krMarketCache = deduped.slice(0, 20);
+        krMarketCacheTime = now;
+        console.log(`[Korean Market News] Cached ${krMarketCache.length} filtered items`);
+      }
+      if (lang === "ko" && krMarketCache && krMarketCache.length > 0) {
+        const toSummarize = krMarketCache.slice(0, 8).filter((n: any) => !n.koreanSummary);
+        if (toSummarize.length > 0) {
+          const summarized = await addKoreanSummariesToItems(toSummarize);
+          const map = new Map(summarized.map((n: any) => [n.title, n]));
+          krMarketCache = krMarketCache.map((n: any) => map.get(n.title) || n);
+        }
+      }
+      res.json({ news: krMarketCache || [], source: "live" });
+    } catch (err: any) {
+      console.error("[Korean Market News] Error:", err.message);
+      res.json({ news: [], source: "error" });
+    }
+  });
+
+  // === FMP Analyst Research ===
+  const analystResearchCache = new Map<string, { data: any; time: number }>();
+  const ANALYST_CACHE_DURATION = 30 * 60 * 1000;
+
+  app.get("/api/stocks/analyst/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    const fmpKey = process.env.FMP_API_KEY;
+    const now = Date.now();
+    const cached = analystResearchCache.get(symbol);
+    if (cached && (now - cached.time) < ANALYST_CACHE_DURATION) return res.json(cached.data);
+
+    const isKorean = symbol.endsWith('.KS');
+    const isJapanese = symbol.endsWith('.T');
+    if (!fmpKey || isKorean || isJapanese) {
+      const result = { symbol, priceTargets: [], consensus: null, limited: true, market: isKorean ? 'KR' : isJapanese ? 'JP' : 'OTHER' };
+      analystResearchCache.set(symbol, { data: result, time: now });
+      return res.json(result);
+    }
+    try {
+      const [ptRes, recRes] = await Promise.all([
+        fetch(`https://financialmodelingprep.com/api/v3/price-target/${symbol}?limit=10&apikey=${fmpKey}`, { signal: AbortSignal.timeout(10000) }),
+        fetch(`https://financialmodelingprep.com/api/v3/analyst-stock-recommendations/${symbol}?limit=1&apikey=${fmpKey}`, { signal: AbortSignal.timeout(10000) }),
+      ]);
+      const priceTargets = ptRes.ok ? await ptRes.json() : [];
+      const recommendations = recRes.ok ? await recRes.json() : [];
+      const result = {
+        symbol,
+        priceTargets: Array.isArray(priceTargets) ? priceTargets.slice(0, 10) : [],
+        consensus: Array.isArray(recommendations) && recommendations.length > 0 ? recommendations[0] : null,
+        limited: false,
+      };
+      analystResearchCache.set(symbol, { data: result, time: now });
+      console.log(`[Analyst Research] ${symbol}: ${result.priceTargets.length} price targets fetched`);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Analyst Research] Error:", err.message);
+      const fallback = { symbol, priceTargets: [], consensus: null, limited: true };
+      res.json(fallback);
+    }
+  });
+
   // === Market News ===
   // Fallback news data when API fails (educational market trends)
   const fallbackNews = [

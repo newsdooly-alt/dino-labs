@@ -3136,24 +3136,12 @@ const KR_TICKERS = ["005930.KS","000660.KS","005380.KS","035420.KS","035720.KS"]
 
 function TodayReportsPanel({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?:string }) {
   const intlQuery = useNews(lang);
-  const krSym = symbol?.endsWith(".KS") ? symbol
-    : symbol?.endsWith(".T") ? null
-    : KR_TICKERS[0];
 
-  const krQuery   = useQuery<any>({
-    queryKey: ["/api/stocks/news", krSym ?? "005930.KS"],
-    queryFn: async () => {
-      const syms = krSym ? [krSym] : KR_TICKERS.slice(0, 2);
-      const results = await Promise.all(
-        syms.map(s => fetch(`/api/stocks/news/${encodeURIComponent(s)}`).then(r => r.ok ? r.json() : { news: [] }))
-      );
-      const merged = results.flatMap((r: any) => r.news ?? []);
-      const seen = new Set<string>();
-      return { news: merged.filter((n: any) => {
-        if (!n.title || seen.has(n.title)) return false;
-        seen.add(n.title); return true;
-      }) };
-    },
+  // Korean domestic reports: dedicated endpoint fetching from multiple KR tickers,
+  // filtered to only Korean company/market content
+  const krQuery = useQuery<any>({
+    queryKey: ["/api/news/korean-market", lang],
+    queryFn: () => fetch(`/api/news/korean-market?lang=${lang}`).then(r => r.json()),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -3293,27 +3281,69 @@ function TodayReportsPanel({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// STOCK REPORT PANEL  — company-specific research / news for fund tab
+// ANALYST RESEARCH PANEL  — FMP professional analyst reports (price targets,
+//   buy/hold/sell consensus) for the currently selected stock.
+//   For Korean / Japanese stocks: shows filtered domestic news instead.
 // ══════════════════════════════════════════════════════════════════════════════
 function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
-  const { data, isLoading, isError } = useStockNews(symbol);
-  const items: any[] = ((data as any)?.news || []).slice(0, 10);
-  const [expanded, setExpanded] = useState<number|null>(null);
-  const [summaries, setSummaries] = useState<Record<string,string>>({});
-  const [generating, setGenerating] = useState<string|null>(null);
+  const isKR = symbol.endsWith(".KS");
+  const isJP = symbol.endsWith(".T");
+  const isDomestic = isKR || isJP;
 
-  async function genSummary(key: string, title: string) {
-    if (summaries[key] || generating) return;
-    setGenerating(key);
-    try {
-      const res = await fetch("/api/news/summarize", {
-        method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ title, lang }),
-      });
-      const d = await res.json();
-      setSummaries(p => ({ ...p, [key]: d.summary || "" }));
-    } catch { setSummaries(p => ({ ...p, [key]: T("loadFail",lang) })); }
-    finally { setGenerating(null); }
+  // FMP analyst data (US stocks)
+  const analystQ = useQuery<any>({
+    queryKey: ["/api/stocks/analyst", symbol],
+    queryFn: () => fetch(`/api/stocks/analyst/${encodeURIComponent(symbol)}`).then(r => r.json()),
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !isDomestic,
+  });
+
+  // Filtered company news (Korean/Japanese stocks)
+  const { data: newsData, isLoading: newsLoading } = useStockNews(symbol);
+  const companyKeywords = symbol.replace(/\.KS|\.T/g, "").toLowerCase().split("").slice(0, 3).join("");
+
+  // For Korean stocks: filter yfinance news strictly to the company
+  const KR_COMPANY_MAP: Record<string, string[]> = {
+    "005930": ["samsung"], "000660": ["sk hynix","hynix"], "035420": ["naver"],
+    "005380": ["hyundai"], "035720": ["kakao"], "005490": ["posco"],
+    "000270": ["kia"], "068270": ["celltrion"], "051910": ["lg chem"],
+    "207940": ["samsung biologics","biologics"],
+  };
+  const baseCode = symbol.split(".")[0];
+  const krKeywords = KR_COMPANY_MAP[baseCode] || [baseCode.toLowerCase()];
+  const filteredKrNews: any[] = isDomestic
+    ? ((newsData as any)?.news || []).filter((n: any) => {
+        const t = (n.title || "").toLowerCase();
+        return krKeywords.some(kw => t.includes(kw));
+      }).slice(0, 8)
+    : [];
+
+  const priceTargets: any[] = analystQ.data?.priceTargets || [];
+  const consensus = analystQ.data?.consensus;
+  const limited = analystQ.data?.limited;
+  const isLoading = isDomestic ? newsLoading : analystQ.isLoading;
+
+  // Consensus bar
+  const buyN  = consensus ? (consensus.analystRatingStrongBuy || 0) + (consensus.analystRatingBuy || 0) : 0;
+  const holdN = consensus?.analystRatingHold || 0;
+  const sellN = consensus ? (consensus.analystRatingSell || 0) + (consensus.analystRatingStrongSell || 0) : 0;
+  const total = buyN + holdN + sellN;
+
+  function ratingColor(rating?: string) {
+    const r = (rating || "").toLowerCase();
+    if (r.includes("buy") || r.includes("outperform") || r.includes("overweight") || r.includes("strong buy")) return C.up;
+    if (r.includes("sell") || r.includes("underperform") || r.includes("underweight")) return C.down;
+    return C.warn;
+  }
+  function ratingLabel(rating?: string, l = lang) {
+    const r = (rating || "").toLowerCase();
+    if (l !== "ko") return rating || "—";
+    if (r.includes("strong buy")) return "강력매수";
+    if (r.includes("buy") || r.includes("outperform") || r.includes("overweight")) return "매수";
+    if (r.includes("sell") || r.includes("underperform") || r.includes("underweight")) return "매도";
+    if (r.includes("neutral") || r.includes("hold") || r.includes("market perform")) return "중립";
+    return rating || "—";
   }
 
   return (
@@ -3321,70 +3351,122 @@ function StockReportPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang
       <div className="px-2 py-1.5 border-b flex items-center justify-between"
         style={{ borderColor:C.border, background:C.header }}>
         <div className="flex items-center gap-1.5">
-          <FileText className="w-3 h-3" style={{ color:C.warn }} />
+          <BarChart2 className="w-3 h-3" style={{ color:C.info }} />
           <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
-            style={{ color:C.muted }}>{T("stockReport",lang)}</span>
+            style={{ color:C.muted }}>
+            {lang === "ko" ? "애널리스트 리서치" : "Analyst Research"}
+          </span>
         </div>
-        <StatusBadge isLoading={isLoading} isError={isError} isLive={items.length > 0} />
+        <StatusBadge isLoading={isLoading}
+          isError={!isDomestic && analystQ.isError}
+          isLive={isDomestic ? filteredKrNews.length > 0 : priceTargets.length > 0} />
       </div>
-      {isLoading
-        ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-        : isError || items.length === 0
-        ? <div className="px-2 py-2 text-[12px] font-mono" style={{ color:C.muted }}>{T("noData",lang)}</div>
-        : items.map((item:any, i:number) => {
-            const key = `sr-${i}`;
-            const isOpen = expanded === i;
-            const koSummary = item.koreanSummary as string | undefined;
-            const jaSummary = item.japaneseSummary as string | undefined;
-            const displayTitle = lang === "ko" && koSummary ? koSummary
-              : lang === "ja" && jaSummary ? jaSummary
-              : item.title;
-            const showOriginal = lang !== "en" && displayTitle !== item.title;
-            return (
-              <div key={i} className="border-b" style={{ borderColor:C.border+"40" }}>
-                <button className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
-                  onClick={() => { setExpanded(isOpen ? null : i); if (!isOpen) genSummary(key, item.title); }}>
-                  <div className="text-[12px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
-                    {displayTitle}
+
+      {isLoading ? (
+        Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
+      ) : isDomestic ? (
+        /* ── Korean / Japanese stocks: filtered company news ── */
+        filteredKrNews.length === 0 ? (
+          <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+            {lang === "ko" ? "해당 종목 관련 뉴스 없음" : "No news found for this symbol"}
+          </div>
+        ) : filteredKrNews.map((item:any, i:number) => {
+          const koSum = item.koreanSummary as string|undefined;
+          const displayTitle = lang === "ko" && koSum ? koSum : item.title;
+          return (
+            <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"40" }}>
+              <div className="text-[11px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
+                {displayTitle}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher||"—"}</span>
+                {item.publishedAt && (
+                  <span className="text-[10px] font-mono" style={{ color:C.muted }}>
+                    · {Math.round((Date.now()/1000 - item.publishedAt)/3600)}h
+                  </span>
+                )}
+              </div>
+              {item.link && (
+                <a href={item.link} target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] font-mono" style={{ color:C.info }}>↗ {lang==="ko"?"원문":"Source"}</a>
+              )}
+            </div>
+          );
+        })
+      ) : (
+        /* ── US stocks: FMP analyst reports ── */
+        limited || priceTargets.length === 0 ? (
+          <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>
+            {lang === "ko" ? "애널리스트 데이터 없음" : "No analyst data"}
+          </div>
+        ) : (
+          <>
+            {/* Consensus gauge */}
+            {consensus && total > 0 && (
+              <div className="px-2 py-1.5 border-b" style={{ borderColor:C.border+"40" }}>
+                <div className="text-[10px] font-mono mb-1" style={{ color:C.muted }}>
+                  {lang==="ko" ? `종합 의견 (${total}명)` : `Consensus (${total} analysts)`}
+                </div>
+                <div className="flex h-1.5 rounded overflow-hidden gap-px">
+                  {buyN  > 0 && <div style={{ flex:buyN,  background:C.up }}   />}
+                  {holdN > 0 && <div style={{ flex:holdN, background:C.warn }} />}
+                  {sellN > 0 && <div style={{ flex:sellN, background:C.down }} />}
+                </div>
+                <div className="flex gap-3 mt-0.5">
+                  <span className="text-[10px] font-mono" style={{ color:C.up   }}>{lang==="ko"?"매수":"Buy"} {buyN}</span>
+                  <span className="text-[10px] font-mono" style={{ color:C.warn }}>{lang==="ko"?"중립":"Hold"} {holdN}</span>
+                  <span className="text-[10px] font-mono" style={{ color:C.down }}>{lang==="ko"?"매도":"Sell"} {sellN}</span>
+                </div>
+              </div>
+            )}
+            {/* Individual analyst reports */}
+            {priceTargets.map((pt:any, i:number) => {
+              const dateStr = pt.publishedDate
+                ? new Date(pt.publishedDate).toLocaleDateString(lang==="ko" ? "ko-KR" : "en-US", { month:"short", day:"numeric" })
+                : "—";
+              return (
+                <div key={i} className="border-b px-2 py-1.5" style={{ borderColor:C.border+"40" }}>
+                  <div className="flex items-start justify-between gap-1 mb-0.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-mono font-bold truncate" style={{ color:C.text }}>
+                        {pt.analystCompany || "—"}
+                      </div>
+                      <div className="text-[10px] font-mono truncate" style={{ color:C.muted }}>
+                        {pt.analystName || "Analyst"}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[12px] font-mono font-bold" style={{ color:C.text }}>
+                        {pt.priceTarget ? `$${Number(pt.priceTarget).toFixed(0)}` : "—"}
+                      </div>
+                      <div className="text-[9px] font-mono" style={{ color:C.muted }}>{dateStr}</div>
+                    </div>
                   </div>
-                  {showOriginal && (
-                    <div className="text-[10px] font-mono leading-snug mb-0.5 line-clamp-1" style={{ color:C.muted }}>
-                      {item.title}
+                  {pt.newsTitle && (
+                    <div className="text-[10px] font-mono leading-snug line-clamp-2 mb-0.5" style={{ color:C.muted }}>
+                      {pt.newsTitle}
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher||"—"}</span>
-                    {item.publishedAt && (
-                      <span className="text-[10px] font-mono" style={{ color:C.muted }}>
-                        · {Math.round((Date.now()/1000 - item.publishedAt)/3600)}h
+                  <div className="flex items-center gap-2">
+                    {pt.newsTitle && (
+                      <span className="text-[9px] font-mono px-1 py-px rounded font-bold"
+                        style={{ background: ratingColor(pt.newsTitle)+"20", color: ratingColor(pt.newsTitle) }}>
+                        {ratingLabel(pt.newsTitle.match(/\b(Strong Buy|Buy|Outperform|Overweight|Hold|Neutral|Market Perform|Underperform|Underweight|Sell)\b/i)?.[1], lang)}
                       </span>
                     )}
-                  </div>
-                </button>
-                {isOpen && (
-                  <div className="px-2 pb-2 space-y-1.5">
-                    {summaries[key] ? (
-                      <div className="rounded p-1.5" style={{ background:C.info+"15", border:`1px solid ${C.info}30` }}>
-                        <span className="text-[10px] font-mono font-bold" style={{ color:C.info }}>AI▸ </span>
-                        <span className="text-[12px] font-mono" style={{ color:C.text }}>{summaries[key]}</span>
-                      </div>
-                    ) : generating === key ? (
-                      <div className="text-[11px] font-mono flex items-center gap-1" style={{ color:C.muted }}>
-                        <Loader2 className="w-3 h-3 animate-spin" /> {T("loading",lang)}
-                      </div>
-                    ) : null}
-                    {item.link && (
-                      <a href={item.link} target="_blank" rel="noopener noreferrer"
-                        className="text-[11px] font-mono" style={{ color:C.info }}>
-                        {T("readMore",lang)} ↗
+                    {pt.newsURL && (
+                      <a href={pt.newsURL} target="_blank" rel="noopener noreferrer"
+                        className="text-[9px] font-mono" style={{ color:C.info }}>
+                        ↗ {lang==="ko" ? "원문" : "Source"}
                       </a>
                     )}
                   </div>
-                )}
-              </div>
-            );
-          })
-      }
+                </div>
+              );
+            })}
+          </>
+        )
+      )}
     </div>
   );
 }
