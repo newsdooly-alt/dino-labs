@@ -739,7 +739,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/portfolio/holdings", async (req: any, res) => {
-    const userId = getUserId(req);
+    const userId = getUserId(req) || "guest";
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const schema = z.object({
       symbol: z.string().min(1).max(20).transform(s => s.toUpperCase()),
@@ -756,7 +756,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/portfolio/holdings/:id", async (req: any, res) => {
-    const userId = getUserId(req);
+    const userId = getUserId(req) || "guest";
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const id = Number(req.params.id);
     const schema = z.object({
@@ -776,7 +776,7 @@ export async function registerRoutes(
   });
 
   app.delete("/api/portfolio/holdings/:id", async (req: any, res) => {
-    const userId = getUserId(req);
+    const userId = getUserId(req) || "guest";
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const id = Number(req.params.id);
     await storage.deletePortfolioHolding(id, userId);
