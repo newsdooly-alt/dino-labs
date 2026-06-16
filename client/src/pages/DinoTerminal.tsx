@@ -761,9 +761,9 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
         </button>
       </div>
       {/* Header */}
-      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 56px 40px 28px" }}>
+      <div className="grid px-2 py-1" style={{ gridTemplateColumns:"1fr 54px 44px 34px" }}>
         {["TICKER","LAST","CHG%","VOL"].map(h => (
-          <span key={h} className="text-[11px] font-mono uppercase text-right first:text-left"
+          <span key={h} className="text-[10px] font-mono uppercase text-right first:text-left"
             style={{ color: C.muted }}>{h}</span>
         ))}
       </div>
@@ -778,7 +778,7 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
               <button key={sym} onClick={() => onSelect(sym)}
                 className="w-full grid px-2 py-0.5 text-right transition-all"
                 style={{
-                  gridTemplateColumns:"1fr 56px 40px 28px",
+                  gridTemplateColumns:"1fr 54px 44px 34px",
                   background: sel ? "#1a2d42" : "transparent",
                   borderLeft:`2px solid ${sel ? C.info : "transparent"}`,
                 }}>
@@ -789,14 +789,14 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
                     const ticker = sym.replace(".KS","").replace("^","").replace("=F","").replace("=X","");
                     return isKR && koName ? (
                       <>
-                        <div className="text-[12px] font-mono font-bold leading-tight truncate"
+                        <div className="text-[11px] font-mono font-bold leading-tight truncate"
                           style={{ color: sel ? C.info : C.text }}>{koName}</div>
                         <div className="text-[10px] font-mono leading-tight truncate"
                           style={{ color: C.muted }}>{ticker}</div>
                       </>
                     ) : (
                       <>
-                        <div className="text-[12px] font-mono font-bold leading-tight truncate"
+                        <div className="text-[11px] font-mono font-bold leading-tight truncate"
                           style={{ color: sel ? C.info : C.text }}>{ticker}</div>
                         {koName && <div className="text-[10px] font-mono truncate leading-tight"
                           style={{ color: C.muted }}>{koName}</div>}
@@ -804,14 +804,14 @@ function WatchGrid({ stocks, onSelect, selected, isLoading, watchSyms, watchName
                     );
                   })()}
                 </div>
-                <div className="text-[12px] font-mono min-w-0 overflow-hidden truncate" style={{ color: C.text }}>
+                <div className="text-[11px] font-mono min-w-0 overflow-hidden truncate text-right" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : <span style={{ color: C.muted }}>—</span>}
                 </div>
-                <div className={cn("text-[12px] font-mono font-bold min-w-0 overflow-hidden truncate",
+                <div className={cn("text-[11px] font-mono font-bold min-w-0 overflow-hidden truncate text-right",
                   q ? (up ? "text-[#00c896]" : "text-[#ff4757]") : "")}>
                   {q ? fmtPct(q.changePercent) : <span style={{ color: C.muted }}>—</span>}
                 </div>
-                <div className="text-[11px] font-mono overflow-hidden truncate" style={{ color: C.muted }}>
+                <div className="text-[10px] font-mono overflow-hidden truncate text-right" style={{ color: C.muted }}>
                   {q ? fmtVol(q.volume) : "—"}
                 </div>
               </button>
@@ -964,7 +964,7 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
                 <div className="text-[12px] font-mono font-bold truncate"
                   style={{ color: C.text }}>{ticker}</div>
                 <div className="text-[10px] font-mono truncate"
-                  style={{ color: C.muted }}>{(item.name||"").slice(0,15)}</div>
+                  style={{ color: C.muted }}>{item.name||""}</div>
               </div>
               <div className="text-right ml-1 shrink-0">
                 <div className="text-[12px] font-mono font-bold"
@@ -1073,12 +1073,12 @@ function CryptoMiniPanel({ stocks }: { stocks: Record<string,any> }) {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
           return (
-            <div key={sym} className="p-1.5 flex flex-col" style={{ background: C.panel2 }}>
-              <span className="text-[11px] font-mono" style={{ color: C.muted }}>{emoji} {label}</span>
-              <span className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
+            <div key={sym} className="p-1.5 flex flex-col min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+              <span className="text-[11px] font-mono truncate" style={{ color: C.muted }}>{emoji} {label}</span>
+              <span className="text-[12px] font-mono font-bold truncate" style={{ color: C.text }}>
                 {q ? `$${q.price >= 1000 ? q.price.toLocaleString(undefined,{maximumFractionDigits:0}) : q.price.toFixed(q.price < 1 ? 4 : 2)}` : "—"}
               </span>
-              <span className="text-[12px] font-mono font-bold" style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+              <span className="text-[11px] font-mono font-bold truncate" style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </span>
             </div>
@@ -1163,9 +1163,9 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
           return (
-            <div key={sym} className="p-1.5" style={{ background: C.panel2 }}>
-              <div className="text-[11px] font-mono" style={{ color: C.muted }}>{flag} {label}</div>
-              <div className="text-[12px] font-mono font-bold"
+            <div key={sym} className="p-1.5 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+              <div className="text-[11px] font-mono truncate" style={{ color: C.muted }}>{flag} {label}</div>
+              <div className="text-[12px] font-mono font-bold truncate"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </div>
@@ -1676,42 +1676,46 @@ const WORLD_INDICES = [
   { sym:"^HSI",   label:"HSI",      flag:"🇭🇰" },
 ];
 
+function fmtGlobalPrice(v: number|undefined, sym: string): string {
+  if (v == null) return "—";
+  if (v >= 10000) return Math.round(v).toLocaleString();
+  if (v >= 1000)  return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (v >= 100)   return v.toFixed(1);
+  return v.toFixed(2);
+}
+
 function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
   return (
     <div className="p-3 border-t" style={{ borderColor:C.border }}>
       <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color:C.muted }}>GLOBAL MARKETS</div>
-      <table className="w-full" style={{ borderCollapse:"collapse" }}>
-        <thead>
-          <tr>
-            <td className="text-[10px] font-mono pb-1" style={{ color:C.muted }}>INDEX</td>
-            <td className="text-[10px] font-mono pb-1 text-right" style={{ color:C.muted }}>LAST</td>
-            <td className="text-[10px] font-mono pb-1 text-right" style={{ color:C.muted }}>CHG%</td>
-          </tr>
-        </thead>
-        <tbody>
-          {WORLD_INDICES.map(({ sym, label, flag }) => {
-            const q  = stocks[sym];
-            const up = isUp(q?.changePercent);
-            return (
-              <tr key={sym} className="border-t" style={{ borderColor:C.border+"40" }}>
-                <td className="py-0.5">
-                  <span className="text-[12px] font-mono" style={{ color:C.muted }}>
-                    {flag} {label}
-                  </span>
-                </td>
-                <td className="text-right text-[12px] font-mono" style={{ color:C.text }}>
-                  {q ? fmtPrice(q.price, sym) : "—"}
-                </td>
-                <td className="text-right text-[12px] font-mono font-bold"
-                  style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
-                  {q ? fmtPct(q.changePercent) : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {/* Header */}
+      <div className="grid mb-0.5" style={{ gridTemplateColumns:"1fr 40px 40px" }}>
+        <span className="text-[10px] font-mono" style={{ color:C.muted }}>INDEX</span>
+        <span className="text-[10px] font-mono text-right" style={{ color:C.muted }}>LAST</span>
+        <span className="text-[10px] font-mono text-right" style={{ color:C.muted }}>CHG%</span>
+      </div>
+      {WORLD_INDICES.map(({ sym, label, flag }) => {
+        const q  = stocks[sym];
+        const up = isUp(q?.changePercent);
+        return (
+          <div key={sym} className="grid border-t py-0.5"
+            style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr 40px 40px" }}>
+            <div className="min-w-0 overflow-hidden">
+              <span className="text-[10px] font-mono truncate block" style={{ color:C.muted }}>
+                {flag} {label}
+              </span>
+            </div>
+            <div className="text-right text-[10px] font-mono truncate overflow-hidden" style={{ color:C.text }}>
+              {q ? fmtGlobalPrice(q.price, sym) : "—"}
+            </div>
+            <div className="text-right text-[10px] font-mono font-bold truncate overflow-hidden"
+              style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
+              {q ? fmtPct(q.changePercent) : "—"}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1827,11 +1831,11 @@ function MacroSignalPanel({ stocks }: { stocks: Record<string,any> }) {
         style={{ color: C.muted }}>거시 신호 · MACRO SIGNALS</div>
       <div className="grid grid-cols-2 gap-1">
         {signals.map(s => (
-          <div key={s.label} className="rounded px-2 py-1.5"
+          <div key={s.label} className="rounded px-2 py-1.5 min-w-0 overflow-hidden"
             style={{ background: C.panel2, border: `1px solid ${s.color}30` }}>
-            <div className="text-[10px] font-mono mb-0.5" style={{ color: C.muted }}>{s.label}</div>
-            <div className="text-[13px] font-mono font-black" style={{ color: s.color }}>{s.value}</div>
-            <div className="text-[10px] font-mono mt-0.5" style={{ color: s.color + "cc" }}>{s.sub}</div>
+            <div className="text-[10px] font-mono mb-0.5 truncate" style={{ color: C.muted }}>{s.label}</div>
+            <div className="text-[12px] font-mono font-black truncate" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: s.color + "cc" }}>{s.sub}</div>
           </div>
         ))}
       </div>
@@ -1868,17 +1872,16 @@ function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
         const q   = stocks[sym];
         const pct = q?.changePercent as number|undefined;
         const up  = (pct ?? 0) >= 0;
-        // 상대 스케일: 최대값이 85%를 채우도록
         const barW = pct != null ? Math.min((Math.abs(pct) / maxPct) * 85, 100) : 0;
         return (
-          <div key={sym} className="grid gap-1 py-1 border-t"
-            style={{ borderColor: C.border + "30", gridTemplateColumns:"36px 1fr 48px 46px" }}>
+          <div key={sym} className="grid gap-0.5 py-1 border-t"
+            style={{ borderColor: C.border + "30", gridTemplateColumns:"34px 1fr 50px 46px" }}>
             {/* 티커 */}
-            <span className="text-[12px] font-mono font-bold self-center" style={{ color: C.info }}>{label}</span>
+            <span className="text-[11px] font-mono font-bold self-center" style={{ color: C.info }}>{label}</span>
             {/* 한글명 + 바 */}
-            <div className="flex flex-col justify-center gap-0.5 min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-mono truncate" style={{ color: C.muted }}>{ko}</span>
+            <div className="flex flex-col justify-center gap-0.5 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-0.5 min-w-0">
+                <span className="text-[10px] font-mono truncate min-w-0" style={{ color: C.muted }}>{ko}</span>
                 <span className="text-[9px] font-mono shrink-0 px-0.5 rounded"
                   style={{ background: C.border, color: C.muted + "aa" }}>{note}</span>
               </div>
@@ -1888,12 +1891,12 @@ function BondETFPanel({ stocks }: { stocks: Record<string,any> }) {
               </div>
             </div>
             {/* 등락률 */}
-            <span className="text-[12px] font-mono font-bold text-right self-center"
+            <span className="text-[11px] font-mono font-bold text-right self-center truncate overflow-hidden"
               style={{ color: pct != null ? (up ? C.up : C.down) : C.muted }}>
               {pct != null ? `${up?"+":""}${pct.toFixed(2)}%` : "—"}
             </span>
             {/* 가격 */}
-            <span className="text-[12px] font-mono text-right self-center" style={{ color: C.text }}>
+            <span className="text-[11px] font-mono text-right self-center truncate overflow-hidden" style={{ color: C.text }}>
               {q?.price != null ? `$${q.price.toFixed(2)}` : "—"}
             </span>
           </div>
@@ -2097,9 +2100,9 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
           { label:"3M-10Y 스프레드", val:bellyCurve, inv: bellyCurve != null && bellyCurve < 0 },
           { label:"10Y-30Y 기간프리미엄", val:termPremium, inv:false },
         ].map(({ label, val, inv }) => (
-          <div key={label} className="px-1.5 py-1" style={{ background: C.panel2 }}>
-            <div className="text-[10px] font-mono" style={{ color: C.muted }}>{label}</div>
-            <div className="text-[14px] font-mono font-bold"
+          <div key={label} className="px-1.5 py-1 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+            <div className="text-[10px] font-mono truncate" style={{ color: C.muted }}>{label}</div>
+            <div className="text-[13px] font-mono font-bold truncate"
               style={{ color: val != null ? (inv ? C.down : val >= 0 ? C.up : C.down) : C.muted }}>
               {val != null ? `${val >= 0 ? "+" : ""}${val}%` : "—"}
             </div>
@@ -2114,25 +2117,25 @@ function RatesDetailPanel({ stocks }: { stocks: Record<string,any> }) {
       {(skew != null || vix != null) && (
         <div className="mt-1.5 grid grid-cols-2 gap-px" style={{ background: C.border }}>
           {skew != null && (
-            <div className="px-1.5 py-1" style={{ background: C.panel2 }}>
-              <div className="text-[10px] font-mono" style={{ color: C.muted }}>SKEW 지수</div>
-              <div className="text-[14px] font-mono font-bold"
+            <div className="px-1.5 py-1 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+              <div className="text-[10px] font-mono truncate" style={{ color: C.muted }}>SKEW 지수</div>
+              <div className="text-[13px] font-mono font-bold truncate"
                 style={{ color: skew > 140 ? C.down : skew > 120 ? C.warn : C.up }}>
                 {skew.toFixed(1)}
               </div>
-              <div className="text-[10px] font-mono" style={{ color: C.muted }}>
+              <div className="text-[10px] font-mono truncate" style={{ color: C.muted }}>
                 {skew > 140 ? "테일 리스크↑" : skew > 120 ? "주의" : "낮음"}
               </div>
             </div>
           )}
           {vix != null && skew != null && (
-            <div className="px-1.5 py-1" style={{ background: C.panel2 }}>
-              <div className="text-[10px] font-mono" style={{ color: C.muted }}>SKEW/VIX 비율</div>
-              <div className="text-[14px] font-mono font-bold"
+            <div className="px-1.5 py-1 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+              <div className="text-[10px] font-mono truncate" style={{ color: C.muted }}>SKEW/VIX비율</div>
+              <div className="text-[13px] font-mono font-bold truncate"
                 style={{ color: (skew/vix) > 8 ? C.down : C.up }}>
                 {(skew/vix).toFixed(1)}×
               </div>
-              <div className="text-[10px] font-mono" style={{ color: C.muted }}>
+              <div className="text-[10px] font-mono truncate" style={{ color: C.muted }}>
                 {(skew/vix) > 8 ? "꼬리위험 내재" : "정상 범위"}
               </div>
             </div>
@@ -2227,10 +2230,10 @@ function FundamentalsPanel({ symbol, quote, lang = "ko" as Lang }: { symbol:stri
         </div>
       ) : (
         rows.map(([l, v]) => (
-          <div key={l} className="flex items-center justify-between px-2 py-1 border-b"
+          <div key={l} className="flex items-center justify-between px-2 py-1 border-b overflow-hidden"
             style={{ borderColor:C.border+"40" }}>
-            <span className="text-[12px] font-mono" style={{ color:C.muted }}>{l}</span>
-            <span className="text-[13px] font-mono font-bold" style={{ color:C.text }}>{v}</span>
+            <span className="text-[12px] font-mono shrink-0 mr-1" style={{ color:C.muted }}>{l}</span>
+            <span className="text-[12px] font-mono font-bold truncate text-right min-w-0" style={{ color:C.text }}>{v}</span>
           </div>
         ))
       )}
@@ -3660,20 +3663,19 @@ function MacroPanel({ stocks }: { stocks: Record<string,any> }) {
           const price = q?.price;
           const pct = q?.changePercent;
           const up = (pct ?? 0) >= 0;
-          // VIX is inverse (higher = more fear = bad)
           const clr = price != null
             ? (sym === "^VIX" ? (up ? C.down : C.up) : (up ? C.up : C.down))
             : C.muted;
           return (
-            <div key={sym} className="px-1.5 py-1.5" style={{ background:C.panel2 }}>
+            <div key={sym} className="px-1.5 py-1.5 min-w-0 overflow-hidden" style={{ background:C.panel2 }}>
               <div className="text-[10px] font-mono truncate" style={{ color:C.muted }}>{label}</div>
-              <div className="text-[14px] font-mono font-bold" style={{ color: clr }}>
+              <div className="text-[12px] font-mono font-bold truncate" style={{ color: clr }}>
                 {price != null
                   ? `${unit === "$" ? "$" : ""}${price.toFixed(toFix)}${unit === "%" ? "%" : ""}`
                   : "—"}
               </div>
               {pct != null && (
-                <div className="text-[11px] font-mono" style={{ color: clr }}>
+                <div className="text-[10px] font-mono truncate" style={{ color: clr }}>
                   {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
                 </div>
               )}
