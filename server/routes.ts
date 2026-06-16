@@ -738,7 +738,7 @@ export async function registerRoutes(
     res.json(holdings);
   });
 
-  app.post("/api/portfolio/holdings", isAuthenticated, async (req: any, res) => {
+  app.post("/api/portfolio/holdings", async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const schema = z.object({
@@ -755,7 +755,7 @@ export async function registerRoutes(
     res.status(201).json(holding);
   });
 
-  app.patch("/api/portfolio/holdings/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/portfolio/holdings/:id", async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const id = Number(req.params.id);
@@ -775,7 +775,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/portfolio/holdings/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/portfolio/holdings/:id", async (req: any, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const id = Number(req.params.id);

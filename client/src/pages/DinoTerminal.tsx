@@ -9,6 +9,7 @@ import {
   searchByKoreanAlias,
   getLocalizedCompanyName,
 } from "@/lib/stockNames";
+import { searchStockDatabase } from "@/lib/stockDatabase";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ComposedChart, ReferenceLine, CartesianGrid,
@@ -3463,27 +3464,38 @@ function SymbolSearch({ onSelect, stocks = {} }: {
     if (!q) {
       return QUICK_SYMS_BY_TAB[scanTab].map(t => {
         const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
-        return { ticker: t, name: a?.ko || a?.en || t };
+        const db = searchStockDatabase(t.replace(/\.(KS|T|KQ)$/i,""), 1)[0];
+        return { ticker: t, name: a?.ko || db?.ko || a?.en || db?.en || t };
       });
     }
     if (containsKorean(q)) {
-      return searchByKoreanAlias(q).slice(0, 10).map(a => ({ ticker: a.ticker, name: a.ko }));
+      // Search BOTH Korean aliases AND stock database for comprehensive KR results
+      const aliasHits = searchByKoreanAlias(q).map(a => ({ ticker: a.ticker, name: a.ko }));
+      const dbHits = searchStockDatabase(q, 15).map(s => ({ ticker: s.ticker, name: s.ko }));
+      const seen = new Set(aliasHits.map(r => r.ticker));
+      const merged = [...aliasHits, ...dbHits.filter(r => !seen.has(r.ticker))];
+      return merged.slice(0, 15);
     }
     const up = q.toUpperCase();
-    // Search across ALL tabs when query is active
+    // Search stock database first (comprehensive coverage)
+    const dbHits = searchStockDatabase(q, 12).map(s => ({
+      ticker: s.ticker, name: s.ko || s.en
+    }));
+    const dbTickers = new Set(dbHits.map(r => r.ticker));
+    // Also check QUICK_SYMS for tabs
     const allSyms = Object.values(QUICK_SYMS_BY_TAB).flat();
-    const tickerHits = allSyms.filter(s => s.startsWith(up));
+    const tickerHits = allSyms
+      .filter(s => s.toUpperCase().startsWith(up) && !dbTickers.has(s))
+      .slice(0, 5)
+      .map(t => {
+        const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
+        return { ticker: t, name: a?.ko || a?.en || t };
+      });
     const nameHits = KOREAN_STOCK_ALIASES
-      .filter(a =>
-        a.en.toLowerCase().includes(q.toLowerCase()) &&
-        !tickerHits.includes(a.ticker)
-      )
-      .slice(0, 6)
-      .map(a => a.ticker);
-    return Array.from(new Set([...tickerHits, ...nameHits])).slice(0, 9).map(t => {
-      const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
-      return { ticker: t, name: a?.ko || a?.en || t };
-    });
+      .filter(a => a.en.toLowerCase().includes(q.toLowerCase()) && !dbTickers.has(a.ticker) && !tickerHits.find(x => x.ticker === a.ticker))
+      .slice(0, 4)
+      .map(a => ({ ticker: a.ticker, name: a.ko }));
+    return [...dbHits, ...tickerHits, ...nameHits].slice(0, 15);
   }, [query, scanTab]);
 
   // Merge static + live, deduplicate
