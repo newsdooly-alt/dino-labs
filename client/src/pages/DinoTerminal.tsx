@@ -3133,156 +3133,6 @@ function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════
-// ANALYST RESEARCH PANEL — placeholder start (TodayReportsPanel removed)
-// ══════════════════════════════════════════════════════════════════════════════
-function _TodayReportsPanelRemoved({ lang = "ko" as Lang, symbol }: { lang:Lang; symbol?:string }) {
-  const intlQuery = useNews(lang);
-
-  // Korean domestic reports: dedicated endpoint fetching from multiple KR tickers,
-  // filtered to only Korean company/market content
-  const krQuery = useQuery<any>({
-    queryKey: ["/api/news/korean-market", lang],
-    queryFn: () => fetch(`/api/news/korean-market?lang=${lang}`).then(r => r.json()),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
-
-  const intlItems: any[] = (() => {
-    const raw: any = intlQuery.data;
-    return (Array.isArray(raw) ? raw : Array.isArray(raw?.news) ? raw.news : []).slice(0, 8);
-  })();
-  const krItems: any[] = ((krQuery.data as any)?.news || []).slice(0, 6);
-
-  const [expandedIntl, setExpandedIntl] = useState<number|null>(null);
-  const [expandedKr,   setExpandedKr]   = useState<number|null>(null);
-  const [summaries, setSummaries] = useState<Record<string,string>>({});
-  const [generating, setGenerating] = useState<string|null>(null);
-
-  async function genSummary(key: string, title: string) {
-    if (summaries[key] || generating) return;
-    setGenerating(key);
-    try {
-      const res = await fetch("/api/news/summarize", {
-        method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ title, lang }),
-      });
-      const d = await res.json();
-      setSummaries(p => ({ ...p, [key]: d.summary || "" }));
-    } catch { setSummaries(p => ({ ...p, [key]: "요약 실패" })); }
-    finally { setGenerating(null); }
-  }
-
-  function ReportItem({ item, idx, section, expanded, setExpanded }: {
-    item:any; idx:number; section:string; expanded:number|null; setExpanded:(n:number|null)=>void
-  }) {
-    const key = `${section}-${idx}`;
-    const isOpen = expanded === idx;
-    const koSummary = item.koreanSummary as string | undefined;
-    const jaSummary = item.japaneseSummary as string | undefined;
-    const displayTitle = lang === "ko" && koSummary ? koSummary
-      : lang === "ja" && jaSummary ? jaSummary
-      : item.title;
-    const showOriginal = lang !== "en" && displayTitle !== item.title;
-    return (
-      <div className="border-b" style={{ borderColor:C.border+"40" }}>
-        <button className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
-          onClick={() => {
-            setExpanded(isOpen ? null : idx);
-            if (!isOpen) genSummary(key, item.title);
-          }}>
-          <div className="text-[12px] font-mono leading-snug mb-0.5" style={{ color:C.text }}>
-            {displayTitle}
-          </div>
-          {showOriginal && (
-            <div className="text-[10px] font-mono leading-snug mb-0.5 line-clamp-1" style={{ color:C.muted }}>
-              {item.title}
-            </div>
-          )}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono" style={{ color:C.muted }}>{item.publisher || "—"}</span>
-            {item.publishedAt && (
-              <span className="text-[10px] font-mono" style={{ color:C.muted }}>
-                · {Math.round((Date.now()/1000 - item.publishedAt)/3600)}h
-              </span>
-            )}
-          </div>
-        </button>
-        {isOpen && (
-          <div className="px-2 pb-2 space-y-1.5">
-            {summaries[key] ? (
-              <div className="rounded p-1.5" style={{ background:C.info+"15", border:`1px solid ${C.info}30` }}>
-                <span className="text-[10px] font-mono font-bold" style={{ color:C.info }}>AI▸ </span>
-                <span className="text-[12px] font-mono" style={{ color:C.text }}>{summaries[key]}</span>
-              </div>
-            ) : generating === key ? (
-              <div className="text-[11px] font-mono flex items-center gap-1" style={{ color:C.muted }}>
-                <Loader2 className="w-3 h-3 animate-spin" /> {T("loading", lang)}
-              </div>
-            ) : null}
-            {item.link && (
-              <a href={item.link} target="_blank" rel="noopener noreferrer"
-                className="text-[11px] font-mono" style={{ color:C.info }}>
-                {T("readMore", lang)} ↗
-              </a>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="border-b" style={{ borderColor:C.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between"
-        style={{ borderColor:C.border, background:C.header }}>
-        <div className="flex items-center gap-1.5">
-          <FileText className="w-3 h-3" style={{ color:C.warn }} />
-          <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
-            style={{ color:C.muted }}>{T("todayReports",lang)}</span>
-        </div>
-        <StatusBadge isLoading={intlQuery.isLoading || krQuery.isLoading}
-          isError={intlQuery.isError} isLive={intlItems.length > 0} />
-      </div>
-
-      {/* Korean Reports */}
-      <div className="px-2 py-1 border-b" style={{ borderColor:C.border+"60", background:C.panel2+"80" }}>
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] font-mono font-bold" style={{ color:C.up }}>🇰🇷</span>
-          <span className="text-[11px] font-mono font-bold" style={{ color:C.muted }}>{T("domesticReport",lang)}</span>
-        </div>
-      </div>
-      {krQuery.isLoading
-        ? Array.from({length:3}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-        : krItems.length === 0
-        ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>{T("noData",lang)}</div>
-        : krItems.map((item,i) => (
-            <ReportItem key={i} item={item} idx={i} section="kr"
-              expanded={expandedKr} setExpanded={setExpandedKr} />
-          ))
-      }
-
-      {/* International Reports */}
-      <div className="px-2 py-1 border-b border-t mt-1" style={{ borderColor:C.border+"60", background:C.panel2+"80" }}>
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] font-mono font-bold" style={{ color:C.info }}>🌐</span>
-          <span className="text-[11px] font-mono font-bold" style={{ color:C.muted }}>{T("intlReport",lang)}</span>
-        </div>
-      </div>
-      {intlQuery.isLoading
-        ? Array.from({length:4}).map((_,i) => <SkeletonRow key={i} cols={2}/>)
-        : intlItems.length === 0
-        ? <div className="px-2 py-2 text-[11px] font-mono" style={{ color:C.muted }}>{T("noData",lang)}</div>
-        : intlItems.map((item,i) => (
-            <ReportItem key={i} item={item} idx={i} section="intl"
-              expanded={expandedIntl} setExpanded={setExpandedIntl} />
-          ))
-      }
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════════════════════
 // ANALYST RESEARCH PANEL
 //   US/JP stocks: yfinance consensus + upgrades/downgrades (via Python service)
 //   KR stocks: Naver Finance domestic research reports (primary) +
@@ -3561,7 +3411,23 @@ function QuestBar() {
 // ══════════════════════════════════════════════════════════════════════════════
 // SYMBOL SEARCH  — supports Korean names + English names + tickers
 // ══════════════════════════════════════════════════════════════════════════════
-const QUICK_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META","005930.KS","^KS11","BTC-USD","GOOGL","QQQ","SPY"];
+type ScanTab = "US" | "KR" | "JP" | "EU";
+const QUICK_SYMS_BY_TAB: Record<ScanTab, string[]> = {
+  US: ["AAPL","NVDA","TSLA","MSFT","AMZN","META","GOOGL","QQQ","SPY","AMD","INTC",
+       "JPM","NFLX","V","MA","BAC","XOM","LLY","BRK-B","WMT"],
+  KR: ["005930.KS","000660.KS","035420.KS","035720.KS","005380.KS","207940.KS",
+       "068270.KS","373220.KS","051910.KS","034020.KS","030200.KS","000270.KS",
+       "086790.KS","011200.KS","032830.KS","078930.KS","033780.KS","003550.KS",
+       "009150.KS","028260.KS"],
+  JP: ["7203.T","6758.T","9984.T","8306.T","9983.T","6861.T","4568.T","8035.T",
+       "6954.T","4063.T","6367.T","6501.T","6098.T","4502.T","7974.T","8316.T",
+       "4519.T","7751.T","6752.T","3382.T"],
+  EU: ["ASML.AS","SAP.DE","SIE.DE","MC.PA","NESN.SW","ROG.SW","NOVN.SW","SHEL.L",
+       "AZN.L","NVO","AIR.PA","BMW.DE","RACE","BHP","OR.PA","BAYN.DE","MBG.DE",
+       "ALV.DE","IBE.MC","ITX.MC"],
+};
+
+const SCAN_TAB_FLAGS: Record<ScanTab, string> = { US:"🇺🇸", KR:"🇰🇷", JP:"🇯🇵", EU:"🇪🇺" };
 
 function SymbolSearch({ onSelect, stocks = {} }: {
   onSelect:(s:string)=>void;
@@ -3570,6 +3436,7 @@ function SymbolSearch({ onSelect, stocks = {} }: {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [scanTab, setScanTab] = useState<ScanTab>("US");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(query.trim()), 400);
@@ -3581,10 +3448,12 @@ function SymbolSearch({ onSelect, stocks = {} }: {
     debouncedQ.length >= 2 && !containsKorean(debouncedQ) ? debouncedQ : ""
   );
 
+  const QUICK_SYMS = QUICK_SYMS_BY_TAB[scanTab];
+
   const staticResults: {ticker:string; name:string}[] = useMemo(() => {
     const q = query.trim();
     if (!q) {
-      return QUICK_SYMS.map(t => {
+      return QUICK_SYMS_BY_TAB[scanTab].map(t => {
         const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
         return { ticker: t, name: a?.ko || a?.en || t };
       });
@@ -3593,7 +3462,9 @@ function SymbolSearch({ onSelect, stocks = {} }: {
       return searchByKoreanAlias(q).slice(0, 10).map(a => ({ ticker: a.ticker, name: a.ko }));
     }
     const up = q.toUpperCase();
-    const tickerHits = QUICK_SYMS.filter(s => s.startsWith(up));
+    // Search across ALL tabs when query is active
+    const allSyms = Object.values(QUICK_SYMS_BY_TAB).flat();
+    const tickerHits = allSyms.filter(s => s.startsWith(up));
     const nameHits = KOREAN_STOCK_ALIASES
       .filter(a =>
         a.en.toLowerCase().includes(q.toLowerCase()) &&
@@ -3605,7 +3476,7 @@ function SymbolSearch({ onSelect, stocks = {} }: {
       const a = KOREAN_STOCK_ALIASES.find(x => x.ticker === t);
       return { ticker: t, name: a?.ko || a?.en || t };
     });
-  }, [query]);
+  }, [query, scanTab]);
 
   // Merge static + live, deduplicate
   const results: {ticker:string; name:string; isLive?:boolean}[] = useMemo(() => {
@@ -3644,33 +3515,52 @@ function SymbolSearch({ onSelect, stocks = {} }: {
             style={{ color:C.text, caretColor:C.info }} />
         </div>
       </form>
-      {focused && results.length > 0 && (
-        <div className="absolute top-full left-0 z-50 rounded shadow-xl mt-1 py-1 min-w-[220px]"
+      {focused && (
+        <div className="absolute top-full left-0 z-50 rounded shadow-xl mt-1 min-w-[240px]"
           style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-          {results.map(({ ticker, name }) => {
-            const q = stocks[ticker];
-            const up = isUp(q?.changePercent);
-            return (
-              <button key={ticker}
-                onMouseDown={() => { onSelect(ticker); setQuery(""); setFocused(false); }}
-                className="flex items-center justify-between w-full px-3 py-1.5 hover:bg-[#1a2d42]">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[13px] font-mono font-bold shrink-0" style={{ color:C.info }}>
-                    {ticker.endsWith(".KS") && name ? name : ticker.replace(".KS","").replace("^","")}
-                  </span>
-                  <span className="text-[12px] font-mono truncate" style={{ color:C.muted }}>
-                    {ticker.endsWith(".KS") && name ? ticker.replace(".KS","") : name}
-                  </span>
-                </div>
-                {q?.changePercent != null && (
-                  <span className={cn("text-[12px] font-mono font-bold shrink-0 ml-2",
-                    up ? "text-[#00c896]" : "text-[#ff4757]")}>
-                    {fmtPct(q.changePercent)}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {/* Country tabs — shown only when no active query */}
+          {!query.trim() && (
+            <div className="flex border-b" style={{ borderColor:C.border }}>
+              {(["US","KR","JP","EU"] as ScanTab[]).map(tab => (
+                <button key={tab}
+                  onMouseDown={e => { e.preventDefault(); setScanTab(tab); }}
+                  className="flex-1 py-1 text-[11px] font-mono font-bold transition-colors"
+                  style={{
+                    color: scanTab === tab ? C.info : C.muted,
+                    background: scanTab === tab ? C.info+"18" : "transparent",
+                    borderBottom: scanTab === tab ? `2px solid ${C.info}` : "2px solid transparent",
+                  }}>
+                  {SCAN_TAB_FLAGS[tab]} {tab}
+                </button>
+              ))}
+            </div>
+          )}
+          {results.length === 0
+            ? <div className="px-3 py-2 text-[11px] font-mono" style={{ color:C.muted }}>결과 없음</div>
+            : results.map(({ ticker, name }) => {
+              const q = stocks[ticker];
+              const up = isUp(q?.changePercent);
+              return (
+                <button key={ticker}
+                  onMouseDown={() => { onSelect(ticker); setQuery(""); setFocused(false); }}
+                  className="flex items-center justify-between w-full px-3 py-1.5 hover:bg-[#1a2d42]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[13px] font-mono font-bold shrink-0" style={{ color:C.info }}>
+                      {ticker.endsWith(".KS") && name ? name : ticker.replace(".KS","").replace("^","")}
+                    </span>
+                    <span className="text-[12px] font-mono truncate" style={{ color:C.muted }}>
+                      {ticker.endsWith(".KS") && name ? ticker.replace(".KS","") : name}
+                    </span>
+                  </div>
+                  {q?.changePercent != null && (
+                    <span className={cn("text-[12px] font-mono font-bold shrink-0 ml-2",
+                      up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                      {fmtPct(q.changePercent)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
         </div>
       )}
     </div>
