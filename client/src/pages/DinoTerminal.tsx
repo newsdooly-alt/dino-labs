@@ -2450,6 +2450,10 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
         const itemKey = `${mode}-${i}`;
         const isOpen = expanded === i;
         const inlineSummary = getInlineSummary(item);
+        // For 국내시장 tab in Korean, promote Korean summary to primary title
+        const isKrRegion = region === "kr" && lang === "ko";
+        const primaryTitle = isKrRegion && inlineSummary ? inlineSummary : item.title;
+        const secondaryTitle = isKrRegion && inlineSummary ? item.title : null;
         const genLang = (generating?.key === itemKey) ? generating.lang : null;
         return (
           <div key={itemKey} className="border-b" style={{ borderColor:C.border+"40" }}>
@@ -2463,11 +2467,16 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
                 {i===0 ? "HOT" : String(i+1).padStart(2,"0")}
               </span>
               <div className="flex-1 min-w-0">
-                {/* Show title in original language */}
+                {/* Primary title: Korean summary for 국내시장, English otherwise */}
                 <div className="text-[13px] font-mono leading-snug line-clamp-2"
-                  style={{ color:C.text }}>{item.title}</div>
-                {/* Show inline summary in user's language when collapsed */}
-                {inlineSummary && !isOpen && (
+                  style={{ color:C.text }}>{primaryTitle}</div>
+                {/* Secondary: English title shown small when Korean summary is primary */}
+                {secondaryTitle && !isOpen && (
+                  <div className="text-[11px] font-mono leading-snug mt-0.5 line-clamp-1"
+                    style={{ color:C.muted }}>{secondaryTitle}</div>
+                )}
+                {/* Show inline summary for non-kr region when collapsed */}
+                {!isKrRegion && inlineSummary && !isOpen && (
                   <div className="text-[12px] font-mono leading-snug mt-0.5 line-clamp-1"
                     style={{ color:C.muted }}>
                     {lang === "ko" ? "🇰🇷" : lang === "ja" ? "🇯🇵" : "🇺🇸"} {inlineSummary}

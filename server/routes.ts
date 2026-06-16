@@ -1731,7 +1731,7 @@ export async function registerRoutes(
         console.log(`[Korean Market News] Cached ${krMarketCache.length} filtered items`);
       }
       if (lang === "ko" && krMarketCache && krMarketCache.length > 0) {
-        const toSummarize = krMarketCache.slice(0, 8).filter((n: any) => !n.koreanSummary);
+        const toSummarize = krMarketCache.slice(0, 20).filter((n: any) => !n.koreanSummary);
         if (toSummarize.length > 0) {
           const summarized = await addKoreanSummariesToItems(toSummarize);
           const map = new Map(summarized.map((n: any) => [n.title, n]));
