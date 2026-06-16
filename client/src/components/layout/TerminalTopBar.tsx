@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useState } from "react";
-import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BarChart2, Calendar, Trophy, DollarSign, Users, Wallet, Star } from "lucide-react";
+import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BookOpen, Calendar, Trophy, DollarSign, Users, Wallet, Star } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileMenu } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,7 @@ const TABS = [
   { label: "뉴스",    en: "News",      ja: "ニュース",  href: "/hot-issues",    icon: Newspaper,  highlight: true },
   { label: "터미널",  en: "Terminal",  ja: "端末",      href: "/terminal",      icon: Terminal },
   { label: "시장",    en: "Market",    ja: "市場",      href: "/market-trends", icon: TrendingUp },
-  { label: "차트",    en: "Chart",     ja: "チャート",  href: "/pro",           icon: BarChart2 },
+  { label: "차트공부", en: "Chart Study", ja: "チャート学習", href: "/chart-master", icon: BookOpen },
   { label: "캘린더",  en: "Calendar",  ja: "カレンダー",href: "/calendar",      icon: Calendar },
   { label: "실적",    en: "Earnings",  ja: "決算",      href: "/earnings",      icon: DollarSign },
   { label: "투자자",  en: "Investors", ja: "投資家",    href: "/investors",     icon: Users },

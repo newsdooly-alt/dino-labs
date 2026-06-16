@@ -7,6 +7,7 @@ import {
   KOREAN_STOCK_ALIASES,
   containsKorean,
   searchByKoreanAlias,
+  getLocalizedCompanyName,
 } from "@/lib/stockNames";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -3088,7 +3089,8 @@ function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }
           {/* Peer rows */}
           {peers.slice(0, 8).map((p:any) => {
             const isMain = p.symbol === symbol;
-            const up = (p.priceChange ?? 0) >= 0;
+            const locName = getLocalizedCompanyName(p.name || p.symbol, lang);
+            const displayName = locName || p.name || p.symbol;
             return (
               <div key={p.symbol} className="grid px-2 py-0.5"
                 style={{
@@ -3098,6 +3100,9 @@ function PeerPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }
                 }}>
                 <div className="min-w-0">
                   <div className="text-[11px] font-mono font-bold truncate" style={{ color: isMain ? C.info : C.text }}>
+                    {displayName.length > 14 ? displayName.slice(0, 14) + "…" : displayName}
+                  </div>
+                  <div className="text-[9px] font-mono truncate" style={{ color:C.muted }}>
                     {p.symbol}
                   </div>
                 </div>
