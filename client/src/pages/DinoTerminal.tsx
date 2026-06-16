@@ -284,7 +284,7 @@ function useNews(lang: Lang = "ko") {
 }
 
 function useKoreanMarketNews(lang: Lang = "ko") {
-  return useQuery<any[]>({
+  const { data, ...rest } = useQuery<any[]>({
     queryKey: ["/api/news/korean-market", lang],
     queryFn: async () => {
       const res = await fetch(`/api/news/korean-market?lang=${lang}`);
@@ -292,10 +292,16 @@ function useKoreanMarketNews(lang: Lang = "ko") {
       const d = await res.json();
       return Array.isArray(d) ? d : (d?.news || []);
     },
-    staleTime: 300_000,
-    refetchInterval: 600_000,
+    staleTime: 5_000,
+    // Refetch every 12s so background-generated Korean summaries appear quickly
+    refetchInterval: (query) => {
+      const items: any[] = query.state.data ?? [];
+      const missingCount = items.filter((n: any) => !n.koreanSummary).length;
+      return missingCount > 0 ? 12_000 : 300_000;
+    },
     retry: 1,
   });
+  return { data, ...rest };
 }
 
 /** Economic calendar */

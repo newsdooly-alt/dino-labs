@@ -1721,7 +1721,6 @@ export async function registerRoutes(
           const key = n.link || n.title;
           if (!key || seen.has(key)) return false;
           seen.add(key);
-          // Keep only items that mention Korean companies/market in the title
           const titleLower = (n.title || "").toLowerCase();
           return KR_KEYWORDS.some(kw => titleLower.includes(kw)) || n._krTicker === '^KS11';
         });
@@ -1730,12 +1729,15 @@ export async function registerRoutes(
         krMarketCacheTime = now;
         console.log(`[Korean Market News] Cached ${krMarketCache.length} filtered items`);
       }
+      // Synchronously summarize ALL missing items in parallel (runs once per cache period)
       if (lang === "ko" && krMarketCache && krMarketCache.length > 0) {
-        const toSummarize = krMarketCache.slice(0, 20).filter((n: any) => !n.koreanSummary);
+        const toSummarize = krMarketCache.filter((n: any) => !n.koreanSummary);
         if (toSummarize.length > 0) {
+          console.log(`[Korean Market News] Summarizing ${toSummarize.length} items...`);
           const summarized = await addKoreanSummariesToItems(toSummarize);
           const map = new Map(summarized.map((n: any) => [n.title, n]));
           krMarketCache = krMarketCache.map((n: any) => map.get(n.title) || n);
+          console.log(`[Korean Market News] Done summarizing ${toSummarize.length} items`);
         }
       }
       res.json({ news: krMarketCache || [], source: "live" });
