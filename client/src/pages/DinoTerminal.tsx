@@ -1038,16 +1038,22 @@ const HEATMAP_SECTORS: { s: string; sKo: string; w: number; syms: string[] }[] =
 const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms); // 64 symbols
 
 function heatColor(pct: number | undefined): string {
-  if (pct == null) return "#1e2d3c";
-  if (pct <= -4)   return "#6b0000";
-  if (pct <= -2)   return "#9e0000";
-  if (pct <= -1)   return "#c62828";
-  if (pct <= -0.3) return "#8b3030";
-  if (Math.abs(pct) <= 0.3) return "#1a2b3c";
-  if (pct <= 1)    return "#1a5c38";
-  if (pct <= 2)    return "#1e7c42";
-  if (pct <= 4)    return "#22a04a";
-  return "#166534";
+  // Finviz-accurate color scale: dark red → neutral dark → vivid green
+  if (pct == null) return "#1c2c3c";
+  if (pct <= -9)   return "#6b0000";
+  if (pct <= -7)   return "#8a0000";
+  if (pct <= -5)   return "#a80000";
+  if (pct <= -3)   return "#c40000";
+  if (pct <= -2)   return "#cc2020";
+  if (pct <= -1)   return "#c44040";
+  if (pct <= -0.5) return "#7a3535";
+  if (pct <  0.5)  return "#1c2c3c";
+  if (pct <  1)    return "#1a5c28";
+  if (pct <  2)    return "#1e7a34";
+  if (pct <  3)    return "#229840";
+  if (pct <  5)    return "#26be50";
+  if (pct <  7)    return "#2ada60";
+  return "#00e870";
 }
 
 function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
@@ -3920,12 +3926,11 @@ export default function DinoTerminal() {
           <CryptoMiniPanel stocks={stocks} />
           <RatesMiniPanel stocks={stocks} />
           <SectorMap />
-          <MarketHeatmap onSelect={selectSym} />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
             watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
         </div>
 
-        {/* ▌COL 2 (flex) — Chart + TechEngine + MacroPanel ▐ */}
+        {/* ▌COL 2 (flex) — Chart + Heatmap + TechEngine + MacroPanel ▐ */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <SymbolHeader symbol={selected} quote={quote} />
 
@@ -3953,6 +3958,9 @@ export default function DinoTerminal() {
             <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
               prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
           </div>
+
+          {/* Heatmap — below chart, above tech engine */}
+          <MarketHeatmap onSelect={selectSym} />
 
           {/* Scrollable: TechEngine + PeerPanel + Macro rates */}
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
@@ -4043,13 +4051,13 @@ export default function DinoTerminal() {
         {mTab === "market" && (
           <>
             <MarketPulseWidget liveStocks={stocks} />
+            <MarketHeatmap onSelect={sym => { selectSym(sym); setMTab("chart"); }} />
             <MarketMoversPanel onSelect={selectSym} />
             <VolumePulsePanel />
             <GlobalMiniPanel stocks={stocks} />
             <CryptoMiniPanel stocks={stocks} />
             <RatesMiniPanel stocks={stocks} />
             <SectorMap />
-            <MarketHeatmap onSelect={sym => { selectSym(sym); setMTab("chart"); }} />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
               watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
           </>

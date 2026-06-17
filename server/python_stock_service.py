@@ -2912,42 +2912,63 @@ def screener_trending():
     if cached and (_t.time() - cached["ts"]) < _SCREENER_TTL:
         return jsonify(cached["data"])
     try:
-        # Step 1: get trending symbols
-        url = "https://query1.finance.yahoo.com/v1/finance/trending/US?count=30&useQuotes=true"
+        # Yahoo Finance trending sidebar widget endpoint
+        url = "https://query1.finance.yahoo.com/v1/finance/trending/US?count=25"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        resp = _req.get(url, headers=headers, timeout=12)
+        resp = _req.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
-        result = resp.json().get("finance", {}).get("result", [{}])[0]
-        # useQuotes=true sometimes includes full quote data
-        quotes_inline = result.get("quotes", [])
-        symbols = [q.get("symbol") or q for q in (result.get("quotes") or result.get("result") or []) if q]
-        if quotes_inline and isinstance(quotes_inline[0], dict) and quotes_inline[0].get("regularMarketPrice"):
-            data = [_parse_screener_quote(q) for q in quotes_inline if isinstance(q, dict) and q.get("symbol")]
-        else:
-            # Symbols only — batch-fetch quotes via yfinance
-            sym_list = [s if isinstance(s, str) else s.get("symbol","") for s in symbols if s][:30]
-            sym_list = [s for s in sym_list if s]
-            if not sym_list:
-                return jsonify([])
-            tickers = yf.Tickers(" ".join(sym_list))
-            data = []
-            for sym in sym_list:
-                try:
-                    info = tickers.tickers[sym].fast_info
-                    data.append({
-                        "symbol": sym,
-                        "name": sym,
-                        "price": getattr(info, "last_price", 0) or 0,
-                        "changePercent": round(((getattr(info, "last_price", 0) or 0) / max(getattr(info, "previous_close", 1) or 1, 0.01) - 1) * 100, 2),
-                        "change": round((getattr(info, "last_price", 0) or 0) - (getattr(info, "previous_close", 0) or 0), 2),
-                        "volume": getattr(info, "three_month_average_volume", 0) or 0,
-                        "avgVolume": getattr(info, "three_month_average_volume", 0) or 0,
-                        "volumeRatio": 1.0,
-                        "marketCap": None,
-                        "isPenny": (getattr(info, "last_price", 0) or 0) < 5,
-                    })
-                except Exception:
-                    pass
+        results = resp.json().get("finance", {}).get("result", [])
+        raw = results[0].get("quotes", []) if results else []
+
+        # Extract symbols — items may be dicts with "symbol" or plain strings
+        symbols = []
+        for item in raw:
+            sym = item.get("symbol", "") if isinstance(item, dict) else str(item)
+            if sym and sym not in symbols:
+                symbols.append(sym)
+        symbols = symbols[:25]
+
+        if not symbols:
+            return jsonify([])
+
+        # Batch-fetch live quotes using yfinance fast_info (parallel)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _fetch_trending_quote(sym):
+            try:
+                fi = yf.Ticker(sym).fast_info
+                price  = float(getattr(fi, "last_price",     0) or 0)
+                prev   = float(getattr(fi, "previous_close", price) or price)
+                vol    = int(getattr(fi,   "last_volume",    0) or 0)
+                avg3m  = int(getattr(fi,   "three_month_average_volume", 0) or 0)
+                chg_pct = round((price / max(prev, 0.01) - 1) * 100, 2) if prev else 0
+                return {
+                    "symbol":        sym,
+                    "name":          sym,
+                    "price":         price,
+                    "changePercent": chg_pct,
+                    "change":        round(price - prev, 2),
+                    "volume":        vol,
+                    "avgVolume":     avg3m,
+                    "volumeRatio":   round(vol / max(avg3m, 1), 2),
+                    "marketCap":     None,
+                    "isPenny":       price < 5,
+                }
+            except Exception:
+                return None
+
+        data = []
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            futures = {ex.submit(_fetch_trending_quote, s): s for s in symbols}
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    data.append(result)
+
+        # Preserve original trending order
+        order = {s: i for i, s in enumerate(symbols)}
+        data.sort(key=lambda x: order.get(x["symbol"], 99))
+
         print(f"[Screener] trending: {len(data)} results")
         _screener_cache[cache_key] = {"data": data, "ts": _t.time()}
         return jsonify(data)
