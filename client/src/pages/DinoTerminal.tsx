@@ -1019,60 +1019,60 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
 // Layout rule: flex = cols  →  all cells equal size, sector width ∝ market cap
 // Each sector always has exactly 4 rows (syms.length / cols = 4)
 // ══════════════════════════════════════════════════════════════════════════════
-const HEATMAP_SECTORS: { s: string; sKo: string; cols: number; syms: string[] }[] = [
-  // Technology — 4 cols × 4 rows = 16 stocks (S&P largest sector ~32% weight)
-  { s: "Technology", sKo: "기술", cols: 4,
+const HEATMAP_SECTORS: { s: string; sKo: string; sKoShort: string; cols: number; syms: string[] }[] = [
+  // Technology — 4 cols × 4 rows = 16 stocks
+  { s: "Technology", sKo: "기술", sKoShort: "기술", cols: 4,
     syms: ["AAPL","MSFT","NVDA","AVGO",
            "ORCL","AMD","QCOM","TXN",
            "INTC","IBM","AMAT","NOW",
            "MU","CRM","ADBE","INTU"] },
   // Communication Services — 3 cols × 4 rows = 12 stocks
-  { s: "Comm. Svc", sKo: "통신서비스", cols: 3,
+  { s: "Comm. Svc", sKo: "통신서비스", sKoShort: "통신", cols: 3,
     syms: ["GOOGL","META","NFLX",
            "DIS","VZ","T",
            "CMCSA","TMUS","EA",
            "WBD","TTWO","PARA"] },
   // Consumer Discretionary — 3 cols × 4 rows = 12 stocks
-  { s: "Cons. Disc.", sKo: "경기소비재", cols: 3,
+  { s: "Cons. Disc.", sKo: "경기소비재", sKoShort: "소비재", cols: 3,
     syms: ["AMZN","TSLA","HD",
            "MCD","NKE","LOW",
            "SBUX","TGT","BKNG",
            "ABNB","GM","F"] },
   // Financials — 3 cols × 4 rows = 12 stocks
-  { s: "Financials", sKo: "금융", cols: 3,
+  { s: "Financials", sKo: "금융", sKoShort: "금융", cols: 3,
     syms: ["JPM","V","MA",
            "BAC","WFC","GS",
            "MS","C","AXP",
            "BLK","SCHW","SPGI"] },
   // Healthcare — 2 cols × 4 rows = 8 stocks
-  { s: "Healthcare", sKo: "헬스케어", cols: 2,
+  { s: "Healthcare", sKo: "헬스케어", sKoShort: "헬스", cols: 2,
     syms: ["LLY","UNH",
            "ABBV","JNJ",
            "MRK","PFE",
            "ISRG","TMO"] },
   // Industrials — 2 cols × 4 rows = 8 stocks
-  { s: "Industrials", sKo: "산업재", cols: 2,
+  { s: "Industrials", sKo: "산업재", sKoShort: "산업", cols: 2,
     syms: ["CAT","GE",
            "BA","HON",
            "UNP","RTX",
            "DE","LMT"] },
   // Consumer Staples — 1 col × 4 rows = 4 stocks
-  { s: "Staples", sKo: "필수소비재", cols: 1,
+  { s: "Staples", sKo: "필수소비재", sKoShort: "필수", cols: 1,
     syms: ["WMT","PG","KO","COST"] },
   // Energy — 1 col × 4 rows = 4 stocks
-  { s: "Energy", sKo: "에너지", cols: 1,
+  { s: "Energy", sKo: "에너지", sKoShort: "에너지", cols: 1,
     syms: ["XOM","CVX","COP","SLB"] },
   // Real Estate — 1 col × 4 rows = 4 stocks
-  { s: "Real Est.", sKo: "부동산", cols: 1,
+  { s: "Real Est.", sKo: "부동산", sKoShort: "부동산", cols: 1,
     syms: ["PLD","AMT","EQIX","SPG"] },
   // Utilities — 1 col × 4 rows = 4 stocks
-  { s: "Utilities", sKo: "유틸리티", cols: 1,
+  { s: "Utilities", sKo: "유틸리티", sKoShort: "유틸", cols: 1,
     syms: ["NEE","DUK","SO","AEP"] },
   // Materials — 1 col × 4 rows = 4 stocks
-  { s: "Materials", sKo: "소재", cols: 1,
+  { s: "Materials", sKo: "소재", sKoShort: "소재", cols: 1,
     syms: ["LIN","SHW","APD","FCX"] },
 ];
-// Total: 22 flex-units, 88 symbols, all sectors exactly 4 rows tall
+// Total: 22 flex-units, 88 symbols, 4 rows each sector
 const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms);
 
 function heatColor(pct: number | undefined): string {
@@ -1095,7 +1095,6 @@ function heatColor(pct: number | undefined): string {
 }
 
 function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
-  // Mobile: 2 rows per sector; Desktop: 4 rows per sector
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.innerWidth < 640
   );
@@ -1124,10 +1123,20 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  // On mobile show only the top 2 rows (cols×2 symbols); desktop shows all 4 rows
-  const displaySectors = isMobile
-    ? HEATMAP_SECTORS.map(sec => ({ ...sec, syms: sec.syms.slice(0, sec.cols * 2) }))
-    : HEATMAP_SECTORS;
+  // Mobile: 3 rows per sector (66 stocks); Desktop: 4 rows (88 stocks)
+  const rows = isMobile ? 3 : 4;
+  const displaySectors = HEATMAP_SECTORS.map(sec => ({
+    ...sec,
+    syms: sec.syms.slice(0, sec.cols * rows),
+    label: isMobile ? sec.sKoShort : sec.sKo,
+  }));
+
+  // Cell sizing: on mobile cells are ~17px wide, keep height close to width for squarish look
+  const cellH = isMobile ? 24 : 30;
+  // Font sizes scale with cell
+  const tickerFs = isMobile ? 7 : 9;
+  const pctFs    = isMobile ? 6 : 7;
+  const hdrFs    = isMobile ? 7 : 9;
 
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
@@ -1139,8 +1148,8 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
         {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
 
-      {/* flex grow=cols, shrink=cols → sectors scale proportionally; all cells stay equal width
-          minWidth:0 on containers prevents grid/flex blowout from long ticker text */}
+      {/* flex grow=shrink=cols → proportional widths, all cells equal size.
+          minmax(0,1fr) grid tracks prevent cell blowout from ticker text width. */}
       <div style={{ display: "flex", gap: 1, background: C.border, padding: 1 }}>
         {displaySectors.map(sec => (
           <div key={sec.s} style={{
@@ -1148,16 +1157,18 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
             minWidth: 0,
             display: "flex", flexDirection: "column", gap: 1,
           }}>
+            {/* Sector header — sKoShort on mobile prevents clipping */}
             <div style={{
               background: "#07111c", color: C.muted,
-              textAlign: "center", padding: "2px 0",
-              fontSize: 8, fontFamily: "monospace", fontWeight: 700,
-              textTransform: "uppercase", overflow: "hidden",
-              whiteSpace: "nowrap", letterSpacing: "0.02em",
+              textAlign: "center", padding: "2px 1px",
+              fontSize: hdrFs, fontFamily: "monospace", fontWeight: 700,
+              textTransform: "uppercase",
+              overflow: "hidden", whiteSpace: "nowrap",
             }}>
-              {sec.sKo}
+              {sec.label}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${sec.cols}, 1fr)`, gap: 1 }}>
+            {/* minmax(0,1fr): each track capped to proportional share, no blowout */}
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${sec.cols}, minmax(0,1fr))`, gap: 1 }}>
               {sec.syms.map(sym => {
                 const pct = quotes[sym]?.changePercent as number | undefined;
                 const isPos = pct != null && pct > 0.3;
@@ -1166,10 +1177,9 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
                   <button key={sym} type="button"
                     onClick={() => onSelect?.(sym)}
                     style={{
-                      minHeight: isMobile ? 30 : 26,
-                      minWidth: 0,
-                      overflow: "hidden",
-                      padding: "2px 0",
+                      height: cellH,
+                      width: "100%",
+                      padding: 0,
                       background: heatColor(pct),
                       border: "none",
                       cursor: "pointer",
@@ -1177,21 +1187,31 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
+                      gap: 0,
                       transition: "filter 0.1s",
+                      overflow: "hidden",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.3)")}
                     onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
                     <span style={{
-                      fontSize: 8, fontWeight: 700, color: "#fff",
-                      fontFamily: "monospace", lineHeight: 1.1,
-                      overflow: "hidden", maxWidth: "100%",
-                      display: "block", textOverflow: "clip",
+                      fontSize: tickerFs,
+                      fontWeight: 700,
+                      color: "#fff",
+                      fontFamily: "monospace",
+                      lineHeight: 1,
+                      letterSpacing: isMobile ? "-0.3px" : "0",
+                      display: "block",
+                      whiteSpace: "nowrap",
                     }}>
                       {sym}
                     </span>
                     <span style={{
-                      fontSize: 7, fontFamily: "monospace", lineHeight: 1.1,
-                      overflow: "hidden", maxWidth: "100%", display: "block",
+                      fontSize: pctFs,
+                      fontFamily: "monospace",
+                      lineHeight: 1,
+                      letterSpacing: isMobile ? "-0.2px" : "0",
+                      display: "block",
+                      whiteSpace: "nowrap",
                       color: isPos ? "#a7f3d0" : isNeg ? "#fecaca" : "rgba(255,255,255,0.5)",
                     }}>
                       {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
