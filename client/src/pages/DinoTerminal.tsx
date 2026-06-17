@@ -898,7 +898,7 @@ function SectorMap() {
 // ══════════════════════════════════════════════════════════════════════════════
 // MARKET MOVERS PANEL  — 급상승/급하락/거래량/거래대금
 // ══════════════════════════════════════════════════════════════════════════════
-type MoverTab = "vol"|"value"|"up"|"down";
+type MoverTab = "vol"|"value"|"up"|"down"|"trend";
 function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
   const [tab, setTab] = useState<MoverTab>("vol");
 
@@ -914,24 +914,30 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
     queryKey: ["/api/market/actives"],
     staleTime: 3 * 60 * 1000,
   });
+  const { data: trending = [], isLoading: tLd } = useQuery<any[]>({
+    queryKey: ["/api/market/trending"],
+    staleTime: 5 * 60 * 1000,
+  });
 
   const byVol = [...actives].sort((a, b) => (b.volume || 0) - (a.volume || 0));
   const byValue = [...actives]
     .filter(a => a.volume > 0 && a.price > 0)
     .sort((a, b) => (b.price * b.volume) - (a.price * a.volume));
 
-  const rows: any[] = tab === "up"    ? gainers.slice(0, 10)
-    : tab === "down"  ? losers.slice(0, 10)
-    : tab === "vol"   ? byVol.slice(0, 10)
-    : byValue.slice(0, 10);
+  const rows: any[] = tab === "up"    ? gainers.slice(0, 15)
+    : tab === "down"  ? losers.slice(0, 15)
+    : tab === "vol"   ? byVol.slice(0, 15)
+    : tab === "trend" ? trending.slice(0, 15)
+    : byValue.slice(0, 15);
 
-  const isLd = tab === "up" ? gLd : tab === "down" ? lLd : aLd;
+  const isLd = tab === "up" ? gLd : tab === "down" ? lLd : tab === "trend" ? tLd : aLd;
 
   const TABS: { id: MoverTab; ko: string; color: string }[] = [
     { id:"vol",   ko:"거래량",  color: C.info },
     { id:"value", ko:"거래대금", color: C.warn },
     { id:"up",    ko:"급상승",  color: C.up },
     { id:"down",  ko:"급하락",  color: C.down },
+    { id:"trend", ko:"트렌딩",  color: "#a78bfa" },
   ];
 
   return (

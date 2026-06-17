@@ -968,6 +968,11 @@ export async function registerRoutes(
     catch { res.json([]); }
   });
 
+  app.get("/api/market/trending", async (req, res) => {
+    try { res.json(await fetchPyRanking("trending")); }
+    catch { res.json([]); }
+  });
+
   app.get("/api/market/volume-pulse", async (req, res) => {
     try {
       const r = await fetch("http://127.0.0.1:5001/market/volume-pulse", { signal: AbortSignal.timeout(12000) });

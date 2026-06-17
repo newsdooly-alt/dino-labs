@@ -2843,104 +2843,117 @@ def get_economic_actuals():
 # ── Yahoo Finance Screener (Gainers / Losers / Most Active) ──────────
 _screener_cache: dict = {}
 _SCREENER_TTL = 300  # 5 minutes
+_SCREENER_COUNT = 250  # Yahoo Finance allows up to 250 per request
 
-def _fetch_yf_screener(scr_id: str, count: int = 100) -> list:
-    """Fetch a predefined Yahoo Finance screener list. Returns list of dicts."""
-    import time as _t
-    import requests as _req
-    cache_key = f"{scr_id}:{count}"
-    cached = _screener_cache.get(cache_key)
+def _parse_screener_quote(q: dict) -> dict:
+    avg_vol = int(q.get("averageDailyVolume3Month", 0) or q.get("averageDailyVolume10Day", 0) or 1)
+    vol = int(q.get("regularMarketVolume", 0) or 0)
+    return {
+        "symbol":        q.get("symbol", ""),
+        "name":          q.get("longName") or q.get("shortName") or q.get("symbol", ""),
+        "price":         q.get("regularMarketPrice", 0),
+        "changePercent": q.get("regularMarketChangePercent", 0),
+        "change":        q.get("regularMarketChange", 0),
+        "marketCap":     q.get("marketCap", None),
+        "volume":        vol,
+        "avgVolume":     avg_vol,
+        "volumeRatio":   round(vol / max(avg_vol, 1), 2),
+        "isPenny":       (q.get("regularMarketPrice", 0) or 0) < 5.0,
+    }
+
+def _fetch_yf_screener(scr_id: str) -> list:
+    """Fetch a Yahoo Finance predefined screener — same data shown on finance.yahoo.com/markets/stocks/"""
+    import time as _t, requests as _req
+    cached = _screener_cache.get(scr_id)
     if cached and (_t.time() - cached["ts"]) < _SCREENER_TTL:
         return cached["data"]
     url = (
         "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
-        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count={count}"
+        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count={_SCREENER_COUNT}"
     )
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        resp = _req.get(url, headers=headers, timeout=10)
+        resp = _req.get(url, headers=headers, timeout=12)
         resp.raise_for_status()
-        raw = resp.json()
-        quotes = raw.get("finance", {}).get("result", [{}])[0].get("quotes", [])
-        data = [
-            {
-                "symbol": q.get("symbol", ""),
-                "name":   q.get("longName") or q.get("shortName") or q.get("symbol", ""),
-                "price":  q.get("regularMarketPrice", 0),
-                "changePercent": q.get("regularMarketChangePercent", 0),
-                "change": q.get("regularMarketChange", 0),
-                "marketCap": q.get("marketCap", None),
-                "volume": int(q.get("regularMarketVolume", 0) or 0),
-                "avgVolume": int(q.get("averageDailyVolume3Month", 0) or q.get("averageDailyVolume10Day", 0) or 1),
-                "volumeRatio": round((q.get("regularMarketVolume", 0) or 0) / max(int(q.get("averageDailyVolume3Month", 0) or q.get("averageDailyVolume10Day", 0) or 1), 1), 2),
-                "isPenny": (q.get("regularMarketPrice", 0) or 0) < 5.0,
-                "volatilityRank": abs(q.get("regularMarketChangePercent", 0) or 0),
-            }
-            for q in quotes if q.get("symbol")
-        ]
-        _screener_cache[cache_key] = {"data": data, "ts": _t.time()}
+        quotes = resp.json().get("finance", {}).get("result", [{}])[0].get("quotes", [])
+        data = [_parse_screener_quote(q) for q in quotes if q.get("symbol")]
+        print(f"[Screener] {scr_id}: {len(data)} results")
+        _screener_cache[scr_id] = {"data": data, "ts": _t.time()}
         return data
     except Exception as exc:
         print(f"[Screener] {scr_id} error: {exc}")
-        return _screener_cache.get(cache_key, {}).get("data", [])
-
-
-def _merge_screener_lists(*lists, limit: int = 50) -> list:
-    """Merge multiple screener result lists, deduplicate by symbol, sort by volatilityRank desc."""
-    seen = set()
-    merged = []
-    for lst in lists:
-        for item in lst:
-            sym = item.get("symbol", "")
-            if sym and sym not in seen:
-                seen.add(sym)
-                merged.append(item)
-    merged.sort(key=lambda x: x.get("volatilityRank", 0), reverse=True)
-    return merged[:limit]
-
-
-# Wide-net screener IDs covering the full market
-_GAINER_SCREENERS = [
-    "day_gainers",          # Top % gainers today
-    "small_cap_gainers",    # Small cap gainers
-    "growth_technology_stocks",  # Growth tech
-    "undervalued_growth_stocks", # Undervalued growth
-    "aggressive_small_caps",     # High-risk/reward small caps
-]
-
-_LOSER_SCREENERS = [
-    "day_losers",           # Top % losers today
-    "undervalued_large_caps",    # Large caps under pressure
-    "portfolio_anchors",         # Blue chips losing ground
-]
-
-_ACTIVE_SCREENERS = [
-    "most_actives",              # Volume-driven
-    "solid_large_growth_funds",  # Large growth active
-]
+        return _screener_cache.get(scr_id, {}).get("data", [])
 
 
 @app.route('/screener/gainers', methods=['GET'])
 def screener_gainers():
-    lists = [_fetch_yf_screener(sid, 100) for sid in _GAINER_SCREENERS]
-    return jsonify(_merge_screener_lists(*lists, limit=50))
+    """Top % gainers across entire US market — mirrors finance.yahoo.com/markets/stocks/gainers/"""
+    return jsonify(_fetch_yf_screener("day_gainers"))
 
 
 @app.route('/screener/losers', methods=['GET'])
 def screener_losers():
-    lists = [_fetch_yf_screener(sid, 100) for sid in _LOSER_SCREENERS]
-    result = _merge_screener_lists(*lists, limit=50)
-    # For losers: sort ascending by changePercent (biggest drops first)
-    result.sort(key=lambda x: x.get("changePercent", 0))
-    return jsonify(result)
+    """Top % losers across entire US market — mirrors finance.yahoo.com/markets/stocks/losers/"""
+    return jsonify(_fetch_yf_screener("day_losers"))
 
 
 @app.route('/screener/actives', methods=['GET'])
 def screener_actives():
-    lists = [_fetch_yf_screener(sid, 100) for sid in _ACTIVE_SCREENERS]
-    result = _merge_screener_lists(*lists, limit=50)
-    result.sort(key=lambda x: x.get("volume", 0), reverse=True)
-    return jsonify(result)
+    """Most traded by volume across entire US market — mirrors finance.yahoo.com/markets/stocks/most-active/"""
+    return jsonify(_fetch_yf_screener("most_actives"))
+
+
+@app.route('/screener/trending', methods=['GET'])
+def screener_trending():
+    """Trending tickers on Yahoo Finance — mirrors finance.yahoo.com/markets/stocks/trending/"""
+    import time as _t, requests as _req
+    cache_key = "trending_US"
+    cached = _screener_cache.get(cache_key)
+    if cached and (_t.time() - cached["ts"]) < _SCREENER_TTL:
+        return jsonify(cached["data"])
+    try:
+        # Step 1: get trending symbols
+        url = "https://query1.finance.yahoo.com/v1/finance/trending/US?count=30&useQuotes=true"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        resp = _req.get(url, headers=headers, timeout=12)
+        resp.raise_for_status()
+        result = resp.json().get("finance", {}).get("result", [{}])[0]
+        # useQuotes=true sometimes includes full quote data
+        quotes_inline = result.get("quotes", [])
+        symbols = [q.get("symbol") or q for q in (result.get("quotes") or result.get("result") or []) if q]
+        if quotes_inline and isinstance(quotes_inline[0], dict) and quotes_inline[0].get("regularMarketPrice"):
+            data = [_parse_screener_quote(q) for q in quotes_inline if isinstance(q, dict) and q.get("symbol")]
+        else:
+            # Symbols only — batch-fetch quotes via yfinance
+            sym_list = [s if isinstance(s, str) else s.get("symbol","") for s in symbols if s][:30]
+            sym_list = [s for s in sym_list if s]
+            if not sym_list:
+                return jsonify([])
+            tickers = yf.Tickers(" ".join(sym_list))
+            data = []
+            for sym in sym_list:
+                try:
+                    info = tickers.tickers[sym].fast_info
+                    data.append({
+                        "symbol": sym,
+                        "name": sym,
+                        "price": getattr(info, "last_price", 0) or 0,
+                        "changePercent": round(((getattr(info, "last_price", 0) or 0) / max(getattr(info, "previous_close", 1) or 1, 0.01) - 1) * 100, 2),
+                        "change": round((getattr(info, "last_price", 0) or 0) - (getattr(info, "previous_close", 0) or 0), 2),
+                        "volume": getattr(info, "three_month_average_volume", 0) or 0,
+                        "avgVolume": getattr(info, "three_month_average_volume", 0) or 0,
+                        "volumeRatio": 1.0,
+                        "marketCap": None,
+                        "isPenny": (getattr(info, "last_price", 0) or 0) < 5,
+                    })
+                except Exception:
+                    pass
+        print(f"[Screener] trending: {len(data)} results")
+        _screener_cache[cache_key] = {"data": data, "ts": _t.time()}
+        return jsonify(data)
+    except Exception as exc:
+        print(f"[Screener] trending error: {exc}")
+        return jsonify(_screener_cache.get(cache_key, {}).get("data", []))
 
 
 @app.route('/market/volume-pulse', methods=['GET'])
