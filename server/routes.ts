@@ -1592,9 +1592,10 @@ export async function registerRoutes(
     const interval = (req.query.interval as string) || '1d';
     const start = req.query.start as string | undefined;
     const end = req.query.end as string | undefined;
+    const prepost = req.query.prepost === 'true';
     
     try {
-      const history = await getStockHistory(symbol, period, interval, start, end);
+      const history = await getStockHistory(symbol, period, interval, start, end, prepost);
       res.json({
         symbol,
         period,

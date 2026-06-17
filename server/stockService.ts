@@ -222,6 +222,11 @@ export async function searchStocks(query: string): Promise<SearchResult[]> {
   }
 }
 
+// Get ET date string for cache key rotation (YYYY-MM-DD in America/New_York)
+function etDateStr(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
 // Get historical data for charts
 export async function getStockHistory(
   symbol: string, 
@@ -229,12 +234,18 @@ export async function getStockHistory(
   interval: string = '1d',
   start?: string,
   end?: string,
+  prepost?: boolean,
 ): Promise<HistoryDataPoint[]> {
   const upperSymbol = symbol.toUpperCase();
-  const cacheKey = `${upperSymbol}|${period}|${interval}|${start || ''}|${end || ''}`;
+  const is1DIntraday = (period === '1d' && ['1m','2m','5m','10m','15m','30m'].includes(interval));
+
+  // For 1D intraday: include ET date + prepost in cache key so cache auto-rotates daily
+  // and prepost=true/false don't share the same cache entry
+  const datePart = is1DIntraday ? `|${etDateStr()}` : '';
+  const prepostPart = prepost ? '|pp' : '';
+  const cacheKey = `${upperSymbol}|${period}|${interval}|${start || ''}|${end || ''}${datePart}${prepostPart}`;
 
   // Use shorter TTL for 1D intraday so new candles appear quickly during trading hours
-  const is1DIntraday = (period === '1d' && ['1m','2m','5m','10m','15m','30m'].includes(interval));
   const ttl = is1DIntraday ? HISTORY_TTL_1D : HISTORY_TTL;
   const cached = cacheGet(_historyCache, cacheKey, ttl);
   if (cached) {
@@ -250,6 +261,7 @@ export async function getStockHistory(
     } else {
       url += `&period=${period}`;
     }
+    if (prepost) url += `&prepost=true`;
     const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
     
     if (!response.ok) {
