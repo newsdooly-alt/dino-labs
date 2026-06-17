@@ -643,14 +643,14 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
               const q = liveStocks[sym];
               const up = isUp(q?.changePercent);
               return (
-                <div key={sym} className="rounded px-1.5 py-1 text-center"
+                <div key={sym} className="rounded px-1 py-1 text-center"
                   style={{ background: q ? (up ? C.up+"0d" : C.down+"0d") : C.border+"30",
                     border:`1px solid ${future ? "#3b82f633" : (q ? (up ? C.up+"30" : C.down+"30") : C.border)}` }}>
-                  <div className="text-[11px] font-mono truncate leading-tight"
+                  <div className="text-[10px] font-mono truncate leading-tight"
                     style={{ color: future ? "#60a5fa" : C.muted }}>
                     {lbl}{future ? "🔮" : ""}
                   </div>
-                  <div className={cn("text-[14px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+                  <div className={cn("text-[13px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {q ? fmtPct(q.changePercent) : "—"}
                   </div>
                 </div>
@@ -2036,12 +2036,12 @@ function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
           const clr = inverted && sym === "^IRX" ? C.down : C.info;
           return (
             <div key={sym} className="flex-1 min-w-0 flex flex-col items-center gap-0.5">
-              <span className="text-[10px] font-mono font-bold truncate w-full text-center" style={{ color:clr }}>
+              <span className="text-[11px] font-mono font-bold truncate w-full text-center" style={{ color:clr }}>
                 {y != null ? y.toFixed(2)+"%" : "—"}
               </span>
               <div className="w-full rounded-sm transition-all duration-700"
                 style={{ height:h, background: clr+(inverted && sym==="^IRX" ? "bb" : "55") }} />
-              <span className="text-[10px] font-mono" style={{ color:C.muted }}>{label}</span>
+              <span className="text-[11px] font-mono" style={{ color:C.muted }}>{label}</span>
             </div>
           );
         })}
@@ -2104,10 +2104,10 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
         )}
       </div>
       {/* Header */}
-      <div className="grid mb-0.5" style={{ gridTemplateColumns:"1fr 40px 40px" }}>
-        <span className="text-[10px] font-mono" style={{ color:C.muted }}>INDEX</span>
-        <span className="text-[10px] font-mono text-right" style={{ color:C.muted }}>LAST</span>
-        <span className="text-[10px] font-mono text-right" style={{ color:C.muted }}>CHG%</span>
+      <div className="grid mb-0.5" style={{ gridTemplateColumns:"1fr 44px 44px" }}>
+        <span className="text-[11px] font-mono" style={{ color:C.muted }}>INDEX</span>
+        <span className="text-[11px] font-mono text-right" style={{ color:C.muted }}>LAST</span>
+        <span className="text-[11px] font-mono text-right" style={{ color:C.muted }}>CHG%</span>
       </div>
       {displayIndices.map(({ sym, label, flag }) => {
         const q  = stocks[sym];
@@ -2115,17 +2115,17 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
         const isFuture = sym === "ES=F" || sym === "NQ=F";
         return (
           <div key={sym} className="grid border-t py-0.5"
-            style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr 40px 40px" }}>
+            style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr 44px 44px" }}>
             <div className="min-w-0 overflow-hidden">
-              <span className="text-[10px] font-mono truncate block"
+              <span className="text-[11px] font-mono truncate block"
                 style={{ color: isFuture ? "#60a5fa" : C.muted }}>
                 {flag} {label}
               </span>
             </div>
-            <div className="text-right text-[10px] font-mono truncate overflow-hidden" style={{ color:C.text }}>
+            <div className="text-right text-[11px] font-mono truncate overflow-hidden" style={{ color:C.text }}>
               {q ? fmtGlobalPrice(q.price, sym) : "—"}
             </div>
-            <div className="text-right text-[10px] font-mono font-bold truncate overflow-hidden"
+            <div className="text-right text-[11px] font-mono font-bold truncate overflow-hidden"
               style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
               {q ? fmtPct(q.changePercent) : "—"}
             </div>
@@ -2162,19 +2162,19 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
     <div className="p-3 border-t" style={{ borderColor:C.border }}>
       <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color:C.muted }}>COMMODITIES</div>
-      <div className="grid grid-cols-3 gap-1 mb-3">
+      <div className="grid grid-cols-2 gap-1 mb-3">
         {COMM_DEF.map(({ sym, label, emoji }) => {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
           const decimals = sym==="GC=F"||sym==="PL=F" ? 0 : sym==="SI=F" ? 2 : sym==="HG=F" ? 4 : 2;
           return (
-            <div key={sym} className="rounded px-1 py-1 min-w-0 overflow-hidden"
+            <div key={sym} className="rounded px-1.5 py-1 min-w-0 overflow-hidden"
               style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-              <div className="text-[9px] font-mono truncate" style={{ color:C.muted }}>{emoji} {label}</div>
-              <div className="text-[11px] font-mono font-bold truncate" style={{ color:C.text }}>
+              <div className="text-[11px] font-mono truncate" style={{ color:C.muted }}>{emoji} {label}</div>
+              <div className="text-[12px] font-mono font-bold truncate" style={{ color:C.text }}>
                 {q ? `$${q.price?.toFixed(decimals)}` : "—"}
               </div>
-              <div className="text-[9px] font-mono font-bold truncate"
+              <div className="text-[11px] font-mono font-bold truncate"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </div>
@@ -2736,7 +2736,7 @@ function NewsPanel({ lang = "ko" as Lang, symbol = "", showToggle = false }) {
   const krNews     = useKoreanMarketNews(lang as Lang);
   const stockNews  = useStockNews(symbol);
 
-  const [mode, setMode] = useState<"market"|"company">("market");
+  const [mode, setMode] = useState<"market"|"company">(showToggle ? "company" : "market");
   // market region: "intl" (international) shown first, "kr" (Korean) second
   const [region, setRegion] = useState<"intl"|"kr">("intl");
 
@@ -4229,8 +4229,8 @@ export default function DinoTerminal() {
           </div>
         </div>
 
-        {/* ▌COL 3 (155px) — Yield Curve + Global Markets + Commodities/FX ▐ */}
-        <div className="w-[155px] shrink-0 border-l overflow-y-auto flex flex-col"
+        {/* ▌COL 3 (185px) — Yield Curve + Global Markets + Commodities/FX ▐ */}
+        <div className="w-[185px] shrink-0 border-l overflow-y-auto flex flex-col"
           style={{ borderColor:C.border, scrollbarWidth:"none" }}>
           <YieldCurvePanel stocks={stocks} />
           <GlobalMarketsPanel stocks={stocks} />
@@ -4352,10 +4352,10 @@ export default function DinoTerminal() {
           </>
         )}
 
-        {/* ── NEWS TAB: market news + 시장/시황 레포트 + calendar ── */}
+        {/* ── NEWS TAB: company + market news + 시장/시황 레포트 + calendar ── */}
         {mTab === "news" && (
           <>
-            <NewsPanel lang={lang} symbol={selected} showToggle={false} />
+            <NewsPanel lang={lang} symbol={selected} showToggle={true} />
             <MarketReportPanel lang={lang} />
             <CalendarPanel />
           </>
