@@ -97,7 +97,6 @@ function AuthenticatedLayout({ children }: { children?: React.ReactNode }) {
       {/* ─── DESKTOP: Terminal layout (full-height, no scroll on outer) ─── */}
       <div className="hidden md:flex flex-col h-screen overflow-hidden bg-background text-foreground">
         <TerminalTopBar />
-        <IndexStrip />
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <DesktopRouter />
         </main>

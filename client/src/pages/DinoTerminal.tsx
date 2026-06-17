@@ -3027,7 +3027,14 @@ function StockNewsCompact({ symbol, lang = "ko" as Lang }: { symbol:string; lang
 // ══════════════════════════════════════════════════════════════════════════════
 function InsiderPanel({ symbol, lang = "ko" as Lang }: { symbol:string; lang:Lang }) {
   const { data, isLoading, isError } = useInsider(symbol);
-  const trades: any[] = (data?.trades || []).slice(0, 8);
+  // Only show actual purchases and sales with non-zero shares (filter out option exercises, gifts, etc.)
+  const trades: any[] = (data?.trades || [])
+    .filter((t: any) =>
+      (t.transactionType === "Purchase" || t.transactionType === "Buy" ||
+       t.transactionType === "Sale"     || t.transactionType === "Sell") &&
+      (t.shares > 0 || t.value > 0)
+    )
+    .slice(0, 8);
   const [collapsed, setCollapsed] = useState(false);
 
   const buys  = trades.filter(t => t.transactionType === "Purchase" || t.transactionType === "Buy");
@@ -4190,7 +4197,6 @@ export default function DinoTerminal() {
           <VolumePulsePanel />
           <GlobalMiniPanel stocks={stocks} />
           <CryptoMiniPanel stocks={stocks} />
-          <RatesMiniPanel stocks={stocks} />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
             watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
         </div>
@@ -4321,7 +4327,6 @@ export default function DinoTerminal() {
             <VolumePulsePanel />
             <GlobalMiniPanel stocks={stocks} />
             <CryptoMiniPanel stocks={stocks} />
-            <RatesMiniPanel stocks={stocks} />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
               watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
           </>
