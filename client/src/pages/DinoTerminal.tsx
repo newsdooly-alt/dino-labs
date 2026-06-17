@@ -78,7 +78,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
 }
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","ETH-USD","SOL-USD","XRP-USD","JPY=X","^VIX"];
 const CROSS_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
-const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","PL=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW","ES=F","NQ=F"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","PL=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW","ES=F","NQ=F","^KS200"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"코스피","^IXIC":"NDX",
@@ -87,7 +87,7 @@ const INDEX_LBL: Record<string,string> = {
   "^FVX":"5Y","^TYX":"30Y","SI=F":"SILVER","HG=F":"COPPER",
   "NG=F":"NATGAS","EURUSD=X":"EUR/USD","GBPUSD=X":"GBP/USD",
   "^GDAXI":"DAX","^FTSE":"FTSE","^HSI":"HSI","^N225":"NKY",
-  "ES=F":"S&PF","NQ=F":"NQF",
+  "ES=F":"S&PF","NQ=F":"NQF","^KS200":"K200F",
 };
 
 // ── Multi-language label system ───────────────────────────────────────────────
@@ -471,6 +471,25 @@ function useUSSession(): USSession {
   return session;
 }
 
+// Korean market: open 09:00–15:30 KST weekdays
+function getKRSession(): "open" | "closed" {
+  const kstStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" });
+  const kst = new Date(kstStr);
+  const day = kst.getDay();
+  if (day === 0 || day === 6) return "closed";
+  const mins = kst.getHours() * 60 + kst.getMinutes();
+  return (mins >= 9 * 60 && mins < 15 * 60 + 30) ? "open" : "closed";
+}
+
+function useKRSession(): "open" | "closed" {
+  const [session, setSession] = useState<"open"|"closed">(getKRSession);
+  useEffect(() => {
+    const id = setInterval(() => setSession(getKRSession()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return session;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CLOCK
 // ══════════════════════════════════════════════════════════════════════════════
@@ -497,14 +516,17 @@ function TerminalClock() {
 // INDEX TICKER STRIP
 // ══════════════════════════════════════════════════════════════════════════════
 function IndexStrip() {
-  const session = useUSSession();
-  const futureSub = session !== "open";
-  const { data: stocks, isLoading } = useLivePrices([...INDEX_SYMS, "ES=F", "NQ=F"]);
+  const usSession = useUSSession();
+  const krSession = useKRSession();
+  const usFuture  = usSession !== "open";
+  const krFuture  = krSession !== "open";
+  const { data: stocks, isLoading } = useLivePrices([...INDEX_SYMS, "ES=F", "NQ=F", "^KS200"]);
 
-  // When market is not open, substitute SPY→ES=F, QQQ→NQ=F in the strip
+  // Futures substitution: US closed → SPY→ES=F, QQQ→NQ=F; KR closed → ^KS11→^KS200
   const baseItems = INDEX_SYMS.map(sym => {
-    if (futureSub && sym === "SPY") return { sym: "ES=F", label: "S&PF" };
-    if (futureSub && sym === "QQQ") return { sym: "NQ=F", label: "NQF" };
+    if (usFuture && sym === "SPY")   return { sym: "ES=F",   label: "S&PF" };
+    if (usFuture && sym === "QQQ")   return { sym: "NQ=F",   label: "NQF" };
+    if (krFuture && sym === "^KS11") return { sym: "^KS200", label: "K200F" };
     return { sym, label: INDEX_LBL[sym] || sym };
   });
   const items = [...baseItems, ...baseItems]; // double for seamless scroll
@@ -523,10 +545,11 @@ function IndexStrip() {
           {items.map(({ sym, label }, i) => {
             const q = stocks?.[sym];
             const up = isUp(q?.changePercent);
-            const isFuture = sym === "ES=F" || sym === "NQ=F";
+            const isFuture = sym === "ES=F" || sym === "NQ=F" || sym === "^KS200";
             return (
               <span key={`${sym}-${i}`} className="flex items-center gap-1.5 shrink-0">
                 <span className="text-[13px] font-mono" style={{ color: isFuture ? "#60a5fa" : C.muted }}>{label}{isFuture ? "🔮" : ""}</span>
+
                 <span className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : "—"}
                 </span>
@@ -549,12 +572,27 @@ function IndexStrip() {
 // ══════════════════════════════════════════════════════════════════════════════
 function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
   const { data: mood, isLoading, isError } = useMood();
+  const usSession = useUSSession();
+  const krSession = useKRSession();
+  const usFuture  = usSession !== "open";
+  const krFuture  = krSession !== "open";
 
-  // mood.index is 0-100, mood.label is Korean string
+  // Determine which symbols to show with futures substitution
+  const pulseItems: { sym: string; label: string; future: boolean }[] = [
+    usFuture
+      ? { sym:"ES=F",   label:"S&P선물", future:true }
+      : { sym:"SPY",    label:"SPY",     future:false },
+    usFuture
+      ? { sym:"NQ=F",   label:"NQ선물",  future:true }
+      : { sym:"QQQ",    label:"QQQ",     future:false },
+    krFuture
+      ? { sym:"^KS200", label:"코스피200F", future:true }
+      : { sym:"^KS11",  label:"코스피",   future:false },
+  ];
+
   const fg    = mood?.index;
   const label = mood?.label ?? (fg == null ? "—" : fg > 65 ? "탐욕" : fg > 45 ? "중립" : fg > 25 ? "공포" : "극공포");
   const fgClr = fg == null ? C.muted : fg > 65 ? C.up : fg > 45 ? C.warn : fg > 25 ? "#ff8c00" : C.down;
-  const spy   = liveStocks["SPY"];
 
   return (
     <div className="p-3 border-b" style={{ borderColor: C.border }}>
@@ -599,16 +637,19 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
               </div>
             </div>
           </div>
-          {/* Index snapshot */}
+          {/* Index snapshot with futures substitution */}
           <div className="grid grid-cols-3 gap-1">
-            {(["SPY","QQQ","^KS11"] as const).map(sym => {
+            {pulseItems.map(({ sym, label: lbl, future }) => {
               const q = liveStocks[sym];
               const up = isUp(q?.changePercent);
               return (
                 <div key={sym} className="rounded px-1.5 py-1 text-center"
                   style={{ background: q ? (up ? C.up+"0d" : C.down+"0d") : C.border+"30",
-                    border:`1px solid ${q ? (up ? C.up+"30" : C.down+"30") : C.border}` }}>
-                  <div className="text-[11px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[sym] || sym.replace("^","")}</div>
+                    border:`1px solid ${future ? "#3b82f633" : (q ? (up ? C.up+"30" : C.down+"30") : C.border)}` }}>
+                  <div className="text-[11px] font-mono truncate leading-tight"
+                    style={{ color: future ? "#60a5fa" : C.muted }}>
+                    {lbl}{future ? "🔮" : ""}
+                  </div>
                   <div className={cn("text-[14px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {q ? fmtPct(q.changePercent) : "—"}
                   </div>
@@ -1428,12 +1469,15 @@ const GLOBAL_MINI_BASE = [
   { sym:"GC=F",   label:"Gold",   flag:"🥇" },
 ];
 function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
-  const session = useUSSession();
-  const futureSub = session !== "open";
+  const usSession = useUSSession();
+  const krSession = useKRSession();
+  const usFuture  = usSession !== "open";
+  const krFuture  = krSession !== "open";
 
   const displayItems = GLOBAL_MINI_BASE.map(item => {
-    if (futureSub && item.sym === "SPY") return { sym: "ES=F", label: "S&P선물", flag: "🔮" };
-    if (futureSub && item.sym === "QQQ") return { sym: "NQ=F", label: "NQ선물",  flag: "🔮" };
+    if (usFuture && item.sym === "SPY")   return { sym: "ES=F",   label: "S&P선물",  flag: "🔮" };
+    if (usFuture && item.sym === "QQQ")   return { sym: "NQ=F",   label: "NQ선물",   flag: "🔮" };
+    if (krFuture && item.sym === "^KS11") return { sym: "^KS200", label: "코스피200F", flag: "🔮" };
     return item;
   });
 
@@ -1444,7 +1488,7 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
         <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           GLOBAL INDICES
         </span>
-        {futureSub && (
+        {(usFuture || krFuture) && (
           <span className="text-[10px] font-mono px-1 py-0.5 rounded"
             style={{ background:"#3b82f6"+"22", color:"#60a5fa" }}>선물 대체중</span>
         )}
@@ -1453,7 +1497,7 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
         {displayItems.map(({ sym, label, flag }) => {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
-          const isFuture = sym === "ES=F" || sym === "NQ=F";
+          const isFuture = sym === "ES=F" || sym === "NQ=F" || sym === "^KS200";
           return (
             <div key={sym} className="p-1.5 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
               <div className="text-[11px] font-mono truncate"
@@ -2001,12 +2045,15 @@ function fmtGlobalPrice(v: number|undefined, sym: string): string {
 }
 
 function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
-  const session = useUSSession();
-  const futureSub = session !== "open";
+  const usSession = useUSSession();
+  const krSession = useKRSession();
+  const usFuture  = usSession !== "open";
+  const krFuture  = krSession !== "open";
 
   const displayIndices = WORLD_INDICES_BASE.map(item => {
-    if (futureSub && item.sym === "SPY") return { sym:"ES=F", label:"S&P선물", flag:"🔮" };
-    if (futureSub && item.sym === "QQQ") return { sym:"NQ=F", label:"NQ선물",  flag:"🔮" };
+    if (usFuture && item.sym === "SPY")   return { sym:"ES=F",   label:"S&P선물",   flag:"🔮" };
+    if (usFuture && item.sym === "QQQ")   return { sym:"NQ=F",   label:"NQ선물",    flag:"🔮" };
+    if (krFuture && item.sym === "^KS11") return { sym:"^KS200", label:"코스피200F", flag:"🔮" };
     return item;
   });
 
@@ -2015,7 +2062,7 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
       <div className="flex items-center gap-2 mb-1.5">
         <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
           style={{ color:C.muted }}>GLOBAL MARKETS</span>
-        {futureSub && (
+        {(usFuture || krFuture) && (
           <span className="text-[9px] font-mono px-1 py-0.5 rounded"
             style={{ background:"#3b82f6"+"22", color:"#60a5fa" }}>선물</span>
         )}
