@@ -524,9 +524,9 @@ function IndexStrip() {
 
   // Futures substitution: US closed → SPY→ES=F, QQQ→NQ=F; KR closed → ^KS11→^KS200
   const baseItems = INDEX_SYMS.map(sym => {
-    if (usFuture && sym === "SPY")   return { sym: "ES=F",   label: "S&PF" };
-    if (usFuture && sym === "QQQ")   return { sym: "NQ=F",   label: "NQF" };
-    if (krFuture && sym === "^KS11") return { sym: "^KS200", label: "K200F" };
+    if (usFuture && sym === "SPY")   return { sym: "ES=F",   label: "S&P선물" };
+    if (usFuture && sym === "QQQ")   return { sym: "NQ=F",   label: "나스닥F" };
+    if (krFuture && sym === "^KS11") return { sym: "^KS200", label: "코스피F" };
     return { sym, label: INDEX_LBL[sym] || sym };
   });
   const items = [...baseItems, ...baseItems]; // double for seamless scroll
@@ -580,14 +580,14 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
   // Determine which symbols to show with futures substitution
   const pulseItems: { sym: string; label: string; future: boolean }[] = [
     usFuture
-      ? { sym:"ES=F",   label:"S&P선물", future:true }
-      : { sym:"SPY",    label:"SPY",     future:false },
+      ? { sym:"ES=F",   label:"S&P500 선물", future:true }
+      : { sym:"SPY",    label:"SPY",         future:false },
     usFuture
-      ? { sym:"NQ=F",   label:"NQ선물",  future:true }
-      : { sym:"QQQ",    label:"QQQ",     future:false },
+      ? { sym:"NQ=F",   label:"나스닥 선물", future:true }
+      : { sym:"QQQ",    label:"QQQ",         future:false },
     krFuture
-      ? { sym:"^KS200", label:"코스피200F", future:true }
-      : { sym:"^KS11",  label:"코스피",   future:false },
+      ? { sym:"^KS200", label:"코스피 선물", future:true }
+      : { sym:"^KS11",  label:"코스피",      future:false },
   ];
 
   const fg    = mood?.index;
@@ -1475,9 +1475,9 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
   const krFuture  = krSession !== "open";
 
   const displayItems = GLOBAL_MINI_BASE.map(item => {
-    if (usFuture && item.sym === "SPY")   return { sym: "ES=F",   label: "S&P선물",  flag: "🔮" };
-    if (usFuture && item.sym === "QQQ")   return { sym: "NQ=F",   label: "NQ선물",   flag: "🔮" };
-    if (krFuture && item.sym === "^KS11") return { sym: "^KS200", label: "코스피200F", flag: "🔮" };
+    if (usFuture && item.sym === "SPY")   return { sym: "ES=F",   label: "S&P500 선물", flag: "🔮" };
+    if (usFuture && item.sym === "QQQ")   return { sym: "NQ=F",   label: "나스닥 선물", flag: "🔮" };
+    if (krFuture && item.sym === "^KS11") return { sym: "^KS200", label: "코스피 선물", flag: "🔮" };
     return item;
   });
 
@@ -2051,9 +2051,9 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
   const krFuture  = krSession !== "open";
 
   const displayIndices = WORLD_INDICES_BASE.map(item => {
-    if (usFuture && item.sym === "SPY")   return { sym:"ES=F",   label:"S&P선물",   flag:"🔮" };
-    if (usFuture && item.sym === "QQQ")   return { sym:"NQ=F",   label:"NQ선물",    flag:"🔮" };
-    if (krFuture && item.sym === "^KS11") return { sym:"^KS200", label:"코스피200F", flag:"🔮" };
+    if (usFuture && item.sym === "SPY")   return { sym:"ES=F",   label:"S&P500 선물", flag:"🔮" };
+    if (usFuture && item.sym === "QQQ")   return { sym:"NQ=F",   label:"나스닥 선물", flag:"🔮" };
+    if (krFuture && item.sym === "^KS11") return { sym:"^KS200", label:"코스피 선물", flag:"🔮" };
     return item;
   });
 

@@ -180,7 +180,28 @@ def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
             print(f"[yfinance] {symbol} fast_info failed: {e}")
             price = 0
             prev_close = 0
-        
+
+        # For US stocks outside regular session, try to get pre/post market price from .info
+        # (fast_info.lastPrice = regular session close; preMarketPrice/postMarketPrice are in .info)
+        if not is_kr and not is_jp and not sym_market_open:
+            try:
+                now_et_h = now_et.hour + now_et.minute / 60.0
+                is_pre  = 4.0 <= now_et_h < 9.5
+                is_post = 16.0 <= now_et_h < 20.0
+                if is_pre or is_post:
+                    info_brief = ticker.info
+                    ext_price = float(info_brief.get('preMarketPrice' if is_pre else 'postMarketPrice') or 0)
+                    if ext_price > 0:
+                        price = ext_price
+                        # prev_close stays as yesterday's close → % change is relative to prev close
+                    # Also use this call to cache the name
+                    if name == symbol:
+                        fetched_name = info_brief.get('shortName') or info_brief.get('longName') or symbol
+                        _name_cache[symbol] = fetched_name
+                        name = fetched_name
+            except Exception as e:
+                print(f"[yfinance] {symbol} pre/post market price fetch failed: {e}")
+
         if price > 0 and name == symbol:
             try:
                 info = ticker.info
@@ -758,9 +779,15 @@ def get_history(symbol):
         elif is_1d_intraday:
             hist = ticker.history(period='2d', interval=interval, prepost=prepost)
             if not hist.empty:
-                # Keep only the most recent calendar date (includes pre/after market when prepost=True)
-                latest_date = hist.index[-1].date()
-                hist = hist[hist.index.map(lambda x: x.date()) == latest_date]
+                if prepost:
+                    # Sliding 24-hour window: shows yesterday's session + today's pre/after market
+                    # This gives full context during extended hours instead of only the latest date's candles
+                    cutoff = hist.index[-1] - pd.Timedelta(hours=24)
+                    hist = hist[hist.index >= cutoff]
+                else:
+                    # Regular market: show only today's session
+                    latest_date = hist.index[-1].date()
+                    hist = hist[hist.index.map(lambda x: x.date()) == latest_date]
         else:
             hist = ticker.history(period=period, interval=interval, prepost=prepost)
         
