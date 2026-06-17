@@ -4125,7 +4125,7 @@ export default function DinoTerminal() {
   // ─── DESKTOP ───────────────────────────────────────────────────────────────
   const Desktop = (
     <div className="hidden md:flex flex-col h-full overflow-hidden"
-      style={{ background:C.bg, color:C.text }}>
+      style={{ background:C.bg, color:C.text, zoom: 1.2 }}>
 
       {/* ── TOP BAR: search | live tickers | clock | user stats ── */}
       <div className="flex items-center gap-0 border-b shrink-0"
