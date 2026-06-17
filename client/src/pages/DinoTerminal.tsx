@@ -19,7 +19,7 @@ import {
   Zap, Flame, Activity, DollarSign, Calendar,
   ArrowUpRight, AlertTriangle, Clock,
   TrendingUp, TrendingDown, Building2, Target,
-  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert, LayoutGrid,
+  ChevronDown, ChevronUp, Languages, Loader2, ShieldAlert,
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1012,30 +1012,24 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
 // MARKET HEATMAP  — Finviz-style sector × stock treemap colored by % change
 // ══════════════════════════════════════════════════════════════════════════════
 const HEATMAP_SECTORS: { s: string; sKo: string; w: number; syms: string[] }[] = [
-  { s: "Technology",      sKo: "기술",       w: 4,
-    syms: ["MSFT","AAPL","NVDA","AVGO","ORCL","CRM","ADBE","AMD","TXN","QCOM","NOW","INTU","AMAT","INTC","MU"] },
-  { s: "Financials",      sKo: "금융",       w: 3,
-    syms: ["JPM","V","MA","BAC","GS","MS","WFC","AXP","C","BLK","COF","PGR"] },
-  { s: "Healthcare",      sKo: "헬스케어",   w: 3,
-    syms: ["LLY","UNH","ABBV","JNJ","MRK","TMO","ABT","ISRG","BMY","AMGN","PFE","CVS"] },
-  { s: "Consumer Disc.",  sKo: "경기소비재", w: 2,
-    syms: ["AMZN","TSLA","HD","MCD","NKE","SBUX","TGT","LOW","BKNG","ABNB"] },
-  { s: "Comm. Services",  sKo: "통신서비스", w: 2,
-    syms: ["GOOGL","META","NFLX","VZ","DIS","T","CMCSA","TMUS"] },
-  { s: "Industrials",     sKo: "산업재",     w: 2,
-    syms: ["CAT","UNP","HON","GE","RTX","BA","DE","FDX"] },
-  { s: "Consumer Stap.",  sKo: "필수소비재", w: 2,
-    syms: ["PG","KO","PEP","COST","WMT","PM","MO"] },
-  { s: "Energy",          sKo: "에너지",     w: 1,
-    syms: ["XOM","CVX","COP","SLB","EOG","MPC"] },
-  { s: "Materials",       sKo: "소재",       w: 1,
-    syms: ["LIN","APD","SHW","FCX","NEM"] },
-  { s: "Real Estate",     sKo: "부동산",     w: 1,
-    syms: ["PLD","AMT","CCI","WELL","SPG"] },
-  { s: "Utilities",       sKo: "유틸리티",   w: 1,
-    syms: ["NEE","DUK","SO","D","AEP"] },
+  { s: "Technology",     sKo: "기술",       w: 4,
+    syms: ["MSFT","AAPL","NVDA","AVGO","AMD","ADBE","INTC","CRM"] },
+  { s: "Financials",     sKo: "금융",       w: 3,
+    syms: ["JPM","V","MA","BAC","GS","WFC"] },
+  { s: "Healthcare",     sKo: "헬스케어",   w: 2,
+    syms: ["LLY","UNH","ABBV","JNJ","MRK","PFE"] },
+  { s: "Cons. Disc.",    sKo: "경기소비재", w: 2,
+    syms: ["AMZN","TSLA","HD","MCD","NKE","SBUX"] },
+  { s: "Comm. Svc",      sKo: "통신서비스", w: 2,
+    syms: ["GOOGL","META","NFLX","VZ","DIS"] },
+  { s: "Industrials",    sKo: "산업재",     w: 2,
+    syms: ["CAT","GE","BA","HON","UNP"] },
+  { s: "Staples",        sKo: "필수소비재", w: 1,
+    syms: ["PG","KO","WMT","COST"] },
+  { s: "Energy",         sKo: "에너지",     w: 1,
+    syms: ["XOM","CVX","COP","SLB"] },
 ];
-const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms); // 83 symbols
+const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms); // 44 symbols
 
 function heatColor(pct: number | undefined): string {
   if (pct == null) return "#1e2d3c";
@@ -1071,85 +1065,72 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  const ROW1 = HEATMAP_SECTORS.slice(0, 4);
-  const ROW2 = HEATMAP_SECTORS.slice(4);
-
-  function SectorBlock({ sec }: { sec: typeof HEATMAP_SECTORS[0] }) {
-    return (
-      <div style={{ flex: `${sec.w} 0 0%`, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div className="px-1 py-0.5 text-[10px] font-mono font-bold uppercase truncate"
-          style={{ background: "#080e18", color: C.muted, borderBottom: `1px solid ${C.border}` }}>
-          {sec.s}
-        </div>
-        <div className="flex flex-wrap" style={{ gap: 1, background: C.border, padding: 1, flex: 1 }}>
-          {sec.syms.map(sym => {
-            const q = quotes[sym];
-            const pct = q?.changePercent as number | undefined;
-            const bg = heatColor(pct);
-            const isPos = pct != null && pct > 0.3;
-            const isNeg = pct != null && pct < -0.3;
-            return (
-              <button key={sym} type="button"
-                onClick={() => onSelect?.(sym)}
-                style={{
-                  flex: "1 0 38px",
-                  minHeight: 36,
-                  padding: "3px 2px",
-                  background: bg,
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1,
-                  transition: "filter 0.1s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.25)")}
-                onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1 }}>
-                  {sym}
-                </span>
-                <span style={{
-                  fontSize: 9, fontFamily: "monospace", lineHeight: 1,
-                  color: isPos ? "#a7f3d0" : isNeg ? "#fecaca" : "rgba(255,255,255,0.55)",
-                }}>
-                  {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+      <div className="px-2 py-1 border-b flex items-center justify-between"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
-          S&P 500 HEAT MAP
+        <span className="text-[11px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          📊 S&P 500 히트맵
         </span>
         {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
 
-      {/* Row 1: Large sectors */}
-      <div className="flex" style={{ gap: 1, background: C.border }}>
-        {ROW1.map(sec => <SectorBlock key={sec.s} sec={sec} />)}
-      </div>
-
-      {/* Row 2: Smaller sectors */}
-      <div className="flex" style={{ gap: 1, background: C.border, marginTop: 1 }}>
-        {ROW2.map(sec => <SectorBlock key={sec.s} sec={sec} />)}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-0.5 py-1.5 px-2">
-        {([-4,-2,-1,-0.3,0,0.3,1,2,4] as number[]).map((v, i) => (
-          <div key={i} style={{ width: 18, height: 8, background: heatColor(v), borderRadius: 2 }} />
+      {/* All sectors in one continuous flex layout */}
+      <div style={{ display: "flex", gap: 1, background: C.border, padding: 1 }}>
+        {HEATMAP_SECTORS.map(sec => (
+          <div key={sec.s} style={{ flex: `${sec.w} 0 0%`, display: "flex", flexDirection: "column", gap: 1 }}>
+            <div className="text-center py-0.5 text-[9px] font-mono font-bold uppercase truncate"
+              style={{ background: "#07111c", color: C.muted }}>
+              {sec.sKo}
+            </div>
+            <div className="flex flex-wrap" style={{ gap: 1 }}>
+              {sec.syms.map(sym => {
+                const pct = quotes[sym]?.changePercent as number | undefined;
+                const isPos = pct != null && pct > 0.3;
+                const isNeg = pct != null && pct < -0.3;
+                return (
+                  <button key={sym} type="button"
+                    onClick={() => onSelect?.(sym)}
+                    style={{
+                      flex: "1 0 32px",
+                      minHeight: 32,
+                      padding: "2px 1px",
+                      background: heatColor(pct),
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "filter 0.1s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.3)")}
+                    onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1.2 }}>
+                      {sym}
+                    </span>
+                    <span style={{
+                      fontSize: 8, fontFamily: "monospace", lineHeight: 1.2,
+                      color: isPos ? "#a7f3d0" : isNeg ? "#fecaca" : "rgba(255,255,255,0.5)",
+                    }}>
+                      {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ))}
-        <span className="text-[9px] font-mono ml-1.5" style={{ color: C.muted }}>-4%…+4%</span>
+      </div>
+
+      {/* Color legend */}
+      <div className="flex items-center justify-end gap-1 px-2 py-1">
+        <div className="flex gap-0.5">
+          {([-3,-1.5,-0.5,0,0.5,1.5,3] as number[]).map((v, i) => (
+            <div key={i} style={{ width: 14, height: 6, background: heatColor(v), borderRadius: 1 }} />
+          ))}
+        </div>
+        <span className="text-[8px] font-mono" style={{ color: C.muted }}>-3%…+3%</span>
       </div>
     </div>
   );
@@ -3813,13 +3794,13 @@ function FKeyStrip() {
 // ══════════════════════════════════════════════════════════════════════════════
 // MOBILE TABS
 // ══════════════════════════════════════════════════════════════════════════════
-type MTab = "market"|"macro"|"chart"|"news"|"fund"|"heat";
+type MTab = "market"|"macro"|"chart"|"news"|"fund";
 const MOBILE_TABS: {id:MTab;label:string;icon:React.ReactNode}[] = [
-  {id:"market", label:"시장",   icon:<Activity className="w-4 h-4"/>},
-  {id:"heat",   label:"히트맵", icon:<LayoutGrid className="w-4 h-4"/>},
-  {id:"chart",  label:"차트",   icon:<BarChart2 className="w-4 h-4"/>},
-  {id:"news",   label:"뉴스",   icon:<Newspaper className="w-4 h-4"/>},
-  {id:"fund",   label:"정보",   icon:<DollarSign className="w-4 h-4"/>},
+  {id:"market", label:"시장", icon:<Activity className="w-4 h-4"/>},
+  {id:"macro",  label:"거시", icon:<TrendingUp className="w-4 h-4"/>},
+  {id:"chart",  label:"차트", icon:<BarChart2 className="w-4 h-4"/>},
+  {id:"news",   label:"뉴스", icon:<Newspaper className="w-4 h-4"/>},
+  {id:"fund",   label:"정보", icon:<DollarSign className="w-4 h-4"/>},
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -3836,7 +3817,6 @@ export default function DinoTerminal() {
   const [watchSyms, setWatchSyms] = useState<string[]>(loadWatchSyms);
   const [watchNames, setWatchNames] = useState<Record<string,string>>(loadWatchNames);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showHeat, setShowHeat] = useState(false);
 
   useEffect(() => { localStorage.setItem("dino-terminal-tab", mTab); }, [mTab]);
 
@@ -3934,6 +3914,7 @@ export default function DinoTerminal() {
           <CryptoMiniPanel stocks={stocks} />
           <RatesMiniPanel stocks={stocks} />
           <SectorMap />
+          <MarketHeatmap onSelect={selectSym} />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
             watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
         </div>
@@ -3945,7 +3926,7 @@ export default function DinoTerminal() {
           {/* Period tabs row */}
           <div className="flex items-center gap-1.5 px-2 py-1 border-b shrink-0"
             style={{ borderColor:C.border, background:C.header }}>
-            {!showHeat && PERIODS.map((p, i) => (
+            {PERIODS.map((p, i) => (
               <button key={p.label} onClick={() => setPIdx(i)}
                 className="px-2 py-0.5 rounded text-[12px] font-mono font-bold"
                 style={{
@@ -3955,45 +3936,24 @@ export default function DinoTerminal() {
                 }}>{p.label}</button>
             ))}
             <div className="flex-1" />
-            {!showHeat && (
-              <Link href={`/stock/${selected}`} className="text-[12px] font-mono mr-2"
-                style={{ color:C.info }}>
-                {lang === "ko" ? "고급 차트→" : lang === "ja" ? "詳細チャート→" : "Full Chart→"}
-              </Link>
-            )}
-            <button
-              onClick={() => setShowHeat(h => !h)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold"
-              style={{
-                background: showHeat ? "#22a04a33" : C.panel2,
-                color:      showHeat ? "#22a04a"   : C.muted,
-                border:    `1px solid ${showHeat ? "#22a04a80" : C.border}`,
-              }}>
-              <LayoutGrid className="w-3 h-3" />
-              {showHeat ? "CHART" : "HEAT"}
-            </button>
+            <Link href={`/stock/${selected}`} className="text-[12px] font-mono"
+              style={{ color:C.info }}>
+              {lang === "ko" ? "고급 차트→" : lang === "ja" ? "詳細チャート→" : "Full Chart→"}
+            </Link>
           </div>
 
-          {showHeat ? (
-            <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" }}>
-              <MarketHeatmap onSelect={sym => { selectSym(sym); setShowHeat(false); }} />
-            </div>
-          ) : (
-            <>
-              {/* Chart — FIXED HEIGHT */}
-              <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
-                <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
-                  prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
-              </div>
+          {/* Chart — FIXED HEIGHT */}
+          <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
+            <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
+              prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
+          </div>
 
-              {/* Scrollable: TechEngine + PeerPanel + Macro rates */}
-              <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
-                <TechEngine symbol={selected} quote={quote} />
-                <PeerPanel symbol={selected} lang={lang} />
-                <MacroPanel stocks={stocks} />
-              </div>
-            </>
-          )}
+          {/* Scrollable: TechEngine + PeerPanel + Macro rates */}
+          <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
+            <TechEngine symbol={selected} quote={quote} />
+            <PeerPanel symbol={selected} lang={lang} />
+            <MacroPanel stocks={stocks} />
+          </div>
         </div>
 
         {/* ▌COL 3 (155px) — Yield Curve + Global Markets + Commodities/FX ▐ */}
@@ -4083,14 +4043,10 @@ export default function DinoTerminal() {
             <CryptoMiniPanel stocks={stocks} />
             <RatesMiniPanel stocks={stocks} />
             <SectorMap />
+            <MarketHeatmap onSelect={sym => { selectSym(sym); setMTab("chart"); }} />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
               watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
           </>
-        )}
-
-        {/* ── HEAT TAB: Finviz-style S&P 500 heatmap ── */}
-        {mTab === "heat" && (
-          <MarketHeatmap onSelect={sym => { selectSym(sym); setMTab("chart"); }} />
         )}
 
         {/* ── CHART TAB: chart (220px) + tech + cross-asset + stock news ── */}
