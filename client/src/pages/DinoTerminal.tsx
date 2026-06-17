@@ -580,14 +580,14 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
   // Determine which symbols to show with futures substitution
   const pulseItems: { sym: string; label: string; future: boolean }[] = [
     usFuture
-      ? { sym:"ES=F",   label:"S&P500 선물", future:true }
-      : { sym:"SPY",    label:"SPY",         future:false },
+      ? { sym:"ES=F",   label:"S&P선물", future:true }
+      : { sym:"SPY",    label:"S&P500",  future:false },
     usFuture
-      ? { sym:"NQ=F",   label:"나스닥 선물", future:true }
-      : { sym:"QQQ",    label:"QQQ",         future:false },
+      ? { sym:"NQ=F",   label:"NQ선물",  future:true }
+      : { sym:"QQQ",    label:"NASDAQ",  future:false },
     krFuture
-      ? { sym:"^KS200", label:"코스피 선물", future:true }
-      : { sym:"^KS11",  label:"코스피",      future:false },
+      ? { sym:"^KS200", label:"KS선물",  future:true }
+      : { sym:"^KS11",  label:"코스피",  future:false },
   ];
 
   const fg    = mood?.index;
@@ -648,7 +648,7 @@ function MarketPulseWidget({ liveStocks }: { liveStocks: Record<string,any> }) {
                     border:`1px solid ${future ? "#3b82f633" : (q ? (up ? C.up+"30" : C.down+"30") : C.border)}` }}>
                   <div className="text-[10px] font-mono truncate leading-tight"
                     style={{ color: future ? "#60a5fa" : C.muted }}>
-                    {lbl}{future ? "🔮" : ""}
+                    {lbl}
                   </div>
                   <div className={cn("text-[13px] font-bold font-mono", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                     {q ? fmtPct(q.changePercent) : "—"}
@@ -979,6 +979,7 @@ function SectorMap() {
 type MoverTab = "vol"|"value"|"up"|"down"|"trend";
 function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
   const [tab, setTab] = useState<MoverTab>("vol");
+  const usSession = useUSSession();
 
   const { data: gainers = [], isLoading: gLd } = useQuery<any[]>({
     queryKey: ["/api/market/gainers"],
@@ -1074,7 +1075,11 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
           </div>
         ) : rows.map(item => {
           const lq = liveMap[item.symbol];
-          const displayPct = lq?.changePercent ?? item.changePercent ?? 0;
+          // Pre-market: use live pre-market % (vs prev close); after/closed: use regular session %
+          const isPreMarket = usSession === "pre";
+          const displayPct = isPreMarket
+            ? (lq?.changePercent ?? item.changePercent ?? 0)
+            : (item.changePercent ?? lq?.changePercent ?? 0);
           const displayPrice = lq?.price ?? item.price ?? 0;
           const up = displayPct >= 0;
           const ticker = (item.symbol || "").replace(".KS","").replace("^","");
@@ -1498,9 +1503,9 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
   const krFuture  = krSession !== "open";
 
   const displayItems = GLOBAL_MINI_BASE.map(item => {
-    if (usFuture && item.sym === "SPY")   return { sym: "ES=F",   label: "S&P500 선물", flag: "🔮" };
-    if (usFuture && item.sym === "QQQ")   return { sym: "NQ=F",   label: "나스닥 선물", flag: "🔮" };
-    if (krFuture && item.sym === "^KS11") return { sym: "^KS200", label: "코스피 선물", flag: "🔮" };
+    if (usFuture && item.sym === "SPY")   return { sym: "ES=F",   label: "S&P선물", flag: "" };
+    if (usFuture && item.sym === "QQQ")   return { sym: "NQ=F",   label: "NQ선물",  flag: "" };
+    if (krFuture && item.sym === "^KS11") return { sym: "^KS200", label: "KS선물",  flag: "" };
     return item;
   });
 
@@ -1522,9 +1527,9 @@ function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
           const up = isUp(q?.changePercent);
           const isFuture = sym === "ES=F" || sym === "NQ=F" || sym === "^KS200";
           return (
-            <div key={sym} className="p-1.5 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
+            <div key={sym} className="px-1 py-1 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
               <div className="text-[11px] font-mono truncate"
-                style={{ color: isFuture ? "#60a5fa" : C.muted }}>{flag} {label}</div>
+                style={{ color: isFuture ? "#60a5fa" : C.muted }}>{label}</div>
               <div className="text-[12px] font-mono font-bold truncate"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
@@ -2030,18 +2035,18 @@ function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
           </span>
         )}
       </div>
-      <div className="flex items-end gap-1 h-16 overflow-hidden">
+      <div className="flex items-end gap-1" style={{ height: 84 }}>
         {vals.map(({ label, sym, y }) => {
-          const h   = y && maxY ? Math.max(6, (y/maxY)*52) : 4;
+          const h   = y && maxY ? Math.max(6, (y/maxY)*48) : 4;
           const clr = inverted && sym === "^IRX" ? C.down : C.info;
           return (
             <div key={sym} className="flex-1 min-w-0 flex flex-col items-center gap-0.5">
-              <span className="text-[11px] font-mono font-bold truncate w-full text-center" style={{ color:clr }}>
+              <span className="text-[10px] font-mono font-bold w-full text-center leading-tight" style={{ color:clr }}>
                 {y != null ? y.toFixed(2)+"%" : "—"}
               </span>
               <div className="w-full rounded-sm transition-all duration-700"
                 style={{ height:h, background: clr+(inverted && sym==="^IRX" ? "bb" : "55") }} />
-              <span className="text-[11px] font-mono" style={{ color:C.muted }}>{label}</span>
+              <span className="text-[10px] font-mono leading-tight" style={{ color:C.muted }}>{label}</span>
             </div>
           );
         })}
@@ -2068,7 +2073,7 @@ const WORLD_INDICES_BASE = [
   { sym:"^KS11",  label:"KOSPI",    flag:"🇰🇷" },
   { sym:"^N225",  label:"NIKKEI",   flag:"🇯🇵" },
   { sym:"^GDAXI", label:"DAX",      flag:"🇩🇪" },
-  { sym:"^FTSE",  label:"FTSE 100", flag:"🇬🇧" },
+  { sym:"^FTSE",  label:"FTSE",     flag:"🇬🇧" },
   { sym:"^HSI",   label:"HSI",      flag:"🇭🇰" },
 ];
 
@@ -2087,9 +2092,9 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
   const krFuture  = krSession !== "open";
 
   const displayIndices = WORLD_INDICES_BASE.map(item => {
-    if (usFuture && item.sym === "SPY")   return { sym:"ES=F",   label:"S&P500 선물", flag:"🔮" };
-    if (usFuture && item.sym === "QQQ")   return { sym:"NQ=F",   label:"나스닥 선물", flag:"🔮" };
-    if (krFuture && item.sym === "^KS11") return { sym:"^KS200", label:"코스피 선물", flag:"🔮" };
+    if (usFuture && item.sym === "SPY")   return { sym:"ES=F",   label:"S&P선물", flag:"" };
+    if (usFuture && item.sym === "QQQ")   return { sym:"NQ=F",   label:"NQ선물",  flag:"" };
+    if (krFuture && item.sym === "^KS11") return { sym:"^KS200", label:"KS선물",  flag:"" };
     return item;
   });
 
@@ -2104,7 +2109,7 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
         )}
       </div>
       {/* Header */}
-      <div className="grid mb-0.5" style={{ gridTemplateColumns:"1fr 44px 44px" }}>
+      <div className="grid mb-0.5" style={{ gridTemplateColumns:"1fr 40px 42px" }}>
         <span className="text-[11px] font-mono" style={{ color:C.muted }}>INDEX</span>
         <span className="text-[11px] font-mono text-right" style={{ color:C.muted }}>LAST</span>
         <span className="text-[11px] font-mono text-right" style={{ color:C.muted }}>CHG%</span>
@@ -2115,11 +2120,11 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
         const isFuture = sym === "ES=F" || sym === "NQ=F";
         return (
           <div key={sym} className="grid border-t py-0.5"
-            style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr 44px 44px" }}>
+            style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr 40px 42px" }}>
             <div className="min-w-0 overflow-hidden">
               <span className="text-[11px] font-mono truncate block"
                 style={{ color: isFuture ? "#60a5fa" : C.muted }}>
-                {flag} {label}
+                {flag}{flag ? " " : ""}{label}
               </span>
             </div>
             <div className="text-right text-[11px] font-mono truncate overflow-hidden" style={{ color:C.text }}>
@@ -4186,7 +4191,6 @@ export default function DinoTerminal() {
           <GlobalMiniPanel stocks={stocks} />
           <CryptoMiniPanel stocks={stocks} />
           <RatesMiniPanel stocks={stocks} />
-          <SectorMap />
           <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
             watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
         </div>
@@ -4220,12 +4224,13 @@ export default function DinoTerminal() {
               prevClose={quote?.previousClose > 0 ? quote.previousClose : (quote?.price && quote?.changePercent ? quote.price / (1 + (quote.changePercent || 0) / 100) : 0)} />
           </div>
 
-          {/* Scrollable: TechEngine + PeerPanel + Macro rates + Heatmap */}
+          {/* Scrollable: TechEngine + PeerPanel + Macro rates + Heatmap + SectorMap */}
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
             <PeerPanel symbol={selected} lang={lang} />
             <MacroPanel stocks={stocks} />
             <MarketHeatmap onSelect={selectSym} />
+            <SectorMap />
           </div>
         </div>
 
