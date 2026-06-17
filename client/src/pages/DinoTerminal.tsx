@@ -1015,21 +1015,21 @@ const HEATMAP_SECTORS: { s: string; sKo: string; w: number; syms: string[] }[] =
   { s: "Technology",     sKo: "기술",       w: 4,
     syms: ["MSFT","AAPL","NVDA","AVGO","AMD","ADBE","INTC","CRM"] },
   { s: "Financials",     sKo: "금융",       w: 3,
-    syms: ["JPM","V","MA","BAC","GS","WFC"] },
+    syms: ["JPM","V","MA","BAC","GS","WFC","AXP","MS"] },
   { s: "Healthcare",     sKo: "헬스케어",   w: 2,
-    syms: ["LLY","UNH","ABBV","JNJ","MRK","PFE"] },
+    syms: ["LLY","UNH","ABBV","JNJ","MRK","PFE","TMO","ISRG"] },
   { s: "Cons. Disc.",    sKo: "경기소비재", w: 2,
-    syms: ["AMZN","TSLA","HD","MCD","NKE","SBUX"] },
+    syms: ["AMZN","TSLA","HD","MCD","NKE","SBUX","TGT","BKNG"] },
   { s: "Comm. Svc",      sKo: "통신서비스", w: 2,
-    syms: ["GOOGL","META","NFLX","VZ","DIS"] },
+    syms: ["GOOGL","META","NFLX","VZ","DIS","T","CMCSA","TMUS"] },
   { s: "Industrials",    sKo: "산업재",     w: 2,
-    syms: ["CAT","GE","BA","HON","UNP"] },
+    syms: ["CAT","GE","BA","HON","UNP","RTX","DE","FDX"] },
   { s: "Staples",        sKo: "필수소비재", w: 1,
-    syms: ["PG","KO","WMT","COST"] },
+    syms: ["PG","KO","WMT","COST","PM","MO","CL","MDLZ"] },
   { s: "Energy",         sKo: "에너지",     w: 1,
-    syms: ["XOM","CVX","COP","SLB"] },
+    syms: ["XOM","CVX","COP","SLB","EOG","MPC","OXY","PSX"] },
 ];
-const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms); // 44 symbols
+const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms); // 64 symbols
 
 function heatColor(pct: number | undefined): string {
   if (pct == null) return "#1e2d3c";

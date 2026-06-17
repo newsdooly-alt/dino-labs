@@ -2844,16 +2844,17 @@ def get_economic_actuals():
 _screener_cache: dict = {}
 _SCREENER_TTL = 300  # 5 minutes
 
-def _fetch_yf_screener(scr_id: str) -> list:
+def _fetch_yf_screener(scr_id: str, count: int = 100) -> list:
     """Fetch a predefined Yahoo Finance screener list. Returns list of dicts."""
     import time as _t
     import requests as _req
-    cached = _screener_cache.get(scr_id)
+    cache_key = f"{scr_id}:{count}"
+    cached = _screener_cache.get(cache_key)
     if cached and (_t.time() - cached["ts"]) < _SCREENER_TTL:
         return cached["data"]
     url = (
         "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
-        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count=50"
+        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count={count}"
     )
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     try:
@@ -2877,14 +2878,14 @@ def _fetch_yf_screener(scr_id: str) -> list:
             }
             for q in quotes if q.get("symbol")
         ]
-        _screener_cache[scr_id] = {"data": data, "ts": _t.time()}
+        _screener_cache[cache_key] = {"data": data, "ts": _t.time()}
         return data
     except Exception as exc:
         print(f"[Screener] {scr_id} error: {exc}")
-        return _screener_cache.get(scr_id, {}).get("data", [])
+        return _screener_cache.get(cache_key, {}).get("data", [])
 
 
-def _merge_screener_lists(*lists) -> list:
+def _merge_screener_lists(*lists, limit: int = 50) -> list:
     """Merge multiple screener result lists, deduplicate by symbol, sort by volatilityRank desc."""
     seen = set()
     merged = []
@@ -2895,25 +2896,51 @@ def _merge_screener_lists(*lists) -> list:
                 seen.add(sym)
                 merged.append(item)
     merged.sort(key=lambda x: x.get("volatilityRank", 0), reverse=True)
-    return merged[:30]
+    return merged[:limit]
+
+
+# Wide-net screener IDs covering the full market
+_GAINER_SCREENERS = [
+    "day_gainers",          # Top % gainers today
+    "small_cap_gainers",    # Small cap gainers
+    "growth_technology_stocks",  # Growth tech
+    "undervalued_growth_stocks", # Undervalued growth
+    "aggressive_small_caps",     # High-risk/reward small caps
+]
+
+_LOSER_SCREENERS = [
+    "day_losers",           # Top % losers today
+    "undervalued_large_caps",    # Large caps under pressure
+    "portfolio_anchors",         # Blue chips losing ground
+]
+
+_ACTIVE_SCREENERS = [
+    "most_actives",              # Volume-driven
+    "solid_large_growth_funds",  # Large growth active
+]
 
 
 @app.route('/screener/gainers', methods=['GET'])
 def screener_gainers():
-    main = _fetch_yf_screener("day_gainers")
-    small = _fetch_yf_screener("small_cap_gainers")
-    return jsonify(_merge_screener_lists(main, small))
+    lists = [_fetch_yf_screener(sid, 100) for sid in _GAINER_SCREENERS]
+    return jsonify(_merge_screener_lists(*lists, limit=50))
 
 
 @app.route('/screener/losers', methods=['GET'])
 def screener_losers():
-    main = _fetch_yf_screener("day_losers")
-    return jsonify(main)
+    lists = [_fetch_yf_screener(sid, 100) for sid in _LOSER_SCREENERS]
+    result = _merge_screener_lists(*lists, limit=50)
+    # For losers: sort ascending by changePercent (biggest drops first)
+    result.sort(key=lambda x: x.get("changePercent", 0))
+    return jsonify(result)
 
 
 @app.route('/screener/actives', methods=['GET'])
 def screener_actives():
-    return jsonify(_fetch_yf_screener("most_actives"))
+    lists = [_fetch_yf_screener(sid, 100) for sid in _ACTIVE_SCREENERS]
+    result = _merge_screener_lists(*lists, limit=50)
+    result.sort(key=lambda x: x.get("volume", 0), reverse=True)
+    return jsonify(result)
 
 
 @app.route('/market/volume-pulse', methods=['GET'])
