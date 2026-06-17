@@ -1095,16 +1095,24 @@ function heatColor(pct: number | undefined): string {
 }
 
 function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
+  // Mobile: 2 rows per sector; Desktop: 4 rows per sector
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640
+  );
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+
   const { data: quotes = {}, isLoading } = useQuery<Record<string, any>>({
     queryKey: ["/api/stocks/live", "heatmap"],
     queryFn: async () => {
-      // Split into two parallel fetches so the server handles each in ~4s
       const mid = Math.ceil(HEATMAP_ALL_SYMS.length / 2);
       const [r1, r2] = await Promise.all([
         fetch(`/api/stocks/live?symbols=${HEATMAP_ALL_SYMS.slice(0, mid).join(",")}`).then(r => r.ok ? r.json() : {}),
         fetch(`/api/stocks/live?symbols=${HEATMAP_ALL_SYMS.slice(mid).join(",")}`).then(r => r.ok ? r.json() : {}),
       ]);
-      // /api/stocks/live returns { quotes: [...], isMarketOpen: bool }
       const toArr = (r: any): any[] => Array.isArray(r) ? r : (r?.quotes ?? []);
       const map: Record<string, any> = {};
       for (const q of [...toArr(r1), ...toArr(r2)]) {
@@ -1116,6 +1124,11 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
     refetchInterval: 5 * 60 * 1000,
   });
 
+  // On mobile show only the top 2 rows (cols×2 symbols); desktop shows all 4 rows
+  const displaySectors = isMobile
+    ? HEATMAP_SECTORS.map(sec => ({ ...sec, syms: sec.syms.slice(0, sec.cols * 2) }))
+    : HEATMAP_SECTORS;
+
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
       <div className="px-2 py-1 border-b flex items-center justify-between"
@@ -1126,13 +1139,22 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
         {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
 
-      {/* flex=cols per sector → tech (4) gets 4× space of small (1); repeat(cols,1fr) grid inside
-           → all cells exactly equal size across the entire heatmap (Finviz proportional layout) */}
+      {/* flex grow=cols, shrink=cols → sectors scale proportionally; all cells stay equal width
+          minWidth:0 on containers prevents grid/flex blowout from long ticker text */}
       <div style={{ display: "flex", gap: 1, background: C.border, padding: 1 }}>
-        {HEATMAP_SECTORS.map(sec => (
-          <div key={sec.s} style={{ flex: `${sec.cols} 0 0%`, display: "flex", flexDirection: "column", gap: 1 }}>
-            <div className="text-center py-0.5 text-[9px] font-mono font-bold uppercase truncate"
-              style={{ background: "#07111c", color: C.muted }}>
+        {displaySectors.map(sec => (
+          <div key={sec.s} style={{
+            flex: `${sec.cols} ${sec.cols} 0%`,
+            minWidth: 0,
+            display: "flex", flexDirection: "column", gap: 1,
+          }}>
+            <div style={{
+              background: "#07111c", color: C.muted,
+              textAlign: "center", padding: "2px 0",
+              fontSize: 8, fontFamily: "monospace", fontWeight: 700,
+              textTransform: "uppercase", overflow: "hidden",
+              whiteSpace: "nowrap", letterSpacing: "0.02em",
+            }}>
               {sec.sKo}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${sec.cols}, 1fr)`, gap: 1 }}>
@@ -1144,8 +1166,10 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
                   <button key={sym} type="button"
                     onClick={() => onSelect?.(sym)}
                     style={{
-                      minHeight: 28,
-                      padding: "2px 1px",
+                      minHeight: isMobile ? 30 : 26,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      padding: "2px 0",
                       background: heatColor(pct),
                       border: "none",
                       cursor: "pointer",
@@ -1157,11 +1181,17 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
                     }}
                     onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.3)")}
                     onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
-                    <span style={{ fontSize: 8, fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1.2 }}>
+                    <span style={{
+                      fontSize: 8, fontWeight: 700, color: "#fff",
+                      fontFamily: "monospace", lineHeight: 1.1,
+                      overflow: "hidden", maxWidth: "100%",
+                      display: "block", textOverflow: "clip",
+                    }}>
                       {sym}
                     </span>
                     <span style={{
-                      fontSize: 7, fontFamily: "monospace", lineHeight: 1.2,
+                      fontSize: 7, fontFamily: "monospace", lineHeight: 1.1,
+                      overflow: "hidden", maxWidth: "100%", display: "block",
                       color: isPos ? "#a7f3d0" : isNeg ? "#fecaca" : "rgba(255,255,255,0.5)",
                     }}>
                       {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
