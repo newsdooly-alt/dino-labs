@@ -1015,27 +1015,65 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MARKET HEATMAP  — Finviz-style sector × stock treemap colored by % change
+// MARKET HEATMAP  — Finviz-style sector × stock heatmap
+// Layout rule: flex = cols  →  all cells equal size, sector width ∝ market cap
+// Each sector always has exactly 4 rows (syms.length / cols = 4)
 // ══════════════════════════════════════════════════════════════════════════════
-const HEATMAP_SECTORS: { s: string; sKo: string; w: number; syms: string[] }[] = [
-  { s: "Technology",     sKo: "기술",       w: 4,
-    syms: ["MSFT","AAPL","NVDA","AVGO","AMD","ADBE","INTC","CRM"] },
-  { s: "Financials",     sKo: "금융",       w: 3,
-    syms: ["JPM","V","MA","BAC","GS","WFC","AXP","MS"] },
-  { s: "Healthcare",     sKo: "헬스케어",   w: 2,
-    syms: ["LLY","UNH","ABBV","JNJ","MRK","PFE","TMO","ISRG"] },
-  { s: "Cons. Disc.",    sKo: "경기소비재", w: 2,
-    syms: ["AMZN","TSLA","HD","MCD","NKE","SBUX","TGT","BKNG"] },
-  { s: "Comm. Svc",      sKo: "통신서비스", w: 2,
-    syms: ["GOOGL","META","NFLX","VZ","DIS","T","CMCSA","TMUS"] },
-  { s: "Industrials",    sKo: "산업재",     w: 2,
-    syms: ["CAT","GE","BA","HON","UNP","RTX","DE","FDX"] },
-  { s: "Staples",        sKo: "필수소비재", w: 1,
-    syms: ["PG","KO","WMT","COST","PM","MO","CL","MDLZ"] },
-  { s: "Energy",         sKo: "에너지",     w: 1,
-    syms: ["XOM","CVX","COP","SLB","EOG","MPC","OXY","PSX"] },
+const HEATMAP_SECTORS: { s: string; sKo: string; cols: number; syms: string[] }[] = [
+  // Technology — 4 cols × 4 rows = 16 stocks (S&P largest sector ~32% weight)
+  { s: "Technology", sKo: "기술", cols: 4,
+    syms: ["AAPL","MSFT","NVDA","AVGO",
+           "ORCL","AMD","QCOM","TXN",
+           "INTC","IBM","AMAT","NOW",
+           "MU","CRM","ADBE","INTU"] },
+  // Communication Services — 3 cols × 4 rows = 12 stocks
+  { s: "Comm. Svc", sKo: "통신서비스", cols: 3,
+    syms: ["GOOGL","META","NFLX",
+           "DIS","VZ","T",
+           "CMCSA","TMUS","EA",
+           "WBD","TTWO","PARA"] },
+  // Consumer Discretionary — 3 cols × 4 rows = 12 stocks
+  { s: "Cons. Disc.", sKo: "경기소비재", cols: 3,
+    syms: ["AMZN","TSLA","HD",
+           "MCD","NKE","LOW",
+           "SBUX","TGT","BKNG",
+           "ABNB","GM","F"] },
+  // Financials — 3 cols × 4 rows = 12 stocks
+  { s: "Financials", sKo: "금융", cols: 3,
+    syms: ["JPM","V","MA",
+           "BAC","WFC","GS",
+           "MS","C","AXP",
+           "BLK","SCHW","SPGI"] },
+  // Healthcare — 2 cols × 4 rows = 8 stocks
+  { s: "Healthcare", sKo: "헬스케어", cols: 2,
+    syms: ["LLY","UNH",
+           "ABBV","JNJ",
+           "MRK","PFE",
+           "ISRG","TMO"] },
+  // Industrials — 2 cols × 4 rows = 8 stocks
+  { s: "Industrials", sKo: "산업재", cols: 2,
+    syms: ["CAT","GE",
+           "BA","HON",
+           "UNP","RTX",
+           "DE","LMT"] },
+  // Consumer Staples — 1 col × 4 rows = 4 stocks
+  { s: "Staples", sKo: "필수소비재", cols: 1,
+    syms: ["WMT","PG","KO","COST"] },
+  // Energy — 1 col × 4 rows = 4 stocks
+  { s: "Energy", sKo: "에너지", cols: 1,
+    syms: ["XOM","CVX","COP","SLB"] },
+  // Real Estate — 1 col × 4 rows = 4 stocks
+  { s: "Real Est.", sKo: "부동산", cols: 1,
+    syms: ["PLD","AMT","EQIX","SPG"] },
+  // Utilities — 1 col × 4 rows = 4 stocks
+  { s: "Utilities", sKo: "유틸리티", cols: 1,
+    syms: ["NEE","DUK","SO","AEP"] },
+  // Materials — 1 col × 4 rows = 4 stocks
+  { s: "Materials", sKo: "소재", cols: 1,
+    syms: ["LIN","SHW","APD","FCX"] },
 ];
-const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms); // 64 symbols
+// Total: 22 flex-units, 88 symbols, all sectors exactly 4 rows tall
+const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms);
 
 function heatColor(pct: number | undefined): string {
   // Finviz-accurate color scale: dark red → neutral dark → vivid green
@@ -1088,16 +1126,16 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
         {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
 
-      {/* 8 sectors — each flex:1 (equal width) with inner 2-column grid so all cells are uniform size */}
+      {/* flex=cols per sector → tech (4) gets 4× space of small (1); repeat(cols,1fr) grid inside
+           → all cells exactly equal size across the entire heatmap (Finviz proportional layout) */}
       <div style={{ display: "flex", gap: 1, background: C.border, padding: 1 }}>
         {HEATMAP_SECTORS.map(sec => (
-          <div key={sec.s} style={{ flex: "1 0 0%", display: "flex", flexDirection: "column", gap: 1 }}>
+          <div key={sec.s} style={{ flex: `${sec.cols} 0 0%`, display: "flex", flexDirection: "column", gap: 1 }}>
             <div className="text-center py-0.5 text-[9px] font-mono font-bold uppercase truncate"
               style={{ background: "#07111c", color: C.muted }}>
               {sec.sKo}
             </div>
-            {/* 2-column grid → 8 syms become 2×4; every cell is the same width & height */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${sec.cols}, 1fr)`, gap: 1 }}>
               {sec.syms.map(sym => {
                 const pct = quotes[sym]?.changePercent as number | undefined;
                 const isPos = pct != null && pct > 0.3;
