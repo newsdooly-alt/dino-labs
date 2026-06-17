@@ -78,7 +78,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
 }
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","ETH-USD","SOL-USD","XRP-USD","JPY=X","^VIX"];
 const CROSS_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
-const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","PL=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"코스피","^IXIC":"NDX",
@@ -863,27 +863,27 @@ function SectorMap() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-3 gap-px m-1" style={{ background: C.border }}>
-          {Array.from({length:9}).map((_,i) => (
-            <div key={i} className="h-7 animate-pulse" style={{ background: C.panel2 }} />
+        <div className="grid grid-cols-4 gap-px m-0.5" style={{ background: C.border }}>
+          {Array.from({length:8}).map((_,i) => (
+            <div key={i} className="h-6 animate-pulse" style={{ background: C.panel2 }} />
           ))}
         </div>
       ) : isError || sectors.length === 0 ? (
-        <div className="px-2 py-2 text-[10px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
+        <div className="px-2 py-1 text-[9px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
       ) : (
-        <div className="grid grid-cols-3 gap-px p-1" style={{ background: C.border }}>
+        <div className="grid grid-cols-4 gap-px p-0.5" style={{ background: C.border }}>
           {sectors.map((sec: any) => {
             const name = SECTOR_NAMES[sec.symbol] || sec.symbol;
             const pct  = sec.changePercent ?? 0;
             const up   = pct >= 0;
             const intensity = Math.min(Math.abs(pct) / 3, 1);
             const bg = up
-              ? `rgba(0,200,150,${0.07 + intensity*0.22})`
-              : `rgba(255,71,87,${0.07 + intensity*0.22})`;
+              ? `rgba(0,200,150,${0.06 + intensity*0.2})`
+              : `rgba(255,71,87,${0.06 + intensity*0.2})`;
             return (
-              <div key={sec.symbol} className="flex flex-col px-1.5 py-1 rounded-sm" style={{ background: bg }}>
-                <span className="text-[9px] font-mono truncate" style={{ color: C.muted }}>{name}</span>
-                <span className={cn("text-[11px] font-mono font-bold leading-tight", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+              <div key={sec.symbol} className="flex flex-col px-1 py-0.5 rounded-sm" style={{ background: bg }}>
+                <span className="text-[8px] font-mono truncate leading-tight" style={{ color: C.muted }}>{name}</span>
+                <span className={cn("text-[10px] font-mono font-bold leading-tight", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                   {fmtPct(pct)}
                 </span>
               </div>
@@ -1472,6 +1472,8 @@ const PERIODS: {label:string; period:string; interval:string}[] = [
   { label:"3M",  period:"3mo",  interval:"1d"  },
   { label:"6M",  period:"6mo",  interval:"1d"  },
   { label:"1Y",  period:"1y",   interval:"1wk" },
+  { label:"5Y",  period:"5y",   interval:"1wk" },
+  { label:"ALL", period:"max",  interval:"1mo" },
 ];
 
 /** Extract HH:MM from ISO date string for 1D time labels */
@@ -1965,11 +1967,15 @@ function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
 // COMMODITY & FX PANEL
 // ══════════════════════════════════════════════════════════════════════════════
 const COMM_DEF = [
-  { sym:"GC=F",  label:"Gold",    emoji:"🥇" },
-  { sym:"SI=F",  label:"Silver",  emoji:"🥈" },
-  { sym:"CL=F",  label:"WTI",     emoji:"🛢️" },
-  { sym:"HG=F",  label:"Copper",  emoji:"🔶" },
-  { sym:"NG=F",  label:"NatGas",  emoji:"🔥" },
+  { sym:"GC=F",  label:"Gold",     emoji:"🥇" },
+  { sym:"SI=F",  label:"Silver",   emoji:"🥈" },
+  { sym:"PL=F",  label:"Platinum", emoji:"🔷" },
+  { sym:"CL=F",  label:"WTI",      emoji:"🛢️" },
+  { sym:"BZ=F",  label:"Brent",    emoji:"🛢️" },
+  { sym:"NG=F",  label:"NatGas",   emoji:"🔥" },
+  { sym:"HG=F",  label:"Copper",   emoji:"🔶" },
+  { sym:"ZC=F",  label:"Corn",     emoji:"🌽" },
+  { sym:"ZW=F",  label:"Wheat",    emoji:"🌾" },
 ];
 const FX_DEF = [
   { sym:"KRW=X",    label:"USD/KRW" },
@@ -1983,18 +1989,19 @@ function CommodityFXPanel({ stocks }: { stocks: Record<string,any> }) {
     <div className="p-3 border-t" style={{ borderColor:C.border }}>
       <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
         style={{ color:C.muted }}>COMMODITIES</div>
-      <div className="grid grid-cols-2 gap-1 mb-3">
+      <div className="grid grid-cols-3 gap-1 mb-3">
         {COMM_DEF.map(({ sym, label, emoji }) => {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
+          const decimals = sym==="GC=F"||sym==="PL=F" ? 0 : sym==="SI=F" ? 2 : sym==="HG=F" ? 4 : 2;
           return (
-            <div key={sym} className="rounded px-1.5 py-1 min-w-0 overflow-hidden"
+            <div key={sym} className="rounded px-1 py-1 min-w-0 overflow-hidden"
               style={{ background:C.panel2, border:`1px solid ${C.border}` }}>
-              <div className="text-[10px] font-mono truncate" style={{ color:C.muted }}>{emoji} {label}</div>
-              <div className="text-[12px] font-mono font-bold truncate" style={{ color:C.text }}>
-                {q ? `$${q.price?.toFixed(sym==="GC=F"||sym==="SI=F" ? 2 : (sym==="HG=F"?4:2))}` : "—"}
+              <div className="text-[9px] font-mono truncate" style={{ color:C.muted }}>{emoji} {label}</div>
+              <div className="text-[11px] font-mono font-bold truncate" style={{ color:C.text }}>
+                {q ? `$${q.price?.toFixed(decimals)}` : "—"}
               </div>
-              <div className="text-[10px] font-mono font-bold truncate"
+              <div className="text-[9px] font-mono font-bold truncate"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
               </div>
@@ -4040,14 +4047,12 @@ export default function DinoTerminal() {
               prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
           </div>
 
-          {/* Heatmap — below chart, above tech engine */}
-          <MarketHeatmap onSelect={selectSym} />
-
-          {/* Scrollable: TechEngine + PeerPanel + Macro rates */}
+          {/* Scrollable: TechEngine + PeerPanel + Macro rates + Heatmap */}
           <div className="flex-1 border-t overflow-y-auto" style={{ borderColor:C.border, scrollbarWidth:"none" }}>
             <TechEngine symbol={selected} quote={quote} />
             <PeerPanel symbol={selected} lang={lang} />
             <MacroPanel stocks={stocks} />
+            <MarketHeatmap onSelect={selectSym} />
           </div>
         </div>
 
@@ -4148,20 +4153,20 @@ export default function DinoTerminal() {
         {mTab === "chart" && (
           <>
             <SymbolHeader symbol={selected} quote={quote} />
-            <div className="flex items-center gap-1 px-2 py-1.5 border-b flex-wrap"
-              style={{ borderColor:C.border, background:C.header }}>
+            <div className="flex items-center gap-1 px-2 py-1 border-b overflow-x-auto shrink-0"
+              style={{ borderColor:C.border, background:C.header, scrollbarWidth:"none" }}>
               {PERIODS.map((p, i) => (
                 <button key={p.label} onClick={() => setPIdx(i)}
-                  className="px-2 py-0.5 rounded text-[12px] font-mono font-bold"
+                  className="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold shrink-0"
                   style={{
                     background: pIdx===i ? C.info+"33" : C.panel2,
                     color:      pIdx===i ? C.info       : C.muted,
                     border:    `1px solid ${pIdx===i ? C.info+"50" : C.border}`,
                   }}>{p.label}</button>
               ))}
-              <div className="flex-1" />
-              <Link href={`/stock/${selected}`} className="text-[12px] font-mono" style={{ color:C.info }}>
-                {lang==="ko"?"고급→":lang==="ja"?"詳細→":"Full→"}
+              <div className="flex-1 min-w-2" />
+              <Link href={`/stock/${selected}`} className="text-[11px] font-mono shrink-0" style={{ color:C.info }}>
+                {lang==="ko"?"풀차트→":lang==="ja"?"詳細→":"Full→"}
               </Link>
             </div>
             <div style={{ height:180, padding:"4px" }}>
