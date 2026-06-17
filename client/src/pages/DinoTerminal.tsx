@@ -850,40 +850,40 @@ function SectorMap() {
 
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center justify-between"
+      <div className="px-2 py-1 border-b flex items-center justify-between"
         style={{ borderColor: C.border, background: C.header }}>
-        <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
-          SECTOR MAP
+        <span className="text-[10px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
+          📈 섹터 현황
         </span>
         <div className="flex items-center gap-2">
           <StatusBadge isLoading={isLoading} isError={isError}
             isLive={!isLoading && !isError && sectors.length > 0} />
-          <Link href="/market-trends" className="text-[12px] font-mono" style={{ color: C.info }}>→</Link>
+          <Link href="/market-trends" className="text-[10px] font-mono" style={{ color: C.info }}>→</Link>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-px m-1.5" style={{ background: C.border }}>
-          {Array.from({length:8}).map((_,i) => (
-            <div key={i} className="h-10 animate-pulse" style={{ background: C.panel2 }} />
+        <div className="grid grid-cols-3 gap-px m-1" style={{ background: C.border }}>
+          {Array.from({length:9}).map((_,i) => (
+            <div key={i} className="h-7 animate-pulse" style={{ background: C.panel2 }} />
           ))}
         </div>
       ) : isError || sectors.length === 0 ? (
-        <div className="px-2 py-3 text-[13px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
+        <div className="px-2 py-2 text-[10px] font-mono" style={{ color: C.muted }}>데이터 없음</div>
       ) : (
-        <div className="grid grid-cols-2 gap-px p-1.5" style={{ background: C.border }}>
+        <div className="grid grid-cols-3 gap-px p-1" style={{ background: C.border }}>
           {sectors.map((sec: any) => {
             const name = SECTOR_NAMES[sec.symbol] || sec.symbol;
-            const pct  = sec.changePercent ?? 0;   // ← correct field name
+            const pct  = sec.changePercent ?? 0;
             const up   = pct >= 0;
             const intensity = Math.min(Math.abs(pct) / 3, 1);
             const bg = up
-              ? `rgba(0,200,150,${0.08 + intensity*0.25})`
-              : `rgba(255,71,87,${0.08 + intensity*0.25})`;
+              ? `rgba(0,200,150,${0.07 + intensity*0.22})`
+              : `rgba(255,71,87,${0.07 + intensity*0.22})`;
             return (
-              <div key={sec.symbol} className="flex flex-col p-1.5 rounded-sm" style={{ background: bg }}>
-                <span className="text-[12px] font-mono truncate" style={{ color: C.muted }}>{name}</span>
-                <span className={cn("text-[14px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
+              <div key={sec.symbol} className="flex flex-col px-1.5 py-1 rounded-sm" style={{ background: bg }}>
+                <span className="text-[9px] font-mono truncate" style={{ color: C.muted }}>{name}</span>
+                <span className={cn("text-[11px] font-mono font-bold leading-tight", up ? "text-[#00c896]" : "text-[#ff4757]")}>
                   {fmtPct(pct)}
                 </span>
               </div>
@@ -1019,60 +1019,51 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
 // Layout rule: flex = cols  →  all cells equal size, sector width ∝ market cap
 // Each sector always has exactly 4 rows (syms.length / cols = 4)
 // ══════════════════════════════════════════════════════════════════════════════
-const HEATMAP_SECTORS: { s: string; sKo: string; sKoShort: string; cols: number; syms: string[] }[] = [
-  // Technology — 4 cols × 4 rows = 16 stocks
-  { s: "Technology", sKo: "기술", sKoShort: "기술", cols: 4,
+// cols  = desktop column count (flex units)
+// mCols = mobile column count → 375px / 17 mobile-units ≈ 22px/cell (fits 5-char tickers at 7px font)
+const HEATMAP_SECTORS: { s: string; sKo: string; sKoShort: string; cols: number; mCols: number; syms: string[] }[] = [
+  { s: "Technology",  sKo: "기술",    sKoShort: "기술",  cols: 4, mCols: 3,
     syms: ["AAPL","MSFT","NVDA","AVGO",
            "ORCL","AMD","QCOM","TXN",
            "INTC","IBM","AMAT","NOW",
            "MU","CRM","ADBE","INTU"] },
-  // Communication Services — 3 cols × 4 rows = 12 stocks
-  { s: "Comm. Svc", sKo: "통신서비스", sKoShort: "통신", cols: 3,
+  { s: "Comm. Svc",   sKo: "통신서비스", sKoShort: "통신", cols: 3, mCols: 2,
     syms: ["GOOGL","META","NFLX",
            "DIS","VZ","T",
            "CMCSA","TMUS","EA",
            "WBD","TTWO","PARA"] },
-  // Consumer Discretionary — 3 cols × 4 rows = 12 stocks
-  { s: "Cons. Disc.", sKo: "경기소비재", sKoShort: "소비재", cols: 3,
+  { s: "Cons. Disc.", sKo: "경기소비재", sKoShort: "소비재", cols: 3, mCols: 2,
     syms: ["AMZN","TSLA","HD",
            "MCD","NKE","LOW",
            "SBUX","TGT","BKNG",
            "ABNB","GM","F"] },
-  // Financials — 3 cols × 4 rows = 12 stocks
-  { s: "Financials", sKo: "금융", sKoShort: "금융", cols: 3,
+  { s: "Financials",  sKo: "금융",    sKoShort: "금융",  cols: 3, mCols: 2,
     syms: ["JPM","V","MA",
            "BAC","WFC","GS",
            "MS","C","AXP",
            "BLK","SCHW","SPGI"] },
-  // Healthcare — 2 cols × 4 rows = 8 stocks
-  { s: "Healthcare", sKo: "헬스케어", sKoShort: "헬스", cols: 2,
+  { s: "Healthcare",  sKo: "헬스케어", sKoShort: "헬스",  cols: 2, mCols: 2,
     syms: ["LLY","UNH",
            "ABBV","JNJ",
            "MRK","PFE",
            "ISRG","TMO"] },
-  // Industrials — 2 cols × 4 rows = 8 stocks
-  { s: "Industrials", sKo: "산업재", sKoShort: "산업", cols: 2,
+  { s: "Industrials", sKo: "산업재",  sKoShort: "산업",  cols: 2, mCols: 1,
     syms: ["CAT","GE",
            "BA","HON",
            "UNP","RTX",
            "DE","LMT"] },
-  // Consumer Staples — 1 col × 4 rows = 4 stocks
-  { s: "Staples", sKo: "필수소비재", sKoShort: "필수", cols: 1,
+  { s: "Staples",     sKo: "필수소비재", sKoShort: "필수", cols: 1, mCols: 1,
     syms: ["WMT","PG","KO","COST"] },
-  // Energy — 1 col × 4 rows = 4 stocks
-  { s: "Energy", sKo: "에너지", sKoShort: "에너지", cols: 1,
+  { s: "Energy",      sKo: "에너지",  sKoShort: "에너지", cols: 1, mCols: 1,
     syms: ["XOM","CVX","COP","SLB"] },
-  // Real Estate — 1 col × 4 rows = 4 stocks
-  { s: "Real Est.", sKo: "부동산", sKoShort: "부동산", cols: 1,
+  { s: "Real Est.",   sKo: "부동산",  sKoShort: "부동산", cols: 1, mCols: 1,
     syms: ["PLD","AMT","EQIX","SPG"] },
-  // Utilities — 1 col × 4 rows = 4 stocks
-  { s: "Utilities", sKo: "유틸리티", sKoShort: "유틸", cols: 1,
+  { s: "Utilities",   sKo: "유틸리티", sKoShort: "유틸",  cols: 1, mCols: 1,
     syms: ["NEE","DUK","SO","AEP"] },
-  // Materials — 1 col × 4 rows = 4 stocks
-  { s: "Materials", sKo: "소재", sKoShort: "소재", cols: 1,
+  { s: "Materials",   sKo: "소재",    sKoShort: "소재",  cols: 1, mCols: 1,
     syms: ["LIN","SHW","APD","FCX"] },
 ];
-// Total: 22 flex-units, 88 symbols, 4 rows each sector
+// Desktop: 22 flex-units, 88 stocks. Mobile: 17 flex-units ≈ 22px/cell
 const HEATMAP_ALL_SYMS = HEATMAP_SECTORS.flatMap(s => s.syms);
 
 function heatColor(pct: number | undefined): string {
@@ -1123,20 +1114,23 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  // Mobile: 3 rows per sector (66 stocks); Desktop: 4 rows (88 stocks)
+  // Mobile uses mCols → 17 flex-units total → ~22px/cell (fits 5-char tickers)
+  // Desktop uses cols → 22 flex-units total → ~26px/cell on a 570px COL2
   const rows = isMobile ? 3 : 4;
-  const displaySectors = HEATMAP_SECTORS.map(sec => ({
-    ...sec,
-    syms: sec.syms.slice(0, sec.cols * rows),
-    label: isMobile ? sec.sKoShort : sec.sKo,
-  }));
+  const displaySectors = HEATMAP_SECTORS.map(sec => {
+    const c = isMobile ? sec.mCols : sec.cols;
+    return {
+      ...sec,
+      c,                                    // effective cols for this breakpoint
+      syms: sec.syms.slice(0, c * rows),    // rows × effective cols
+      label: isMobile ? sec.sKoShort : sec.sKo,
+    };
+  });
 
-  // Cell sizing: on mobile cells are ~17px wide, keep height close to width for squarish look
-  const cellH = isMobile ? 24 : 30;
-  // Font sizes scale with cell
-  const tickerFs = isMobile ? 7 : 9;
-  const pctFs    = isMobile ? 6 : 7;
-  const hdrFs    = isMobile ? 7 : 9;
+  const cellH    = isMobile ? 26 : 30;
+  const tickerFs = isMobile ? 7  : 9;
+  const pctFs    = isMobile ? 6  : 7;
+  const hdrFs    = isMobile ? 7  : 9;
 
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
@@ -1153,11 +1147,10 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
       <div style={{ display: "flex", gap: 1, background: C.border, padding: 1 }}>
         {displaySectors.map(sec => (
           <div key={sec.s} style={{
-            flex: `${sec.cols} ${sec.cols} 0%`,
+            flex: `${sec.c} ${sec.c} 0%`,
             minWidth: 0,
             display: "flex", flexDirection: "column", gap: 1,
           }}>
-            {/* Sector header — sKoShort on mobile prevents clipping */}
             <div style={{
               background: "#07111c", color: C.muted,
               textAlign: "center", padding: "2px 1px",
@@ -1167,8 +1160,7 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
             }}>
               {sec.label}
             </div>
-            {/* minmax(0,1fr): each track capped to proportional share, no blowout */}
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${sec.cols}, minmax(0,1fr))`, gap: 1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${sec.c}, minmax(0,1fr))`, gap: 1 }}>
               {sec.syms.map(sym => {
                 const pct = quotes[sym]?.changePercent as number | undefined;
                 const isPos = pct != null && pct > 0.3;
@@ -4141,12 +4133,12 @@ export default function DinoTerminal() {
           <>
             <MarketPulseWidget liveStocks={stocks} />
             <MarketHeatmap onSelect={sym => { selectSym(sym); setMTab("chart"); }} />
+            <SectorMap />
             <MarketMoversPanel onSelect={selectSym} />
             <VolumePulsePanel />
             <GlobalMiniPanel stocks={stocks} />
             <CryptoMiniPanel stocks={stocks} />
             <RatesMiniPanel stocks={stocks} />
-            <SectorMap />
             <WatchGrid stocks={stocks} onSelect={selectSym} selected={selected} isLoading={liveLdg}
               watchSyms={watchSyms} watchNames={watchNames} onEditOpen={() => setShowEditModal(true)} />
           </>
