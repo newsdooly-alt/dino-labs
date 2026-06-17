@@ -134,7 +134,7 @@ _name_cache = {}
 
 # Per-symbol quote cache (avoids hammering yfinance on every request)
 _quote_cache: dict = {}
-_QUOTE_CACHE_TTL = 45  # seconds
+_QUOTE_CACHE_TTL = 90  # seconds (increased for better cache hit rate)
 
 def _get_cached_quote(symbol: str):
     entry = _quote_cache.get(symbol)

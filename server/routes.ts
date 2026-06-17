@@ -882,6 +882,32 @@ export async function registerRoutes(
   let cachedMood: MoodCache | null = null;
   const MOOD_CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
+  // === Server-side caches for expensive market endpoints ===
+  const RANKING_CACHE_TTL   = 3  * 60 * 1000; // 3 min
+  const VOLUME_CACHE_TTL    = 3  * 60 * 1000; // 3 min
+  const SECTOR_CACHE_TTL    = 3  * 60 * 1000; // 3 min
+  const HEATMAP_CACHE_TTL   = 3  * 60 * 1000; // 3 min
+
+  const rankingCache: Record<string, { data: any; ts: number }> = {};
+  let volumePulseCache:  { data: any; ts: number } | null = null;
+  const sectorCache:     Record<string, { data: any; ts: number }> = {};
+  let heatmapCache:      { data: any; ts: number } | null = null;
+
+  // 88 symbols for the S&P 500 sector heatmap
+  const HEATMAP_SYMS = [
+    "AAPL","MSFT","NVDA","AVGO","ORCL","AMD","QCOM","TXN","INTC","IBM","AMAT","NOW","MU","CRM","ADBE","INTU",
+    "GOOGL","META","NFLX","DIS","VZ","T","CMCSA","TMUS","EA","WBD","TTWO","CHTR",
+    "AMZN","TSLA","HD","MCD","NKE","LOW","SBUX","TGT","BKNG","ABNB","GM","F",
+    "JPM","V","MA","BAC","WFC","GS","MS","C","AXP","BLK","SCHW","SPGI",
+    "LLY","UNH","ABBV","JNJ","MRK","PFE","ISRG","TMO",
+    "CAT","GE","BA","HON","UNP","RTX","DE","LMT",
+    "WMT","PG","KO","COST",
+    "XOM","CVX","COP","SLB",
+    "PLD","AMT","EQIX","SPG",
+    "NEE","DUK","SO","AEP",
+    "LIN","SHW","APD","FCX",
+  ];
+
   // === Exchange Rate API ===
   let cachedExchangeRate: { rate: number; rateJPY: number; rates: { KRW: number; JPY: number }; source: string; timestamp: number } | null = null;
   const EXCHANGE_RATE_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
@@ -953,32 +979,47 @@ export async function registerRoutes(
     return r.json();
   }
 
-  app.get("/api/market/gainers", async (req, res) => {
-    try { res.json(await fetchPyRanking("gainers")); }
-    catch { res.json([]); }
+  async function getCachedRanking(path: string): Promise<any[]> {
+    const now = Date.now();
+    const cached = rankingCache[path];
+    if (cached && (now - cached.ts) < RANKING_CACHE_TTL) return cached.data;
+    const data = await fetchPyRanking(path);
+    rankingCache[path] = { data, ts: now };
+    return data;
+  }
+
+  app.get("/api/market/gainers", async (_req, res) => {
+    try { res.json(await getCachedRanking("gainers")); }
+    catch { res.json(rankingCache["gainers"]?.data ?? []); }
   });
 
-  app.get("/api/market/losers", async (req, res) => {
-    try { res.json(await fetchPyRanking("losers")); }
-    catch { res.json([]); }
+  app.get("/api/market/losers", async (_req, res) => {
+    try { res.json(await getCachedRanking("losers")); }
+    catch { res.json(rankingCache["losers"]?.data ?? []); }
   });
 
-  app.get("/api/market/actives", async (req, res) => {
-    try { res.json(await fetchPyRanking("actives")); }
-    catch { res.json([]); }
+  app.get("/api/market/actives", async (_req, res) => {
+    try { res.json(await getCachedRanking("actives")); }
+    catch { res.json(rankingCache["actives"]?.data ?? []); }
   });
 
-  app.get("/api/market/trending", async (req, res) => {
-    try { res.json(await fetchPyRanking("trending")); }
-    catch { res.json([]); }
+  app.get("/api/market/trending", async (_req, res) => {
+    try { res.json(await getCachedRanking("trending")); }
+    catch { res.json(rankingCache["trending"]?.data ?? []); }
   });
 
-  app.get("/api/market/volume-pulse", async (req, res) => {
+  app.get("/api/market/volume-pulse", async (_req, res) => {
+    const now = Date.now();
+    if (volumePulseCache && (now - volumePulseCache.ts) < VOLUME_CACHE_TTL) {
+      return res.json(volumePulseCache.data);
+    }
     try {
       const r = await fetch("http://127.0.0.1:5001/market/volume-pulse", { signal: AbortSignal.timeout(12000) });
       if (!r.ok) throw new Error("volume-pulse error");
-      res.json(await r.json());
-    } catch { res.json([]); }
+      const data = await r.json();
+      volumePulseCache = { data, ts: now };
+      res.json(data);
+    } catch { res.json(volumePulseCache?.data ?? []); }
   });
 
   app.get("/api/market/mood", async (req, res) => {
@@ -1566,9 +1607,13 @@ export async function registerRoutes(
 
   // === Sector Returns (1-day % change per sector, equal-weighted) ===
   app.get("/api/sector-returns", async (req, res) => {
+    const country = (req.query.country as string) || 'us';
+    const period  = (req.query.period  as string) || '1d';
+    const key = `${country}:${period}`;
+    const now = Date.now();
+    const cached = sectorCache[key];
+    if (cached && (now - cached.ts) < SECTOR_CACHE_TTL) return res.json(cached.data);
     try {
-      const country = (req.query.country as string) || 'us';
-      const period = (req.query.period as string) || '1d';
       const response = await fetch(
         `${MACRO_PYTHON_URL}/sector-returns?country=${country}&period=${period}`,
         { signal: AbortSignal.timeout(30000) }
@@ -1578,10 +1623,39 @@ export async function registerRoutes(
         return res.status(500).json({ error: err.error || 'Sector returns failed', sectors: [] });
       }
       const data = await response.json();
+      sectorCache[key] = { data, ts: now };
       res.json(data);
     } catch (error: any) {
       console.error("[SectorReturns] Error:", error.message);
+      if (cached) return res.json(cached.data); // serve stale on error
       res.status(500).json({ error: "Sector returns unavailable", sectors: [] });
+    }
+  });
+
+  // === Heatmap endpoint — 88 S&P 500 symbols, server-side 3-min cache ===
+  app.get("/api/market/heatmap", async (_req, res) => {
+    const now = Date.now();
+    if (heatmapCache && (now - heatmapCache.ts) < HEATMAP_CACHE_TTL) {
+      return res.json(heatmapCache.data);
+    }
+    try {
+      const mid = Math.ceil(HEATMAP_SYMS.length / 2);
+      const [r1, r2] = await Promise.all([
+        fetch(`http://127.0.0.1:5001/quotes?symbols=${HEATMAP_SYMS.slice(0, mid).join(",")}`, { signal: AbortSignal.timeout(20000) }),
+        fetch(`http://127.0.0.1:5001/quotes?symbols=${HEATMAP_SYMS.slice(mid).join(",")}`,    { signal: AbortSignal.timeout(20000) }),
+      ]);
+      const toArr = (r: any): any[] => Array.isArray(r) ? r : (r?.quotes ?? []);
+      const [d1, d2] = await Promise.all([r1.ok ? r1.json() : {}, r2.ok ? r2.json() : {}]);
+      const map: Record<string, any> = {};
+      for (const q of [...toArr(d1), ...toArr(d2)]) {
+        if (q?.symbol) map[q.symbol] = { symbol: q.symbol, changePercent: q.changePercent, price: q.price };
+      }
+      heatmapCache = { data: map, ts: now };
+      res.json(map);
+    } catch (err: any) {
+      console.error("[Heatmap] fetch error:", err.message);
+      if (heatmapCache) return res.json(heatmapCache.data); // stale fallback
+      res.json({});
     }
   });
 
@@ -3796,3 +3870,26 @@ async function seedStockData() {
         }
     }
 }
+
+// Pre-warm expensive endpoints ~8s after server start so first visitors get cached data
+setTimeout(async () => {
+  const BASE = "http://127.0.0.1:5001";
+  const warm = async (label: string, url: string) => {
+    try {
+      await fetch(url, { signal: AbortSignal.timeout(25000) });
+      console.log(`[prewarm] ${label} OK`);
+    } catch { console.log(`[prewarm] ${label} skip`); }
+  };
+  await Promise.allSettled([
+    warm("gainers",      `${BASE}/screener/gainers`),
+    warm("losers",       `${BASE}/screener/losers`),
+    warm("actives",      `${BASE}/screener/actives`),
+    warm("volume-pulse", `${BASE}/market/volume-pulse`),
+    warm("sector-us",    `${BASE}/sector-returns?country=us&period=1d`),
+  ]);
+  // Warm heatmap last (depends on quotes being cached)
+  try {
+    await fetch("http://localhost:5000/api/market/heatmap", { signal: AbortSignal.timeout(30000) });
+    console.log("[prewarm] heatmap OK");
+  } catch { console.log("[prewarm] heatmap skip"); }
+}, 8000);

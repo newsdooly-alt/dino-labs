@@ -1137,7 +1137,7 @@ const HEATMAP_SECTORS: { s: string; sKo: string; sKoShort: string; cols: number;
     syms: ["GOOGL","META","NFLX",
            "DIS","VZ","T",
            "CMCSA","TMUS","EA",
-           "WBD","TTWO","PARA"] },
+           "WBD","TTWO","CHTR"] },
   { s: "Cons. Disc.", sKo: "경기소비재", sKoShort: "소비재", cols: 3, mCols: 2,
     syms: ["AMZN","TSLA","HD",
            "MCD","NKE","LOW",
@@ -1202,19 +1202,11 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
   }, []);
 
   const { data: quotes = {}, isLoading } = useQuery<Record<string, any>>({
-    queryKey: ["/api/stocks/live", "heatmap"],
+    queryKey: ["/api/market/heatmap"],
     queryFn: async () => {
-      const mid = Math.ceil(HEATMAP_ALL_SYMS.length / 2);
-      const [r1, r2] = await Promise.all([
-        fetch(`/api/stocks/live?symbols=${HEATMAP_ALL_SYMS.slice(0, mid).join(",")}`).then(r => r.ok ? r.json() : {}),
-        fetch(`/api/stocks/live?symbols=${HEATMAP_ALL_SYMS.slice(mid).join(",")}`).then(r => r.ok ? r.json() : {}),
-      ]);
-      const toArr = (r: any): any[] => Array.isArray(r) ? r : (r?.quotes ?? []);
-      const map: Record<string, any> = {};
-      for (const q of [...toArr(r1), ...toArr(r2)]) {
-        if (q?.symbol) map[q.symbol] = q;
-      }
-      return map;
+      const res = await fetch("/api/market/heatmap");
+      if (!res.ok) return {};
+      return res.json();
     },
     staleTime: 3 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
