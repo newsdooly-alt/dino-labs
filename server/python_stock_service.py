@@ -181,26 +181,8 @@ def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
             price = 0
             prev_close = 0
 
-        # For US stocks outside regular session, try to get pre/post market price from .info
-        # (fast_info.lastPrice = regular session close; preMarketPrice/postMarketPrice are in .info)
-        if not is_kr and not is_jp and not sym_market_open:
-            try:
-                now_et_h = now_et.hour + now_et.minute / 60.0
-                is_pre  = 4.0 <= now_et_h < 9.5
-                is_post = 16.0 <= now_et_h < 20.0
-                if is_pre or is_post:
-                    info_brief = ticker.info
-                    ext_price = float(info_brief.get('preMarketPrice' if is_pre else 'postMarketPrice') or 0)
-                    if ext_price > 0:
-                        price = ext_price
-                        # prev_close stays as yesterday's close → % change is relative to prev close
-                    # Also use this call to cache the name
-                    if name == symbol:
-                        fetched_name = info_brief.get('shortName') or info_brief.get('longName') or symbol
-                        _name_cache[symbol] = fetched_name
-                        name = fetched_name
-            except Exception as e:
-                print(f"[yfinance] {symbol} pre/post market price fetch failed: {e}")
+        # Extended hours price is handled in get_batch_quotes() via yf.download batch call
+        # (more efficient than per-symbol history fetch here)
 
         if price > 0 and name == symbol:
             try:
@@ -304,9 +286,48 @@ def get_batch_quotes():
             results_map[result["symbol"]] = result
     
     results = [results_map[sym] for sym in symbols if sym in results_map]
-    
+
+    # ── Extended-hours price override (pre-market 4-9:30 AM ET / after 4-8 PM ET) ──
+    # Use a single yf.download call for all US symbols — far faster than per-symbol history
+    now_et_h = now_et.hour + now_et.minute / 60.0
+    is_pre  = not us_market_open and 4.0 <= now_et_h < 9.5
+    is_post = not us_market_open and 16.0 <= now_et_h < 20.0
+    if is_pre or is_post:
+        us_syms = [
+            s for s in symbols
+            if not is_korean_ticker(s) and not is_japanese_ticker(s)
+            and not s.endswith('=F') and not s.startswith('^')
+        ]
+        if us_syms:
+            try:
+                ext = yf.download(
+                    us_syms, period='1d', interval='5m',
+                    prepost=True, group_by='ticker',
+                    progress=False, threads=True, auto_adjust=True
+                )
+                for sym in us_syms:
+                    try:
+                        sym_data = ext[sym] if len(us_syms) > 1 else ext
+                        last_price = float(sym_data['Close'].dropna().iloc[-1])
+                        if last_price > 0:
+                            q = results_map.get(sym)
+                            if q:
+                                prev = q.get('previousClose') or q.get('price') or 0
+                                change = last_price - prev if prev > 0 else 0
+                                chg_pct = (change / prev * 100) if prev > 0 else 0
+                                q['price'] = round(last_price, 2)
+                                q['change'] = round(change, 2)
+                                q['changePercent'] = round(chg_pct, 4)
+                                print(f"[yfinance] {sym} ext-hours: {last_price}")
+                    except Exception:
+                        pass
+            except Exception as e:
+                print(f"[yfinance] ext-hours batch download failed: {e}")
+        # Rebuild results list after override
+        results = [results_map[sym] for sym in symbols if sym in results_map]
+
     print(f"[yfinance] Batch quotes complete: {len(results)} results")
-    
+
     overall_market_open = us_market_open
     time_formatted = now_et.strftime('%I:%M %p ET')
     if has_kr and not has_us:
@@ -780,10 +801,23 @@ def get_history(symbol):
             hist = ticker.history(period='2d', interval=interval, prepost=prepost)
             if not hist.empty:
                 if prepost:
-                    # Sliding 24-hour window: shows yesterday's session + today's pre/after market
-                    # This gives full context during extended hours instead of only the latest date's candles
-                    cutoff = hist.index[-1] - pd.Timedelta(hours=24)
-                    hist = hist[hist.index >= cutoff]
+                    # Session-aware ET-date filtering:
+                    # PRE-market  → today's pre-market candles only (fresh start)
+                    # AFTER-market → today's full session + after-hours (continues from prev close)
+                    # Overnight    → latest available date (yesterday's session)
+                    def _et_date(ts):
+                        try:
+                            return ts.astimezone(US_EASTERN).date()
+                        except Exception:
+                            return ts.date()
+                    today_et = datetime.now(US_EASTERN).date()
+                    today_mask = hist.index.map(_et_date) == today_et
+                    if today_mask.any():
+                        hist = hist[today_mask]
+                    else:
+                        # Overnight closed: show latest available date
+                        latest_et = _et_date(hist.index[-1])
+                        hist = hist[hist.index.map(_et_date) == latest_et]
                 else:
                     # Regular market: show only today's session
                     latest_date = hist.index[-1].date()

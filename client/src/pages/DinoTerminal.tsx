@@ -1575,8 +1575,21 @@ const PERIODS: {label:string; period:string; interval:string}[] = [
 /** Extract HH:MM from ISO date string for 1D time labels */
 function extractHHMM(isoDate: string): string {
   if (!isoDate) return "";
-  const m = isoDate.match(/T(\d{2}:\d{2})/);
-  return m ? m[1] : isoDate.slice(11, 16);
+  try {
+    const d = new Date(isoDate);
+    if (isNaN(d.getTime())) {
+      const m = isoDate.match(/T(\d{2}:\d{2})/);
+      return m ? m[1] : isoDate.slice(11, 16);
+    }
+    // Convert to KST (UTC+9) for display
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit", minute: "2-digit",
+      hour12: false, timeZone: "Asia/Seoul",
+    });
+  } catch {
+    const m = isoDate.match(/T(\d{2}:\d{2})/);
+    return m ? m[1] : isoDate.slice(11, 16);
+  }
 }
 
 /** Price formatter for Y-axis — compact KRW/USD */
