@@ -2363,10 +2363,12 @@ Keep each language culturally appropriate. Do NOT include markdown. Return only 
       }));
 
       if (topItems.length === 0) {
-        const empty = { issues: [], count: 0, fetchedAt: now };
-        hotIssuesCache = empty;
-        hotIssuesCacheTime = now;
-        return res.json(empty);
+        // Cache empty results for only 30 seconds (not the full 10 min).
+        // This lets the Python service warm up after a cold restart without
+        // leaving users stuck with an empty page for 10 minutes.
+        hotIssuesCache = { issues: [], count: 0, fetchedAt: now };
+        hotIssuesCacheTime = now - HOT_ISSUES_CACHE_DURATION + 30_000;
+        return res.json(hotIssuesCache);
       }
 
       // GPT prompts — corporate vs. macro/market-impact

@@ -215,9 +215,13 @@ export default function HotIssues() {
       return res.json();
     },
     staleTime: 1000 * 60 * 5,
-    refetchInterval: 1000 * 60 * 10,
+    // Retry every 30s when empty (server cold-start), otherwise every 10 min
+    refetchInterval: (query) =>
+      (query.state.data as HotIssuesResponse | undefined)?.count === 0
+        ? 30_000
+        : 1000 * 60 * 10,
     refetchOnMount: true,
-    retry: 1,
+    retry: 2,
   });
 
   const enriched = useMemo(() => {
@@ -526,16 +530,30 @@ export default function HotIssues() {
           animate={{ opacity: 1 }}
           className="text-center py-20 text-muted-foreground"
         >
-          <Radio className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">
-            {isKo ? "해당 뉴스가 없습니다" : isJa ? "ニュースがありません" : "No news found"}
-          </p>
-          <button
-            onClick={() => { setSelectedPublisher("all"); setSelectedCategory("all"); }}
-            className="mt-3 text-sm text-primary underline"
-          >
-            {isKo ? "필터 초기화" : isJa ? "フィルターをリセット" : "Clear filters"}
-          </button>
+          {isFetching && enriched.length === 0 ? (
+            <>
+              <RefreshCw className="w-10 h-10 mx-auto mb-3 opacity-40 animate-spin" />
+              <p className="font-medium">
+                {isKo ? "뉴스 불러오는 중..." : isJa ? "ニュース読み込み中..." : "Loading news..."}
+              </p>
+              <p className="text-xs mt-1 opacity-60">
+                {isKo ? "잠시만 기다려 주세요" : isJa ? "しばらくお待ちください" : "This may take a moment"}
+              </p>
+            </>
+          ) : (
+            <>
+              <Radio className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">
+                {isKo ? "해당 뉴스가 없습니다" : isJa ? "ニュースがありません" : "No news found"}
+              </p>
+              <button
+                onClick={() => { setSelectedPublisher("all"); setSelectedCategory("all"); }}
+                className="mt-3 text-sm text-primary underline"
+              >
+                {isKo ? "필터 초기화" : isJa ? "フィルターをリセット" : "Clear filters"}
+              </button>
+            </>
+          )}
         </motion.div>
       ) : (
         <div>
