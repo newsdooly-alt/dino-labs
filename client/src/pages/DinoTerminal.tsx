@@ -1058,17 +1058,18 @@ function heatColor(pct: number | undefined): string {
 
 function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
   const { data: quotes = {}, isLoading } = useQuery<Record<string, any>>({
-    queryKey: ["/api/stocks/live", "heatmap", HEATMAP_ALL_SYMS.join(",")],
+    queryKey: ["/api/stocks/live", "heatmap"],
     queryFn: async () => {
+      // Split into two parallel fetches so the server handles each in ~4s
       const mid = Math.ceil(HEATMAP_ALL_SYMS.length / 2);
-      const b1 = HEATMAP_ALL_SYMS.slice(0, mid);
-      const b2 = HEATMAP_ALL_SYMS.slice(mid);
       const [r1, r2] = await Promise.all([
-        fetch(`/api/stocks/live?symbols=${b1.join(",")}`).then(r => r.ok ? r.json() : []),
-        fetch(`/api/stocks/live?symbols=${b2.join(",")}`).then(r => r.ok ? r.json() : []),
+        fetch(`/api/stocks/live?symbols=${HEATMAP_ALL_SYMS.slice(0, mid).join(",")}`).then(r => r.ok ? r.json() : {}),
+        fetch(`/api/stocks/live?symbols=${HEATMAP_ALL_SYMS.slice(mid).join(",")}`).then(r => r.ok ? r.json() : {}),
       ]);
+      // /api/stocks/live returns { quotes: [...], isMarketOpen: bool }
+      const toArr = (r: any): any[] => Array.isArray(r) ? r : (r?.quotes ?? []);
       const map: Record<string, any> = {};
-      for (const q of [...(Array.isArray(r1) ? r1 : []), ...(Array.isArray(r2) ? r2 : [])]) {
+      for (const q of [...toArr(r1), ...toArr(r2)]) {
         if (q?.symbol) map[q.symbol] = q;
       }
       return map;
@@ -1087,15 +1088,16 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
         {isLoading && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: C.muted }} />}
       </div>
 
-      {/* All sectors in one continuous flex layout */}
+      {/* 8 sectors — each flex:1 (equal width) with inner 2-column grid so all cells are uniform size */}
       <div style={{ display: "flex", gap: 1, background: C.border, padding: 1 }}>
         {HEATMAP_SECTORS.map(sec => (
-          <div key={sec.s} style={{ flex: `${sec.w} 0 0%`, display: "flex", flexDirection: "column", gap: 1 }}>
+          <div key={sec.s} style={{ flex: "1 0 0%", display: "flex", flexDirection: "column", gap: 1 }}>
             <div className="text-center py-0.5 text-[9px] font-mono font-bold uppercase truncate"
               style={{ background: "#07111c", color: C.muted }}>
               {sec.sKo}
             </div>
-            <div className="flex flex-wrap" style={{ gap: 1 }}>
+            {/* 2-column grid → 8 syms become 2×4; every cell is the same width & height */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1 }}>
               {sec.syms.map(sym => {
                 const pct = quotes[sym]?.changePercent as number | undefined;
                 const isPos = pct != null && pct > 0.3;
@@ -1104,8 +1106,7 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
                   <button key={sym} type="button"
                     onClick={() => onSelect?.(sym)}
                     style={{
-                      flex: "1 0 32px",
-                      minHeight: 32,
+                      minHeight: 28,
                       padding: "2px 1px",
                       background: heatColor(pct),
                       border: "none",
@@ -1118,11 +1119,11 @@ function MarketHeatmap({ onSelect }: { onSelect?: (s: string) => void }) {
                     }}
                     onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.3)")}
                     onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1.2 }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1.2 }}>
                       {sym}
                     </span>
                     <span style={{
-                      fontSize: 8, fontFamily: "monospace", lineHeight: 1.2,
+                      fontSize: 7, fontFamily: "monospace", lineHeight: 1.2,
                       color: isPos ? "#a7f3d0" : isNeg ? "#fecaca" : "rgba(255,255,255,0.5)",
                     }}>
                       {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
