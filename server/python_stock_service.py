@@ -2853,7 +2853,7 @@ def _fetch_yf_screener(scr_id: str) -> list:
         return cached["data"]
     url = (
         "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
-        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count=25"
+        f"?formatted=false&lang=en-US&region=US&scrIds={scr_id}&start=0&count=50"
     )
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     try:
