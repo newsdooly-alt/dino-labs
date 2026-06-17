@@ -1498,14 +1498,20 @@ function fmtYTick(v: number, sym: string): string {
   return `$${v.toFixed(1)}`;
 }
 
-/** Date formatter for X-axis — YYYY-MM-DD → M/D  |  HH:MM passthrough */
-function fmtXTick(t: string, is1D: boolean): string {
-  if (is1D || !t || t.length < 10) return t;
+/** Date formatter for X-axis — period-aware: HH:MM / M/D / Mon'YY / YYYY */
+const MON_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtXTick(t: string, periodIdx: number): string {
+  if (periodIdx === 0 || !t) return t;           // 1D: already "HH:MM"
+  if (t.length < 10) return t;
   const parts = t.split("-");
-  if (parts.length >= 3) {
-    return `${parseInt(parts[1])}/${parseInt(parts[2].slice(0, 2))}`;
-  }
-  return t;
+  if (parts.length < 3) return t;
+  const yyyy = parts[0];
+  const mm   = parseInt(parts[1]) - 1;           // 0-indexed
+  const dd   = parseInt(parts[2].slice(0, 2));
+  if (periodIdx >= 6) return yyyy;               // 5Y / ALL → "2023"
+  if (periodIdx === 5)                           // 1Y → "Jan '25"
+    return `${MON_ABBR[mm]} '${yyyy.slice(2)}`;
+  return `${mm + 1}/${dd}`;                      // 1M / 3M / 6M / 5D → "6/14"
 }
 
 function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: {
@@ -1612,7 +1618,7 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
               tick={tickStyle}
               axisLine={{ stroke: C.border, strokeWidth: 0.5 }}
               tickLine={false}
-              tickFormatter={(t) => fmtXTick(t, is1D)}
+              tickFormatter={(t) => fmtXTick(t, periodIdx)}
               interval={xInterval}
               height={14}
             />

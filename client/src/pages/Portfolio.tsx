@@ -78,9 +78,14 @@ function formatMoney(n: number, currency = "USD"): string {
 
 function formatDate(dateStr: string, period: Period): string {
   const d = new Date(dateStr + "T00:00:00");
-  if (period === "all" || period === "3y") return d.toLocaleDateString("en-US", { year: "2-digit", month: "short" });
-  if (period === "1y") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const yyyy = d.getFullYear();
+  const mon  = d.toLocaleDateString("en-US", { month: "short" });
+  const day  = d.getDate();
+  const yy   = String(yyyy).slice(2);
+  if (period === "all")  return String(yyyy);          // "2023"
+  if (period === "3y")   return `${mon} '${yy}`;      // "Jan '23"
+  if (period === "1y")   return `${mon} '${yy}`;      // "Jan '25"
+  return `${d.getMonth() + 1}/${day}`;                 // "6/14"
 }
 
 function PnLChart({ holdings, isKo }: { holdings: Holding[]; isKo: boolean }) {
