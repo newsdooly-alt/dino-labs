@@ -221,6 +221,7 @@ def _fetch_single_quote(symbol, now_et, now_kst, now_jst):
             "price": round(price, 2),
             "change": round(change, 2),
             "changePercent": round(change_percent, 2),
+            "previousClose": round(float(prev_close), 2),
             "volume": vol,
             "isMarketOpen": sym_market_open,
             "isStale": is_stale,
@@ -303,7 +304,7 @@ def get_batch_quotes():
                 ext = yf.download(
                     us_syms, period='1d', interval='5m',
                     prepost=True, group_by='ticker',
-                    progress=False, threads=True, auto_adjust=True
+                    progress=False, threads=False, auto_adjust=True
                 )
                 for sym in us_syms:
                     try:

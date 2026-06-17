@@ -1008,6 +1008,26 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
     : tab === "trend" ? trending.slice(0, 15)
     : byValue.slice(0, 15);
 
+  // Live quotes overlay — applies pre/after-market prices to screener data
+  const rowSymbols = rows.map((r: any) => r.symbol).filter(Boolean).join(",");
+  const [liveMap, setLiveMap] = useState<Record<string, any>>({});
+  useEffect(() => {
+    if (!rowSymbols) return;
+    let cancelled = false;
+    const fetchLive = async () => {
+      try {
+        const res = await fetch(`/api/stocks/live?symbols=${rowSymbols}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setLiveMap(Object.fromEntries((data.quotes || []).map((q: any) => [q.symbol, q])));
+        }
+      } catch (_) {}
+    };
+    fetchLive();
+    const iv = setInterval(fetchLive, 30_000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [rowSymbols]);
+
   const isLd = tab === "up" ? gLd : tab === "down" ? lLd : tab === "trend" ? tLd : aLd;
 
   const TABS: { id: MoverTab; ko: string; color: string }[] = [
@@ -1053,10 +1073,13 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
             장 마감 후 갱신
           </div>
         ) : rows.map(item => {
-          const up = (item.changePercent ?? 0) >= 0;
+          const lq = liveMap[item.symbol];
+          const displayPct = lq?.changePercent ?? item.changePercent ?? 0;
+          const displayPrice = lq?.price ?? item.price ?? 0;
+          const up = displayPct >= 0;
           const ticker = (item.symbol || "").replace(".KS","").replace("^","");
           const vol = item.volume || 0;
-          const val = (item.price || 0) * vol;
+          const val = displayPrice * vol;
           return (
             <button key={item.symbol} type="button"
               onClick={() => onSelect?.(item.symbol)}
@@ -1073,14 +1096,14 @@ function MarketMoversPanel({ onSelect }: { onSelect?: (s: string) => void }) {
               <div className="text-right ml-1 shrink-0">
                 <div className="text-[12px] font-mono font-bold"
                   style={{ color: up ? C.up : C.down }}>
-                  {up ? "▲" : "▼"}{Math.abs(item.changePercent ?? 0).toFixed(1)}%
+                  {up ? "▲" : "▼"}{Math.abs(displayPct).toFixed(1)}%
                 </div>
                 <div className="text-[11px] font-mono" style={{ color: C.muted }}>
                   {tab === "vol"
                     ? (item.volumeRatio > 0 ? `×${item.volumeRatio.toFixed(1)}` : fmtVol(vol))
                     : tab === "value"
                     ? `$${val >= 1e9 ? (val/1e9).toFixed(1)+"B" : val >= 1e6 ? (val/1e6).toFixed(0)+"M" : fmtVol(val)}`
-                    : `$${(item.price||0).toFixed((item.price||0) < 5 ? 3 : 1)}`
+                    : `$${displayPrice.toFixed(displayPrice < 5 ? 3 : 1)}`
                   }
                 </div>
               </div>
@@ -4194,7 +4217,7 @@ export default function DinoTerminal() {
           {/* Chart — FIXED HEIGHT */}
           <div style={{ height:160, flexShrink:0, padding:"4px 4px 0" }}>
             <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
-              prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
+              prevClose={quote?.previousClose > 0 ? quote.previousClose : (quote?.price && quote?.changePercent ? quote.price / (1 + (quote.changePercent || 0) / 100) : 0)} />
           </div>
 
           {/* Scrollable: TechEngine + PeerPanel + Macro rates + Heatmap */}
@@ -4321,7 +4344,7 @@ export default function DinoTerminal() {
             </div>
             <div style={{ height:180, padding:"4px" }}>
               <PriceChart symbol={selected} periodIdx={pIdx} isMarketOpen={quote?.isMarketOpen === true}
-                prevClose={(quote?.price && quote?.change != null) ? quote.price - quote.change : 0} />
+                prevClose={quote?.previousClose > 0 ? quote.previousClose : (quote?.price && quote?.changePercent ? quote.price / (1 + (quote.changePercent || 0) / 100) : 0)} />
             </div>
             <TechEngine symbol={selected} quote={quote} />
             <CrossAssetTable stocks={stocks} onSelect={sym => { selectSym(sym); }} />
