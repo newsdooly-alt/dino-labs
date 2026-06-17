@@ -751,16 +751,18 @@ def get_history(symbol):
         # Using period='2d' guarantees we get the complete current session.
         is_1d_intraday = (period == '1d' and interval in ('1m', '2m', '5m', '10m', '15m', '30m'))
         
+        prepost = request.args.get('prepost', 'false').lower() == 'true'
+
         if start:
-            hist = ticker.history(start=start, end=end, interval=interval)
+            hist = ticker.history(start=start, end=end, interval=interval, prepost=prepost)
         elif is_1d_intraday:
-            hist = ticker.history(period='2d', interval=interval)
+            hist = ticker.history(period='2d', interval=interval, prepost=prepost)
             if not hist.empty:
-                # Keep only the most recent trading date
+                # Keep only the most recent calendar date (includes pre/after market when prepost=True)
                 latest_date = hist.index[-1].date()
                 hist = hist[hist.index.map(lambda x: x.date()) == latest_date]
         else:
-            hist = ticker.history(period=period, interval=interval)
+            hist = ticker.history(period=period, interval=interval, prepost=prepost)
         
         if hist.empty:
             return jsonify({"error": "No historical data found", "symbol": symbol}), 404

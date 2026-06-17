@@ -78,7 +78,7 @@ function saveWatchSyms(syms: string[], names: Record<string,string>) {
 }
 const INDEX_SYMS = ["SPY","QQQ","^KS11","^IXIC","GC=F","CL=F","BTC-USD","ETH-USD","SOL-USD","XRP-USD","JPY=X","^VIX"];
 const CROSS_SYMS = ["AAPL","NVDA","TSLA","MSFT","AMZN","META"];
-const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","PL=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW"];
+const MACRO_SYMS = ["^TNX","^VIX","^IRX","^FVX","^TYX","GC=F","SI=F","PL=F","CL=F","HG=F","NG=F","JPY=X","EURUSD=X","GBPUSD=X","KRW=X","BZ=F","ZW=F","ZC=F","DX-Y.NYB","TLT","IEF","SHY","HYG","LQD","EMB","CNY=X","AUDUSD=X","TIP","^SKEW","ES=F","NQ=F"];
 const GLOBAL_SYMS = ["SPY","QQQ","^KS11","^N225","^GDAXI","^FTSE","^HSI"];
 const INDEX_LBL: Record<string,string> = {
   "SPY":"SPY","QQQ":"QQQ","^KS11":"코스피","^IXIC":"NDX",
@@ -87,6 +87,7 @@ const INDEX_LBL: Record<string,string> = {
   "^FVX":"5Y","^TYX":"30Y","SI=F":"SILVER","HG=F":"COPPER",
   "NG=F":"NATGAS","EURUSD=X":"EUR/USD","GBPUSD=X":"GBP/USD",
   "^GDAXI":"DAX","^FTSE":"FTSE","^HSI":"HSI","^N225":"NKY",
+  "ES=F":"S&PF","NQ=F":"NQF",
 };
 
 // ── Multi-language label system ───────────────────────────────────────────────
@@ -445,6 +446,32 @@ function SkeletonRow({ cols = 4 }: { cols?: number }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// US MARKET SESSION DETECTION  (client-side, NY time)
+// ══════════════════════════════════════════════════════════════════════════════
+type USSession = "pre" | "open" | "after" | "closed";
+
+function getUSSession(): USSession {
+  const nyStr = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const ny = new Date(nyStr);
+  const day = ny.getDay();
+  if (day === 0 || day === 6) return "closed";
+  const mins = ny.getHours() * 60 + ny.getMinutes();
+  if (mins >= 4 * 60 && mins < 9 * 60 + 30) return "pre";
+  if (mins >= 9 * 60 + 30 && mins < 16 * 60) return "open";
+  if (mins >= 16 * 60 && mins < 20 * 60) return "after";
+  return "closed";
+}
+
+function useUSSession(): USSession {
+  const [session, setSession] = useState<USSession>(getUSSession);
+  useEffect(() => {
+    const id = setInterval(() => setSession(getUSSession()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return session;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CLOCK
 // ══════════════════════════════════════════════════════════════════════════════
 function TerminalClock() {
@@ -470,8 +497,17 @@ function TerminalClock() {
 // INDEX TICKER STRIP
 // ══════════════════════════════════════════════════════════════════════════════
 function IndexStrip() {
-  const { data: stocks, isLoading } = useLivePrices(INDEX_SYMS);
-  const items = [...INDEX_SYMS, ...INDEX_SYMS];
+  const session = useUSSession();
+  const futureSub = session !== "open";
+  const { data: stocks, isLoading } = useLivePrices([...INDEX_SYMS, "ES=F", "NQ=F"]);
+
+  // When market is not open, substitute SPY→ES=F, QQQ→NQ=F in the strip
+  const baseItems = INDEX_SYMS.map(sym => {
+    if (futureSub && sym === "SPY") return { sym: "ES=F", label: "S&PF" };
+    if (futureSub && sym === "QQQ") return { sym: "NQ=F", label: "NQF" };
+    return { sym, label: INDEX_LBL[sym] || sym };
+  });
+  const items = [...baseItems, ...baseItems]; // double for seamless scroll
 
   return (
     <div className="flex items-center overflow-hidden border-b shrink-0"
@@ -484,12 +520,13 @@ function IndexStrip() {
         </div>
       ) : (
         <div className="flex items-center gap-5 animate-[ticker_25s_linear_infinite] whitespace-nowrap px-3">
-          {items.map((sym, i) => {
+          {items.map(({ sym, label }, i) => {
             const q = stocks?.[sym];
             const up = isUp(q?.changePercent);
+            const isFuture = sym === "ES=F" || sym === "NQ=F";
             return (
               <span key={`${sym}-${i}`} className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[13px] font-mono" style={{ color: C.muted }}>{INDEX_LBL[sym]}</span>
+                <span className="text-[13px] font-mono" style={{ color: isFuture ? "#60a5fa" : C.muted }}>{label}{isFuture ? "🔮" : ""}</span>
                 <span className="text-[13px] font-mono font-bold" style={{ color: C.text }}>
                   {q ? fmtPrice(q.price, sym) : "—"}
                 </span>
@@ -1379,7 +1416,7 @@ function RatesMiniPanel({ stocks }: { stocks: Record<string,any> }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // GLOBAL INDICES MINI  (in Market tab — compact 3-col grid)
 // ══════════════════════════════════════════════════════════════════════════════
-const GLOBAL_MINI = [
+const GLOBAL_MINI_BASE = [
   { sym:"SPY",    label:"S&P500", flag:"🇺🇸" },
   { sym:"QQQ",    label:"NASDAQ", flag:"🇺🇸" },
   { sym:"^KS11",  label:"코스피",  flag:"🇰🇷" },
@@ -1391,21 +1428,36 @@ const GLOBAL_MINI = [
   { sym:"GC=F",   label:"Gold",   flag:"🥇" },
 ];
 function GlobalMiniPanel({ stocks }: { stocks: Record<string,any> }) {
+  const session = useUSSession();
+  const futureSub = session !== "open";
+
+  const displayItems = GLOBAL_MINI_BASE.map(item => {
+    if (futureSub && item.sym === "SPY") return { sym: "ES=F", label: "S&P선물", flag: "🔮" };
+    if (futureSub && item.sym === "QQQ") return { sym: "NQ=F", label: "NQ선물",  flag: "🔮" };
+    return item;
+  });
+
   return (
     <div className="border-b" style={{ borderColor: C.border }}>
-      <div className="px-2 py-1.5 border-b flex items-center"
+      <div className="px-2 py-1.5 border-b flex items-center gap-2"
         style={{ borderColor: C.border, background: C.header }}>
         <span className="text-[12px] font-mono font-bold tracking-widest uppercase" style={{ color: C.muted }}>
           GLOBAL INDICES
         </span>
+        {futureSub && (
+          <span className="text-[10px] font-mono px-1 py-0.5 rounded"
+            style={{ background:"#3b82f6"+"22", color:"#60a5fa" }}>선물 대체중</span>
+        )}
       </div>
       <div className="grid grid-cols-3 gap-px" style={{ background: C.border }}>
-        {GLOBAL_MINI.map(({ sym, label, flag }) => {
+        {displayItems.map(({ sym, label, flag }) => {
           const q  = stocks[sym];
           const up = isUp(q?.changePercent);
+          const isFuture = sym === "ES=F" || sym === "NQ=F";
           return (
             <div key={sym} className="p-1.5 min-w-0 overflow-hidden" style={{ background: C.panel2 }}>
-              <div className="text-[11px] font-mono truncate" style={{ color: C.muted }}>{flag} {label}</div>
+              <div className="text-[11px] font-mono truncate"
+                style={{ color: isFuture ? "#60a5fa" : C.muted }}>{flag} {label}</div>
               <div className="text-[12px] font-mono font-bold truncate"
                 style={{ color: q ? (up ? C.up : C.down) : C.muted }}>
                 {q ? fmtPct(q.changePercent) : "—"}
@@ -1519,20 +1571,23 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
 }) {
   const { period, interval } = PERIODS[periodIdx];
   const is1D     = periodIdx === 0;
-  const liveMode = is1D && isMarketOpen;
+  const session  = useUSSession();
+  const liveMode = is1D && session === "open";
+  const extMode  = is1D && (session === "pre" || session === "after"); // pre/after market
 
   const { data: raw, isLoading, isError } = useQuery<any[]>({
-    queryKey: ["/api/stocks/history", symbol, period, interval],
+    queryKey: ["/api/stocks/history", symbol, period, interval, is1D ? "prepost" : ""],
     queryFn: async () => {
+      const prepost = is1D ? "&prepost=true" : "";
       const res = await fetch(
-        `/api/stocks/history/${encodeURIComponent(symbol)}?period=${period}&interval=${interval}`
+        `/api/stocks/history/${encodeURIComponent(symbol)}?period=${period}&interval=${interval}${prepost}`
       );
       if (!res.ok) throw new Error("history failed");
       const d = await res.json();
       return Array.isArray(d) ? d : (d?.data || []);
     },
-    staleTime:       liveMode ? 0      : 60_000,
-    refetchInterval: liveMode ? 30_000 : 120_000,
+    staleTime:       (liveMode || extMode) ? 0      : 60_000,
+    refetchInterval: (liveMode || extMode) ? 30_000 : 120_000,
     enabled:  !!symbol,
     retry:    1,
     placeholderData: keepPreviousData,
@@ -1592,11 +1647,23 @@ function PriceChart({ symbol, periodIdx, isMarketOpen = false, prevClose = 0 }: 
         <span className={cn("text-[13px] font-mono font-bold", up ? "text-[#00c896]" : "text-[#ff4757]")}>
           {fmtPct(totalPct)}
         </span>
-        {liveMode && (
+        {is1D && session === "open" && (
           <span className="flex items-center gap-0.5 text-[11px] font-mono px-1 py-0.5 rounded"
             style={{ background: C.up+"22", color: C.up }}>
             <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: C.up }} />
             LIVE
+          </span>
+        )}
+        {is1D && session === "pre" && (
+          <span className="text-[11px] font-mono px-1 py-0.5 rounded"
+            style={{ background:"#3b82f6"+"22", color:"#60a5fa" }}>
+            PRE
+          </span>
+        )}
+        {is1D && session === "after" && (
+          <span className="text-[11px] font-mono px-1 py-0.5 rounded"
+            style={{ background:"#f59e0b"+"22", color:"#f59e0b" }}>
+            AFTER
           </span>
         )}
         <span className="text-[12px] font-mono ml-auto" style={{ color: C.muted }}>({rows.length}개)</span>
@@ -1915,7 +1982,7 @@ function YieldCurvePanel({ stocks }: { stocks: Record<string,any> }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // GLOBAL MARKETS PANEL  — world indices table
 // ══════════════════════════════════════════════════════════════════════════════
-const WORLD_INDICES = [
+const WORLD_INDICES_BASE = [
   { sym:"SPY",    label:"S&P 500",  flag:"🇺🇸" },
   { sym:"QQQ",    label:"NASDAQ",   flag:"🇺🇸" },
   { sym:"^KS11",  label:"KOSPI",    flag:"🇰🇷" },
@@ -1934,24 +2001,41 @@ function fmtGlobalPrice(v: number|undefined, sym: string): string {
 }
 
 function GlobalMarketsPanel({ stocks }: { stocks: Record<string,any> }) {
+  const session = useUSSession();
+  const futureSub = session !== "open";
+
+  const displayIndices = WORLD_INDICES_BASE.map(item => {
+    if (futureSub && item.sym === "SPY") return { sym:"ES=F", label:"S&P선물", flag:"🔮" };
+    if (futureSub && item.sym === "QQQ") return { sym:"NQ=F", label:"NQ선물",  flag:"🔮" };
+    return item;
+  });
+
   return (
     <div className="p-3 border-t" style={{ borderColor:C.border }}>
-      <div className="text-[12px] font-mono font-bold tracking-widest uppercase mb-1.5"
-        style={{ color:C.muted }}>GLOBAL MARKETS</div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[12px] font-mono font-bold tracking-widest uppercase"
+          style={{ color:C.muted }}>GLOBAL MARKETS</span>
+        {futureSub && (
+          <span className="text-[9px] font-mono px-1 py-0.5 rounded"
+            style={{ background:"#3b82f6"+"22", color:"#60a5fa" }}>선물</span>
+        )}
+      </div>
       {/* Header */}
       <div className="grid mb-0.5" style={{ gridTemplateColumns:"1fr 40px 40px" }}>
         <span className="text-[10px] font-mono" style={{ color:C.muted }}>INDEX</span>
         <span className="text-[10px] font-mono text-right" style={{ color:C.muted }}>LAST</span>
         <span className="text-[10px] font-mono text-right" style={{ color:C.muted }}>CHG%</span>
       </div>
-      {WORLD_INDICES.map(({ sym, label, flag }) => {
+      {displayIndices.map(({ sym, label, flag }) => {
         const q  = stocks[sym];
         const up = isUp(q?.changePercent);
+        const isFuture = sym === "ES=F" || sym === "NQ=F";
         return (
           <div key={sym} className="grid border-t py-0.5"
             style={{ borderColor:C.border+"40", gridTemplateColumns:"1fr 40px 40px" }}>
             <div className="min-w-0 overflow-hidden">
-              <span className="text-[10px] font-mono truncate block" style={{ color:C.muted }}>
+              <span className="text-[10px] font-mono truncate block"
+                style={{ color: isFuture ? "#60a5fa" : C.muted }}>
                 {flag} {label}
               </span>
             </div>
