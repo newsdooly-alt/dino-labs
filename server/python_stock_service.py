@@ -801,28 +801,13 @@ def get_history(symbol):
         elif is_1d_intraday:
             hist = ticker.history(period='2d', interval=interval, prepost=prepost)
             if not hist.empty:
-                if prepost:
-                    # Session-aware ET-date filtering:
-                    # PRE-market  → today's pre-market candles only (fresh start)
-                    # AFTER-market → today's full session + after-hours (continues from prev close)
-                    # Overnight    → latest available date (yesterday's session)
-                    def _et_date(ts):
-                        try:
-                            return ts.astimezone(US_EASTERN).date()
-                        except Exception:
-                            return ts.date()
-                    today_et = datetime.now(US_EASTERN).date()
-                    today_mask = hist.index.map(_et_date) == today_et
-                    if today_mask.any():
-                        hist = hist[today_mask]
-                    else:
-                        # Overnight closed: show latest available date
-                        latest_et = _et_date(hist.index[-1])
-                        hist = hist[hist.index.map(_et_date) == latest_et]
-                else:
-                    # Regular market: show only today's session
-                    latest_date = hist.index[-1].date()
-                    hist = hist[hist.index.map(lambda x: x.date()) == latest_date]
+                # Always filter to the latest trading date using the timestamp's own
+                # timezone (yfinance returns tz-aware timestamps in the stock's local TZ).
+                # This works correctly for US (ET), Korean (KST), Japanese (JST) etc.
+                # Using ET-based "today" breaks non-US stocks because their session
+                # falls on a different ET calendar date (e.g. KST 09:00 = ET 20:00 prev day).
+                latest_date = hist.index[-1].date()
+                hist = hist[hist.index.map(lambda x: x.date()) == latest_date]
         else:
             hist = ticker.history(period=period, interval=interval, prepost=prepost)
         
