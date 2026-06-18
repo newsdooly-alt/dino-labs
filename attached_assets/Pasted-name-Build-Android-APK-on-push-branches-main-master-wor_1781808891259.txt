@@ -21,24 +21,22 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-
+      - name: Install Capacitor CLI globally
+        run: npm install -g @capacitor/cli
       - name: Install dependencies
         run: npm ci
 
-      - name: Install global tools
+      - name: Build web app (Vite)
         run: |
           npm install -g tsx
-          npm install -g @capacitor/cli
-
-      - name: Build web app (Vite)
-        run: npm run build
+          npm run build
         env:
           NODE_ENV: production
-
-      - name: Add Android platform
+      - name: Add Android platform (if not present)
         run: |
           npm install @capacitor/android
           cap add android
+          fi
 
       - name: Sync Capacitor with Android
         run: cap sync android
