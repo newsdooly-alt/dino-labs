@@ -135,6 +135,14 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   addedAt: timestamp("added_at").defaultNow(),
 });
 
+// User Feedback (DinoLab Signal)
+export const feedbacks = pgTable("feedbacks", {
+  id: serial("id").primaryKey(),
+  message: text("message").notNull(),
+  emoji: text("emoji"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === SCHEMAS ===
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ streak: true, xp: true, totalXp: true, level: true, hearts: true, lastDailyQuestAt: true, createdAt: true });
@@ -145,6 +153,7 @@ export const insertClubSchema = createInsertSchema(clubs).omit({ id: true, membe
 export const insertPredictionSchema = createInsertSchema(predictions).omit({ id: true, status: true, createdAt: true, resolvedAt: true });
 export const insertDinoEggSchema = createInsertSchema(dinoEggs).omit({ id: true, isHatched: true, hatchedAt: true, createdAt: true });
 export const insertPortfolioHoldingSchema = createInsertSchema(portfolioHoldings).omit({ id: true, addedAt: true });
+export const insertFeedbackSchema = createInsertSchema(feedbacks).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -171,6 +180,9 @@ export type InsertDinoEgg = z.infer<typeof insertDinoEggSchema>;
 
 export type PortfolioHolding = typeof portfolioHoldings.$inferSelect;
 export type InsertPortfolioHolding = z.infer<typeof insertPortfolioHoldingSchema>;
+
+export type Feedback = typeof feedbacks.$inferSelect;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 
 export type InvestorPortfolio = typeof investorPortfolios.$inferSelect;
 export type InvestorHolding = typeof investorHoldings.$inferSelect;

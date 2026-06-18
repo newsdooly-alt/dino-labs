@@ -32,6 +32,28 @@ export async function registerRoutes(
   registerChatRoutes(app);
   registerImageRoutes(app);
 
+  // ── DinoLab Feedback ─────────────────────────────────────────────────────
+  app.post("/api/feedback", async (req, res) => {
+    try {
+      const { message, emoji } = req.body;
+      if (!message || typeof message !== "string" || message.trim().length === 0) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+      const fb = await storage.createFeedback({ message: message.trim().slice(0, 1000), emoji: emoji || null });
+      res.json({ ok: true, id: fb.id });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to save feedback" });
+    }
+  });
+
+  app.get("/api/feedback/list", async (req, res) => {
+    const key = (req.headers.authorization || "").replace("Bearer ", "");
+    const adminKey = process.env.FEEDBACK_ADMIN_KEY;
+    if (!adminKey || key !== adminKey) return res.status(403).json({ error: "Forbidden" });
+    const list = await storage.listFeedbacks();
+    res.json(list);
+  });
+
   // Helper to get user ID from session
   const getUserId = (req: any): string | null => {
     return req.user?.claims?.sub || null;

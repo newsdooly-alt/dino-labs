@@ -2,16 +2,21 @@ import { db } from "./db";
 import { eq, sql, and, desc, asc } from "drizzle-orm";
 import { 
   userProfiles, stocks, quests, userStocks, clubs, clubMembers, dinoEggs,
-  investorPortfolios, investorHoldings, portfolioHoldings,
+  investorPortfolios, investorHoldings, portfolioHoldings, feedbacks,
   type UserProfile, type InsertUserProfile, type Stock, type InsertStock, 
   type Quest, type InsertQuest, type UserStock, type InsertUserStock,
   type Club, type InsertClub, type DinoEgg, type InsertDinoEgg,
   type InvestorPortfolio, type InvestorHolding,
   type PortfolioHolding, type InsertPortfolioHolding,
+  type Feedback, type InsertFeedback,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 
 export interface IStorage {
+  // Feedback
+  createFeedback(data: InsertFeedback): Promise<Feedback>;
+  listFeedbacks(): Promise<Feedback[]>;
+
   // Users (auth)
   getUser(id: string): Promise<User | undefined>;
   
@@ -77,6 +82,15 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Feedback
+  async createFeedback(data: InsertFeedback): Promise<Feedback> {
+    const [row] = await db.insert(feedbacks).values(data).returning();
+    return row;
+  }
+  async listFeedbacks(): Promise<Feedback[]> {
+    return db.select().from(feedbacks).orderBy(desc(feedbacks.createdAt));
+  }
+
   // Users (auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));

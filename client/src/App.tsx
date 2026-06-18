@@ -30,6 +30,7 @@ import AIPortfolio from "@/pages/AIPortfolio";
 import Portfolio from "@/pages/Portfolio";
 import StockChat from "@/pages/StockChat";
 import ChartMaster from "@/pages/ChartMaster";
+import FeedbackAdmin from "@/pages/FeedbackAdmin";
 import NotFound from "@/pages/not-found";
 
 // Desktop router (terminal tab routes)
@@ -57,6 +58,7 @@ function DesktopRouter() {
       <Route path="/chat" component={StockChat} />
       <Route path="/chart-master" component={ChartMaster} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/dinolabs-admin" component={FeedbackAdmin} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -86,6 +88,7 @@ function MobileRouter() {
       <Route path="/portfolio" component={Portfolio} />
       <Route path="/chat" component={StockChat} />
       <Route path="/chart-master" component={ChartMaster} />
+      <Route path="/dinolabs-admin" component={FeedbackAdmin} />
       <Route component={NotFound} />
     </Switch>
   );
