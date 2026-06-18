@@ -35,9 +35,6 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Add Android platform
-        run: cap add android
-
       - name: Sync Capacitor with Android
         run: cap sync android
 
