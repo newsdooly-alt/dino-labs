@@ -14,7 +14,9 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install
+        run: |
+          rm -f package-lock.json
+          npm install --legacy-peer-deps
       - name: Install global tools
         run: npm install -g tsx @capacitor/cli@8
       - name: Build web app
