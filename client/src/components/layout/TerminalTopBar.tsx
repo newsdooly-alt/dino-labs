@@ -1,14 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BookOpen, Calendar, Trophy, DollarSign, Users, Wallet } from "lucide-react";
+import { Flame, Zap, User, Search, Bot, Newspaper, Terminal, TrendingUp, BookOpen, Calendar, Trophy, DollarSign, Users, Wallet, Megaphone } from "lucide-react";
 import { UserMenu } from "@/components/UserMenu";
 import { MobileMenu } from "@/components/MobileMenu";
+import { FeedbackModal } from "@/components/FeedbackModal";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 import { searchStockDatabase, getDisplayTicker, getExchangeLabel, type StockEntry } from "@/lib/stockDatabase";
 import { containsLocalized } from "@/lib/stockNames";
 import { AnimatePresence, motion } from "framer-motion";
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+    </svg>
+  );
+}
 
 const TABS = [
   { label: "뉴스",    en: "News",      ja: "ニュース",  href: "/hot-issues",    icon: Newspaper,  highlight: true },
@@ -37,6 +46,7 @@ export function TerminalTopBar() {
   const { data: user } = useUser();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
   const [suggestions, setSuggestions] = useState<StockEntry[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -125,6 +135,28 @@ export function TerminalTopBar() {
           <div className="w-5 h-5 bg-primary rounded flex items-center justify-center text-primary-foreground text-[10px] font-black tracking-tight">D</div>
           <span className="text-[11px] font-bold tracking-widest uppercase text-foreground font-mono hidden lg:block">DinoInvest</span>
         </Link>
+
+        {/* Instagram + Feedback — between logo and tabs */}
+        <div className="flex items-stretch border-r border-border shrink-0">
+          <a
+            href="https://instagram.com/dino_labs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 text-[11px] font-semibold text-[#E1306C] hover:bg-pink-500/8 transition-colors"
+            data-testid="link-instagram-pc"
+          >
+            <InstagramIcon className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden lg:block">dino_labs</span>
+          </a>
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="flex items-center gap-1 px-2.5 text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors"
+            data-testid="button-pc-feedback"
+          >
+            <Megaphone className="w-3 h-3 shrink-0" />
+            <span className="hidden lg:block">피드백</span>
+          </button>
+        </div>
 
         {/* Tab strip */}
         <nav className="flex items-stretch overflow-x-auto" style={{ scrollbarWidth: "none" }}>
@@ -301,6 +333,7 @@ export function TerminalTopBar() {
 
       <UserMenu isOpen={userMenuOpen} onClose={() => setUserMenuOpen(false)} />
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </>
   );
 }

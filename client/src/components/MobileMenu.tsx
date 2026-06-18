@@ -109,7 +109,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                     data-testid="button-mobile-feedback"
                   >
                     <Megaphone className="w-4 h-4 text-primary" />
-                    <span className="text-[12px] font-semibold text-primary">Signal</span>
+                    <span className="text-[12px] font-semibold text-primary">피드백</span>
                   </button>
                 </div>
 
