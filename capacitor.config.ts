@@ -6,6 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
+    url: 'https://economydino.com',
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {
