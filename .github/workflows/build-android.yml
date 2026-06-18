@@ -23,10 +23,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
+
+      - name: Install missing Vite internals
+        run: npm install fdir picomatch --legacy-peer-deps
 
       - name: Install Capacitor packages explicitly
-        run: npm install @capacitor/cli @capacitor/android @capacitor/core
+        run: npm install @capacitor/cli @capacitor/android @capacitor/core --legacy-peer-deps
 
       - name: Install global tools
         run: npm install -g tsx
