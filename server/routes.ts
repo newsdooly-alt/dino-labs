@@ -3866,9 +3866,31 @@ When stock data is provided, incorporate it naturally and explain what the numbe
     }
   });
 
+  // ── Native Push Notification Token Registration ────────────────────────────
+  // Stores FCM/APNS tokens for future server-initiated pushes.
+  // Tokens are stored in-memory; upgrade to a DB column for production use.
+  app.post("/api/notifications/register", async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { token, platform } = req.body;
+      if (!token || typeof token !== "string" || token.trim().length < 10) {
+        return res.status(400).json({ error: "A valid token is required" });
+      }
+      const validPlatforms = ["fcm", "apns"];
+      const resolvedPlatform = validPlatforms.includes(platform) ? platform : "fcm";
+      const key = userId ?? (req as any).ip ?? "anon";
+      pushTokenStore.set(key, { token: token.trim(), platform: resolvedPlatform, updatedAt: new Date() });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to register token" });
+    }
+  });
+
   return httpServer;
 }
 
+// Module-level token store (in-memory; upgrade to DB for production)
+const pushTokenStore = new Map<string, { token: string; platform: string; updatedAt: Date }>();
 
 async function seedStockData() {
     // Just seed some initial stocks (users are created via auth now)

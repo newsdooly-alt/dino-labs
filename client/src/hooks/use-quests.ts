@@ -1,15 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import type { Quest } from "@shared/schema";
+import type { Quest, UserProfile } from "@shared/schema";
+import { saveQuestsOffline, loadQuestsOffline } from "@/lib/offlineStorage";
+import { queryClient } from "@/lib/queryClient";
+
+function getCachedUserId(): string | null {
+  const profile = queryClient.getQueryData<UserProfile>(["/api/profiles/me"]);
+  return profile?.id ?? null;
+}
 
 export function useQuests() {
   return useQuery<Quest[]>({
     queryKey: ["/api/quests"],
     queryFn: async () => {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await fetch(`/api/quests/daily?tz=${encodeURIComponent(tz)}`, { credentials: "include" });
-      if (!res.ok) throw new Error('Failed to fetch quests');
-      return res.json();
+      try {
+        const res = await fetch(`/api/quests/daily?tz=${encodeURIComponent(tz)}`, { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to fetch quests");
+        const data: Quest[] = await res.json();
+        const userId = getCachedUserId();
+        if (userId) {
+          await saveQuestsOffline(userId, data);
+        }
+        return data;
+      } catch (networkErr) {
+        const userId = getCachedUserId();
+        if (userId) {
+          const cached = await loadQuestsOffline(userId);
+          if (cached && cached.length > 0) {
+            console.log("[useQuests] Offline — serving from IndexedDB cache");
+            return cached as Quest[];
+          }
+        }
+        throw networkErr;
+      }
     },
     retry: false,
   });

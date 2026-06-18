@@ -9,6 +9,14 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeColorProvider } from "@/contexts/ThemeColorContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { TimezoneProvider } from "@/contexts/TimezoneContext";
+import { useEffect } from "react";
+import {
+  initPushNotifications,
+  applyNotificationPreferences,
+  loadNotificationPrefs,
+} from "@/lib/notifications";
+import { apiRequest } from "@/lib/queryClient";
+import { Capacitor } from "@capacitor/core";
 // Pages
 import TerminalMarkets from "@/pages/TerminalMarkets";
 import DinoTerminal from "@/pages/DinoTerminal";
@@ -116,7 +124,28 @@ function AuthenticatedLayout({ children }: { children?: React.ReactNode }) {
   );
 }
 
+function useNativeNotifications() {
+  useEffect(() => {
+    const lang = (localStorage.getItem("dinolingo_language") || "en") as "en" | "ko" | "ja";
+
+    const nativePlatform = Capacitor.getPlatform();
+    const pushPlatform = nativePlatform === "ios" ? "apns" : "fcm";
+
+    initPushNotifications(async (token) => {
+      try {
+        await apiRequest("POST", "/api/notifications/register", { token, platform: pushPlatform });
+      } catch (err) {
+        console.warn("[Notifications] Token registration failed:", err);
+      }
+    });
+
+    const prefs = loadNotificationPrefs();
+    applyNotificationPreferences(prefs, lang);
+  }, []);
+}
+
 function AppContent() {
+  useNativeNotifications();
   return <AuthenticatedLayout />;
 }
 

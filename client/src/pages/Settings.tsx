@@ -55,6 +55,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useCurrency, type CurrencyType } from "@/contexts/CurrencyContext";
 import { useThemeColor } from "@/contexts/ThemeColorContext";
 import { useTimezone, TZ_OPTIONS, type TimezoneKey } from "@/contexts/TimezoneContext";
+import {
+  isNativePlatform,
+  loadNotificationPrefs,
+  saveNotificationPrefs,
+  applyNotificationPreferences,
+  type NotificationPreferences,
+} from "@/lib/notifications";
+import { BellRing, WifiOff } from "lucide-react";
 
 type ThemeColor = "green" | "blue" | "pink" | "dark";
 type RefreshInterval = "manual" | "1min" | "5min";
@@ -108,7 +116,11 @@ export default function Settings() {
   const [upgradePassword, setUpgradePassword] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(loadNotificationPrefs);
+  const [isSavingNotif, setIsSavingNotif] = useState(false);
+  const isNative = isNativePlatform();
+  const idbActive = typeof window !== "undefined" && "indexedDB" in window;
+
   const isGuest = (user as any)?.authType === "guest";
 
   useEffect(() => {
@@ -230,6 +242,20 @@ export default function Settings() {
   const handleLogout = () => {
     localStorage.clear();
     logout();
+  };
+
+  const handleSaveNotifPrefs = async () => {
+    setIsSavingNotif(true);
+    try {
+      saveNotificationPrefs(notifPrefs);
+      const langKey = (user?.language || "en") as "en" | "ko" | "ja";
+      await applyNotificationPreferences(notifPrefs, langKey);
+      toast({ title: lang === "ko" ? "알림 설정이 저장되었어요" : lang === "ja" ? "通知設定を保存しました" : "Notification settings saved", duration: 2000 });
+    } catch (err) {
+      console.error("Failed to save notification prefs:", err);
+    } finally {
+      setIsSavingNotif(false);
+    }
   };
 
   const colorLabel = (color: ThemeColor) => {
@@ -627,6 +653,121 @@ export default function Settings() {
               onCheckedChange={(checked) => updateSetting("marketAlerts", checked)}
               data-testid="switch-market-alerts"
             />
+          </div>
+        </div>
+      </motion.section>
+
+      {/* ── Native Notifications & Offline Cache ──────────────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.27 }}
+        className="bg-card border border-border rounded-2xl overflow-hidden"
+      >
+        <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-3" data-testid="section-notifications">
+          <BellRing className="w-5 h-5 text-primary" />
+          <h2 className="font-semibold">{t.notifications_section}</h2>
+        </div>
+        <div className="divide-y divide-border">
+          {/* Quest Reminder */}
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bell className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium" data-testid="label-quest-reminder">{t.quest_reminder}</p>
+                  <p className="text-sm text-muted-foreground">{t.quest_reminder_desc}</p>
+                </div>
+              </div>
+              <Switch
+                checked={notifPrefs.questReminderEnabled}
+                onCheckedChange={(v) => setNotifPrefs(p => ({ ...p, questReminderEnabled: v }))}
+                disabled={!isNative}
+                data-testid="switch-quest-reminder"
+              />
+            </div>
+            {notifPrefs.questReminderEnabled && (
+              <div className="flex items-center gap-3 pl-8">
+                <Label className="text-sm shrink-0">{t.reminder_time}</Label>
+                <div className="flex gap-2 items-center">
+                  <Select
+                    value={String(notifPrefs.questReminderHour)}
+                    onValueChange={(v) => setNotifPrefs(p => ({ ...p, questReminderHour: Number(v) }))}
+                    disabled={!isNative}
+                  >
+                    <SelectTrigger className="w-20 h-9" data-testid="select-reminder-hour">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={String(i)}>{String(i).padStart(2, "0")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-muted-foreground">:</span>
+                  <Select
+                    value={String(notifPrefs.questReminderMinute)}
+                    onValueChange={(v) => setNotifPrefs(p => ({ ...p, questReminderMinute: Number(v) }))}
+                    disabled={!isNative}
+                  >
+                    <SelectTrigger className="w-20 h-9" data-testid="select-reminder-minute">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[0, 15, 30, 45].map(m => (
+                        <SelectItem key={m} value={String(m)}>{String(m).padStart(2, "0")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Streak Alert */}
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Bell className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium" data-testid="label-streak-alert">{t.streak_alert}</p>
+                <p className="text-sm text-muted-foreground">{t.streak_alert_desc}</p>
+              </div>
+            </div>
+            <Switch
+              checked={notifPrefs.streakAlertEnabled}
+              onCheckedChange={(v) => setNotifPrefs(p => ({ ...p, streakAlertEnabled: v }))}
+              disabled={!isNative}
+              data-testid="switch-streak-alert"
+            />
+          </div>
+          {/* Native-only note or Apply button */}
+          {isNative ? (
+            <div className="p-4">
+              <Button
+                onClick={handleSaveNotifPrefs}
+                disabled={isSavingNotif}
+                className="w-full h-10"
+                data-testid="button-save-notifications"
+              >
+                {isSavingNotif ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                {t.notifications_save}
+              </Button>
+            </div>
+          ) : (
+            <div className="p-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <BellRing className="w-4 h-4 shrink-0" />
+              <span data-testid="text-notifications-native-only">{t.notifications_native_only}</span>
+            </div>
+          )}
+          {/* Offline cache status */}
+          <div className="p-4 flex items-center gap-3">
+            <WifiOff className="w-5 h-5 text-muted-foreground shrink-0" />
+            <div>
+              <p className="font-medium" data-testid="label-offline-cache">{t.offline_cache}</p>
+              <p className="text-sm text-muted-foreground" data-testid="text-offline-status">
+                {idbActive ? t.offline_status_active : t.offline_status_inactive}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.offline_cache_desc}</p>
+            </div>
           </div>
         </div>
       </motion.section>

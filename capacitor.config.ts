@@ -14,6 +14,14 @@ const config: CapacitorConfig = {
       androidSplashResourceName: 'splash',
       showSpinner: false,
     },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_dino',
+      iconColor: '#22c55e',
+      sound: 'default',
+    },
   },
 };
 
