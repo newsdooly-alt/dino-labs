@@ -36,9 +36,7 @@ jobs:
           NODE_ENV: production
 
       - name: Add Android platform
-        run: |
-          npm install @capacitor/android
-          cap add android
+        run: cap add android
 
       - name: Sync Capacitor with Android
         run: cap sync android
