@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install Capacitor packages explicitly
+        run: npm install @capacitor/cli @capacitor/android @capacitor/core
+
       - name: Install global tools
         run: npm install -g tsx
 
