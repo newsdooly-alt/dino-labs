@@ -2,76 +2,39 @@ name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build APK
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
+          node-version: '22'
       - name: Install dependencies
-        run: npm ci
-
+        run: npm install
       - name: Install global tools
-        run: |
-          npm install -g tsx
-          npm install -g @capacitor/cli
-
-      - name: Build web app (Vite)
+        run: npm install -g tsx @capacitor/cli@8
+      - name: Build web app
         run: npm run build
         env:
           NODE_ENV: production
-
-      - name: Sync Capacitor with Android
+      - name: Sync Capacitor
         run: cap sync android
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses || true
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x android/gradlew
-
-      - name: Build debug APK
+      - uses: android-actions/setup-android@v3
+      - run: yes | sdkmanager --licenses || true
+      - run: chmod +x android/gradlew
+      - name: Build APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: DinoInvest-debug-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-      - name: Build release APK (unsigned)
-        working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
-        continue-on-error: true
-
-      - name: Upload release APK (unsigned)
-        uses: actions/upload-artifact@v4
-        with:
-          name: DinoInvest-release-unsigned-${{ github.run_number }}
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           retention-days: 30
