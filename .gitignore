@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Capacitor native project folders (re-generated via: npx cap add android/ios && npx cap sync)
+# Uncomment these lines if you prefer to not commit native projects to git:
+# android/
+# ios/
