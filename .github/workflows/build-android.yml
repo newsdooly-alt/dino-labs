@@ -19,15 +19,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: |
           rm -f package-lock.json
           npm install
-
-      - name: Install Capacitor packages explicitly
-        run: npm install @capacitor/cli @capacitor/android @capacitor/core
 
       - name: Install global tools
         run: npm install -g tsx
