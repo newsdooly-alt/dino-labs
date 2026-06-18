@@ -35,22 +35,35 @@ jobs:
 
       - name: Generate Android icons from master image
         run: |
-          sudo apt-get install -y imagemagick
+          pip install pillow -q
           curl -L "https://economydino.com/icon-master.png" -o /tmp/icon_master.png
-          BASE="android/app/src/main/res"
-          declare -A SIZES=( [mipmap-mdpi]=48 [mipmap-hdpi]=72 [mipmap-xhdpi]=96 [mipmap-xxhdpi]=144 [mipmap-xxxhdpi]=192 )
-          for FOLDER in "${!SIZES[@]}"; do
-            SIZE=${SIZES[$FOLDER]}
-            DIR="$BASE/$FOLDER"
-            convert /tmp/icon_master.png -resize "${SIZE}x${SIZE}!" "$DIR/ic_launcher.png"
-            convert /tmp/icon_master.png -resize "${SIZE}x${SIZE}!" "$DIR/ic_launcher_round.png"
-            FG=$((SIZE * 108 / 72))
-            convert /tmp/icon_master.png -resize "${FG}x${FG}" -gravity center -background none -extent "${FG}x${FG}" "$DIR/ic_launcher_foreground.png"
-            echo "✅ $FOLDER (${SIZE}px)"
-          done
+          python3 - <<'EOF'
+          from PIL import Image
+          import os
+
+          src = Image.open("/tmp/icon_master.png").convert("RGBA")
+          base = "android/app/src/main/res"
+          sizes = {
+            "mipmap-mdpi": 48,
+            "mipmap-hdpi": 72,
+            "mipmap-xhdpi": 96,
+            "mipmap-xxhdpi": 144,
+            "mipmap-xxxhdpi": 192,
+          }
+          for folder, size in sizes.items():
+            d = f"{base}/{folder}"
+            os.makedirs(d, exist_ok=True)
+            img = src.resize((size, size), Image.LANCZOS)
+            img.save(f"{d}/ic_launcher.png")
+            img.save(f"{d}/ic_launcher_round.png")
+            fg = int(size * 108 / 72)
+            fg_img = src.resize((fg, fg), Image.LANCZOS)
+            fg_img.save(f"{d}/ic_launcher_foreground.png")
+            print(f"✅ {folder} ({size}px)")
+          EOF
 
       - name: Sync Capacitor with Android
-        run: npx cap sync android
+        run: ./node_modules/.bin/cap sync android
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
