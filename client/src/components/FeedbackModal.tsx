@@ -59,15 +59,16 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
             onClick={handleClose}
-          />
+          >
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="fixed inset-x-4 bottom-6 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[420px] bg-card border border-border rounded-2xl shadow-2xl z-[201] overflow-hidden"
+            className="w-full max-w-[420px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
           >
             {sent ? (
               <div className="flex flex-col items-center justify-center gap-3 py-10 px-6 text-center">
@@ -144,6 +145,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 </div>
               </>
             )}
+          </motion.div>
           </motion.div>
         </>
       )}
