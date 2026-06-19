@@ -4,7 +4,7 @@ android {
     namespace "com.dinoinvest.app"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.dinoinvest.app"
+        applicationId "economydino.com"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
