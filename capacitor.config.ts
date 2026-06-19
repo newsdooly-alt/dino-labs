@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.dinoinvest.app',
+  appId: 'economydino.com',
   appName: 'DinoInvest',
   webDir: 'dist/public',
   server: {
