@@ -88,18 +88,18 @@ jobs:
       - name: Sign APK
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinoinvest.keystore
-          jarsigner -verbose \
-            -sigalg SHA256withRSA \
-            -digestalg SHA-256 \
-            -keystore /tmp/dinoinvest.keystore \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -keypass "${{ secrets.KEY_PASSWORD }}" \
-            android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            "${{ secrets.KEY_ALIAS }}"
           ZIPALIGN=$(find $ANDROID_SDK_ROOT/build-tools -name "zipalign" | sort -r | head -1)
+          APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools -name "apksigner" | sort -r | head -1)
           $ZIPALIGN -v 4 \
             android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            android/app/build/outputs/apk/release/DinoInvest-signed.apk
+            android/app/build/outputs/apk/release/app-release-aligned.apk
+          $APKSIGNER sign \
+            --ks /tmp/dinoinvest.keystore \
+            --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" \
+            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
+            --out android/app/build/outputs/apk/release/DinoInvest-signed.apk \
+            android/app/build/outputs/apk/release/app-release-aligned.apk
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
